@@ -1,3 +1,1 @@
-SScript-Compiler
-Test, 1, 2, 3...
-================
+SScript Compiler
