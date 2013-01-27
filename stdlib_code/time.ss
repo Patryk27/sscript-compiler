@@ -1,0 +1,35 @@
+/*
+ SScript Standard Library
+ time.ss
+*/
+
+@visibility("public")
+
+function<int> get_ticks() naked
+{
+ :CODE
+ {
+  icall("time.get_tick_count")
+  pop(ei1)
+ }
+}
+
+function<void> sleep(int milis) naked
+{
+ :CODE
+ {
+  pop(ei1) // ei1 = milis
+
+  icall("time.get_tick_count")
+  pop(ei2) // ei2 = current time
+
+  add(ei2, ei1) // ei2 = finish time
+
+ &loop:
+  icall("time.get_tick_count")
+  pop(ei1) // ei1 = current time
+
+  if_l(ei1, ei2) // if (ei1 < ei2)
+  tjmp(:&loop)
+ }
+}
