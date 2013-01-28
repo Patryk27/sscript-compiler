@@ -140,6 +140,15 @@ Begin
      PutOpcode(o_ret);
    End;
 
+(* ctVoidReturn *)
+   ctVoidReturn:
+   Begin
+    if (not isTypeVoid(Func.Return)) Then
+     CompileError(PToken_P(Values[0])^, eWrongType, [getTypeName(TYPE_VOID), getTypeName(Func.Return)]);
+
+    PutOpcode(o_ret);
+   End;
+
 (* ctInlineBytecode *)
    ctInlineBytecode: PutOpcode(PChar(Values[0]), PVarRecArray(Values[1])^, LongWord(Values[2]));
 
@@ -314,6 +323,9 @@ Begin
     End;
 
     Name := read_ident;
+
+    if (isTypeVoid(Typ)) Then // void param
+     CompileError(eParamVoid, [Name]);
 
     // search if parameter is not duplicated
     For I := Low(ParamList) To High(ParamList)-1 Do // do not check new-read parameter

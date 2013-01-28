@@ -28,6 +28,9 @@ Begin
  Begin
   Variable.Name := read_ident; // [identifier]
 
+  if (isTypeVoid(Variable.Typ)) Then
+   CompileError(eVarVoid, [Variable.Name]);
+
   if (findVariable(Variable.Name) <> -1) Then // redeclaration of variable
    CompileError(eRedeclaration, [Variable.Name]);
 

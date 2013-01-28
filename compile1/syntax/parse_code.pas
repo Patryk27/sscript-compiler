@@ -138,7 +138,7 @@ Begin
     SetLength(C.Values, 3);
     C.Values[0] := Name;
     C.Values[1] := ArgList;
-    C.Values[2] := Pointer(TCompiler(Compiler).getTokenPos); // @TODO [11.01.2013]: using pointers as not-pointers is lame, I know...
+    C.Values[2] := Pointer(TCompiler(Compiler).TokenPos); // @TODO [11.01.2013]: using pointers as not-pointers is lame, I know...
     AddConstruction(C);
    End;
   End;

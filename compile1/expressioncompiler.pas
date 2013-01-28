@@ -430,7 +430,7 @@ Begin
     if not ((next_t(-3) = _IDENTIFIER) and (next_t(-2) = _BRACKET1_OP)) Then // not a function call
      Compiler.CompileError(eExpectedValue, [')']);
 
-   Expect := eNothing;
+   Expect := eOperator;
 
    While (StackPos > 0) do
    Begin

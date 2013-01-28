@@ -83,7 +83,7 @@ Unit MTypes;
  Type TMExpressionList = Array of TMExpression;
 
  // TMConstruction
- Type TMConstructionType = (ctJump, ctLabel, ctExpression, ctReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end);
+ Type TMConstructionType = (ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end);
  Type PMConstruction = ^TMConstruction;
       TMConstruction = Record
                         Typ   : TMConstructionType;

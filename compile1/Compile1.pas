@@ -11,7 +11,7 @@ Unit Compile1;
 
  { constants }
  Const DEF_STACKSIZE = 1000000; // default stack size for compiled app
-       Version = '2.0b Alpha'; // version of the compiler
+       Version = '2.1 nightly'; // version of the compiler
 
  { types }
  // TMScope
@@ -28,15 +28,14 @@ Unit Compile1;
  // TCompiler
  Type TCompiler = Class
                    Private
+                    Procedure Preparse;
+                    Procedure MakeImports;
+
+                   Public
                     TokenList : Array of TToken_P; // list of tokens (with stripped comments)
                     TokenPos  : LongWord; // current token ID (counting from 0)
                     OutputCode: TStringList; // output file code
                     AnyError  : Boolean;
-
-                    Procedure Preparse;
-                    Procedure MakeImports;
-                   Public
-                    Property getTokenPos: LongWord read TokenPos;
 
                    Public
                     Parent      : TCompiler;
@@ -100,6 +99,7 @@ Unit Compile1;
                     Function getTypeName(ID: TVType): String;
                     Function getTypePrefix(ID: TVType): Char;
                     Function CompareTypes(T1, T2: TVType): Boolean;
+                    Function isTypeVoid(ID: TVType): Boolean;
                     Function isTypeString(ID: TVType): Boolean;
                     Function isTypeNumerical(ID: TVType): Boolean;
                     Function isTypeBool(ID: TVType): Boolean;
@@ -854,7 +854,16 @@ Begin
  // Exit(True);
 
  { @TODO }
+ // TODO what?
  Exit(T1 = T2);
+End;
+
+{ TCompiler.isTypeVoid }
+Function TCompiler.isTypeVoid(ID: TVType): Boolean;
+Begin
+ if (ID < 0) or (ID > High(TypeTable)) Then
+  Exit(False);
+ Exit(TypeTable[ID].InternalID = TYPE_VOID);
 End;
 
 { TCompiler.isTypeString }
