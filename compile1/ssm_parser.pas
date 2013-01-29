@@ -259,7 +259,7 @@ Begin
 
  Result := self;
 
- Output    := AllocMem(5*1024*1024); // 5 MB
+ Output    := AllocMem(10*1024*1024); // 10 MB should be enough...
  OutputPos := 0;
 
  Try
@@ -304,9 +304,12 @@ Begin
   if (read_byte <> $53) or (read_byte <> $4D) or (read_byte <> $02) Then
    Exit;
 
+  { read exports }
   ReadExports;
+
+  { read opcodes }
   if (not ReadOpcodes) Then
-   Exit;
+   Exit; // failed
  Finally
   CloseFile(FFile);
  End;

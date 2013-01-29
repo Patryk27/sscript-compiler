@@ -28,13 +28,13 @@ Begin
  Begin
   Variable.Name := read_ident; // [identifier]
 
-  if (isTypeVoid(Variable.Typ)) Then
+  if (isTypeVoid(Variable.Typ)) Then // cannot create a void-variable
    CompileError(eVarVoid, [Variable.Name]);
 
   if (findVariable(Variable.Name) <> -1) Then // redeclaration of variable
    CompileError(eRedeclaration, [Variable.Name]);
 
-  if (_Or in Options) Then // allow to allocate variables in registers
+  if (_Or in Options) Then // allowed to allocate variables in registers
   Begin
    With Variable do
    Begin

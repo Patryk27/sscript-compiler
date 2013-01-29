@@ -1,12 +1,21 @@
 (*
- SScript Compiler 2.0b
-
+ SScript Compiler
  Copyright © by Patryk Wychowaniec, 2013
- All rights reserved.
 
- @TODO:
- 1) one, global type table (created in the parent compiler)
- 2) remove unused functions from the bytecode
+ -------------------------------------------------------------------------------
+ SScript Compiler is free software; you can redistribute it and/or modify
+ it under the terms of the GNU Lesser General Public License as published by
+ the Free Software Foundation; either version 2.1 of the License, or
+ (at your option) any later version.
+
+ SScript Compiler is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ GNU Lesser General Public License for more details.
+
+ You should have received a copy of the GNU Lesser General Public License
+ along with SScript Compiler; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 *)
 Program compiler;
 Uses Windows, SysUtils, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
@@ -27,12 +36,13 @@ Begin
 
  Options := [];
 
+ { parse command line }
  For I := Low(OptionNames) To High(OptionNames) Do
-  if (getBoolOption(OptionNames[I], OptionDefault[I])) Then
+  if (getBoolOption(OptionNames[I], False)) Then
    Include(Options, TCompileOption(I));
 
  Try
-  if (ParamCount < 1) Then
+  if (ParamCount < 1) Then // too few parameters specified
   Begin
    Writeln('Usage:');
    Writeln('compiler.exe [input file] <options>');
@@ -45,10 +55,10 @@ Begin
    Writeln;
 
    Writeln('-> Compiler');
-   Writeln('-s            save output verbal bytecode; `-s file_name`');
-   Writeln('-o            change output file name; `-o file_name`');
+   Writeln('-s <file>     save output verbal bytecode');
+   Writeln('-o <file>     change output file name');
    Writeln('-ninit        do not include `init.sm` file into the program');
-   Writeln('-includepath  include path for module including (see documentation)');
+   Writeln('-includepath  include path for module including (see documentation for description)');
 
    Writeln;
    Writeln('-> Optimizations');
@@ -62,15 +72,19 @@ Begin
 
    Writeln;
    Writeln('-> Output file');
-   Writeln('-dbg  generate debug data'); // @TODO: debug data in modules?
+   Writeln('-dbg  generate debug data (applications only)'); // @TODO: debug data in libraries?
 
-   Writeln('-> For modules');
-   Writeln('-module     compile file as module');
-   Writeln('-h <output> generate header file for input source file');
+   Writeln;
+   Writeln('-> Compile modes');
+   Writeln('-Clib    compile file as a library');
+   Writeln('-Cbcode  compile file as a bytecode');
+
+   Writeln;
+   Writeln('-> For libraries');
+   Writeln('-h <file> generate header file for input source file');
 
    Writeln;
    Writeln('-> Other options');
-   Writeln('-bytecode     compile file as a bytecode');
    Writeln('-includepath  include path for modules');
    Writeln('-stacksize    change stack size (default: ', DEF_STACKSIZE, ')');
    Writeln('-wait         wait for `enter` when finished (-)');
@@ -108,12 +122,8 @@ Begin
     Writeln;
    End;
 
-   if (_MODULE in Options) Then
-   Begin
+   if (_Clib in Options) Then // `init` code would be unusable in a library
     Include(Options, _NINIT);
-    if (not Quiet) Then
-     Writeln('Compiling file as a module; `-ninit` added automatically.');
-   End;
 
    if (not FileExists(Input)) Then
     raise Exception.Create('Input file does not exist.');
@@ -136,19 +146,6 @@ Begin
    Begin
     Writeln('Exception raised:');
     Writeln(E.Message);
-
-    {if (not getBoolOption('nodump', False)) and (getCompiler <> nil) Then
-    Begin
-     Writeln;
-     Writeln('Compiler data dump (if it''ll crash now, run compiler again with option `-nodump`):');
-     With TCompiler(getCompiler) do
-     Begin
-      Writeln('Function amount: ', Length(FunctionList));
-      if (Length(FunctionList) > 0) Then
-       Writeln('Last function name: ', FunctionList[High(FunctionList)].Name);
-     End;
-    End;}
-
     Writeln;
     Writeln('Callstack:');
     Writeln(BackTraceStrFunc(ExceptAddr));
@@ -158,7 +155,7 @@ Begin
    End;
  End;
 
- Time := GetTickCount-Time;
+ Time := GetTickCount-Time; // total compilation time
 
  if (not Quiet) Then
  Begin

@@ -8,19 +8,14 @@ Unit CompilerUnit;
 
  Type TCompileOption =
  (
-  _NINIT, _Or, _Of, _Op, _O1, _DBG, _MODULE
+  _NINIT, _Or, _Of, _Op, _O1, _DBG, _Clib, _Cbcode
  );
  
  Type TCompileOptions = Set of TCompileOption;
 
- Const OptionNames: Array[0..6] of String =
+ Const OptionNames: Array[0..7] of String =
  (
-  'ninit', 'Or', 'Of', 'Op', 'O1', 'dbg', 'module'
- );
-
- Const OptionDefault: Array[0..High(OptionNames)] of Boolean =
- (
-  False, False, False, False, False, False, False
+  'ninit', 'Or', 'Of', 'Op', 'O1', 'dbg', 'Clib', 'Cbcode'
  );
 
  Function getCompiler: Pointer;

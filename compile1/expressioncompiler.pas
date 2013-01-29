@@ -1336,9 +1336,13 @@ Begin
 
   // load a value to cast onto the register
   Expr^.ResultOnStack := False;
-  Parse(Expr^.ParamList[0], 1, Compiler.getTypePrefix(FuncID));
+  TypeID := Parse(Expr^.ParamList[0], 1, Compiler.getTypePrefix(FuncID));
 
   Result := FuncID;
+
+  // ... but fail on `void`-casting
+  if (Compiler.isTypeVoid(Result) or Compiler.isTypeVoid(TypeID)) Then
+   Error(eVoidCasting, []);
 
   Exit;
  End;

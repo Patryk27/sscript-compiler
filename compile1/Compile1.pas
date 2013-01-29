@@ -6,7 +6,7 @@ Unit Compile1;
 
  Interface
  Uses Classes, SysUtils, Variants, FGL,
-      Tokens, CompilerUnit, CTypes, Scanner, Opcodes, Messages, MTypes,
+      Tokens, CompilerUnit, Scanner, Opcodes, Messages, MTypes,
       Parse_Function, Parse_VAR, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include;
 
  { constants }
@@ -30,12 +30,12 @@ Unit Compile1;
                    Private
                     Procedure Preparse;
                     Procedure MakeImports;
+                    Procedure SaveBytecode(const FileName: String);
 
                    Public
-                    TokenList : Array of TToken_P; // list of tokens (with stripped comments)
-                    TokenPos  : LongWord; // current token ID (counting from 0)
-                    OutputCode: TStringList; // output file code
-                    AnyError  : Boolean;
+                    TokenList: Array of TToken_P; // list of tokens (with stripped comments)
+                    TokenPos : LongWord; // current token ID (counting from 0)
+                    AnyError : Boolean;
 
                    Public
                     Parent      : TCompiler;
@@ -149,6 +149,9 @@ Type TVarRecArray = Array of TVarRec;
      PVarRecArray = ^TVarRecArray;
 
 { Log }
+(*
+ Displays text in parameter when a `-quiet` is disabled
+*)
 Procedure Log(Text: String);
 Begin
  if (not getBoolOption('quiet', False)) Then
@@ -156,6 +159,9 @@ Begin
 End;
 
 { makeModuleName }
+(*
+ Creates a module (bytecode label) name, based on FileName in parameter.
+*)
 Function makeModuleName(FileName: String): String;
 Var Ch: Char;
 Begin
@@ -167,6 +173,9 @@ Begin
 End;
 
 { TCompiler.Preparse }
+(*
+ Preparses code (removes comments etc.)
+*)
 Procedure TCompiler.Preparse;
 Var Scanner: TScanner; // token scanner
     Code   : TStringList; // TScanner needs a TStringList to parse code
@@ -225,6 +234,9 @@ Begin
 End;
 
 { TCompiler.MakeImports }
+(*
+ Creates import list (opens *.ssm files and adds them into the bytecode)
+*)
 Procedure TCompiler.MakeImports;
 Var SSM          : TSSM;
     I, Q         : Integer;
@@ -278,7 +290,90 @@ Begin
   End;
 End;
 
+{ TCompiler.SaveBytecode }
+(*
+ Saves verbal (mnemonic) bytecode into the file specified in parameter
+*)
+Procedure TCompiler.SaveBytecode(const FileName: String);
+Var OutputCode: TStringList;
+    Opcode    : PMOpcode;
+    Arg       : TMOpcodeArg;
+    Str       : String;
+    StrID     : Integer;
+Begin
+ OutputCode := TStringList.Create;
+
+ // save bytecode
+ OutputCode.Add('{');
+ For Opcode in OpcodeList Do
+  With Opcode^ do
+  Begin
+   { label }
+   if (isLabel) Then
+   Begin
+    // @TODO: `.public`
+    OutputCode.Add(Name+':');
+    Continue; // proceed to the next opcode
+   End;
+
+   { comment }
+   if (isComment) Then
+   Begin
+    OutputCode.Add('; '+Name);
+    Continue;
+   End;
+
+   { opcode }
+   Str := Opcodes.OpcodeList[ord(Opcode)].Name+'('; // fetch opcode name
+
+   { opcode's parameters }
+   For Arg in Args Do
+   Begin
+    Case Arg.Typ of
+     ptBoolReg     : Str += 'eb';
+     ptCharReg     : Str += 'ec';
+     ptIntReg      : Str += 'ei';
+     ptFloatReg    : Str += 'ef';
+     ptStringReg   : Str += 'es';
+     ptReferenceReg: Str += 'er';
+     ptStackVal    : Str += '[';
+     ptString      :
+     Begin
+      StrID := findStringByName(Arg.Value);
+      if (StrID <> -1) Then
+       Arg.Value := '"'+StringList[StrID].Value+'"' Else
+       Arg.Value := '"<invalid string>"';
+     End;
+    End;
+
+    Str += VarToStr(Arg.Value);
+
+    Case Arg.Typ of
+     ptStackVal: Str += ']';
+    End;
+
+    Str += ',';
+   End;
+
+   if (Str[Length(Str)] = ',') Then
+    Delete(Str, Length(Str), 1);
+
+   Str += ')';
+
+   OutputCode.Add(Str);
+  End;
+
+ OutputCode.Add('}');
+ OutputCode.SaveToFile(FileName);
+ OutputCode.Free;
+End;
+
 { TCompiler.SearchFile }
+(*
+ Searches for file `FileName` (based on `-includepath`).
+ If found, sets `Found` to true and returns file name by the result.
+ If file couldn't be found, sets `Found` to false and returns `FileName`.
+*)
 Function TCompiler.SearchFile(const FileName: String; out Found: Boolean): String;
 Var Tmp: String;
     I  : Integer;
@@ -298,12 +393,18 @@ Begin
 End;
 
 { TCompiler.setPosition }
+(*
+ Sets current parser's token position.
+*)
 Procedure TCompiler.setPosition(fTokenPos: LongWord);
 Begin
  TokenPos := fTokenPos;
 End;
 
 { TCompiler.AddString }
+(*
+ Adds string named `fName` with value `fValue` into the compiler's string list
+*)
 Procedure TCompiler.AddString(fName, fValue: String);
 Var I: Integer;
 Begin
@@ -320,6 +421,10 @@ Begin
 End;
 
 { TCompiler.AddString }
+(*
+ Adds string with value `fValue` to the compiler's string list.
+ Name is created by the count of strings in the list (string__0, string__1, ...) and returned by result
+*)
 Function TCompiler.AddString(fValue: String): String;
 Var I: Integer;
 Begin
@@ -337,6 +442,9 @@ Begin
 End;
 
 { TCompiler.AddConstruction }
+(*
+ Adds construction into the current function's construction list.
+*)
 Procedure TCompiler.AddConstruction(C: TMConstruction);
 Begin
  if (Length(FunctionList) = 0) Then
@@ -350,6 +458,9 @@ Begin
 End;
 
 { TCompiler.read }
+(*
+ Reads a token; skips any `noTokens` and shows an error on unfinished strings.
+*)
 Function TCompiler.read: TToken_P;
 Begin
  if (TokenPos > High(TokenList)) Then
@@ -366,24 +477,36 @@ Begin
 End;
 
 { TCompiler.read_t }
+(*
+ Reads only a token kind; see @TCompiler.read
+*)
 Function TCompiler.read_t: TToken;
 Begin
  Result := read.Token;
 End;
 
 { TCompiler.next }
+(*
+ Gets a next or previous (when `I` is negative) token
+*)
 Function TCompiler.next(const I: Integer=0): TToken_P;
 Begin
  Result := TokenList[TokenPos+I];
 End;
 
 { TCompiler.next_t }
+(*
+ Works just as TCompiler.next, but gets only a token kind
+*)
 Function TCompiler.next_t(const I: Integer=0): TToken;
 Begin
  Result := next(I).Token;
 End;
 
 { TCompiler.read_ident }
+(*
+ Reads an identifier; displays error `eExpectedIdentifier` when current token isn't an identifier.
+*)
 Function TCompiler.read_ident: String;
 Begin
  if (next_t <> _IDENTIFIER) Then
@@ -392,6 +515,9 @@ Begin
 End;
 
 { TCompiler.read_type }
+(*
+ Reads a type name or a full type (based on current token); returns its ID.
+*)
 Function TCompiler.read_type: TVType;
 Var Token: TToken_P;
 Begin
@@ -411,6 +537,9 @@ Begin
 End;
 
 { TCompiler.eat }
+(*
+ 'eats' a specified token; if current token isn't `Token`, displays a syntax error
+*)
 Procedure TCompiler.eat(Token: TToken);
 Begin
  if (read_t <> Token) Then
@@ -418,18 +547,27 @@ Begin
 End;
 
 { TCompiler.semicolon }
+(*
+ Eats a semicolon
+*)
 Procedure TCompiler.semicolon;
 Begin
  eat(_SEMICOLON);
 End;
 
 { TCompiler.getToken }
+(*
+ Works the same as TCompiler.next
+*)
 Function TCompiler.getToken(const I: Integer=0): TToken_P;
 Begin
  Result := TokenList[TokenPos+I];
 End;
 
 { TCompiler.ParseToken }
+(*
+ Parses current token (basing on current parser's scope)
+*)
 Procedure TCompiler.ParseToken;
 
 { ParseBreak }
@@ -561,13 +699,16 @@ End;
 
 { TCompiler.ParseCodeBlock }
 (*
- 'AllowOneLineOnly' - when enabled, allows constructions like this:
- if (2+2*2 == 6)
-  something();
+ Parses the whole code block.
+
+ When `AllowOneLineOnly` is `true`, allows constructions like this:
+  just_something();
+ (parses only one token)
 
  When disabled, there have to be brackets (`{` and `}`), e.g.:
- if (2+2*2 == 6)
- { something(); }
+  {
+   something();
+  }
 *)
 Procedure TCompiler.ParseCodeBlock(const AllowOneLineOnly: Boolean=False);
 Var Deep: Integer;
@@ -587,6 +728,10 @@ Begin
 End;
 
 { TCompiler.PutOpcode }
+(*
+ Creates opcode based on parameter list and adds it into the list.
+ When opcode is invalid, displays `eBytecode_InvalidOpcode`
+*)
 Procedure TCompiler.PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fTokenPos: LongWord=0);
 Var I, T: Integer;
     Str : String;
@@ -724,26 +869,59 @@ Begin
   Compiler := self;
  End;
 
+ // check opcode
  if (DoCheck) Then
   if (not isValidOpcode(Item^)) Then
    CompileError(Item^.Token^, eBytecode_InvalidOpcode, [Opcodes.OpcodeList[ord(Item^.Opcode)].Name]);
 
+ // add into the list
  OpcodeList.Add(Item);
 End;
 
 { TCompiler.PutOpcode }
+(*
+ Adds opcode `Opcode` onto the list, without any parameters
+*)
 Procedure TCompiler.PutOpcode(Opcode: TOpcode_E);
 Begin
  PutOpcode(Opcode, []);
 End;
 
 { TCompiler.PutOpcode }
+(*
+ Creates opcode from the `Opcode` string and calls `TCompiler.PutOpcode` with suitable parameters
+*)
 Procedure TCompiler.PutOpcode(Opcode: String; Args: Array of Const; fTokenPos: LongWord=0);
 Begin
  PutOpcode(TOpcode_E(GetOpcodeID(Opcode)), Args, fTokenPos); // find opcode with name stored in variable (parameter) `Opcode` and then put it into the list
 End;
 
 { TCompiler.PutLabel }
+(*
+ Puts label, either directly into the code (when `asConstruction` = false) or as a construction
+ (so the label will be created next to the previous opcodes), when `asConstruction` = true.
+
+ Sample code:
+  PutLabel('first', False);
+  PutOpcode(opcode_1);
+  PutOpcode(opcode_2);
+  PutLabel('second', False);
+  PutOpcode(opcode_3);
+
+ When asConstruction = false, results in:
+  first:
+  second:
+  opcode_1
+  opcode_2
+  opcode_3
+
+ When asConstruction = true:
+  first:
+  opcode_1
+  opcode_2
+  second:
+  opcode_3
+*)
 Procedure TCompiler.PutLabel(fName: String; const asConstruction: Boolean=False);
 Var Item: PMOpcode;
     C   : TMConstruction;
@@ -769,6 +947,9 @@ Begin
 End;
 
 { TCompiler.PutComment }
+(*
+ Puts a comment into the bytecode
+*)
 Procedure TCompiler.PutComment(fComment: String);
 Var Item: PMOpcode;
 Begin
@@ -783,6 +964,9 @@ Begin
 End;
 
 { TCompiler.NewType }
+(*
+ Adds new type into the type list; should be used only for creating an internal types
+*)
 Procedure TCompiler.NewType(fName: String; fRegPrefix: Char; fInternalID, fArrayDimCount: Byte);
 Begin
  SetLength(TypeTable, High(TypeTable)+2);
@@ -799,6 +983,10 @@ Begin
 End;
 
 { TCompiler.findTypeByName }
+(*
+ Searches the type table for type named `Name`.
+ If found, returns its type ID; if not found, returns -1
+*)
 Function TCompiler.findTypeByName(Name: String): TVType;
 Var I: Integer;
 Begin
@@ -810,6 +998,9 @@ Begin
 End;
 
 { TCompiler.getTypeName }
+(*
+ Gets type name by type ID; also checks for valid ID (if ID is not valid, returns `<erroneous type>`)
+*)
 Function TCompiler.getTypeName(ID: TVType): String;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -819,6 +1010,9 @@ Begin
 End;
 
 { TCompiler.getTypePrefix }
+(*
+ Gets type register prefix; when ID is not valid, returns `i`.
+*)
 Function TCompiler.getTypePrefix(ID: TVType): Char;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -828,6 +1022,9 @@ Begin
 End;
 
 { TCompiler.CompareTypes }
+(*
+ Compares two types
+*)
 Function TCompiler.CompareTypes(T1, T2: TVType): Boolean;
 Begin
  Result := True;
@@ -853,12 +1050,13 @@ Begin
  //if (T1 = TYPE_STRING) and (T2 = TYPE_CHAR) Then
  // Exit(True);
 
- { @TODO }
- // TODO what?
  Exit(T1 = T2);
 End;
 
 { TCompiler.isTypeVoid }
+(*
+ Returns `true`, when type passed in parameter is `void`-derived; in other case, returns `false`.
+*)
 Function TCompiler.isTypeVoid(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -867,6 +1065,9 @@ Begin
 End;
 
 { TCompiler.isTypeString }
+(*
+ Returns `true`, when type passed in parameter is `string`-derived; in other case, returns `false`.
+*)
 Function TCompiler.isTypeString(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -875,6 +1076,9 @@ Begin
 End;
 
 { TCompiler.isTypeNumerical }
+(*
+ Returns `true`, when type passed in parameter is a numerical type (int, float, char) (or numerical-derived); in other case, returns `false`.
+*)
 Function TCompiler.isTypeNumerical(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -883,6 +1087,9 @@ Begin
 End;
 
 { TCompiler.isTypeBool }
+(*
+ Returns `true`, when type passed in parameter is `bool`-derived; in other case, returns `false`.
+*)
 Function TCompiler.isTypeBool(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -891,14 +1098,21 @@ Begin
 End;
 
 { TCompiler.isTypeInt }
+(*
+ Returns `true`, when type passed in parameter is `int`-derived; in other case, returns `false`.
+*)
 Function TCompiler.isTypeInt(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID = TYPE_INT); // != TYPE_CHAR (!!!)
+ Exit(TypeTable[ID].InternalID = TYPE_INT);
 End;
 
 { TCompiler.isTypeFloat }
+(*
+ Returns `true`, when type passed in parameter is `float`-derived; in other case, returns `false`.
+ @Note: Also returns `false` when type is `int`!
+*)
 Function TCompiler.isTypeFloat(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -907,6 +1121,9 @@ Begin
 End;
 
 { TCompiler.isTypeArray }
+(*
+ Returns `true`, when type passed in parameter is array; in other case, returns `false`.
+*)
 Function TCompiler.isTypeArray(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
@@ -915,14 +1132,22 @@ Begin
 End;
 
 { TCompiler.isTypeChar }
+(*
+ Returns `true`, when type passed in parameter is `char`-derived; in other case, returns `false`.
+ @Note: Also returns `false` when type is `int`!
+*)
 Function TCompiler.isTypeChar(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID in [TYPE_CHAR{, TYPE_INT}]);
+ Exit(TypeTable[ID].InternalID in [TYPE_CHAR]);
 End;
 
 { TCompiler.NewScope }
+(*
+ Makes a new scope typed `Typ`; when scope is a loop (supporting `continue` and `break`), there have to be
+ passed `LoopBegin` and `LoopEnd`, which are labels' names (without preceding `:`)
+*)
 Procedure TCompiler.NewScope(const Typ: TMScopeType; LoopBegin: String=''; LoopEnd: String='');
 Begin
  SetLength(Scope, Length(Scope)+1);
@@ -932,6 +1157,9 @@ Begin
 End;
 
 { TCompiler.RemoveScope }
+(*
+ Removes the top (current) scope
+*)
 Procedure TCompiler.RemoveScope;
 Begin
  if (Length(Scope) = 0) Then
@@ -940,32 +1168,37 @@ Begin
 End;
 
 { TCompiler.findFreeRegister }
+(*
+ Searches for any free register (third or fourth) of type `cRegChar`, based on variables.
+ Should be called only for local (or temporary) variable allocation.
+ When any free register is found, returns its ID; in other cases, returns -1.
+*)
 Function TCompiler.findFreeRegister(cRegChar: Char): Integer;
 Var I       : Integer;
     FreeRegs: Set of 1..4 = [];
 Begin
- Result := -1; // no register found yet
- // (in fact, I could use `0` as a return value for 'no register found' and use `Byte` as a type, but I'm lazy and I don't feel changing the rest of compiler's code :P)
-
- For I := 3 To 4 Do // first 2 registers (ei1/ei2, ef1/ef2 ...) are used for calculations, so we cannot use them as a variable holders
+ For I := 3 To 4 Do // first 2 registers (ei1/ei2, ef1/ef2 ...) of each type are used for calculations, so we cannot use them as a variable holders
   Include(FreeRegs, I);
 
- With FunctionList[High(FunctionList)] do
+ With FunctionList[High(FunctionList)] do // search in current function
  Begin
   For I := Low(VariableList) To High(VariableList) Do
    With VariableList[I] do
-    if (Deep <= CurrentDeep) and (RegChar = cRegChar) and (RegID > 0) Then // if register is already allocated we exclude it from the `FreeRegs` list
+    if (Deep <= CurrentDeep) and (RegChar = cRegChar) and (RegID > 0) Then // if register is already allocated, we exclude it from the `FreeRegs` list
      Exclude(FreeRegs, RegID);
 
   For I in FreeRegs Do // return first free register
    Exit(I);
  End;
 
- // no free register found! :<
- // We return `-1` (see the beginning of this function)
+ Result := -1; // no free register found! :<
 End;
 
 { TCompiler.findVariable }
+(*
+ Finds a variable with specified name (`fName`) in specified scope (deep).
+ When `fDeep` equals `-1`, searches for variable irrespectively of its scope.
+*)
 Function TCompiler.findVariable(fName: String; fDeep: Integer=-1): Integer;
 Var I: Integer;
 Begin
@@ -981,24 +1214,36 @@ Begin
 End;
 
 { TCompiler.getVariableType }
+(*
+ Gets specified variable's type
+*)
 Function TCompiler.getVariableType(ID: Integer): TVType;
 Begin
  Result := FunctionList[High(FunctionList)].VariableList[ID].Typ;
 End;
 
 { TCompiler.getVariableRegID }
+(*
+ Gets specified variable's register's ID (1..4)
+*)
 Function TCompiler.getVariableRegID(ID: Integer): Integer;
 Begin
  Result := FunctionList[High(FunctionList)].VariableList[ID].RegID;
 End;
 
 { TCompiler.getVariableRegChar }
+(*
+ Gets specified variable's register's char (b, c, i, f, s, r)
+*)
 Function TCompiler.getVariableRegChar(ID: Integer): Char;
 Begin
  Result := FunctionList[High(FunctionList)].VariableList[ID].RegChar;
 End;
 
 { TCompiler.__variable_create }
+(*
+ Creates a variable in current function
+*)
 Procedure TCompiler.__variable_create(fName: String; fTyp: TVType; fRegID: Integer; fIsParam: Boolean);
 Begin
  With FunctionList[High(FunctionList)] do
@@ -1016,11 +1261,22 @@ Begin
 End;
 
 { TCompiler.__variable_setvalue_reg }
+(*
+ Sets a variable's value to the value stored in register identified by `RegChar`+`RegID`.
+
+ When eg.a variable is located in `ei3` and it has ID 1, calling:
+  __variable_setvalue_reg(1, 4, 'i');
+ Will add opcode:
+  mov(ei3, ei4)
+
+ `PushedValues` is also important, because when a variable is allocated on the stack and something is pushed onto it, eg. pseudocode:
+   push(ei3)
+   __variable_setvalue_reg(...)
+  We need to take care of that `push`, because we could overwrite not our variable, but some value on the stack.
+*)
 Procedure TCompiler.__variable_setvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
 Var RegStr: String;
 Begin
- { purpose: set variable's value to value stored in register identified by `RegChar`+`RegID` }
-
  RegStr := 'e'+RegChar+IntToStr(RegID); { get full register name (ei1, es3 etc.) }
 
  With FunctionList[High(FunctionList)].VariableList[VarID] do
@@ -1032,11 +1288,19 @@ Begin
 End;
 
 { TCompiler.__variable_getvalue_reg }
+(*
+ Loads a variable's value onto the register identified by `RegChar`+`RegID`.
+ See description above for info about `PushedValues`.
+
+ Example:
+ We have a string variable (with ID 2) loaded onto the `es4` and we want to load it's value into `es1`:
+  __variable_getvalue_reg(2, 41 's');
+ This will add one opcode:
+  mov(es1, es4)
+*)
 Procedure TCompiler.__variable_getvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
 Var RegStr: String;
 Begin
- { purpose: load variable's value onto the register identified by `RegChar`+`RegID` }
-
  RegStr := 'e'+RegChar+IntToStr(RegID); { get full register name }
 
  With FunctionList[High(FunctionList)].VariableList[VarID] do
@@ -1048,6 +1312,10 @@ Begin
 End;
 
 { TCompiler.__variable_getvalue_stack }
+(*
+ Pushes variable's value onto the stack.
+ See examples and descriptions above.
+*)
 Procedure TCompiler.__variable_getvalue_stack(VarID: Integer; const PushedValues: Integer=0);
 Begin
  With FunctionList[High(FunctionList)].VariableList[VarID] do
@@ -1059,6 +1327,9 @@ Begin
 End;
 
 { TCompiler.findStringByName }
+(*
+ Searches for string named `Name` in the string table; returns its ID when found, or `-1` when not found.
+*)
 Function TCompiler.findStringByName(Name: String): Integer;
 Var I: Integer;
 Begin
@@ -1070,6 +1341,10 @@ Begin
 End;
 
 { TCompiler.findStringByContent }
+(*
+ Searches for string with content `Value` in the string table; returns its ID when found, or `-1` when not found.
+ Used mainly for optimizations.
+*)
 Function TCompiler.findStringByContent(Value: String): Integer;
 Var I: Integer;
 Begin
@@ -1081,6 +1356,9 @@ Begin
 End;
 
 { TCompiler.findFunction }
+(*
+ Searches for function named `Name` and returns its ID (when found), or `-1` (when not found).
+*)
 Function TCompiler.findFunction(Name: String): Integer;
 Var I: Integer;
 Begin
@@ -1092,6 +1370,9 @@ Begin
 End;
 
 { TCompiler.findFunctionByLabel }
+(*
+ Searches for function with label-name `LabelName` and returns that function's ID (when found) or `-1` when not found.
+*)
 Function TCompiler.findFunctionByLabel(LabelName: String): Integer;
 Var I: Integer;
 Begin
@@ -1103,17 +1384,24 @@ Begin
 End;
 
 { TCompiler.CompileCode }
-Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; fParent: TCompiler=nil);
-Var MOpcode  : PMOpcode;
-    MArg     : TMOpcodeArg;
-    MFunc    : TMFunction;
-    Str      : String;
-    Compiler2: Compile2.TCompiler;
+(*
+ Compiles code:
 
-    VBytecode: String;
-    I        : LongWord;
-    Q        : Integer;
-    Item     : PMOpcode;
+Needed parameters:
+ fInputFile  -> input *.ss file
+ fOutputFile -> output compiled file
+ fOptions    -> compiler options
+
+Parameters set when compiling a module:
+ isIncluded -> when `true`, no output code is saved into any file; instead, generated bytecode is sent into the parent compiler.
+ fParent    -> parent compiler
+*)
+Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; fParent: TCompiler=nil);
+Var Compiler2     : Compile2.TCompiler;
+    MFunc         : TMFunction;
+    VBytecode, Str: String;
+    Item          : PMOpcode;
+    I             : Integer;
 Begin
  InputFile   := fInputFile;
  OutputFile  := fOutputFile;
@@ -1124,6 +1412,7 @@ Begin
  AnyError    := False;
  Parent      := fParent;
 
+ { no parent specified }
  if (Parent = nil) Then
  Begin
   Parent := self;
@@ -1132,12 +1421,14 @@ Begin
    CompileError(eInternalError, ['Parent = nil']);
  End;
 
+ { quick compiler's type-check }
  {$IF (sizeof(Byte) <> 1) or (sizeof(Char) <> 1) or (sizeof(Integer) <> 4) or (sizeof(LongWord) <> 4) or (sizeof(Extended) <> 10)}
  {$WARNING Invalid type sizes!}
  {$WARNING You can try to compile anyway, just comment this `if` above, but I'm not responsible for any damage...}
  {$FATAL}
  {$ENDIF}
 
+ { parse `-includepath` }
  IncludePaths               := TStringList.Create;
  IncludePaths.Delimiter     := ';';
  IncludePaths.DelimitedText := getStringOption('includepath', '$file;$compiler');
@@ -1153,16 +1444,23 @@ Begin
   IncludePaths[I] := Str;
  End;
 
- VBytecode := getStringOption('s', ''); { 'generate verbal bytecode' output file and switch }
+ { 'generate verbal bytecode' output file and switch }
+ VBytecode := getStringOption('s', '');
 
+ { create classes }
  OpcodeList := TOpcodeList.Create;
+
+ { allocate arrays }
  SetLength(ExportList, 0);
  SetLength(IncludeList, 0);
+ SetLength(StringList, 0);
+ SetLength(FunctionList, 0);
+ SetLength(Scope, 0);
 
  Interpreter := ExpressionCompiler.TInterpreter.Create(self);
 
- { bytecode only }
- if (getBoolOption('bytecode', False)) Then
+ { When a `-Cbcode` is specified: }
+ if (_Cbcode in Options) Then
  Begin
   Log('-> Compiling as a bytecode');
 
@@ -1209,24 +1507,19 @@ Begin
   Compiler2.Compile(self, getIntOption('stacksize', DEF_STACKSIZE), True);
   Compiler2.Free;
 
-  if (getStringOption('h', '') <> '') Then
-   Writeln('Warning: cannot generate header file for a bytecode.');
-
-  Exit;
+  Exit; // stop compiler
  End;
 
- if (not isIncluded) Then
+ if (not isIncluded) Then // are we the main file?
  Begin
-  if (_MODULE in Options) Then
+  { compiling as a library }
+  if (_Clib in Options) Then
   Begin
-   Log('-> Compiling as a module');
+   Log('-> Compiling as a library');
    ModuleName := '_';
-  End;
+  End Else
 
-  // command-line warnings
-  // [nothing here yet]
-
-  if not (_MODULE in Options) Then
+  { compiling as a program }
   Begin
    // the beginning of the program must be an "init" and "main" function call
 
@@ -1237,13 +1530,7 @@ Begin
    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
   End;
 
-  // we also have to insert some strings into the compiler string table
-  SetLength(StringList, 0);
-  //AddString('string__null', ''); @FIXME/@TODO
-  //AddString('string__version', Version);
-  //AddString('string__compiledate', DateToStr(Date));
-  //AddString('string__compiletine', TimeToStr(Time));
- End Else // if included
+ End Else // if included (not main file)
  Begin
   ModuleName := makeModuleName(fInputFile);
  End;
@@ -1251,7 +1538,7 @@ Begin
  // preparse code (parse tokens, remove comments etc.)
  Preparse;
 
- // create basic type-table (order is important!)
+ // create basic type-table (don't change order!)
  SetLength(TypeTable, 0);
  NewType('any', 'i', TYPE_ANY, 0);
  NewType('void', 'i', TYPE_VOID, 0);
@@ -1263,9 +1550,6 @@ Begin
 
  // clear variables
  CurrentDeep := 0;
-
- SetLength(FunctionList, 0);
- SetLength(Scope, 0);
 
  // parse code
  Repeat
@@ -1301,82 +1585,16 @@ Begin
   End;
  End;
 
+ // if specified - save bytecode
  if (VBytecode <> '') and (not isIncluded) Then
- Begin
-  OutputCode := TStringList.Create;
-
-  if (not isIncluded) Then
-  Begin
-   ModuleName := '';
-  End;
-
-  // save bytecode
-  OutputCode.Add('{');
-  For MOpcode in OpcodeList Do
-   With MOpcode^ do
-   Begin
-    if (isLabel) Then // if label
-    Begin
-     // @TODO: `.public`
-     OutputCode.Add(MOpcode^.Name+':');
-     Continue; // proceed to the next opcode
-    End;
-
-    if (isComment) Then // if comment
-    Begin
-     OutputCode.Add('; '+MOpcode^.Name);
-     Continue;
-    End;
-
-    // if opcode
-    Str := Opcodes.OpcodeList[ord(Opcode)].Name+'(';
-
-    For MArg in Args Do
-    Begin
-     Case MArg.Typ of
-      ptBoolReg     : Str += 'eb';
-      ptCharReg     : Str += 'ec';
-      ptIntReg      : Str += 'ei';
-      ptFloatReg    : Str += 'ef';
-      ptStringReg   : Str += 'es';
-      ptReferenceReg: Str += 'er';
-      ptStackVal    : Str += '[';
-      ptString      :
-      Begin
-       Q := findStringByName(MArg.Value);
-       if (Q <> -1) Then
-        MArg.Value := '"'+StringList[Q].Value+'"';
-      End;
-     End;
-
-     Str += VarToStr(MArg.Value);
-
-     Case MArg.Typ of
-      ptStackVal: Str += ']';
-     End;
-
-     Str += ',';
-    End;
-
-    if (Str[Length(Str)] = ',') Then
-     Delete(Str, Length(Str), 1);
-
-    Str += ')';
-
-    OutputCode.Add(Str);
-   End;
-
-  OutputCode.Add('}');
-  OutputCode.SaveToFile(VBytecode);
-  OutputCode.Free;
- End;
+  SaveBytecode(VBytecode);
 
  // compile bytecode
  if (not isIncluded) Then
  Begin
   // compile code
   Compiler2 := Compile2.TCompiler.Create;
-  Compiler2.Compile(self, getIntOption('stacksize', DEF_STACKSIZE), _MODULE in Options);
+  Compiler2.Compile(self, getIntOption('stacksize', DEF_STACKSIZE), _Clib in Options);
   Compiler2.Free;
 
   Str := getStringOption('h', '');
