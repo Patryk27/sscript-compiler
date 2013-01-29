@@ -376,13 +376,6 @@ Begin
 
  PutLabel(Func.MName); // new label
 
- // function begin code
- if (not Func.isNaked) Then
- Begin
-  //PutOpcode(o_push, ['stp']);
- End;
- // </>
-
  NewScope(sFunction); // new scope (because we're in function)
  ParseCodeBlock; // parse function's code
  RemoveScope; // and remove scope
@@ -397,7 +390,7 @@ Begin
  Begin
   With FunctionList[High(FunctionList)] do
    For I := Low(VariableList) To High(VariableList) Do
-    if (VariableList[I].RegID <= 0) and (not VariableList[I].isParam) Then
+    if (VariableList[I].RegID <= 0) and (not VariableList[I].isParam) and (not VariableList[I].isConst) Then
      Inc(AllocatedVars); // next variable to allocate
 
   // if `AllocatedVars == 0`, then the created here `add(stp, 0)` will be deleted in optimizer (if enabled), so we don't need to bother it.
@@ -410,7 +403,7 @@ Begin
  Begin
   For I := Low(VariableList) To High(VariableList) Do
    With VariableList[I] do
-    if (RegID > 0) Then
+    if (RegID > 0) and (not isConst) Then
     Begin
      PutOpcode(o_push, ['e'+RegChar+IntToStr(RegID)]);
      Inc(SavedRegs);
@@ -418,7 +411,7 @@ Begin
 
   For I := Low(VariableList) To High(VariableList) Do
    With VariableList[I] do
-    if (RegID <= 0) Then
+    if (RegID <= 0) and (not isConst) Then
     Begin
      RegID -= SavedRegs;
 
@@ -441,16 +434,12 @@ Begin
  Begin
   For I := High(VariableList) Downto Low(VariableList) Do
    With VariableList[I] do
-    if (RegID > 0) Then
+    if (RegID > 0) and (not isConst) Then
      PutOpcode(o_pop, ['e'+RegChar+IntToStr(RegID)]);
  End;
 
  if (not Func.isNaked) Then
- Begin
   PutOpcode(o_sub, ['stp', AllocatedVars+Length(Func.ParamList)]);
-  //PutOpcode(o_pop, ['stp']);
-  //PutOpcode(o_sub, ['stp', Length(Func.ParamList)]);
- End;
 
  PutOpcode(o_ret);
  // </>

@@ -1,6 +1,7 @@
-{
- return expression;
-}
+(*
+ Copyright © by Patryk Wychowaniec, 2013
+ All rights reserved.
+*)
 Unit Parse_RETURN;
 
  Interface

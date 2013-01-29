@@ -7,7 +7,7 @@ Unit Compile1;
  Interface
  Uses Classes, SysUtils, Variants, FGL,
       Tokens, CompilerUnit, Scanner, Opcodes, Messages, MTypes,
-      Parse_Function, Parse_VAR, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include;
+      Parse_Function, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include;
 
  { constants }
  Const DEF_STACKSIZE = 1000000; // default stack size for compiled app
@@ -98,6 +98,7 @@ Unit Compile1;
                     Function findTypeByName(Name: String): TVType;
                     Function getTypeName(ID: TVType): String;
                     Function getTypePrefix(ID: TVType): Char;
+                    Function getTypeFromExpr(Expr: TMExpression): TVType;
                     Function CompareTypes(T1, T2: TVType): Boolean;
                     Function isTypeVoid(ID: TVType): Boolean;
                     Function isTypeString(ID: TVType): Boolean;
@@ -118,6 +119,7 @@ Unit Compile1;
                     Function getVariableType(ID: Integer): TVType;
                     Function getVariableRegID(ID: Integer): Integer;
                     Function getVariableRegChar(ID: Integer): Char;
+                    Function isVariableConstant(ID: Integer): Boolean;
                     Procedure __variable_create(fName: String; fTyp: TVType; fRegID: Integer; fIsParam: Boolean);
                     Procedure __variable_setvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
                     Procedure __variable_getvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
@@ -676,6 +678,7 @@ Begin
    _BRACKET3_OP: Inc(CurrentDeep);
    _BRACKET3_CL: Dec(CurrentDeep);
    _VAR        : Parse_VAR.Parse(self);
+   _CONST      : Parse_CONST.Parse(self);
    _RETURN     : Parse_RETURN.Parse(self);
    _COLON      : if (next.Display = 'CODE') Then Parse_CODE.Parse(self) Else CompileError(eUnexpected, [next.Display]);
    _FOR        : Parse_FOR.Parse(self);
@@ -1021,6 +1024,25 @@ Begin
  Exit(TypeTable[ID].RegPrefix);
 End;
 
+{ TCompiler.getTypeFromExpr }
+(*
+ Gets type from an TMExpression; works only for constant (already folded) expressions (only a parent without children).
+*)
+Function TCompiler.getTypeFromExpr(Expr: TMExpression): TVType;
+Begin
+ if (Expr.Left <> nil) or (Expr.Right <> nil) Then
+  CompileError(eInternalError, ['Folded expression was needed']);
+
+ Case Expr.Typ of
+  mtBool  : Exit(TYPE_BOOL);
+  mtChar  : Exit(TYPE_CHAR);
+  mtInt   : Exit(TYPE_INT);
+  mtFloat : Exit(TYPE_FLOAT);
+  mtString: Exit(TYPE_STRING);
+  else CompileError(eInternalError, ['Invalid expression value']);
+ End;
+End;
+
 { TCompiler.CompareTypes }
 (*
  Compares two types
@@ -1240,6 +1262,15 @@ Begin
  Result := FunctionList[High(FunctionList)].VariableList[ID].RegChar;
 End;
 
+{ TCompiler.isVariableConstant }
+(*
+ Returns `true` when a variable with specified ID is a constant.
+*)
+Function TCompiler.isVariableConstant(ID: Integer): Boolean;
+Begin
+ Result := FunctionList[High(FunctionList)].VariableList[ID].isConst;
+End;
+
 { TCompiler.__variable_create }
 (*
  Creates a variable in current function
@@ -1256,6 +1287,7 @@ Begin
    RegID   := fRegID;
    RegChar := getTypePrefix(Typ);
    isParam := fIsParam;
+   isConst := False;
   End;
  End;
 End;
@@ -1281,6 +1313,9 @@ Begin
 
  With FunctionList[High(FunctionList)].VariableList[VarID] do
  Begin
+  if (isConst) Then
+   CompileError(eInternalError, ['Cannot change a constant value']);
+
   if (RegID > 0) Then // variable is in the register
    PutOpcode(o_mov, ['e'+RegChar+IntToStr(RegID), RegStr]) Else
    PutOpcode(o_mov, ['['+IntToStr(RegID-PushedValues)+']', RegStr]); // variable is on the stack
@@ -1305,9 +1340,13 @@ Begin
 
  With FunctionList[High(FunctionList)].VariableList[VarID] do
  Begin
-  if (RegID > 0) Then // variable is in the register
-   PutOpcode(o_mov, [RegStr, 'e'+RegChar+IntToStr(RegID)]) Else
-   PutOpcode(o_mov, [RegStr, '['+IntToStr(RegID-PushedValues)+']']); // variable is on the stack
+  if (isConst) Then
+  Begin
+   PutOpcode(o_mov, [RegStr, getValueFromExpression(self, @Value)]);
+  End Else
+   if (RegID > 0) Then // variable is in the register
+    PutOpcode(o_mov, [RegStr, 'e'+RegChar+IntToStr(RegID)]) Else
+    PutOpcode(o_mov, [RegStr, '['+IntToStr(RegID-PushedValues)+']']); // variable is on the stack
  End;
 End;
 
@@ -1320,9 +1359,13 @@ Procedure TCompiler.__variable_getvalue_stack(VarID: Integer; const PushedValues
 Begin
  With FunctionList[High(FunctionList)].VariableList[VarID] do
  Begin
-  if (RegID > 0) Then // variable is in the register
-   PutOpcode(o_push, ['e'+RegChar+IntToStr(RegID)]) Else
-   PutOpcode(o_push, ['['+IntToStr(RegID-PushedValues)+']']); // variable is on the stack
+  if (isConst) Then
+  Begin
+   PutOpcode(o_push, [getValueFromExpression(self, @Value)]);
+  End Else
+   if (RegID > 0) Then // variable is in the register
+    PutOpcode(o_push, ['e'+RegChar+IntToStr(RegID)]) Else
+    PutOpcode(o_push, ['['+IntToStr(RegID-PushedValues)+']']); // variable is on the stack
  End;
 End;
 

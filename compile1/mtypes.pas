@@ -97,11 +97,13 @@ Unit MTypes;
                     RegID  : Integer; // negative values and zero for stack position, positive values for register id
                     RegChar: Char;
 
-                    Name: String;
-                    Typ : TVType;
-                    Deep: Integer;
+                    Name : String;
+                    Typ  : TVType;
+                    Value: TMExpression;
+                    Deep : Integer;
 
                     isParam: Boolean;
+                    isConst: Boolean;
                    End;
  Type TMVariableList = Array of TMVariable;
 

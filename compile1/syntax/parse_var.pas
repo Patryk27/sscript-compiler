@@ -1,8 +1,7 @@
-{
- var<type> var_name;
- var<type> var_name = var_value;
- var<type> var_name, another_variable, (...);
-}
+(*
+ Copyright © by Patryk Wychowaniec, 2013
+ All rights reserved.
+*)
 Unit Parse_VAR;
 
  Interface
@@ -20,6 +19,8 @@ Label AllocateOntoTheStack;
 Begin
 With TCompiler(Compiler) do
 Begin
+ Variable.isConst := False;
+
  eat(_LOWER); // <
  Variable.Typ := read_type; // [type]
  eat(_GREATER); // >
@@ -61,7 +62,7 @@ Begin
   Variable.Deep    := CurrentDeep;
   Variable.isParam := False;
 
-  With FunctionList[High(FunctionList)] do // add variable to the function
+  With FunctionList[High(FunctionList)] do // add variable into the function
   Begin
    SetLength(VariableList, Length(VariableList)+1); // expand the array
    VariableList[High(VariableList)] := Variable;

@@ -8,14 +8,14 @@ Unit CompilerUnit;
 
  Type TCompileOption =
  (
-  _NINIT, _Or, _Of, _Op, _O1, _DBG, _Clib, _Cbcode
+  _NINIT, _Or, _Of, _Op, _O1, _DBG, _Clib, _Cbcode, _iconst
  );
  
  Type TCompileOptions = Set of TCompileOption;
 
- Const OptionNames: Array[0..7] of String =
+ Const OptionNames: Array[0..8] of String =
  (
-  'ninit', 'Or', 'Of', 'Op', 'O1', 'dbg', 'Clib', 'Cbcode'
+  'ninit', 'Or', 'Of', 'Op', 'O1', 'dbg', 'Clib', 'Cbcode', 'iconst'
  );
 
  Function getCompiler: Pointer;

@@ -31,7 +31,8 @@ Unit ExpressionCompiler;
 
  Type TInterpreter = Class
                       Private
-                       Compiler: TCompiler;
+                       Compiler     : TCompiler;
+                       FoldConstants: Boolean;
 
                        Stack   : Array of TStackValue; // whole stack
                        StackPos: Integer;
@@ -55,16 +56,28 @@ Unit ExpressionCompiler;
                       Public
                        Constructor Create(fCompiler: TCompiler);
 
-                       Procedure Parse(EndTokens: TTokenSet);
+                       Procedure Parse(EndTokens: TTokenSet; fFoldConstants: Boolean);
                        Function MakeTree: PMExpression;
                       End;
 
- Function MakeConstruction(Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]): TMConstruction;
+ Function getValueFromExpression(Compiler: Pointer; Expr: PMExpression): String;
+ Function MakeConstruction(Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; const FoldConstants: Boolean=False): TMConstruction;
  Function CompileConstruction(CompilerPnt: Pointer; Expr: PMExpression): TVType;
 
  Implementation
 Uses SysUtils,
      CompilerUnit, Opcodes, Messages;
+
+{ getValueFromExpression }
+Function getValueFromExpression(Compiler: Pointer; Expr: PMExpression): String;
+Begin
+ Result := VarToStr(Expr^.Value);
+
+ Case Expr^.Typ of
+  mtChar: Result := '#'+IntToStr(ord(Result[1]));
+  mtString: Result := TCompiler(Compiler).AddString(Result);
+ End;
+End;
 
 {$IFDEF DISPLAY_TREE}
 { DisplayTree }
@@ -283,7 +296,7 @@ Begin
 End;
 
 { TInterpreter.Parse }
-Procedure TInterpreter.Parse(EndTokens: TTokenSet);
+Procedure TInterpreter.Parse(EndTokens: TTokenSet; fFoldConstants: Boolean);
 Var Token   : TToken_P;
     Str     : String;
     Value   : TStackValue;
@@ -329,6 +342,8 @@ Begin
 End;
 
 Begin
+ FoldConstants := fFoldConstants;
+
 With Compiler do
 Begin
  StackPos     := 0;
@@ -372,6 +387,7 @@ Begin
   Begin
    if (Expect = eOperator) Then
     Compiler.CompileError(eExpectedOperator, [Token.Display]);
+
    Expect := eOperator;
   End;
 
@@ -403,6 +419,9 @@ Begin
   { variable or constant }
   if (Token.Token = _IDENTIFIER) Then
   Begin
+   if (Expect = eOperator) Then
+    Compiler.CompileError(eExpectedOperator, [Token.Display]);
+
    Expect := eOperator;
    FinalExprPush(mtVariable, Token.Display, Token); // add it directly into the final expression
   End Else
@@ -668,6 +687,24 @@ Begin
     Value.Value := False;
    End;
 
+   // try to inline a constant
+   if (_ICONST in Compiler.Options) Then
+   Begin
+    With Compiler do
+    Begin
+     With FunctionList[High(FunctionList)] do
+     Begin
+      I := findVariable(Value.Value);
+      if (I <> -1) Then
+       if (VariableList[I].isConst) Then
+       Begin
+        Value.Typ   := VariableList[I].Value.Typ;
+        Value.Value := VariableList[I].Value.Value;
+       End;
+     End;
+    End;
+   End;
+
    StackPush(Value);
   End Else
 
@@ -692,7 +729,7 @@ Begin
     MType := Value.Typ;
     Node  := CreateNode(nil, nil, MType, null, Value.Token, Value.Deep);
 
-    if (AreStackNodesConstants) and (_Of in Compiler.Options) Then
+    if (AreStackNodesConstants) and (FoldConstants) Then
     Begin
      { constant folding }
      Value2 := Stack[StackPos-1];
@@ -827,12 +864,12 @@ End;
 // ---------- </> ---------- //
 
 { MakeConstruction }
-Function MakeConstruction(Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]): TMConstruction;
+Function MakeConstruction(Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; const FoldConstants: Boolean=False): TMConstruction;
 Var Interpreter: TInterpreter;
 Begin
  // we need to make RPN and then evaluate it; as a result, we'll have TMConstruction with 1 value - the whole expression tree.
  Interpreter := TInterpreter(TCompiler(Compiler).Interpreter);
- Interpreter.Parse(EndTokens);
+ Interpreter.Parse(EndTokens, FoldConstants or (_Of in TCompiler(Compiler).Options));
  Result.Typ := ctExpression;
  SetLength(Result.Values, 1);
  Result.Values[0] := Interpreter.MakeTree;
@@ -860,6 +897,8 @@ Type TRVariable = Record
                    PosStr : String;
 
                    getArray: Byte;
+
+                   isConst: Boolean;
                   End;
 
 { CompileConstruction }
@@ -890,9 +929,9 @@ Begin
 End;
 
 { getVariable }
-Function getVariable(Expr: PMExpression; const FailWhenNotFound: Boolean=False): TRVariable;
+Function getVariable(Expr: PMExpression; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
 Begin
- Result.getArray :=  0;
+ Result.getArray := 0;
 
  While (Expr^.Typ = mtArrayElement) do
  Begin
@@ -911,6 +950,7 @@ Begin
    RegChar := #0;
    Typ     := TYPE_ANY;
    PosStr  := '[0]';
+   isConst := False;
   End;
 
   if (FailWhenNotFound) Then
@@ -922,12 +962,16 @@ Begin
    RegID   := Compiler.getVariableRegID(ID);
    RegChar := Compiler.getVariableRegChar(ID);
    Typ     := Compiler.getVariableType(ID);
+   isConst := Compiler.isVariableConstant(ID);
 
    if (RegID > 0) Then
     PosStr := 'e'+RegChar+IntToStr(RegID) Else
     PosStr := '['+IntToStr(RegID)+']';
   End;
  End;
+
+ if (Result.isConst) and (not AllowConstants) Then
+  Error(eLValueExpected, [Expr^.Value]);
 End;
 
 { getTypeFromMExpr }
@@ -950,12 +994,7 @@ Begin
  if (Expr^.Value = null) Then
   Error(eInternalError, ['Expr^.Value = null']);
 
- Result := VarToStr(Expr^.Value);
-
- Case Expr^.Typ of
-  mtChar: Result := '#'+IntToStr(ord(Result[1]));
-  mtString: Result := Compiler.AddString(Result);
- End;
+ Result := getValueFromExpression(Compiler, Expr);
 End;
 
 { isLValue }
@@ -1515,7 +1554,7 @@ Begin
   // load value onto the register `FinalRegID`
   if (Expr^.Typ = mtVariable) Then // is variable...
   Begin
-   Variable := getVariable(Expr);
+   Variable := getVariable(Expr, False, True);
 
    if (Variable.ID = -1) Then // variable not found
    Begin

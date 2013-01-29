@@ -6,7 +6,7 @@ Unit Messages;
  (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eNotAllowed,
   eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
-  eVarVoid, eParamVoid, eVoidCasting,
+  eVarVoid, eParamVoid, eVoidCasting, eExpectedConstant,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
@@ -43,6 +43,7 @@ Unit Messages;
   'Variable ''%s'' declared as void',
   'Parameter ''%s'' declared as void',
   'Cannot cast from or to ''void'' type',
+  'Expected constant value',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

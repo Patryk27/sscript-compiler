@@ -62,10 +62,11 @@ Begin
 
    Writeln;
    Writeln('-> Optimizations');
-   Writeln('-Or  allocate variables in registers');
-   Writeln('-Of  enable constant expression folding');
-   Writeln('-Op  peephole bytecode optimizer');
-   Writeln('-O1  optimization level 1: enables `-Or` `-Of` `-Op`');
+   Writeln('-Or      allocate variables in registers');
+   Writeln('-Of      enable constant expression folding');
+   Writeln('-Op      peephole bytecode optimizer');
+   Writeln('-O1      optimization level 1: enables `-Or` `-Of` `-Op`');
+   Writeln('-iconst  inline constants directly when building an expression (may affect to displayed errors)');
 
    Writeln;
    Writeln('-> Hints & warnings');
