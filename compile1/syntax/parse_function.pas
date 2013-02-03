@@ -13,14 +13,15 @@ Unit Parse_Function;
                 End;
  Type TMParamList = Array of TMParam;
 
- Type TMFunction = Record
+ Type PMFunction = ^TMFunction;
+      TMFunction = Record
                     Name      : String; // function name
                     MName     : String; // mangled name (used as a label name)
                     ModuleName: String; // module name in which function has been declared
                     Return    : TVType; // return type
                     ParamList : TMParamList;
 
-                    ImportFile: String;
+                    LibraryFile: String;
 
                     ConstructionList: TMConstructionList;
                     VariableList    : TMVariableList;
@@ -88,6 +89,7 @@ Begin
     End;
 End;
 
+// main function's block
 Var Str1, Str2, Str3, Str4: String;
     EType                 : TVType;
     Item                  : PMOpcode;
@@ -244,7 +246,7 @@ Begin
 (* ct_DO_WHILE *)
    ct_DO_WHILE:
    Begin
-    Str1 := PChar(Values[1]);
+    Str1 := PChar(Values[0]);
     Str2 := Str1+'begin';
     Str3 := Str1+'end';
 
@@ -255,9 +257,12 @@ Begin
     ParseUntil(ct_DO_WHILE_end);
 
     { condition }
-    EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
-    if (not isTypeBool(EType)) Then
-     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), getTypeName(TYPE_BOOL)]);
+    With CList[c_ID] do
+    Begin
+     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
+     if (not isTypeBool(EType)) Then
+      CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), getTypeName(TYPE_BOOL)]);
+    End;
 
     { condition check }
     PutOpcode(o_pop, ['if']);
@@ -287,7 +292,7 @@ Begin
  // function name
  Func.Name          := read_ident; // [identifier]
  Func.ModuleName    := ModuleName;
- Func.ImportFile    := '';
+ Func.LibraryFile   := '';
  Func.isDeclaration := False;
  Func.Visibility    := Visibility;
 
@@ -346,11 +351,11 @@ Begin
   Token := read;
   Case Token.Token of
    _NAKED: Func.isNaked := True;
-   _IN: Func.ImportFile := read.Display;
+   _IN: Func.LibraryFile := read.Display;
    else Break;
   End;
  End;
- setPosition(getPosition-1); // go back by 1 token
+ setPosition(getPosition-1); // go back 1 token
 
  Func.MName := CreateFunctionMangledName(Compiler, Func); // create function mangled name
 
@@ -360,7 +365,7 @@ Begin
  SetLength(FunctionList, Length(FunctionList)+1); // add new function to the list
  FunctionList[High(FunctionList)] := Func;
 
- if (Func.ImportFile <> '') Then // if file is imported from another (already compiled) module, we don't create any bytecode
+ if (Func.LibraryFile <> '') Then // if file is imported from library, we don't create any bytecode
  Begin
   semicolon;
   Exit;
@@ -374,14 +379,27 @@ Begin
   For I := Low(ParamList) To High(ParamList) Do
    __variable_create(ParamList[I].Name, ParamList[I].Typ, -I, True);
 
+ // add global constants
+ With Func do
+  For I := Low(ConstantList) To High(ConstantList) Do
+   if (findVariable(ConstantList[I].Name) = -1) Then // don't duplicate
+   Begin
+    With getCurrentFunctionPnt^ do
+    Begin
+     SetLength(VariableList, Length(VariableList)+1);
+     VariableList[High(VariableList)] := ConstantList[I];
+    End;
+   End;
+
  PutLabel(Func.MName); // new label
 
  NewScope(sFunction); // new scope (because we're in function)
- ParseCodeBlock; // parse function's code
- RemoveScope; // and remove scope
+
+ { parse function's code }
+ ParseCodeBlock;
 
  // now, we have a full construction list used in this function; so - let's optimize and generate bytecode! :)
- CList := FunctionList[High(FunctionList)].ConstructionList;
+ CList := getCurrentFunction.ConstructionList;
 
  { local variable allocating }
  AllocatedVars := 0;
@@ -443,6 +461,8 @@ Begin
 
  PutOpcode(o_ret);
  // </>
+
+ RemoveScope; // ... and remove scope
 End;
 End;
 End.

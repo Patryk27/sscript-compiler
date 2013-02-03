@@ -54,6 +54,7 @@ Unit Compile1;
                     FunctionList: Array of TMFunction; // list of functions in current module/file (including those included from other files during compilation)
                     ExportList  : Array of TMExport;
                     IncludeList : Array of TCompiler;
+                    ConstantList: Array of TMVariable;
 
                     TypeTable: Array of TMType; // type list
 
@@ -125,13 +126,23 @@ Unit Compile1;
                     Procedure __variable_getvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
                     Procedure __variable_getvalue_stack(VarID: Integer; const PushedValues: Integer=0);
 
+                    Function isConstValue(Expr: TMExpression): Boolean;
+
                     { string handling functions }
                     Function findStringByName(Name: String): Integer;
                     Function findStringByContent(Value: String): Integer;
 
                     { functions for function handling (we need to go deeper! :)) }
+                    Function getCurrentFunction: TMFunction;
+                    Function getCurrentFunctionPnt: PMFunction;
+
                     Function findFunction(Name: String): Integer;
                     Function findFunctionByLabel(LabelName: String): Integer;
+
+                    { handling global-things }
+                    Function inFunction: Boolean;
+
+                    Function findGlobalConstant(Name: String): Integer;
 
                     { compiling }
                     Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; fParent: TCompiler=nil);
@@ -262,18 +273,18 @@ Begin
  End;
 
  For I := Low(FunctionList) To High(FunctionList) Do
-  if (FunctionList[I].ImportFile <> '') Then
+  if (FunctionList[I].LibraryFile <> '') Then
   Begin
    Can := True;
 
    For Q := Low(FunctionList) To I-1 Do // we don't want some file to be loaded eg.10 times instead of 1 time (searching for multiple imports from same file)
-    if (FunctionList[Q].ImportFile = FunctionList[I].ImportFile) Then
+    if (FunctionList[Q].LibraryFile = FunctionList[I].LibraryFile) Then
      Can := False;
 
    if (not Can) Then
     Continue; // proceed to the next file
 
-   FileName := FunctionList[I].ImportFile;
+   FileName := FunctionList[I].LibraryFile;
    Comp     := TCompiler(FunctionList[I].mCompiler);
 
    FileName := SearchFile(FileName, Found);
@@ -287,7 +298,7 @@ Begin
 
    SSM := TSSM.Create;
    if (not SSM.Load(FileName, Comp.ModuleName, self)) Then
-    Comp.CompileError(FunctionList[I].DeclToken, eCorruptedSSMFile, [FunctionList[I].ImportFile]);
+    Comp.CompileError(FunctionList[I].DeclToken, eCorruptedSSMFile, [FunctionList[I].LibraryFile]);
    SSM.Free;
   End;
 End;
@@ -300,7 +311,7 @@ Procedure TCompiler.SaveBytecode(const FileName: String);
 Var OutputCode: TStringList;
     Opcode    : PMOpcode;
     Arg       : TMOpcodeArg;
-    Str       : String;
+    Reg, Str  : String;
     StrID     : Integer;
 Begin
  OutputCode := TStringList.Create;
@@ -331,14 +342,17 @@ Begin
    { opcode's parameters }
    For Arg in Args Do
    Begin
+    Reg := '';
+
+    // normal registers
     Case Arg.Typ of
-     ptBoolReg     : Str += 'eb';
-     ptCharReg     : Str += 'ec';
-     ptIntReg      : Str += 'ei';
-     ptFloatReg    : Str += 'ef';
-     ptStringReg   : Str += 'es';
-     ptReferenceReg: Str += 'er';
-     ptStackVal    : Str += '[';
+     ptBoolReg     : Reg := 'eb';
+     ptCharReg     : Reg := 'ec';
+     ptIntReg      : Reg := 'ei';
+     ptFloatReg    : Reg := 'ef';
+     ptStringReg   : Reg := 'es';
+     ptReferenceReg: Reg := 'er';
+     ptStackVal    : Reg := '[';
      ptString      :
      Begin
       StrID := findStringByName(Arg.Value);
@@ -348,13 +362,17 @@ Begin
      End;
     End;
 
-    Str += VarToStr(Arg.Value);
+    Reg += VarToStr(Arg.Value);
 
+    // special registers
     Case Arg.Typ of
-     ptStackVal: Str += ']';
+     ptBoolReg: if (Arg.Value = 5) Then Reg := 'if';
+     ptIntReg : if (Arg.Value = 5) Then Reg := 'stp';
+
+     ptStackVal: Reg += ']';
     End;
 
-    Str += ',';
+    Str += Reg+',';
    End;
 
    if (Str[Length(Str)] = ',') Then
@@ -452,7 +470,7 @@ Begin
  if (Length(FunctionList) = 0) Then
   CompileError(eInternalError, ['Length(FunctionList) = 0']);
 
- With FunctionList[High(FunctionList)] do // current function
+ With getCurrentFunctionPnt^ do // current function
  Begin
   SetLength(ConstructionList, Length(ConstructionList)+1);
   ConstructionList[High(ConstructionList)] := C;
@@ -629,7 +647,6 @@ End;
 
 Var Name: String;
 Begin
-
  if (next_t = _IDENTIFIER) Then
  Begin
   Name := read_ident;
@@ -667,6 +684,7 @@ Begin
     Visibility := TmpVis;
    End;
 
+   _CONST   : Parse_CONST.Parse(self, True);
    _FUNCTION: Parse_Function.Parse(self);
    _AT      : ParseMacro_Outside;
 
@@ -678,7 +696,7 @@ Begin
    _BRACKET3_OP: Inc(CurrentDeep);
    _BRACKET3_CL: Dec(CurrentDeep);
    _VAR        : Parse_VAR.Parse(self);
-   _CONST      : Parse_CONST.Parse(self);
+   _CONST      : Parse_CONST.Parse(self, False);
    _RETURN     : Parse_RETURN.Parse(self);
    _COLON      : if (next.Display = 'CODE') Then Parse_CODE.Parse(self) Else CompileError(eUnexpected, [next.Display]);
    _FOR        : Parse_FOR.Parse(self);
@@ -842,7 +860,7 @@ Begin
 
       if (TryStrToInt(Str, iTmp)) Then
        Value := iTmp Else
-       CompileError(Token^, eBytecode_InvalidOpcode, [Opcodes.OpcodeList[ord(Opcode)].Name]);
+       CompileError(Token^, eBytecode_InvalidOpcode, []);
      End Else
      if (Str[1] = ':') Then
      Begin
@@ -875,7 +893,7 @@ Begin
  // check opcode
  if (DoCheck) Then
   if (not isValidOpcode(Item^)) Then
-   CompileError(Item^.Token^, eBytecode_InvalidOpcode, [Opcodes.OpcodeList[ord(Item^.Opcode)].Name]);
+   CompileError(Item^.Token^, eBytecode_InvalidOpcode, []);
 
  // add into the list
  OpcodeList.Add(Item);
@@ -1202,7 +1220,7 @@ Begin
  For I := 3 To 4 Do // first 2 registers (ei1/ei2, ef1/ef2 ...) of each type are used for calculations, so we cannot use them as a variable holders
   Include(FreeRegs, I);
 
- With FunctionList[High(FunctionList)] do // search in current function
+ With getCurrentFunction do // search in current function
  Begin
   For I := Low(VariableList) To High(VariableList) Do
    With VariableList[I] do
@@ -1229,7 +1247,7 @@ Begin
  if (fDeep = -1) Then
   fDeep := CurrentDeep;
 
- With FunctionList[High(FunctionList)] do
+ With getCurrentFunction do
   For I := Low(VariableList) To High(VariableList) Do
    if (VariableList[I].Deep <= fDeep) and (VariableList[I].Name = fName) Then
     Exit(I);
@@ -1241,7 +1259,7 @@ End;
 *)
 Function TCompiler.getVariableType(ID: Integer): TVType;
 Begin
- Result := FunctionList[High(FunctionList)].VariableList[ID].Typ;
+ Result := getCurrentFunction.VariableList[ID].Typ;
 End;
 
 { TCompiler.getVariableRegID }
@@ -1250,7 +1268,7 @@ End;
 *)
 Function TCompiler.getVariableRegID(ID: Integer): Integer;
 Begin
- Result := FunctionList[High(FunctionList)].VariableList[ID].RegID;
+ Result := getCurrentFunction.VariableList[ID].RegID;
 End;
 
 { TCompiler.getVariableRegChar }
@@ -1259,7 +1277,7 @@ End;
 *)
 Function TCompiler.getVariableRegChar(ID: Integer): Char;
 Begin
- Result := FunctionList[High(FunctionList)].VariableList[ID].RegChar;
+ Result := getCurrentFunction.VariableList[ID].RegChar;
 End;
 
 { TCompiler.isVariableConstant }
@@ -1268,7 +1286,7 @@ End;
 *)
 Function TCompiler.isVariableConstant(ID: Integer): Boolean;
 Begin
- Result := FunctionList[High(FunctionList)].VariableList[ID].isConst;
+ Result := getCurrentFunction.VariableList[ID].isConst;
 End;
 
 { TCompiler.__variable_create }
@@ -1277,7 +1295,7 @@ End;
 *)
 Procedure TCompiler.__variable_create(fName: String; fTyp: TVType; fRegID: Integer; fIsParam: Boolean);
 Begin
- With FunctionList[High(FunctionList)] do
+ With getCurrentFunctionPnt^ do
  Begin
   SetLength(VariableList, Length(VariableList)+1);
   With VariableList[High(VariableList)] do
@@ -1311,7 +1329,7 @@ Var RegStr: String;
 Begin
  RegStr := 'e'+RegChar+IntToStr(RegID); { get full register name (ei1, es3 etc.) }
 
- With FunctionList[High(FunctionList)].VariableList[VarID] do
+ With getCurrentFunction.VariableList[VarID] do
  Begin
   if (isConst) Then
    CompileError(eInternalError, ['Cannot change a constant value']);
@@ -1338,7 +1356,7 @@ Var RegStr: String;
 Begin
  RegStr := 'e'+RegChar+IntToStr(RegID); { get full register name }
 
- With FunctionList[High(FunctionList)].VariableList[VarID] do
+ With getCurrentFunction.VariableList[VarID] do
  Begin
   if (isConst) Then
   Begin
@@ -1357,7 +1375,7 @@ End;
 *)
 Procedure TCompiler.__variable_getvalue_stack(VarID: Integer; const PushedValues: Integer=0);
 Begin
- With FunctionList[High(FunctionList)].VariableList[VarID] do
+ With getCurrentFunction.VariableList[VarID] do
  Begin
   if (isConst) Then
   Begin
@@ -1367,6 +1385,16 @@ Begin
     PutOpcode(o_push, ['e'+RegChar+IntToStr(RegID)]) Else
     PutOpcode(o_push, ['['+IntToStr(RegID-PushedValues)+']']); // variable is on the stack
  End;
+End;
+
+{ TCompiler.isConstValue }
+(*
+ Returns `true`, when a expression is a constant value.
+ Passed expression must be already folded.
+*)
+Function TCompiler.isConstValue(Expr: TMExpression): Boolean;
+Begin
+ Result := (Expr.Left = nil) and (Expr.Right = nil) and (Expr.Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]);
 End;
 
 { TCompiler.findStringByName }
@@ -1398,6 +1426,24 @@ Begin
    Exit(I);
 End;
 
+{ TCompiler.getCurrentFunction }
+(*
+ Returns currently parsed function
+*)
+Function TCompiler.getCurrentFunction: TMFunction;
+Begin
+ Result := FunctionList[High(FunctionList)];
+End;
+
+{ TCompiler.getCurrentFunctionPnt }
+(*
+ Returns a pointer to currently parsed function
+*)
+Function TCompiler.getCurrentFunctionPnt: PMFunction;
+Begin
+ Result := @FunctionList[High(FunctionList)];
+End;
+
 { TCompiler.findFunction }
 (*
  Searches for function named `Name` and returns its ID (when found), or `-1` (when not found).
@@ -1423,6 +1469,29 @@ Begin
 
  For I := Low(FunctionList) To High(FunctionList) Do
   if (FunctionList[I].MName = LabelName) Then
+   Exit(I);
+End;
+
+{ TCompiler.inFunction }
+(*
+ Return `true` when parser is inside any function, or `false` when it's outside.
+*)
+Function TCompiler.inFunction: Boolean;
+Begin
+ Result := Length(Scope) > 0;
+End;
+
+{ TCompiler.findGlobalConstant }
+(*
+ Searches for global constant named `Name` and returns its ID (when found) or `-1` when constant doesn't exist
+*)
+Function TCompiler.findGlobalConstant(Name: String): Integer;
+Var I: Integer;
+Begin
+ Result := -1;
+
+ For I := Low(ConstantList) To High(ConstantList) Do
+  if (ConstantList[I].Name = Name) Then
    Exit(I);
 End;
 
@@ -1499,6 +1568,7 @@ Begin
  SetLength(StringList, 0);
  SetLength(FunctionList, 0);
  SetLength(Scope, 0);
+ SetLength(ConstantList, 0);
 
  Interpreter := ExpressionCompiler.TInterpreter.Create(self);
 
@@ -1682,6 +1752,7 @@ End;
 Procedure TCompiler.GenerateHeaderFile(fOutputFile: String);
 Var Output: TStringList;
     Func  : TMFunction;
+    Cnst  : TMVariable;
     I     : Integer;
     Str   : String;
 Begin
@@ -1692,6 +1763,17 @@ Begin
   Add('@visibility("public")');
   Add('');
 
+  { constants }
+  For Cnst in ConstantList Do
+   With Cnst do
+   Begin
+    if (Visibility <> mvPublic) Then
+     Continue;
+
+    Add('const<'+getTypeName(Typ)+'> '+Name+' = '+getValueFromExpression(self, @Value, True)+';');
+   End;
+
+  { functions }
   For Func in FunctionList Do
    With Func do
    Begin

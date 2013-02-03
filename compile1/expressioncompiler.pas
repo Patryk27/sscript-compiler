@@ -1,6 +1,9 @@
 (*
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
+
+ @TODO:
+ - Separate the making expression tree and optimizing it
 *)
 
 { ... and now the fun begins ;) }
@@ -31,8 +34,10 @@ Unit ExpressionCompiler;
 
  Type TInterpreter = Class
                       Private
-                       Compiler     : TCompiler;
+                       Compiler: TCompiler;
+
                        FoldConstants: Boolean;
+                       InlineConst  : Boolean;
 
                        Stack   : Array of TStackValue; // whole stack
                        StackPos: Integer;
@@ -56,27 +61,38 @@ Unit ExpressionCompiler;
                       Public
                        Constructor Create(fCompiler: TCompiler);
 
-                       Procedure Parse(EndTokens: TTokenSet; fFoldConstants: Boolean);
+                       Procedure Parse(EndTokens: TTokenSet; fFoldConstants, fInlineConst: Boolean);
                        Function MakeTree: PMExpression;
                       End;
 
- Function getValueFromExpression(Compiler: Pointer; Expr: PMExpression): String;
- Function MakeConstruction(Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; const FoldConstants: Boolean=False): TMConstruction;
- Function CompileConstruction(CompilerPnt: Pointer; Expr: PMExpression): TVType;
+ Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
+ Function MakeConstruction(const Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; FoldConstants: Boolean=False; InlineConsts: Boolean=False): TMConstruction;
+ Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TVType;
 
  Implementation
 Uses SysUtils,
      CompilerUnit, Opcodes, Messages;
 
 { getValueFromExpression }
-Function getValueFromExpression(Compiler: Pointer; Expr: PMExpression): String;
+Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
+Var Value: String;
 Begin
- Result := VarToStr(Expr^.Value);
+ Value := VarToStr(Expr^.Value);
+
+ if (Beautify) Then
+ Begin
+  Case Expr^.Typ of
+   mtChar  : Exit('chr('+IntToStr(ord(Value[1]))+')');
+   mtString: Exit('"'+Value+'"');
+  End;
+ End;
 
  Case Expr^.Typ of
-  mtChar: Result := '#'+IntToStr(ord(Result[1]));
-  mtString: Result := TCompiler(Compiler).AddString(Result);
+  mtChar  : Exit('#'+IntToStr(ord(Value[1])));
+  mtString: Exit(TCompiler(Compiler).AddString(Value));
  End;
+
+ Exit(Value);
 End;
 
 {$IFDEF DISPLAY_TREE}
@@ -296,14 +312,18 @@ Begin
 End;
 
 { TInterpreter.Parse }
-Procedure TInterpreter.Parse(EndTokens: TTokenSet; fFoldConstants: Boolean);
-Var Token   : TToken_P;
-    Str     : String;
-    Value   : TStackValue;
-    Bracket : Integer=0;
-    Bracket2: Integer=0;
-    Expect  : (eNothing, eValue, eOperator);
-    Parsed  : Boolean;
+Procedure TInterpreter.Parse(EndTokens: TTokenSet; fFoldConstants, fInlineConst: Boolean);
+Var Token: TToken_P;
+
+    Str  : String;
+    Value: TStackValue;
+
+    Bracket        : Integer=0;
+    Bracket2       : Integer=0;
+    FunctionBracket: Integer=0;
+    Expect         : (eNothing, eValue, eOperator);
+
+    Parsed: Boolean;
 
     {$IFDEF DISPLAY_FINALEXPR}
     I: Integer;
@@ -343,12 +363,14 @@ End;
 
 Begin
  FoldConstants := fFoldConstants;
+ InlineConst   := fInlineConst;
 
 With Compiler do
 Begin
- StackPos     := 0;
- FinalExprPos := 0;
- Expect       := eValue;
+ StackPos        := 0;
+ FinalExprPos    := 0;
+ FunctionBracket := 0;
+ Expect          := eValue;
 
  While (true) do
  Begin
@@ -397,6 +419,9 @@ Begin
   { function }
   if (Token.Token = _IDENTIFIER) and (next_t = _BRACKET1_OP) Then
   Begin
+   if (FunctionBracket = 0) Then
+    FunctionBracket := Bracket+1;
+
    StackPush(mtFunction, Token.Display, Token); // push it onto the stack
    Stack[StackPos-1].ParamCount := ReadParamCount;
 
@@ -408,6 +433,8 @@ Begin
   Begin
    if (Expect = eValue) Then
     Compiler.CompileError(eExpectedValue, [Token.Display]);
+   if (FunctionBracket = 0) Then
+    Compiler.CompileError(eExpectedOperator, [Token.Display]);
 
    Expect := eNothing;
 
@@ -441,6 +468,9 @@ Begin
   { closing bracket }
   if (Token.Token = _BRACKET1_CL) Then
   Begin
+   if (Bracket = FunctionBracket) Then
+    FunctionBracket := 0;
+
    Dec(Bracket);
    if (Bracket < 0) Then
     Compiler.CompileError(eUnexpected, [')']);
@@ -688,19 +718,32 @@ Begin
    End;
 
    // try to inline a constant
-   if (_ICONST in Compiler.Options) Then
+   if (InlineConst) Then
    Begin
     With Compiler do
     Begin
-     With FunctionList[High(FunctionList)] do
+     if (inFunction) Then // inside function?
      Begin
-      I := findVariable(Value.Value);
+      With getCurrentFunction do
+      Begin
+       I := findVariable(Value.Value);
+
+       if (I <> -1) Then
+        if (VariableList[I].isConst) Then
+        Begin
+         Value.Typ   := VariableList[I].Value.Typ;
+         Value.Value := VariableList[I].Value.Value;
+        End;
+      End;
+     End Else // outside function?
+     Begin
+      I := findGlobalConstant(Value.Value);
+
       if (I <> -1) Then
-       if (VariableList[I].isConst) Then
-       Begin
-        Value.Typ   := VariableList[I].Value.Typ;
-        Value.Value := VariableList[I].Value.Value;
-       End;
+      Begin
+       Value.Typ   := ConstantList[I].Value.Typ;
+       Value.Value := ConstantList[I].Value.Value;
+      End;
      End;
     End;
    End;
@@ -864,12 +907,19 @@ End;
 // ---------- </> ---------- //
 
 { MakeConstruction }
-Function MakeConstruction(Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; const FoldConstants: Boolean=False): TMConstruction;
+Function MakeConstruction(const Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; FoldConstants: Boolean=False; InlineConsts: Boolean=False): TMConstruction;
 Var Interpreter: TInterpreter;
 Begin
  // we need to make RPN and then evaluate it; as a result, we'll have TMConstruction with 1 value - the whole expression tree.
  Interpreter := TInterpreter(TCompiler(Compiler).Interpreter);
- Interpreter.Parse(EndTokens, FoldConstants or (_Of in TCompiler(Compiler).Options));
+
+ Interpreter.Parse
+ (
+        EndTokens,
+        FoldConstants or (_Of in TCompiler(Compiler).Options),
+        InlineConsts or (_ICONST in TCompiler(Compiler).Options)
+ );
+
  Result.Typ := ctExpression;
  SetLength(Result.Values, 1);
  Result.Values[0] := Interpreter.MakeTree;
@@ -902,7 +952,7 @@ Type TRVariable = Record
                   End;
 
 { CompileConstruction }
-Function CompileConstruction(CompilerPnt: Pointer; Expr: PMExpression): TVType;
+Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TVType;
 Var Compiler    : TCompiler;
     PushedValues: Integer=0;
 
@@ -915,6 +965,12 @@ Var Right, Left: PMExpression;
 Procedure Error(Error: TCompileError; Args: Array of Const);
 Begin
  Compiler.CompileError(Expr^.Token, Error, Args);
+End;
+
+{ Error }
+Procedure Error(Token: TToken_P; Error: TCompileError; Args: Array of Const);
+Begin
+ Compiler.CompileError(Token, Error, Args);
 End;
 
 { RePop }
@@ -999,8 +1055,19 @@ End;
 
 { isLValue }
 Function isLValue(Expr: PMExpression): Boolean;
+Var ID: Integer;
 Begin
  Result := (Expr^.Typ in [mtVariable, mtArrayElement]);
+
+ if (Expr^.Typ = mtVariable) Then // check if a variable isn't, in fact, a constant
+ Begin
+  ID := Compiler.findVariable(Expr^.Value);
+
+  if (ID <> -1) Then
+   With Compiler do
+    if (getCurrentFunction.VariableList[ID].isConst) Then
+     Exit(False);
+ End;
 End;
 
 { countLeaves }
@@ -1129,6 +1196,7 @@ Begin
 End;
 
 { ParseCompare }
+// <   >   ==   <=   >=   !=
 Procedure ParseCompare;
 Var TypeLeft, TypeRight: TVType;
     Opcode             : TOpcode_E;
@@ -1151,6 +1219,8 @@ Begin
 End;
 
 { ParseArithmeticOperator }
+// +   -   *   /   %   <<   >>
+// +=  -=  *=  /=  %=  <<=  >>=
 Procedure ParseArithmeticOperator(const WithAssign: Boolean);
 Var TypeLeft, TypeRight: TVType;
     Opcode             : TOpcode_E;
@@ -1199,20 +1269,28 @@ Begin
   Exit;
  End;
 
+ // opcode
  Case WithAssign of
   True: Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
   False: Compiler.PutOpcode(Opcode, ['e'+Compiler.getTypePrefix(TypeLeft)+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
  End;
+
+ // type-check
+ if (WithAssign) Then
+  if (not Compiler.CompareTypes(Variable.Typ, TypeRight)) Then
+   Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeName(TypeRight), Compiler.getTypeName(Variable.Typ)]);
 End;
 
 { ParseAssign }
+// =
 Procedure ParseAssign;
 Var Variable: TRVariable;
     TypeID  : TVType;
     Index   : Byte;
     fIndex  : TVType;
 Begin
- // left side is l-value, right side is the expression to parse
+ { left side is l-value (variable), right side is the expression to parse (value to assign into the variable) }
+
  if (not isLValue(Left)) Then
  Begin
   Error(eLValueExpected, [getDisplay(Left)]);
@@ -1236,9 +1314,11 @@ Begin
    Compiler.__variable_setvalue_reg(Variable.ID, 1, Compiler.getTypePrefix(TypeID), PushedValues);
   End;
 
+  Compiler.PutOpcode(o_mov, ['e'+Compiler.getTypePrefix(TypeID)+'1', Variable.PosStr]);
+
   if (not Compiler.CompareTypes(Variable.Typ, TypeID)) Then // type check
   Begin
-   Error(eWrongType, [Compiler.getTypeName(TypeID), Compiler.getTypeName(Variable.Typ)]);
+   Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeName(TypeID), Compiler.getTypeName(Variable.Typ)]);
    Exit;
   End;
 
@@ -1258,7 +1338,7 @@ Begin
   Compiler.PutOpcode(o_push, ['ei2']);
   Inc(PushedValues);
 
-  TypeID := Parse(Right, 1); // a value which we want to save into the array
+  TypeID := Parse(Right, 1); // a value which we want to save into the array load into first register of array's type
 
   RePop(Right, TypeID, 1);
 
@@ -1276,7 +1356,7 @@ Begin
   if (not Compiler.isTypeChar(TypeID)) Then // also temporary solution... this part of code is actually only a partial solution (as we support array operations on string only) :P
   Begin
    With Compiler do
-    Error(eWrongType, [getTypeName(TypeID), getTypeName(TYPE_CHAR)]);
+    Error(eWrongTypeInAssign, [Variable.Name, getTypeName(TypeID), getTypeName(TYPE_CHAR)]);
    Exit;
   End;
 
@@ -1287,6 +1367,7 @@ Begin
 End;
 
 { ParseLogicalOR }
+// ||
 Procedure ParseLogicalOR;
 Var TypeLeft, TypeRight: TVType;
 Begin
@@ -1299,6 +1380,7 @@ Begin
 End;
 
 { ParseLogicalAND }
+// &&
 Procedure ParseLogicalAND;
 Var TypeLeft, TypeRight: TVType;
 Begin
@@ -1311,6 +1393,7 @@ Begin
 End;
 
 { ParseBitwiseOR }
+// |
 Procedure ParseBitwiseOR;
 Var TypeLeft, TypeRight: TVType;
 Begin
@@ -1323,6 +1406,7 @@ Begin
 End;
 
 { ParseBitwiseAND }
+// &
 Procedure ParseBitwiseAND;
 Var TypeLeft, TypeRight: TVType;
 Begin
@@ -1335,6 +1419,7 @@ Begin
 End;
 
 { ParseXOR }
+// ^
 Procedure ParseXOR;
 Var TypeLeft, TypeRight: TVType;
 Begin
@@ -1351,6 +1436,7 @@ Begin
 End;
 
 { ParseCall }
+// ()
 Procedure ParseCall;
 Var FuncID, Param, TypeID: Integer;
 Begin
@@ -1379,7 +1465,7 @@ Begin
 
   Result := FuncID;
 
-  // ... but fail on `void`-casting
+  // ... but fail on `void`-casting (from `void` or to `void`)
   if (Compiler.isTypeVoid(Result) or Compiler.isTypeVoid(TypeID)) Then
    Error(eVoidCasting, []);
 
@@ -1402,7 +1488,7 @@ Begin
 
    With Compiler do
     if (not CompareTypes(ParamList[High(ParamList)-Param].Typ, TypeID)) Then
-     Error(eWrongType, [getTypeName(TypeID), getTypeName(ParamList[High(ParamList)-Param].Typ)]);
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Expr^.Value, High(ParamList)-Param+1, getTypeName(TypeID), getTypeName(ParamList[High(ParamList)-Param].Typ)]);
   End;
 
   Dec(PushedValues, Length(ParamList));
@@ -1415,6 +1501,8 @@ Begin
 End;
 
 { ParsePIncDec }
+// ++
+// --
 Procedure ParsePIncDec;
 Var Variable: TRVariable;
 Begin
@@ -1449,9 +1537,10 @@ Begin
 End;
 
 { ParseNEG }
+// -
 Procedure ParseNEG;
 Begin
- // load value to the first register
+ // load value into the first register
  Result := Parse(Left, 1);
  RePop(Left, Result, 1);
 
@@ -1465,9 +1554,10 @@ Begin
 End;
 
 { ParseLogicalNOT }
+// !
 Procedure ParseLogicalNOT;
 Begin
- // load value to the first register
+ // load value into the first register
  Result := Parse(Left, 1);
  RePop(Left, Result, 1);
 
@@ -1486,9 +1576,10 @@ Begin
 End;
 
 { ParseBitwiseNOT }
+// ~
 Procedure ParseBitwiseNOT;
 Begin
- // load value to the first register
+ // load value into the first register
  Result := Parse(Left, 1);
  RePop(Left, Result, 1);
 
@@ -1502,16 +1593,13 @@ Begin
 End;
 
 { ParseArrayElement }
+// []
 Procedure ParseArrayElement;
 Var vArray, vIndex: TVType;
 Begin
- vArray := Parse(Left, 1); // array to the first register
- vIndex := Parse(Right, 1); // so do the index
- {
-  @note:
-  even though it looks a bit something-is-not-right-here, take into consideration fact that array
-  would be loaded into `er1` and index `ei1` ;)
- }
+ vArray := Parse(Left, 1); // array to the first register (es1/er1)
+ vIndex := Parse(Right, 1); // so do the index (ei1)
+
  RePop(Right, vIndex, 1);
  RePop(Left, vArray, 1);
 
@@ -1658,6 +1746,9 @@ End;
 
 Begin
  Compiler := TCompiler(CompilerPnt);
+
+ if (not Compiler.inFunction) Then
+  Compiler.CompileError(Expr^.Token, eInternalError, ['not inFunction']);
 
  Result := Parse(Expr, 0, #0, False);
 End;

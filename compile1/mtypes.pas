@@ -104,6 +104,8 @@ Unit MTypes;
 
                     isParam: Boolean;
                     isConst: Boolean;
+
+                    Visibility: TMVisibility; // used (as for now) only for global constant; work's the same way as the function visibility
                    End;
  Type TMVariableList = Array of TMVariable;
 

@@ -6,7 +6,7 @@ Unit Messages;
  (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eNotAllowed,
   eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
-  eVarVoid, eParamVoid, eVoidCasting, eExpectedConstant,
+  eVarVoid, eParamVoid, eVoidCasting, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
@@ -44,10 +44,12 @@ Unit Messages;
   'Parameter ''%s'' declared as void',
   'Cannot cast from or to ''void'' type',
   'Expected constant value',
+  'Wrong type (in call to ''%s'', param #%d) - got `%s` expected `%s`',
+  'Wrong type (in assignment to ''%s'') - got `%s` expected `%s`',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',
-  '[Bytecode] Invalid opcode: `%s`',
+  '[Bytecode] Invalid opcode',
   '[Bytecode] String not found: `%s`'
  );
 

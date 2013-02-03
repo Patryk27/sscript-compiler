@@ -66,7 +66,7 @@ Begin
    Writeln('-Of      enable constant expression folding');
    Writeln('-Op      peephole bytecode optimizer');
    Writeln('-O1      optimization level 1: enables `-Or` `-Of` `-Op`');
-   Writeln('-iconst  inline constants directly when building an expression (may affect to displayed errors)');
+   Writeln('-iconst  inline constants directly when building an expression (may affect on displayed errors)');
 
    Writeln;
    Writeln('-> Hints & warnings');
@@ -103,6 +103,11 @@ Begin
     Include(Options, _Of);
     Include(Options, _Op);
    End;
+
+  { parse command line }
+  For I := Low(OptionNames) To High(OptionNames) Do
+   if (getBoolOption(OptionNames[I]+'-', False)) Then
+    Exclude(Options, TCompileOption(I));
 
    if (ParamStr(1) = '-logo') Then
    Begin

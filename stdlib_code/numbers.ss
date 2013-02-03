@@ -7,11 +7,6 @@
 @("math.ss")
 @visibility("public")
 
-private function<string> trimzeroes(string text)
-{
- return strremove_begin(text, '0');
-}
-
 function<string> intsys(int num, int base)
 {
  if ((base < 2) || (base > 35)) // invalid numeric base
@@ -49,7 +44,7 @@ function<int> sysint(string num, int base)
  var<bool> neg = (num[1] == '-');
  
  if (neg)
-  num = strdelete(num, 1, 1);
+  num = strdelete(num, 1, 1); // remove leading `-`
  
  num = strlower(num);
 
@@ -57,7 +52,6 @@ function<int> sysint(string num, int base)
   return 0;
   
  var<int> len = strlen(num);
-  
  for (var<int> i=1; i<=len; i++)
  {
   var<char> ch = num[i];
@@ -80,9 +74,9 @@ function<int> sysint(string num, int base)
 function<int> intlen(int n)
 {
  n = iabs(n);
- if (n == 0) // this is an exception
+ if (n == 0) // log10(0) is -inf
   return 0;
- return int(log10(n)+0.5);
+ return round_up(log10(n));
 }
 
 function<string> intstr(int n)
@@ -154,7 +148,7 @@ function<string> fltstr(float n)
   result = '-'+result;
  
  if (strposb(".", result))
-  return trimzeroes(result); else
+  return strremove_end(result, '0'); /* remove ending zeroes */ else
   return result;
 }
 

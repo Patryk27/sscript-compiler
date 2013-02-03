@@ -2,13 +2,13 @@
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
 *)
-{$J+}
+{$H+}
 Unit SSM_parser;
 
  Interface
  Uses Compile1, Compile2, Opcodes, MTypes, Messages;
 
- Const Header: Array[0..2] of Byte = ($53, $4D, $02);
+ Const Header: Array[0..2] of Byte = ($53, $4D, $03);
 
  Type TSSM = Class
               Private
@@ -28,6 +28,7 @@ Unit SSM_parser;
                Procedure write_longword(V: LongWord);
                Procedure write_integer(V: Integer);
                Procedure write_extended(V: Extended);
+               Procedure write_string(V: String);
 
                Function read_byte: Byte;
                Function read_longword: LongWord;
@@ -89,6 +90,15 @@ Begin
  Inc(OutputPos, sizeof(V));
 End;
 
+{ TSSM.write_string }
+Procedure TSSM.write_string(V: String);
+Var Ch: Char;
+Begin
+ For Ch in V Do
+  write_byte(ord(Ch));
+ write_byte(0);
+End;
+
 { TSSM.read_byte }
 Function TSSM.read_byte: Byte;
 Begin
@@ -135,10 +145,9 @@ End;
 
 { TSSM.WriteOpcodes }
 Procedure TSSM.WriteOpcodes;
-Var Opcode     : PMOpcode;
-    OpcodeBegin: LongWord;
-    Arg        : TMOpcodeArg;
-    Str        : String;
+Var Opcode: PMOpcode;
+    Arg   : TMOpcodeArg;
+    Str   : String;
 Begin
  WritePos := 0;
 
@@ -160,7 +169,6 @@ Begin
     Continue;
    End;
 
-   OpcodeBegin := WritePos;
    write_byte(ord(Opcode)); // opcode type
    For Arg in Args Do
     With Arg do
@@ -173,7 +181,7 @@ Begin
       ptBool: write_byte(StrToInt(Str));
       ptChar: write_byte(StrToInt(Str));
       ptFloat: write_extended(StrToFloat(Str));
-      ptString: write_longword(StrToInt(Str)-OpcodeBegin); // strings also have to be relative against the current opcode
+      ptString: write_string(Str);
       else write_integer(StrToInt(Str));
      End;
     End;
@@ -301,7 +309,7 @@ Begin
   Reset(FFile);
 
   { read header }
-  if (read_byte <> $53) or (read_byte <> $4D) or (read_byte <> $02) Then
+  if (read_byte <> Header[0]) or (read_byte <> Header[1]) or (read_byte <> Header[2]) Then
    Exit;
 
   { read exports }

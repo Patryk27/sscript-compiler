@@ -37,12 +37,24 @@ Begin
 
  NewC.CompileCode(FileName, FileName+'.ssc', Options, True, Parent); // compile! ;)
 
+ // new constants
+ if (Length(NewC.ConstantList) > 0) Then
+  For I := Low(NewC.ConstantList) To High(NewC.ConstantList) Do
+   With NewC.ConstantList[I] do
+   Begin
+    if (Visibility <> mvPublic) Then
+     Continue;
+
+    SetLength(ConstantList, Length(ConstantList)+1);
+    ConstantList[High(ConstantList)] := NewC.ConstantList[I];
+   End;
+
  // new functions
  if (Length(NewC.FunctionList) > 0) Then
   For I := Low(NewC.FunctionList) To High(NewC.FunctionList) Do
    if (NewC.FunctionList[I].Visibility = mvPublic) Then
     With NewC.FunctionList[I] do
-     if ((ModuleName = NewC.ModuleName) and (ImportFile = '')) or (ImportFile <> '') Then // we want only functions from this module
+     if ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '') Then // we want only functions from this module
      Begin
       SetLength(FunctionList, Length(FunctionList)+1);
       FunctionList[High(FunctionList)] := NewC.FunctionList[I];

@@ -169,7 +169,7 @@ Begin
       if (oTmp.Args[2] = oCurrent.Args[0]) or (oTmp.Args[2] = oCurrent.Args[1]) Then
        Break; // the register's value is changed by `arget` (`arget(in, in, out)`)
 
-     if (oTmp.Opcode = o_jmp) or (oTmp.Opcode = o_call) Then // stop on jumps and calls
+     if (oTmp.Opcode in [o_jmp, o_fjmp, o_tjmp]) or (oTmp.Opcode = o_call) Then // stop on jumps and calls
       Break;
 
      if (oTmp.Opcode = o_push) Then
@@ -181,7 +181,23 @@ Begin
      { 1-param opcodes }
      if (Length(oTmp.Args) = 1) Then
      Begin
-      // @TODO (jmp/call)
+      if (oTmp.Opcode in [o_push, o_jmp, o_tjmp, o_fjmp, o_call]) Then // push, jmp, tjmp, fjmp, call
+      Begin
+       if (oTmp.Args[0] = oCurrent.Args[0]) Then // yes, optimize! :)
+       Begin
+        TmpArg       := oTmp.Args[0];
+        pTmp.Args[0] := oCurrent.Args[1];
+
+        if (isValidOpcode(pTmp^)) Then
+        Begin
+         if (pTmp.Args[0].Typ = ptStackVal) Then
+          pTmp.Args[0].Value -= PushFix;
+
+         Optimized := True;
+        End Else
+         pTmp.Args[0] := TmpArg;
+       End;
+      End;
      End;
 
      { 2-param opcodes }

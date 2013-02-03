@@ -163,3 +163,31 @@ function<float> round_to(float x, int digit)
  var<int> fact = ipower(10, digit);
  return fround(x*fact)/fact;
 }
+
+function<int> max(int a, int b)
+{
+ if (a > b)
+  return a; else
+  return b;
+}
+
+function<float> fmax(float a, float b)
+{
+ if (a > b)
+  return a; else
+  return b;
+}
+
+function<int> min(int a, int b)
+{
+ if (a < b)
+  return a; else
+  return b;
+}
+
+function<float> fmin(float a, float b)
+{
+ if (a < b)
+  return a; else
+  return b;
+}

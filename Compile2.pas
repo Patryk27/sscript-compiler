@@ -2,6 +2,7 @@
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
 *)
+{$H+}
 Unit Compile2;
 
  Interface
@@ -43,6 +44,7 @@ Unit Compile2;
                     Procedure write_longword(V: LongWord);
                     Procedure write_integer(V: Integer);
                     Procedure write_extended(V: Extended);
+                    Procedure write_string(V: String);
                     Procedure write_section(ID: Byte; Length, DataPnt: LongWord);
 
                     Function getLabelID(Name: String): Integer;
@@ -101,6 +103,15 @@ Begin
  Inc(OutputPos, sizeof(V));
 End;
 
+{ TCompiler.write_string }
+Procedure TCompiler.write_string(V: String);
+Var Ch: Char;
+Begin
+ For Ch in V Do
+  write_byte(ord(Ch));
+ write_byte(0);
+End;
+
 { TCompiler.write_section }
 Procedure TCompiler.write_section(ID: Byte; Length, DataPnt: LongWord);
 Begin
@@ -122,6 +133,7 @@ End;
 { TCompiler.Preparse }
 Procedure TCompiler.Preparse;
 Var I, Q: LongWord;
+    Int : Integer;
     Str : String;
 Begin
  StringSection := '';
@@ -137,14 +149,26 @@ Begin
       Begin
        Str := VarToStr(Value);
 
-       if (Str[1] = '"') Then // string
+       { inline string }
+       if (Copy(Str, 1, 1) = '"') Then
        Begin
         Typ := ptString;
 
         Delete(Str, 1, 1);
         Delete(Str, Length(Str), 1);
-        Value := Length(StringSection);
-        StringSection += Str;
+       End;
+
+       { string reference }
+       if (Copy(Str, 1, 8) = 'string__') Then
+       Begin
+        Typ := ptString;
+        Int := self.Compiler.findStringByName(Str);
+        if (Int = -1) Then
+        Begin
+         Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_StringNotFound, [Str]);
+         Value := '';
+        End Else
+         Value := self.Compiler.StringList[Int].Value;
        End;
       End;
 
@@ -181,12 +205,8 @@ Begin
         Str := VarToStr(Value);
 
         { label }
-        if (Str[1] = ':') Then
+        if (Copy(Str, 1, 1) = ':') Then
          Typ := ptInt;
-
-        { string }
-        if (Copy(Str, 1, 8) = 'string__') Then
-         Typ := ptString;
 
         { register }
         if (isRegisterName(Str)) Then
@@ -195,13 +215,15 @@ Begin
          Value := IntToStr(getRegister(Str).ID);
         End;
 
-        if (Str = 'true') or (Str = 'True') Then // boolean truth
+        { boolean truth }
+        if (Str = 'true') or (Str = 'True') Then
         Begin
          Typ   := ptBool;
          Value := '1';
         End;
 
-        if (Str = 'false') or (Str = 'False') Then // boolean false
+        { boolean false }
+        if (Str = 'false') or (Str = 'False') Then
         Begin
          Typ   := ptBool;
          Value := '0';
@@ -212,7 +234,7 @@ Begin
          ptBool: Inc(OpcodeLen, sizeof(Byte));
          ptChar: Inc(OpcodeLen, sizeof(Byte));
          ptFloat: Inc(OpcodeLen, sizeof(Extended));
-         ptString: Inc(OpcodeLen, sizeof(LongWord));
+         ptString: Inc(OpcodeLen, Length(Str)+sizeof(Byte));
          else Inc(OpcodeLen, sizeof(Integer));
         End;
        End;
@@ -224,16 +246,7 @@ Begin
      LabelList[High(LabelList)].Position := OpcodeLen;
     End;
 
-  // parse strings
-  if (Length(StringList) > 0) Then
-   For I := Low(StringList) To High(StringList) Do
-   Begin
-    StringList[I].Pos := OpcodeLen; // strings are saved at the end of the code
-    StringSection += StringList[I].Value+#0;
-    OpcodeLen += Length(StringList[I].Value)+1;
-   End;
-
-  // and add also exports' names
+  // add exports' names
   if (Length(ExportList) > 0) Then
    For I := Low(ExportList) To High(ExportList) Do
    Begin
@@ -285,7 +298,7 @@ Begin
         Str := VarToStr(Value);
 
         { label }
-        if (Str[1] = ':') Then
+        if (Copy(Str, 1, 1) = ':') Then
         Begin
          Delete(Str, 1, 1); // remove `:`
          Int := getLabelID(Str);
@@ -300,12 +313,9 @@ Begin
              goto LabelNotFound;
 
             With FunctionList[Int] do
-             CompileError(DeclToken, eFunctionNotFound, [Name, ImportFile]);
+             CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
            End;
-
-//            Compile1.TCompiler(Compiler).CompileError(eFunctionNotFound, [UnmangleName(Str)]) Else
-//            Compile1.TCompiler(Compiler).CompileError(Token^, eFunctionNotFound, [UnmangleName(Str)]);
-          End Else // just some label not found
+          End Else // just some "random" label not found
           Begin
           LabelNotFound:
            if (Token = nil) Then
@@ -318,20 +328,8 @@ Begin
           Value := LabelList[Int].Position - Pos; // jump have to be relative against the current opcode
         End;
 
-        { string }
-        if (Copy(Str, 1, 8) = 'string__') Then
-        Begin
-         Int := self.Compiler.findStringByName(Str);
-         if (Int = -1) Then
-         Begin
-          Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_StringNotFound, [Str]);
-          Value := 0;
-         End Else
-          Value := self.Compiler.StringList[Int].Pos;
-        End;
-
         { char }
-        if (Str[1] = '#') Then
+        if (Copy(Str, 1, 1) = '#') Then
         Begin
          Typ := ptChar;
 
@@ -347,7 +345,7 @@ Begin
          ptBool: Inc(OpcodeLen, sizeof(Byte));
          ptChar: Inc(OpcodeLen, sizeof(Byte));
          ptFloat: Inc(OpcodeLen, sizeof(Extended));
-         ptString: Inc(OpcodeLen, sizeof(LongWord));
+         ptString: Inc(OpcodeLen, Length(Str)+sizeof(Byte)); // string + terminator (0x00) char
          else Inc(OpcodeLen, sizeof(Integer));
         End;
        End;
@@ -378,8 +376,6 @@ Var Opcode: PMOpcode;
     Arg   : TMOpcodeArg;
     Str   : String;
     Ch    : Char;
-
-    OpcodeBegin: LongWord;
 Begin
  FilePosition := 0;
 
@@ -388,8 +384,6 @@ Begin
   Begin
    if (isComment) or (isLabel) Then // we care neither about comments nor labels
     Continue;
-
-   OpcodeBegin := FilePosition;
 
    if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then
    Begin
@@ -415,7 +409,7 @@ Begin
       ptBool: write_byte(StrToInt(Str));
       ptChar: write_byte(StrToInt(Str));
       ptFloat: write_extended(StrToFloat(Str));
-      ptString: write_longword(StrToInt(Str)-OpcodeBegin);
+      ptString: write_string(Str);
       else write_integer(StrToInt(Str));
      End;
     End;
@@ -473,7 +467,7 @@ Begin
   { header }
   write_byte($53);
   write_byte($53);
-  write_byte($02);
+  write_byte($03);
   write_byte(SectionsCount); { sections count }
 
   DataBegin := 4+SectionsCount*9; // header size + 4*section size

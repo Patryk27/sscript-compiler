@@ -41,8 +41,8 @@ goto :begin
 cls
 
 echo -------------------------------------------
-echo - SScript Standard Library; version: 0.1a -
-echo - for compiler 2.0a                       -
+echo - SScript Standard Library; version: 0.1b -
+echo - for compiler 2.1                        -
 echo -------------------------------------------
 echo.
 
@@ -63,6 +63,7 @@ echo.
 echo -] MATH
 call :compile "math"
 call :compile "numbers"
+call :compile "float"
 
 echo.
 echo -] TIME

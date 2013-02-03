@@ -63,11 +63,14 @@ Begin
 
  Inc(SomeCounter);
 
- C.Typ := ct_DO_WHILE;
- SetLength(C.Values, 2);
-
  NewScope(sWHILE, Str+'begin', Str+'end');
  Inc(CurrentDeep);
+
+ // loop begin
+ SetLength(C.Values, 1);
+ C.Typ       := ct_DO_WHILE;
+ C.Values[0] := Str;
+ AddConstruction(C);
 
  // parse loop's code
  ParseCodeBlock(True);
@@ -78,12 +81,10 @@ Begin
  Condition := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]);
  semicolon;
 
+ // loop end
+ SetLength(C.Values, 1);
+ C.Typ       := ct_DO_WHILE_END;
  C.Values[0] := Condition.Values[0];
- C.Values[1] := Str;
- AddConstruction(C);
-
- C.Typ := ct_DO_WHILE_end;
- SetLength(C.Values, 0);
  AddConstruction(C);
 
  Dec(CurrentDeep);
