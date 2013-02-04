@@ -65,13 +65,50 @@ Unit ExpressionCompiler;
                        Function MakeTree: PMExpression;
                       End;
 
+ Function MakeStringExpression(const Value: String): PMExpression;
+ Function MakeIntExpression(const Value: Integer): PMExpression;
+ Function MakeFloatExpression(const Value: Extended): PMExpression;
  Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
+
  Function MakeConstruction(const Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; FoldConstants: Boolean=False; InlineConsts: Boolean=False): TMConstruction;
  Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TVType;
 
  Implementation
 Uses SysUtils,
      CompilerUnit, Opcodes, Messages;
+
+{ MakeStringExpression }
+Function MakeStringExpression(const Value: String): PMExpression;
+Begin
+ New(Result);
+
+ Result^.Typ   := mtString;
+ Result^.Left  := nil;
+ Result^.Right := nil;
+ Result^.Value := Value;
+End;
+
+{ MakeIntExpression }
+Function MakeIntExpression(const Value: Integer): PMExpression;
+Begin
+ New(Result);
+
+ Result^.Typ   := mtInt;
+ Result^.Left  := nil;
+ Result^.Right := nil;
+ Result^.Value := Value;
+End;
+
+{ MakeFloatExpression }
+Function MakeFloatExpression(const Value: Extended): PMExpression;
+Begin
+ New(Result);
+
+ Result^.Typ   := mtFloat;
+ Result^.Left  := nil;
+ Result^.Right := nil;
+ Result^.Value := Value;
+End;
 
 { getValueFromExpression }
 Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
@@ -1646,8 +1683,24 @@ Begin
 
    if (Variable.ID = -1) Then // variable not found
    Begin
-    Error(eUnknownVariable, [Variable.Name]);
-    Exit;
+    if (Variable.Name = '__line') and (_SCONST in Compiler.Options) Then // special variable
+    Begin
+     if (FinalRegChar = #0) Then
+      FinalRegChar := 'i';
+
+     if (FinalRegID > 0) Then
+      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line+1]) Else
+      Begin
+       Compiler.PutOpcode(o_push, [Expr^.Token.Line+1]);
+       Inc(PushedValues);
+      End;
+
+     Exit(TYPE_INT);
+    End Else
+    Begin
+     Error(eUnknownVariable, [Variable.Name]);
+     Exit;
+    End;
    End;
 
    if (FinalRegChar = #0) Then

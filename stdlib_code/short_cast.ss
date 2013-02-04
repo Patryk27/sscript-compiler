@@ -113,3 +113,31 @@ function<float> s2f(string s)
 {
  return strflt(s);
 }
+
+/* string */
+function<string> b2s(bool b)
+{
+ if (b)
+  return "true"; else
+  return "false";
+}
+
+function<string> c2s(char c)
+{
+ return string(c);
+}
+
+function<string> i2s(int i)
+{
+ return intstr(i);
+}
+
+function<string> f2s(float f)
+{
+ return fltstr(f);
+}
+
+function<string> s2s(string s)
+{
+ return s;
+}

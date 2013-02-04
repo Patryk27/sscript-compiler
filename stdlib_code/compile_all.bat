@@ -42,14 +42,15 @@ cls
 
 echo -------------------------------------------
 echo - SScript Standard Library; version: 0.1b -
-echo - for compiler 2.1                        -
 echo -------------------------------------------
 echo.
 
 if not exist "..\compiler.exe" goto :compiler_not_found
 
 echo Compiler test:
+echo -------------------------------------------
 ..\compiler -logo -quiet
+echo -------------------------------------------
 
 echo.
 echo -] init code

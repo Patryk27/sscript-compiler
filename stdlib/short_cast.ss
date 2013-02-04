@@ -20,3 +20,8 @@ function<float> c2f(char) in "short_cast.ssm";
 function<float> i2f(int) in "short_cast.ssm";
 function<float> f2f(float) in "short_cast.ssm";
 function<float> s2f(string) in "short_cast.ssm";
+function<string> b2s(bool) in "short_cast.ssm";
+function<string> c2s(char) in "short_cast.ssm";
+function<string> i2s(int) in "short_cast.ssm";
+function<string> f2s(float) in "short_cast.ssm";
+function<string> s2s(string) in "short_cast.ssm";

@@ -4,12 +4,17 @@ SScript Compiler
 ### Description
 It's a simple SScript (my language) compiler, written mainly for fun and to use in my future projects (but you can use it too, if you want) :)
 
+Any tutorials are - as for now - written only in Polish: http://sscriptwiki.xorg.pl/wiki/Strona_g³ówna
+... but soon I'm going to translate them into English ;)
+
 ### Downloading
 There are 2 branches:
 
 -master (this is the "live" version of code - it's untested and most likely unstable; use only if you know what are you doing)
 
 -stable (this is the latest stable and tested version of code; also - it has compiled binaries)
+
+Ready-to-use builds are downloadable in `/build`.
 
 ### Contributing
 You want to contribute? It's great :)

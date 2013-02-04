@@ -11,7 +11,8 @@ Unit Compile1;
 
  { constants }
  Const DEF_STACKSIZE = 1000000; // default stack size for compiled app
-       Version = '2.1 nightly'; // version of the compiler
+       Version       = '2.1'; // version of the compiler
+       iVersion      = 2.1;
 
  { types }
  // TMScope
@@ -43,8 +44,8 @@ Unit Compile1;
                     OutputFile  : String; // output file name
                     ModuleName  : String; // module name
                     Options     : TCompileOptions; // compile options
-                    Interpreter : Pointer;
-                    IncludePaths: TStringList;
+                    Interpreter : Pointer; // pointer to a expression's interpreter class (in ExpressionCompiler.pas_
+                    IncludePaths: TStringList; // list of include paths
 
                     CurrentDeep: Integer; // current brackets' deep (`{` = +1, `}` = -1)
                     Visibility : TMVisibility; // current visibility
@@ -52,18 +53,18 @@ Unit Compile1;
                     StringList  : Array of TMString; // list of strings used in input file code
                     OpcodeList  : TOpcodeList; // output code opcode list
                     FunctionList: Array of TMFunction; // list of functions in current module/file (including those included from other files during compilation)
-                    ExportList  : Array of TMExport;
-                    IncludeList : Array of TCompiler;
-                    ConstantList: Array of TMVariable;
+                    ExportList  : Array of TMExport; // exports
+                    IncludeList : Array of TCompiler; // includes
+                    ConstantList: Array of TMVariable; // global constants
 
                     TypeTable: Array of TMType; // type list
 
-                    Scope: Array of TMScope;
+                    Scope: Array of TMScope; // scope list
 
-                    SomeCounter: LongWord;
+                    SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>`, so they don't overwrite each other
 
                { -> properties }
-                    Property getPosition: LongWord read TokenPos;
+                    Property getPosition: LongWord read TokenPos; // current token position
 
                { -> methods }
                     Function SearchFile(const FileName: String; out Found: Boolean): String;
@@ -1575,6 +1576,7 @@ Begin
  { When a `-Cbcode` is specified: }
  if (_Cbcode in Options) Then
  Begin
+  // @TODO: separate this into another procedure
   Log('-> Compiling as a bytecode');
 
   Preparse;
@@ -1642,7 +1644,6 @@ Begin
    PutOpcode(o_call, [':__function_main_'+ModuleName+'_int_']);
    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
   End;
-
  End Else // if included (not main file)
  Begin
   ModuleName := makeModuleName(fInputFile);

@@ -38,7 +38,7 @@ Unit Parse_Function;
  Function CreateFunctionMangledName(Compiler: Pointer; Func: TMFunction): String;
 
  Implementation
-Uses Compile1, Messages, Opcodes, ExpressionCompiler, SysUtils;
+Uses CompilerUnit, Compile1, Messages, Opcodes, ExpressionCompiler, SysUtils;
 
 { CreateFunctionMangledName }
 Function CreateFunctionMangledName(Compiler: Pointer; Func: TMFunction): String;
@@ -275,6 +275,32 @@ Begin
 End;
 End;
 
+// NewCompilerConst
+Procedure NewCompilerConst(const Name: String; Typ: TVType; Value: TMExpression);
+Var Variable: TMVariable;
+Begin
+ With TCompiler(Compiler) do
+ Begin
+  Variable.Name    := Name;
+  Variable.Deep    := 0;
+  Variable.Typ     := Typ;
+  Variable.RegID   := 0;
+  Variable.RegChar := getTypePrefix(Typ);
+  Variable.Value   := Value;
+  Variable.isConst := True;
+
+  if (findVariable(Name) = -1) Then // don't duplicate
+  Begin
+   With getCurrentFunctionPnt^ do
+   Begin
+    SetLength(VariableList, Length(VariableList)+1);
+    VariableList[High(VariableList)] := Variable;
+   End;
+  End;
+ End;
+End;
+
+// main function block
 Var I, AllocatedVars, SavedRegs: Integer;
     Token                      : TToken_P;
 Begin
@@ -282,14 +308,14 @@ Begin
 
 With TCompiler(Compiler) do
 Begin
- // read function return type
+ { read function return type }
  Func.DeclToken := getToken(-1);
 
  eat(_LOWER); // <
  Func.Return := read_type; // [type]
  eat(_GREATER); // >
 
- // function name
+ { read function name and check for duplicates (redeclaration) }
  Func.Name          := read_ident; // [identifier]
  Func.ModuleName    := ModuleName;
  Func.LibraryFile   := '';
@@ -302,7 +328,7 @@ Begin
  if (findFunction(Func.Name) <> -1) Then // check for redeclaration
   CompileError(eRedeclaration, [Func.Name]);
 
- // parameter list
+ { make parameter list }
  eat(_BRACKET1_OP); // (
 
  SetLength(Func.ParamList, 0);
@@ -344,7 +370,7 @@ Begin
  End;
  eat(_BRACKET1_CL); // read remaining parenthesis
 
- // read special function attributes (if found)
+ { read special function attributes }
  Func.isNaked := False;
  While (true) Do
  Begin
@@ -374,22 +400,26 @@ Begin
  if (Func.isDeclaration) and not (next_t = _SEMICOLON) Then
   CompileError(eExpected, [';', next.Display]);
 
- // add parameters as variables
+ { add parameters as variables }
  With Func do
   For I := Low(ParamList) To High(ParamList) Do
    __variable_create(ParamList[I].Name, ParamList[I].Typ, -I, True);
 
- // add global constants
+ { add compiler constants }
+ if (_SCONST in Options) Then
+ Begin
+  NewCompilerConst('__selffunc', TYPE_STRING, MakeStringExpression(Func.Name)^);
+  NewCompilerConst('__self', TYPE_STRING, MakeStringExpression(InputFile)^);
+  NewCompilerConst('__compiler_version', TYPE_STRING, MakeStringExpression(Compile1.Version)^);
+  NewCompilerConst('__compiler_iversion', TYPE_FLOAT, MakeFloatExpression(Compile1.iVersion)^);
+  NewCompilerConst('__date', TYPE_STRING, MakeStringExpression(FormatDateTime('dd-mm-yyyy', Date))^);
+  NewCompilerConst('__time', TYPE_STRING, MakeStringExpression(FormatDateTime('hh:mm', Time))^);
+ End;
+
+ { add global constants }
  With Func do
   For I := Low(ConstantList) To High(ConstantList) Do
-   if (findVariable(ConstantList[I].Name) = -1) Then // don't duplicate
-   Begin
-    With getCurrentFunctionPnt^ do
-    Begin
-     SetLength(VariableList, Length(VariableList)+1);
-     VariableList[High(VariableList)] := ConstantList[I];
-    End;
-   End;
+   NewCompilerConst(ConstantList[I].Name, ConstantList[I].Typ, ConstantList[I].Value);
 
  PutLabel(Func.MName); // new label
 
