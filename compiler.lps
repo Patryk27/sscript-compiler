@@ -23,8 +23,8 @@
         <IsVisibleTab Value="True"/>
         <EditorIndex Value="5"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1680"/>
-        <CursorPos X="21" Y="1698"/>
+        <TopLine Value="174"/>
+        <CursorPos X="37" Y="195"/>
         <UsageCount Value="202"/>
         <Loaded Value="True"/>
       </Unit1>
@@ -410,7 +410,7 @@
       </Position29>
       <Position30>
         <Filename Value="compile1\expressioncompiler.pas"/>
-        <Caret Line="1692" Column="86" TopLine="1666"/>
+        <Caret Line="1692" Column="78" TopLine="1680"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>
