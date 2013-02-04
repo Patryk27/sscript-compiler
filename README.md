@@ -33,7 +33,5 @@ Thanks for help!
 SScript Editor, Compiler and VM are licensed under the LGPL license.
 
 https://github.com/Piterolex/SScript-Editor
-
 https://github.com/Piterolex/SScript-Compiler
-
 https://github.com/Piterolex/SScript-VM
