@@ -37,7 +37,7 @@ Unit Compile2;
                     FilePosition: LongWord;
 
                     OpcodeLen: LongWord;
-                    DebugLen : LongWord; // 'DEBUG DATA' section length
+                    DebugLen : LongWord; // 'DEBUG' section length
 
                     Procedure write_byte(V: Byte);
                     Procedure write_word(V: Word);

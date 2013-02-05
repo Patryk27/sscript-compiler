@@ -109,7 +109,7 @@ Unit MTypes;
                    End;
  Type TMVariableList = Array of TMVariable;
 
- // primary types
+ // primary types; order is important!
  Const TYPE_ANY    = 0;
        TYPE_VOID   = 1;
        TYPE_BOOL   = 2;

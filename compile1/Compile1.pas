@@ -152,7 +152,7 @@ Unit Compile1;
                     Procedure CompileError(Error: TCompileError; Args: Array of Const);
                     Procedure CompileError(Error: TCompileError);
 
-                    Procedure GenerateHeaderFile(fOutputFile: String);
+                    Procedure GenerateHeaderFile(const fOutputFile: String);
                    End;
 
  Function makeModuleName(FileName: String): String;
@@ -1536,9 +1536,9 @@ Begin
 
  { quick compiler's type-check }
  {$IF (sizeof(Byte) <> 1) or (sizeof(Char) <> 1) or (sizeof(Integer) <> 4) or (sizeof(LongWord) <> 4) or (sizeof(Extended) <> 10)}
- {$WARNING Invalid type sizes!}
- {$WARNING You can try to compile anyway, just comment this `if` above, but I'm not responsible for any damage...}
- {$FATAL}
+ {$WARNING Invalid types sizes!}
+ {$WARNING You can try to compile this compiler anyway (just comment this `if` above), but I'm not responsible for any damage...}
+ {$FATAL :<}
  {$ENDIF}
 
  { parse `-includepath` }
@@ -1644,15 +1644,15 @@ Begin
    PutOpcode(o_call, [':__function_main_'+ModuleName+'_int_']);
    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
   End;
- End Else // if included (not main file)
+ End Else // if included (not the main file)
  Begin
   ModuleName := makeModuleName(fInputFile);
  End;
 
- // preparse code (parse tokens, remove comments etc.)
+ { preparse code (parse tokens, remove comments etc.) }
  Preparse;
 
- // create basic type-table (don't change order!)
+ { create primary type-table (don't change order!) }
  SetLength(TypeTable, 0);
  NewType('any', 'i', TYPE_ANY, 0);
  NewType('void', 'i', TYPE_VOID, 0);
@@ -1662,23 +1662,24 @@ Begin
  NewType('float', 'f', TYPE_FLOAT, 0);
  NewType('string', 's', TYPE_STRING, 0);
 
- // clear variables
+ { clear variables }
  CurrentDeep := 0;
 
- // parse code
+ { parse code }
  Repeat
   ParseToken;
  Until (TokenList[getPosition].Token = noToken);
 
- // create export list
+ { create an export list }
  For MFunc in FunctionList Do
-  if (MFunc.ModuleName = ModuleName) and (MFunc.Visibility = mvPublic) Then // export only public functions from compiled module
+  if (MFunc.ModuleName = ModuleName) and (MFunc.Visibility = mvPublic) Then // export only public functions from the compiled module (eg.if we included `somemodule.ss`, we don't want to export functions located in it)
   Begin
    SetLength(ExportList, Length(ExportList)+1);
    ExportList[High(ExportList)].Name := MFunc.MName;
-   // ExportList[...].Pos will be set in Compile2
+   // @Note: ExportList[...].Pos will be set in Compile2
   End;
 
+ { compile further? }
  if (not isIncluded) and (AnyError) Then
  Begin
   Log('-> There were errors compiling this program; stopped.');
@@ -1699,20 +1700,20 @@ Begin
   End;
  End;
 
- // if specified - save bytecode
+ { if specified - save bytecode }
  if (VBytecode <> '') and (not isIncluded) Then
   SaveBytecode(VBytecode);
 
- // compile bytecode
+ { compile bytecode }
  if (not isIncluded) Then
  Begin
-  // compile code
   Compiler2 := Compile2.TCompiler.Create;
   Compiler2.Compile(self, getIntOption('stacksize', DEF_STACKSIZE), _Clib in Options);
   Compiler2.Free;
 
   Str := getStringOption('h', '');
 
+  { if specified - generate output header file }
   if (Str <> '') Then
   Begin
    Log('-> Generating output header file to: '+Str);
@@ -1721,7 +1722,10 @@ Begin
  End;
 End;
 
-{ TCompiler.CompileError }
+(* TCompiler.CompileError *)
+{
+ Displays a error; when passed error is a `eInternalError` or belongs to `error_stop`, stops the compiler.
+}
 Procedure TCompiler.CompileError(Token: TToken_P; Error: TCompileError; Args: Array of Const);
 Var Str: String;
 Begin
@@ -1737,20 +1741,29 @@ Begin
   raise Exception.Create(''); // used to stop the compiler
 End;
 
-{ TCompiler.CompileError }
+(* TCompiler.CompileError *)
+{
+ See above
+}
 Procedure TCompiler.CompileError(Error: TCompileError; Args: Array of Const);
 Begin
  CompileError(TokenList[TokenPos-1], Error, Args);
 End;
 
-{ TCompiler.CompileError }
+(* TCompiler.CompileError *)
+{
+ See above
+}
 Procedure TCompiler.CompileError(Error: TCompileError);
 Begin
  CompileError(Error, []);
 End;
 
-{ TCompiler.GenerateHeaderFile }
-Procedure TCompiler.GenerateHeaderFile(fOutputFile: String);
+(* TCompiler.GenerateHeaderFile *)
+{
+ Generates a header file (based on current functions list) and saves it into file `fOutputFile.`
+}
+Procedure TCompiler.GenerateHeaderFile(const fOutputFile: String);
 Var Output: TStringList;
     Func  : TMFunction;
     Cnst  : TMVariable;

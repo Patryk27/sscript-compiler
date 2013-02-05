@@ -30,13 +30,19 @@ Unit CompilerUnit;
 Uses Compile1, SysUtils;
 Var Compiler: TCompiler = nil;
 
-{ getCompiler }
+(* getCompiler *)
+{
+ Returns current compiler instance (Compile1.TCompiler).
+}
 Function getCompiler: Pointer;
 Begin
  Result := Compiler;
 End;
 
-{ getBoolOption }
+(* getBoolOption *)
+{
+ Gets a boolean-typed option from a command line
+}
 Function getBoolOption(O: String; Default: Boolean): Boolean;
 Var I: Integer;
 Begin
@@ -50,7 +56,10 @@ Begin
    Exit(False);
 End;
 
-{ getStringOption }
+(* getStringOption *)
+{
+ Gets a string-typed option from a command line
+}
 Function getStringOption(O: String; Default: String): String;
 Var I: Integer;
 Begin
@@ -65,7 +74,10 @@ Begin
   End;
 End;
 
-{ getIntOption }
+(* getIntOption *)
+{
+ Gets a integer-typed option from a command line
+}
 Function getIntOption(O: String; Default: Integer): Integer;
 Begin
  Try
@@ -75,7 +87,10 @@ Begin
  End;
 End;
 
-{ CompileCode }
+(* CompileCode *)
+{
+ Compiles code
+}
 Procedure CompileCode(Input, Output: String; Options: TCompileOptions);
 Begin                                            
  Compiler := TCompiler.Create;

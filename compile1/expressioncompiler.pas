@@ -3,7 +3,7 @@
  All rights reserved.
 
  @TODO:
- - Separate the making expression tree and optimizing it
+ - Separate making expression tree and optimizing it
 *)
 
 { ... and now the fun begins ;) }

@@ -196,16 +196,30 @@ Unit Tokens;
  
  Implementation
 
+(* getTokenName *)
+{
+ Gets token name.
+ Eg. for token `>` returns '_GREATER'
+}
 Function getTokenName(T: TToken): String;
 Begin                                         
  Result := getEnumName(TypeInfo(TToken), ord(T));
 End;
 
+(* getTokenDisplay *)
+{
+ Returns how a token looks in code.
+ Eg.for token `_GREATER` returns '>'
+}
 Function getTokenDisplay(T: TToken): String;
 Begin
  Result := Token_Display[T];
 End;
 
+(* isKeyword *)
+{
+ Returns `true` when passed string is a keyword.
+}
 Function isKeyword(S: String): Boolean;
 Var I: Integer;
 Begin
@@ -219,6 +233,10 @@ Begin
   End;
 End;
 
+(* KeywordToToken *)
+{
+ Converts a keyword into token; when no such token can be found, returns `noToken`.
+}
 Function KeywordToToken(S: String): TToken;
 Var I, Q: Integer;
 Begin

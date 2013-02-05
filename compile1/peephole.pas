@@ -18,19 +18,31 @@ Const SafeOpcodes: Set of TOpcode_E =
  o_if_e, o_if_ne, o_if_g, o_if_l, o_if_ge, o_if_le
 ];
 
-{ isRegister }
+(* isRegister *)
+{
+ Returns `true` when passed primary type is a register
+}
 Function isRegister(T: TPrimaryType): Boolean;
 Begin
  Result := T in [ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg];
 End;
 
-{ isInt }
+(* isInt *)
+{
+ Returns `true` when passed primary type is an int
+}
 Function isInt(T: TPrimaryType): Boolean;
 Begin
  Result := T in [ptInt];
 End;
 
-{ isVariableHolder }
+(* isVariableHolder *)
+{
+ Returns `true` when passed opcode argument is a variable-holder.
+
+ @Note: 'variable-holders' are registers `e_3` and `e_4`, as only there a variable
+        can be allocated (when `-Or` is passed into the compiler).
+}
 Function isVariableHolder(T: TMOpcodeArg): Boolean;
 Begin
  Result := isRegister(T.Typ);
@@ -39,7 +51,10 @@ Begin
   Exit(StrToInt(VarToStr(T.Value)) > 2);
 End;
 
-{ OptimizeBytecode }
+(* OptimizeBytecode *)
+{
+ Optimizes bytecode for smaller size and faster execution.
+}
 Procedure OptimizeBytecode(Compiler: TCompiler);
 Var Pos, Pos2            : LongWord;
     oCurrent, oNext, oTmp: TMOpcode;

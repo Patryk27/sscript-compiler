@@ -17,26 +17,37 @@
  along with SScript Compiler; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 *)
+
 Program compiler;
 Uses Windows, SysUtils, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
 Var Input, Output: String;
 
     Options: TCompileOptions;
 
-    I, Time: Cardinal;
+    I: Cardinal;
 
     Frame : Integer;
     Frames: PPointer;
-    Quiet : Boolean;
 
+{ Log }
+Procedure Log(const Text: String);
+Begin
+ if not (getBoolOption('quiet', False)) Then
+  Writeln(Text);
+End;
+
+{ Log }
+Procedure Log;
+Begin
+ Log('');
+End;
+
+{ program's body }
 Begin
  DefaultFormatSettings.DecimalSeparator := '.';
 
- Time := GetTickCount;
-
- Options := [];
-
  { parse command line }
+ Options := [];
  For I := Low(OptionNames) To High(OptionNames) Do
   if (getBoolOption(OptionNames[I], False)) Then
    Include(Options, TCompileOption(I));
@@ -95,8 +106,8 @@ Begin
   Begin
    Input  := ExpandFileName(ParamStr(1));
    Output := ExpandFileName(getStringOption('o', 'output.ssc'));
-   Quiet  := getBoolOption('quiet', False);
 
+   { Optimize level 1? }
    if (_O1 in Options) Then
    Begin
     Include(Options, _Or);
@@ -104,45 +115,32 @@ Begin
     Include(Options, _Op);
    End;
 
-  { parse command line }
-  For I := Low(OptionNames) To High(OptionNames) Do
-   if (getBoolOption(OptionNames[I]+'-', False)) Then
-    Exclude(Options, TCompileOption(I));
+   { parse command line (now searching for disabling some options) }
+   For I := Low(OptionNames) To High(OptionNames) Do
+    if (getBoolOption(OptionNames[I]+'-', False)) Then
+     Exclude(Options, TCompileOption(I));
 
+   Log('SScript Compiler '+Version);
+   Log('by Patryk Wychowaniec');
+
+   { `-logo` passed as an input file name? }
    if (ParamStr(1) = '-logo') Then
-   Begin
-    // @TODO: make a pretty, cool logo; like that FPC one ;)
-    Writeln('SScript Compiler '+Version);
-    Writeln('by Patryk Wychowaniec');
-    raise Exception.Create('');
-   End;
+    raise Exception.Create(''); // stop compiler
 
-   if (not Quiet) Then
-   Begin
-    Writeln('SScript Compiler '+Version);
-    Writeln('by Patryk Wychowaniec');
-    Writeln;
-    Writeln('Input file  : ', Input);
-    Writeln('Output file : ', Output);
-    Writeln('Command line: ', GetCommandLine);
-    Writeln;
-   End;
+   Log;
+   Log('Input file  : '+Input);
+   Log('Output file : '+Output);
+   Log('Command line: '+GetCommandLine);
+   Log;
 
    if (_Clib in Options) Then // `init` code would be unusable in a library
     Include(Options, _NINIT);
 
    if (not FileExists(Input)) Then
-    raise Exception.Create('Input file does not exist.');
+    raise Exception.Create('Input file does not exist.'); // error: input file not found
 
    if (Input = Output) Then
-    raise Exception.Create('Input file is output file.');
-
-   if (not Quiet) Then
-   Begin
-    Writeln;
-    Writeln('-- starting --');
-    Writeln;
-   End;
+    raise Exception.Create('Input file is the same as output file.'); // error: input is output
 
    CompileCode(Input, Output, Options);
   End;
@@ -153,21 +151,20 @@ Begin
     Writeln('Exception raised:');
     Writeln(E.Message);
     Writeln;
+    //Try
     Writeln('Callstack:');
     Writeln(BackTraceStrFunc(ExceptAddr));
     Frames := ExceptFrames;
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
+    //Except
+    // yo dawg - i herd u like exceptions so we raised an exception in exception handler, so u can handle exceptions while handling exceptions...
+    //End;
    End;
  End;
 
- Time := GetTickCount-Time; // total compilation time
-
- if (not Quiet) Then
- Begin
-  Writeln;
-  Writeln('-- done in ', Time, ' ms --');
- End;
+ if not (ParamStr(1) = '-logo') Then
+  Log('-- done --');
 
  if (getBoolOption('wait', False)) Then
   Readln;

@@ -49,7 +49,7 @@ if not exist "..\compiler.exe" goto :compiler_not_found
 
 echo Compiler test:
 echo -------------------------------------------
-..\compiler -logo -quiet
+..\compiler -logo
 echo -------------------------------------------
 
 echo.

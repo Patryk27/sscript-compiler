@@ -11,6 +11,7 @@ Unit Parse_CODE;
  Implementation
 Uses Compile1, SysUtils, Messages, MTypes, Tokens, Strings;
 
+{ Parse }
 Procedure Parse(Compiler: Pointer; const DirectlyBytecode: Boolean=False);
 Type TVarRecArray = Array of TVarRec;
      PVarRecArray = ^TVarRecArray;
