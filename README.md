@@ -14,7 +14,7 @@ There are 2 branches:
 
 -stable (this is the latest stable and tested version of code; also - it has compiled binaries)
 
-Ready-to-use builds are downloadable in `/build`.
+Ready-to-use, stable builds are downloadable in `/build` in `stable` branch.
 
 ### Contributing
 You want to contribute? It's great :)
