@@ -153,7 +153,8 @@ Begin
 (* ctVoidReturn *)
    ctVoidReturn:
    Begin
-    CompileError(PToken_P(Values[0])^, eWrongType, [getTypeName(TYPE_VOID), getTypeName(Func.Return)]);
+    if (not isTypeVoid(Func.Return)) Then // type check
+     CompileError(PToken_P(Values[0])^, eWrongType, [getTypeName(TYPE_VOID), getTypeName(Func.Return)]);
     PutOpcode(o_ret);
    End;
 
