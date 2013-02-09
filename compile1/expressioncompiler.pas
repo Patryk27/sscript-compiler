@@ -186,7 +186,7 @@ Function getOrder(E: String): Integer;
 Const Order: Array[0..7] of Array[0..7] of String =
 (
  // operators' precedence (from the most important to the less)
- (_UNARY_MINUS, '@', '&', '|', '^', '!', '', ''),
+ (_UNARY_MINUS, '@', '&', '|', '^', '!', 'new', 'delete'),
  ('++', '--', '', '', '', '', '', ''),
  ('*', '/', '%', '', '', '', '', ''),
  ('+', '-', '', '', '', '', '', ''),
@@ -219,7 +219,7 @@ End;
 { isRightC }
 Function isRightC(X: String): Boolean;
 Begin
- Result := (X[1] in ['!', '=']) or (X = '++') or (X = '--');
+ Result := (X[1] in ['!', '=']) or (X = '++') or (X = '--') or (X = 'new');
 End;
 
 { isLeftC }
@@ -352,8 +352,9 @@ End;
 Procedure TInterpreter.Parse(EndTokens: TTokenSet; fFoldConstants, fInlineConst: Boolean);
 Var Token: TToken_P;
 
-    Str  : String;
-    Value: TStackValue;
+    Str   : String;
+    Value : TStackValue;
+    TypeID: Integer;
 
     Bracket        : Integer=0;
     Bracket2       : Integer=0;
@@ -396,6 +397,36 @@ Begin
  End;
 
  Compiler.setPosition(TmpPos);
+End;
+
+{ is_a_post_operator }
+Function is_a_post_operator: Boolean;
+Var Pos, BracketDeep: Integer;
+Begin
+ Result := False;
+ Pos    := -2;
+
+ With Compiler do
+  Case next_t(Pos) of
+   _IDENTIFIER : Exit(True);
+   _BRACKET2_CL:
+   Begin
+    BracketDeep := 0;
+
+    Repeat
+     if (-Pos > getPosition) Then
+      Exit(False);
+
+     Case next_t(Pos) of
+      _BRACKET2_OP: Inc(BracketDeep);
+      _BRACKET2_CL: Dec(BracketDeep);
+     End;
+     Dec(Pos);
+    Until (BracketDeep = 0);
+
+    Exit(next_t(Pos) = _IDENTIFIER);
+   End;
+ End;
 End;
 
 Begin
@@ -570,7 +601,7 @@ Begin
      Str := _UNARY_MINUS;
    End;
 
-   if (Expect = eValue) and (Str <> _UNARY_MINUS) and not (Token.Token in [_EXCLM_MARK, _TILDE, _DOUBLE_PLUS, _DOUBLE_MINUS]) Then
+   if (Expect = eValue) and (Str <> _UNARY_MINUS) and not (Token.Token in [_EXCLM_MARK, _TILDE, _DOUBLE_PLUS, _DOUBLE_MINUS, _NEW]) Then
     Compiler.CompileError(eExpectedValue, [Token.Display]);
 
    Expect := eValue;
@@ -604,12 +635,12 @@ Begin
     _TILDE     : StackPush(mtBitwiseNOT, Token);
 
     _DOUBLE_PLUS:
-    if (next_t(-2) = _IDENTIFIER) Then
+    if (is_a_post_operator) Then
      StackPush(mtPostInc, Token) Else
      StackPush(mtPreInc, Token);
 
     _DOUBLE_MINUS:
-    if (next_t(-2) = _IDENTIFIER) Then
+    if (is_a_post_operator) Then
      StackPush(mtPostDec, Token) Else
      StackPush(mtPreDec, Token);
 
@@ -641,6 +672,22 @@ Begin
      StackPush(mtSHREq, Token);
     End Else
      StackPush(mtSHL, Token);
+
+    _NEW:
+    Begin
+     StackPush(mtNew, Token);
+
+     TypeID := read_type(False); // read type
+     StackPush(mtInt, TypeID, Token);
+
+     if (next_t <> _BRACKET2_OP) Then // fast syntax-check
+     Begin
+      read;
+      Compiler.CompileError(eExpected, ['[', next(-1).Display]);
+     End;
+
+     setPosition(getPosition-1);
+    End;
 
     else
      Case Expect of
@@ -734,13 +781,13 @@ Begin
  Repeat
   Value := FinalExpr[Pos];
 
-  // constant
+  { constant value }
   if (Value.Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]) Then
   Begin
    StackPush(Value);
   End Else
 
-  // variable
+  { variable }
   if (Value.Typ = mtVariable) Then
   Begin
    if (Value.Value = 'true') Then // internal constants
@@ -788,7 +835,7 @@ Begin
    StackPush(Value);
   End Else
 
-  // function
+  { function call }
   if (Value.Typ = mtFunction) Then
   Begin
    Node := CreateNode(nil, nil, mtFunction, Value.Value, Value.Token, Value.Deep);
@@ -800,7 +847,7 @@ Begin
    StackPush(mtTree, LongWord(Node));
   End Else
 
-  // operator
+  { operator }
   if (Value.Typ in MOperators) Then
   Begin
    // binary operators
@@ -923,8 +970,19 @@ Begin
     StackPush(mtTree, LongWord(Node));
    End Else
 
-   // other operators
-   if (Value.Typ = mtArrayElement) Then // array element
+   // `new` operator
+   if (Value.Typ = mtNew) Then
+   Begin
+    Node := CreateNode(nil, nil, mtNew, null, Value.Token, Value.Deep);
+
+    Node^.Left  := CreateNodeFromStack;
+    Node^.Right := CreateNodeFromStack;
+
+    StackPush(mtTree, LongWord(Node));
+   End Else
+
+   // array element
+   if (Value.Typ = mtArrayElement) Then
    Begin
     Node := CreateNode(nil, nil, mtArrayElement, null, Value.Token, Value.Deep);
 
@@ -1023,20 +1081,27 @@ End;
 
 { getVariable }
 Function getVariable(Expr: PMExpression; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
+Label Failed;
 Begin
  Result.getArray := 0;
 
+ // is it array element?
  While (Expr^.Typ = mtArrayElement) do
  Begin
   Expr := Expr^.Left;
   Inc(Result.getArray);
  End;
 
+ // just some just-in-case check
+ if (Expr^.Value = null) Then
+  goto Failed;
+
  Result.Name := Expr^.Value;
  Result.ID   := Compiler.findVariable(Result.Name, Expr^.Deep);
 
- if (Result.ID = -1) Then
+ if (Result.ID = -1) Then // variable not found
  Begin
+ Failed:
   With Result do
   Begin
    RegID   := 0;
@@ -1049,7 +1114,7 @@ Begin
   if (FailWhenNotFound) Then
    Error(eUnknownVariable, [Result.Name]);
  End Else
- Begin
+ Begin // variable found
   With Result do
   Begin
    RegID   := Compiler.getVariableRegID(ID);
@@ -1059,7 +1124,7 @@ Begin
 
    if (RegID > 0) Then
     PosStr := 'e'+RegChar+IntToStr(RegID) Else
-    PosStr := '['+IntToStr(RegID)+']';
+    PosStr := '['+IntToStr(RegID-PushedValues)+']';
   End;
  End;
 
@@ -1130,533 +1195,73 @@ Begin
  End;
 End;
 
+{ variables }
+{$I variable_handling.pas}
+
 { CompileSimple }
-Function CompileSimple(out TypeLeft, TypeRight: TVType; const isLeftVariable: Boolean=False): TVType;
-Var Variable   : TRVariable;
-    LeftFirst  : Boolean=False;
-    isComparing: Boolean;
-Begin
- isComparing := Expr^.Typ in [mtEqual, mtDifferent, mtGreater, mtLower, mtGreaterEqual, mtLowerEqual];
-
- if (isLeftVariable) Then
- Begin
-  Variable := getVariable(Left, False);
-
-  TypeLeft  := Variable.Typ;
-  TypeRight := Parse(Right, 2);
- End Else
- Begin
-  if (countLeaves(Right) >= countLeaves(Left)) Then
-  Begin
-   LeftFirst := False;
-   TypeRight := Parse(Right, 2); // right to second register
-   TypeLeft  := Parse(Left, 1); // left to first register
-  End Else
-  Begin
-   LeftFirst := True;
-   TypeLeft  := Parse(Left, 1); // left to first register
-   TypeRight := Parse(Right, 2); // right to second register
-  End;
- End;
-
- // we must 'pop' result back to the corresponding register
- if (LeftFirst) Then
- Begin
-  RePop(Right, TypeRight, 2);
-  RePop(Left, TypeLeft, 1);
- End Else
- Begin
-  RePop(Left, TypeLeft, 1);
-  RePop(Right, TypeRight, 2);
- End;
-
- With Compiler do
- Begin
-  { cast table }
-
-  if (isTypeFloat(TypeLeft)) and (isTypeInt(TypeRight)) Then // extend types { float, int -> float, float }
-  Begin
-   PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
-   TypeRight := TYPE_FLOAT;
-  End;
-
-  if (isTypeInt(TypeLeft)) and (isTypeFloat(TypeRight)) Then // extend types { int, float -> float, float }
-  Begin
-   PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-   TypeLeft := TYPE_FLOAT;
-  End;
-
-  if (isTypeString(TypeLeft)) and (isTypeChar(TypeRight)) and (not isComparing) Then // { string, char -> string, string }
-  Begin
-   if (isTypeInt(TypeRight)) Then
-   Begin
-    PutOpcode(o_mov, ['e'+getTypePrefix(TYPE_CHAR)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
-    TypeRight := TYPE_CHAR;
-   End;
-
-   PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
-   TypeRight := TYPE_STRING;
-  End;
-
-  if (isTypeChar(TypeLeft)) and (isTypeString(TypeRight)) and (not isComparing) Then { char, string -> string, string }
-  Begin
-   if (isTypeInt(TypeRight)) Then
-   Begin
-    PutOpcode(o_mov, ['e'+getTypePrefix(TYPE_CHAR)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-    TypeRight := TYPE_CHAR;
-   End;
-
-   PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-   TypeLeft := TYPE_STRING;
-  End;
-
-  if (isTypeChar(TypeLeft)) and (isTypeInt(TypeRight)) Then // { char, int -> int, int }
-  Begin
-   PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-   TypeLeft := TYPE_INT;
-  End;
-
-  if (isTypeInt(TypeLeft)) and (isTypeChar(TypeRight)) Then // { int, char -> int, int }
-  Begin
-   PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'1', 'e'+getTypePrefix(TypeRight)+'1']);
-   TypeLeft := TYPE_INT;
-  End;
-
-  if (not CompareTypes(TypeLeft, TypeRight)) Then // unsupported operator (eg.`int+string`)
-  Begin
-   Error(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]);
-   Exit;
-  End;
- End;
-
- Result := TypeLeft;
-End;
+{$I compile_simple.pas}
 
 { ParseCompare }
 // <   >   ==   <=   >=   !=
-Procedure ParseCompare;
-Var TypeLeft, TypeRight: TVType;
-    Opcode             : TOpcode_E;
-Begin
- Result := CompileSimple(TypeLeft, TypeRight);
-
- Case Expr^.Typ of
-  mtLower       : Opcode := o_if_l;
-  mtGreater     : Opcode := o_if_g;
-  mtEqual       : Opcode := o_if_e;
-  mtLowerEqual  : Opcode := o_if_le;
-  mtGreaterEqual: Opcode := o_if_ge;
-  mtDifferent   : Opcode := o_if_ne;
- End;
-
- Compiler.PutOpcode(Opcode, ['e'+Compiler.getTypePrefix(TypeLeft)+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
-
- Result      := TYPE_BOOL;
- Push_IF_reg := True;
-End;
+{$I compare.pas}
 
 { ParseArithmeticOperator }
 // +   -   *   /   %   <<   >>
 // +=  -=  *=  /=  %=  <<=  >>=
-Procedure ParseArithmeticOperator(const WithAssign: Boolean);
-Var TypeLeft, TypeRight: TVType;
-    Opcode             : TOpcode_E;
-    Variable           : TRVariable;
-Begin
- if (WithAssign) Then
- Begin
-  if (not isLValue(Left)) Then
-  Begin
-   Error(eLValueExpected, [getDisplay(Left)]);
-   Exit;
-  End;
-
-  Variable := getVariable(Left, True);
-  if (Variable.ID = -1) Then // variable not found
-   Exit;
-
-  if (Variable.getArray <> 0) Then
-   Error(eInternalError, ['Unsupported for now, sorry ;<']);
- End;
-
- // @TODO:
- {
-  var<string> str = "asdf";
-  str[1] += char(1);
-  // str = "bsdf";
- }
-
- Result := CompileSimple(TypeLeft, TypeRight, WithAssign);
-
- Case Expr^.Typ of
-  mtAdd, mtAddEq: if (Compiler.isTypeString(TypeLeft)) Then
-                   Opcode := o_strjoin Else
-                   Opcode := o_add;
-  mtSub, mtSubEq: Opcode := o_sub;
-  mtMul, mtMulEq: Opcode := o_mul;
-  mtDiv, mtDivEq: Opcode := o_div;
-  mtMod, mtModEq: Opcode := o_mod; // @TODO: ints only
-  mtSHL, mtSHLEq: Opcode := o_shl;
-  mtSHR, mtSHREq: Opcode := o_shr;
- End;
-
- if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Compiler.isTypeNumerical(Result))) Then // numerical types only (except '+' and '+=' for strings)
- Begin
-  Error(eUnsupportedOperator, [Compiler.getTypeName(TypeLeft), getDisplay(Expr), Compiler.getTypeName(TypeRight)]);
-  Exit;
- End;
-
- // opcode
- Case WithAssign of
-  True: Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
-  False: Compiler.PutOpcode(Opcode, ['e'+Compiler.getTypePrefix(TypeLeft)+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
- End;
-
- // type-check
- if (WithAssign) Then
-  if (not Compiler.CompareTypes(Variable.Typ, TypeRight)) Then
-   Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeName(TypeRight), Compiler.getTypeName(Variable.Typ)]);
-End;
+{$I arithmetic_operator.pas}
 
 { ParseAssign }
 // =
-Procedure ParseAssign;
-Var Variable: TRVariable;
-    TypeID  : TVType;
-    Index   : Byte;
-    fIndex  : TVType;
-Begin
- { left side is l-value (variable), right side is the expression to parse (value to assign into the variable) }
-
- if (not isLValue(Left)) Then
- Begin
-  Error(eLValueExpected, [getDisplay(Left)]);
-  Exit;
- End;
-
- Variable := getVariable(Left, True);
- if (Variable.ID = -1) Then // variable not found
-  Exit;
-
- if (Variable.getArray = 0) Then // if variable isn't an array
- Begin
-  if (Variable.RegID > 0) Then // if variable is stored in the register, we can directly set variable's value (without using a helper-register)
-  Begin
-   TypeID := Parse(Right, Variable.RegID, Variable.RegChar);
-  End Else // parse expression
-  Begin
-   TypeID := Parse(Right, 1); // parse expression and load it into the first register
-   RePop(Right, TypeID, 1);
-
-   Compiler.__variable_setvalue_reg(Variable.ID, 1, Compiler.getTypePrefix(TypeID), PushedValues);
-  End;
-
-  Compiler.PutOpcode(o_mov, ['e'+Compiler.getTypePrefix(TypeID)+'1', Variable.PosStr]);
-
-  if (not Compiler.CompareTypes(Variable.Typ, TypeID)) Then // type check
-  Begin
-   Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeName(TypeID), Compiler.getTypeName(Variable.Typ)]);
-   Exit;
-  End;
-
-  Exit;
- End;
-
- (* ===== array only ===== *)
-
- Index := Variable.getArray;
-
- if (Index > 1) Then { shouldn't happen, in fact }
-  Error(eInternalError, ['Index > 1']);
-
- if (Index = 1) Then
- Begin
-  fIndex := Parse(Left^.Right, 2); // load current array index element into 'ei2'
-  Compiler.PutOpcode(o_push, ['ei2']);
-  Inc(PushedValues);
-
-  TypeID := Parse(Right, 1); // a value which we want to save into the array load into first register of array's type
-
-  RePop(Right, TypeID, 1);
-
-  Compiler.PutOpcode(o_pop, ['ei2']);
-  Dec(PushedValues);
-  RePop(Left^.Right, fIndex, 1);
-
-  if (not Compiler.isTypeArray(Variable.Typ)) or (not Compiler.isTypeInt(fIndex)) Then // check types (variable must be an array, index must be an int)
-  Begin
-   With Compiler do
-    Error(eInvalidArraySubscript, [getTypeName(Variable.Typ), getTypeName(fIndex)]);
-   Exit;
-  End;
-
-  if (not Compiler.isTypeChar(TypeID)) Then // also temporary solution... this part of code is actually only a partial solution (as we support array operations on string only) :P
-  Begin
-   With Compiler do
-    Error(eWrongTypeInAssign, [Variable.Name, getTypeName(TypeID), getTypeName(TYPE_CHAR)]);
-   Exit;
-  End;
-
-  Compiler.PutOpcode(o_arset, [Variable.PosStr, 'ei2', 'e'+Compiler.getTypePrefix(TypeID)+'1']);
-
-  Result := TYPE_CHAR;
- End;
-End;
+{$I assign.pas}
 
 { ParseLogicalOR }
 // ||
-Procedure ParseLogicalOR;
-Var TypeLeft, TypeRight: TVType;
-Begin
- Result := CompileSimple(TypeLeft, TypeRight);
-
- With Compiler do
-  if (not isTypeBool(Result)) Then
-   Error(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]) Else
-   PutOpcode(o_or, ['eb1', 'eb2']);
-End;
+{$I logical_or.pas}
 
 { ParseLogicalAND }
 // &&
-Procedure ParseLogicalAND;
-Var TypeLeft, TypeRight: TVType;
-Begin
- Result := CompileSimple(TypeLeft, TypeRight);
-
- With Compiler do
-  if (not isTypeBool(Result)) Then
-   Error(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]) Else
-   PutOpcode(o_and, ['eb1', 'eb2']);
-End;
+{$I logical_and.pas}
 
 { ParseBitwiseOR }
 // |
-Procedure ParseBitwiseOR;
-Var TypeLeft, TypeRight: TVType;
-Begin
- Result := CompileSimple(TypeLeft, TypeRight);
-
- With Compiler do
-  if (not isTypeInt(Result)) Then
-   CompileError(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]) Else
-   PutOpcode(o_or, ['ei1', 'ei2']);
-End;
+{$I bitwise_or.pas}
 
 { ParseBitwiseAND }
 // &
-Procedure ParseBitwiseAND;
-Var TypeLeft, TypeRight: TVType;
-Begin
- Result := CompileSimple(TypeLeft, TypeRight);
-
- With Compiler do
-  if (not isTypeInt(Result)) Then
-   CompileError(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]) Else
-   PutOpcode(o_and, ['ei1', 'ei2']);
-End;
+{$I bitwise_and.pas}
 
 { ParseXOR }
 // ^
-Procedure ParseXOR;
-Var TypeLeft, TypeRight: TVType;
-Begin
- Result := CompileSimple(TypeLeft, TypeRight);
-
- With Compiler do
- Begin
-  if (isTypeInt(Result)) Then
-   PutOpcode(o_xor, ['ei1', 'ei2']) Else
-  if (isTypeBool(Result)) Then
-   PutOpcode(o_xor, ['eb1', 'eb1']) Else
-   CompileError(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)])
- End;
-End;
+{$I xor.pas}
 
 { ParseCall }
 // ()
-Procedure ParseCall;
-Var FuncID, Param, TypeID: Integer;
-Begin
- FuncID := Compiler.findFunction(Expr^.Value); // get function ID
-
- if (FuncID = -1) Then // function not found
- Begin
-  FuncID := Compiler.findTypeByName(Expr^.Value); // so, is it a type-casting?
-
-  if (FuncID = -1) Then // No, it's not ;<
-  Begin
-   Error(eUnknownFunction, [Expr^.Value]);
-   Exit;
-  End;
-
-  // Yes, it is - so do casting
-  if (Length(Expr^.ParamList) <> 1) Then
-  Begin
-   Error(eWrongParamCount, [Expr^.Value, Length(Expr^.ParamList), 1]);
-   Exit;
-  End;
-
-  // load a value to cast onto the register
-  Expr^.ResultOnStack := False;
-  TypeID := Parse(Expr^.ParamList[0], 1, Compiler.getTypePrefix(FuncID));
-
-  Result := FuncID;
-
-  // ... but fail on `void`-casting (from `void` or to `void`)
-  if (Compiler.isTypeVoid(Result) or Compiler.isTypeVoid(TypeID)) Then
-   Error(eVoidCasting, []);
-
-  Exit;
- End;
-
- With Compiler.FunctionList[FuncID] do
- Begin
-  // check param count
-  if (Length(Expr^.ParamList) <> Length(ParamList)) Then
-  Begin
-   Error(eWrongParamCount, [Name, Length(ParamList), Length(Expr^.ParamList)]);
-   Exit;
-  End;
-
-  // push parameters onto the stack
-  For Param := Low(ParamList) To High(ParamList) Do
-  Begin
-   TypeID := Parse(Expr^.ParamList[Param], -1);
-
-   With Compiler do
-    if (not CompareTypes(ParamList[High(ParamList)-Param].Typ, TypeID)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Expr^.Value, High(ParamList)-Param+1, getTypeName(TypeID), getTypeName(ParamList[High(ParamList)-Param].Typ)]);
-  End;
-
-  Dec(PushedValues, Length(ParamList));
-
-  // call function
-  Compiler.PutOpcode(o_call, [':'+MName]);
-
-  Result := Return;
- End;
-End;
+{$I call.pas}
 
 { ParsePIncDec }
 // ++
 // --
-Procedure ParsePIncDec;
-Var Variable: TRVariable;
-Begin
- // left side have to be a l-value
- if (not islValue(Left)) Then
- Begin
-  Error(eLValueExpected, [getDisplay(Left)]);
-  Exit;
- End;
-
- Variable := getVariable(Expr^.Left, True);
- if (Variable.ID = -1) Then // variable not found
-  Exit;
-
- if (not Compiler.isTypeNumerical(Variable.Typ)) Then
-  if (Expr^.Typ in [mtPreInc, mtPreDec]) Then
-   Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeName(Variable.Typ)]) Else
-   Error(eUnsupportedUOperator, [Compiler.getTypeName(Variable.Typ), getDisplay(Expr)]);
-
- if (Expr^.Typ in [mtPostInc, mtPostDec]) and (isSubCall) Then
-  Compiler.PutOpcode(o_mov, ['e'+Variable.RegChar+'1', Variable.PosStr]);
-
- Case Expr^.Typ of
-  mtPreInc, mtPostInc: Compiler.PutOpcode(o_add, [Variable.PosStr, 1]);
-  mtPreDec, mtPostDec: Compiler.PutOpcode(o_sub, [Variable.PosStr, 1]);
- End;
-
- if (Expr^.Typ in [mtPreInc, mtPreDec]) and (isSubCall) Then
-  Compiler.PutOpcode(o_mov, ['e'+Variable.RegChar+'1', Variable.PosStr]);
-
- Result := Variable.Typ;
-End;
+{$I pre_post_inc_dec.pas}
 
 { ParseNEG }
 // -
-Procedure ParseNEG;
-Begin
- // load value into the first register
- Result := Parse(Left, 1);
- RePop(Left, Result, 1);
-
- if (not Compiler.isTypeNumerical(Result)) Then // numerical types only
- Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeName(Result)]);
-  Exit;
- End;
-
- Compiler.PutOpcode(o_neg, ['e'+Compiler.getTypePrefix(Result)+'1']);
-End;
+{$I neg.pas}
 
 { ParseLogicalNOT }
 // !
-Procedure ParseLogicalNOT;
-Begin
- // load value into the first register
- Result := Parse(Left, 1);
- RePop(Left, Result, 1);
-
- if (not Compiler.isTypeInt(Result)) and (not Compiler.isTypeBool(Result)) Then
- Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeName(Result)]);
-  Exit;
- End;
-
- if (Compiler.isTypeInt(Result)) Then // implicit cast: int->bool
-  Compiler.PutOpcode(o_mov, ['eb1', 'ei1']);
-
- Compiler.PutOpcode(o_not, ['eb1']);
-
- Result := TYPE_BOOL;
-End;
+{$I logical_not.pas}
 
 { ParseBitwiseNOT }
 // ~
-Procedure ParseBitwiseNOT;
-Begin
- // load value into the first register
- Result := Parse(Left, 1);
- RePop(Left, Result, 1);
-
- if (not Compiler.isTypeInt(Result)) Then
- Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeName(Result)]);
-  Exit;
- End;
-
- Compiler.PutOpcode(o_not, ['ei1']);
-End;
+{$I bitwise_not.pas}
 
 { ParseArrayElement }
 // []
-Procedure ParseArrayElement;
-Var vArray, vIndex: TVType;
-Begin
- vArray := Parse(Left, 1); // array to the first register (es1/er1)
- vIndex := Parse(Right, 1); // so do the index (ei1)
+{$I array_element.pas}
 
- RePop(Right, vIndex, 1);
- RePop(Left, vArray, 1);
-
- if (not Compiler.isTypeArray(vArray)) Then // must be an array
- Begin
-  Error(eUnsupportedUOperator, [Compiler.getTypeName(vArray), getDisplay(Expr)]);
-  Exit;
- End;
-
- if (not Compiler.isTypeInt(vIndex)) Then // index must be a numeric value
- Begin
-  Error(eWrongType, [Compiler.getTypeName(vIndex), Compiler.getTypeName(TYPE_INT)]);
-  Exit;
- End;
-
- // @TODO: it's a temporary solution (until I'll write code for array support)
- Compiler.PutOpcode(o_arget, ['es1', 'ei1', 'ec1']); { ec1 = es1[ei1] }
-
- Result := TYPE_CHAR;
-End;
+{ ParseNEW }
+// new
+{$I new.pas}
 
 Var Variable: TRVariable;
 Label Over;
@@ -1677,13 +1282,13 @@ Begin
   End;
 
   // load value onto the register `FinalRegID`
-  if (Expr^.Typ = mtVariable) Then // is variable...
+  if (Expr^.Typ = mtVariable) Then // if variable...
   Begin
    Variable := getVariable(Expr, False, True);
 
    if (Variable.ID = -1) Then // variable not found
    Begin
-    if (Variable.Name = '__line') and (_SCONST in Compiler.Options) Then // special variable
+    if (Variable.Name = '__line') and (_SCONST in Compiler.Options) Then // is it a special variable?
     Begin
      if (FinalRegChar = #0) Then
       FinalRegChar := 'i';
@@ -1696,7 +1301,7 @@ Begin
       End;
 
      Exit(TYPE_INT);
-    End Else
+    End Else // no, it's not... so - display error
     Begin
      Error(eUnknownVariable, [Variable.Name]);
      Exit;
@@ -1707,11 +1312,8 @@ Begin
     FinalRegChar := Variable.RegChar;
 
    if (FinalRegID > 0) Then
-    Compiler.__variable_getvalue_reg(Variable.ID, FinalRegID, FinalRegChar, PushedValues) Else // load a variable's value into the register
-    Begin
-     Compiler.__variable_getvalue_stack(Variable.ID, PushedValues);
-     Inc(PushedValues);
-    End;
+    __variable_getvalue_reg(Variable.ID, FinalRegID, FinalRegChar) Else // load a variable's value into the register
+    __variable_getvalue_stack(Variable.ID);
 
    Result := Variable.Typ;
   End Else
@@ -1771,6 +1373,7 @@ Begin
  // parse other operators
  Case Expr^.Typ of
   mtArrayElement: ParseArrayElement;
+  mtNew         : ParseNEW;
  End;
 
 Over:

@@ -3,15 +3,15 @@ Unit Messages;
  Interface
 
  Type TCompileError =
- (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eNotAllowed,
+ (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedType, eNotAllowed,
   eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
-  eVarVoid, eParamVoid, eVoidCasting, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign,
+  eVarVoid, eParamVoid, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
-                                           eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
-                                           eUnknownMacro];
+                                           eExpectedDeclOrDef, eExpectedType, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
+                                           eUnknownMacro, eInvalidExpression];
 
  Const CompileError_fmt: Array[TCompileError] of String =
  (
@@ -23,6 +23,7 @@ Unit Messages;
   'Syntax error: expected operator but `%s` found',
   'Syntax error: expected value but `%s` found',
   'Syntax error: expected declaration or definition but `%s` found',
+  'Syntax error: expected type but `%s` found',
   'Syntax error: `%s` not allowed here',
   'Redeclaration of identifier: `%s`',
   'Expected l-value but `%s` found',
@@ -34,7 +35,7 @@ Unit Messages;
   'Unsupported unary operator: %s %s',
   'Division by zero',
   'Wrong number of parameters (in call to `%s`) - expected %d got %d',
-  'Invalid types ''%s[%s]'' for array subscript',
+  'Invalid types ''%s [%s]'' for array subscript',
   'Unknown include file: ''%s''',
   'Corrupted SSM file: ''%s''',
   'String exceeds line',
@@ -43,9 +44,12 @@ Unit Messages;
   'Variable ''%s'' declared as void',
   'Parameter ''%s'' declared as void',
   'Cannot cast from or to ''void'' type',
+  'Array declared as void',
   'Expected constant value',
   'Wrong type (in call to ''%s'', param #%d) - got `%s` expected `%s`',
   'Wrong type (in assignment to ''%s'') - got `%s` expected `%s`',
+  'Invalid array assignment',
+  'Invalid expression',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

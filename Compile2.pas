@@ -467,7 +467,7 @@ Begin
   { header }
   write_byte($53);
   write_byte($53);
-  write_byte($03);
+  write_byte($04);
   write_byte(SectionsCount); { sections count }
 
   DataBegin := 4+SectionsCount*9; // header size + 4*section size

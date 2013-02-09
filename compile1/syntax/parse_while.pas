@@ -32,20 +32,22 @@ Begin
  NewScope(sWHILE, Str+'condition', Str+'end');
  Inc(CurrentDeep);
 
- // condition
+ { condition }
  Condition := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]);
 
  C.Values[0] := Condition.Values[0];
  C.Values[1] := Str;
  AddConstruction(C);
 
- // parse loop's code
+ { parse loop's code }
  ParseCodeBlock(True);
 
+ { loop end }
  C.Typ := ctWHILE_end;
  SetLength(C.Values, 0);
  AddConstruction(C);
 
+ { remove scope }
  Dec(CurrentDeep);
  RemoveScope;
 End;
@@ -66,27 +68,28 @@ Begin
  NewScope(sWHILE, Str+'begin', Str+'end');
  Inc(CurrentDeep);
 
- // loop begin
+ { loop begin }
  SetLength(C.Values, 1);
  C.Typ       := ct_DO_WHILE;
  C.Values[0] := Str;
  AddConstruction(C);
 
- // parse loop's code
+ { parse loop's code }
  ParseCodeBlock(True);
 
- // condition
+ { condition }
  eat(_WHILE);
  eat(_BRACKET1_OP); // (
  Condition := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]);
  semicolon;
 
- // loop end
+ { loop end }
  SetLength(C.Values, 1);
  C.Typ       := ct_DO_WHILE_END;
  C.Values[0] := Condition.Values[0];
  AddConstruction(C);
 
+ { remove scope }
  Dec(CurrentDeep);
  RemoveScope;
 End;

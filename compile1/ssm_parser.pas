@@ -8,7 +8,7 @@ Unit SSM_parser;
  Interface
  Uses Compile1, Compile2, Opcodes, MTypes, Messages;
 
- Const Header: Array[0..2] of Byte = ($53, $4D, $03);
+ Const Header: Array[0..2] of Byte = ($53, $4D, $04);
 
  Type TSSM = Class
               Private
@@ -50,7 +50,10 @@ Unit SSM_parser;
  Implementation
 Uses SysUtils, Variants;
 
-{ TSSM.write_byte }
+(* TSSM.write_byte *)
+{
+ Writes a byte into the output file
+}
 Procedure TSSM.write_byte(V: Byte);
 Begin
  PByte(Output+OutputPos)^ := V;
@@ -58,7 +61,10 @@ Begin
  Inc(OutputPos, sizeof(V));
 End;
 
-{ TSSM.write_longword }
+(* TSSM.write_longword *)
+{
+ Writes a longword value into the output file
+}
 Procedure TSSM.write_longword(V: LongWord);
 Begin
  PLongWord(Output+OutputPos)^ := V;
@@ -66,7 +72,10 @@ Begin
  Inc(OutputPos, sizeof(V));
 End;
 
-{ TSSM.write_word }
+(* TSSM.write_word *)
+{
+ Writes a word value into the output file
+}
 Procedure TSSM.write_word(V: Word);
 Begin
  PWord(Output+OutputPos)^ := V;
@@ -74,7 +83,10 @@ Begin
  Inc(OutputPos, sizeof(V));
 End;
 
-{ TSSM.write_integer }
+(* TSSM.write_integer *)
+{
+ Writes an integer value into the output file
+}
 Procedure TSSM.write_integer(V: Integer);
 Begin
  PInteger(Output+OutputPos)^ := V;
@@ -82,7 +94,10 @@ Begin
  Inc(OutputPos, sizeof(V));
 End;
 
-{ TSSM.write_extended }
+(* TSSM.write_extended *)
+{
+ Writes an extended value into the output file
+}
 Procedure TSSM.write_extended(V: Extended);
 Begin
  PExtended(Output+OutputPos)^ := V;
@@ -90,7 +105,10 @@ Begin
  Inc(OutputPos, sizeof(V));
 End;
 
-{ TSSM.write_string }
+(* TSSM.write_string *)
+{
+ Writes a string value into the output file
+}
 Procedure TSSM.write_string(V: String);
 Var Ch: Char;
 Begin
@@ -99,31 +117,46 @@ Begin
  write_byte(0);
 End;
 
-{ TSSM.read_byte }
+(* TSSM.read_byte *)
+{
+ Reads a byte from the input file
+}
 Function TSSM.read_byte: Byte;
 Begin
  BlockRead(FFile, Result, sizeof(Result));
 End;
 
-{ TSSM.read_longword }
+(* TSSM.read_longword *)
+{
+ Reads a longword value from the input file
+}
 Function TSSM.read_longword: LongWord;
 Begin
  BlockRead(FFile, Result, sizeof(Result));
 End;
 
-{ TSSM.read_integer }
+(* TSSM.read_integer *)
+{
+ Reads an integer value from the input file
+}
 Function TSSM.read_integer: Integer;
 Begin
  BlockRead(FFile, Result, sizeof(Result));
 End;
 
-{ TSSM.read_extended }
+(* TSSM.read_extended *)
+{
+ Reads an extended value from the input file
+}
 Function TSSM.read_extended: Extended;
 Begin
  BlockRead(FFile, Result, sizeof(Result));
 End;
 
-{ TSSM.WriteExports }
+(* TSSM.WriteExports *)
+{
+ Writes export list into the output file
+}
 Procedure TSSM.WriteExports;
 Var Ex: TMExport;
 Begin
@@ -134,7 +167,7 @@ Begin
   if (Ex.Pos = -1) Then
    C1.CompileError(eBytecode_ExportNotFound, [Ex.Name]);
 
-  if (Ex.Pos < 0) or (Ex.Pos > High(C2.LabelList)) Then
+  if (Ex.Pos < 0) or (Ex.Pos > High(C2.LabelList)) Then // shouldn't happen
    C1.CompileError(eInternalError, ['Invalid `Ex.Pos`']);
 
   Ex.Pos := C2.LabelList[Ex.Pos].Position;
@@ -143,7 +176,10 @@ Begin
  End;
 End;
 
-{ TSSM.WriteOpcodes }
+(* TSSM.WriteOpcodes *)
+{
+ Writes opcodes into the output file
+}
 Procedure TSSM.WriteOpcodes;
 Var Opcode: PMOpcode;
     Arg   : TMOpcodeArg;
@@ -188,7 +224,10 @@ Begin
   End;
 End;
 
-{ TSSM.ReadExports }
+(* TSSM.ReadExports *)
+{
+ Reads an export list from the input file
+}
 Procedure TSSM.ReadExports;
 Var I, Count: LongWord;
 Begin
@@ -209,7 +248,10 @@ Begin
  End;
 End;
 
-{ TSSM.ReadOpcodes }
+(* TSSM.ReadOpcodes *)
+{
+ Reads opcodes from the input file
+}
 Function TSSM.ReadOpcodes: Boolean;
 Var Size, Pos: LongWord;
     I        : Integer;
@@ -237,9 +279,11 @@ Begin
 
  Pos := 0;
 
+ { read exports' names }
  For I := Low(mExportList) To High(mExportList) Do
   mExportList[I].Name := getString(mExportList[I].NamePos);
 
+ { read opcodes }
  While (Pos < Size) do
  Begin
   For I := Low(mExportList) To High(mExportList) Do
@@ -255,10 +299,16 @@ Begin
   Inc(Pos);
  End;
 
+ { success! :) }
  Exit(True);
 End;
 
-{ TSSM.Create_SSM }
+(* TSSM.Create_SSM *)
+{
+ Saves a SSM file.
+ pC1 -> pointer to Compile1.TCompiler
+ pC2 -> pointer to Compile2.TCompiler
+}
 Function TSSM.Create_SSM(OutputFile: String; pC1, pC2: Pointer): TSSM;
 Var Ch: Char;
 Begin
@@ -267,11 +317,10 @@ Begin
 
  Result := self;
 
- Output    := AllocMem(10*1024*1024); // 10 MB should be enough...
+ Output    := AllocMem(15*1024*1024); // 15 MB should be enough, I guess...
  OutputPos := 0;
 
  Try
-  { write header }
   write_byte(Header[0]);
   write_byte(Header[1]);
   write_byte(Header[2]);
@@ -285,10 +334,14 @@ Begin
   raise;
  End;
 
+ { save buffer }
  AssignFile(FFile, OutputFile);
  Rewrite(FFile);
  BlockWrite(FFile, Output[0], OutputPos);
  CloseFile(FFile);
+
+ { free memory }
+ FreeMem(Output);
 End;
 
 { TSSM.Load }
@@ -301,7 +354,7 @@ Begin
 
  ResolveLabelsNames := fResolveLabelsNames;
 
- if (not FileExists(InputFile)) Then
+ if (not FileExists(InputFile)) Then // is file found?
   Exit;
 
  Try

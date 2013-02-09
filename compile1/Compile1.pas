@@ -7,12 +7,12 @@ Unit Compile1;
  Interface
  Uses Classes, SysUtils, Variants, FGL,
       Tokens, CompilerUnit, Scanner, Opcodes, Messages, MTypes,
-      Parse_Function, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include;
+      Parse_Function, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include, Parse_DELETE;
 
  { constants }
  Const DEF_STACKSIZE = 1000000; // default stack size for compiled app
-       Version       = '2.1'; // version of the compiler
-       iVersion      = 2.1;
+       Version       = '2.2 nightly'; // version of the compiler
+       iVersion      = 2.2;
 
  { types }
  // TMScope
@@ -80,7 +80,7 @@ Unit Compile1;
                     Function next(const I: Integer=0): TToken_P;
                     Function next_t(const I: Integer=0): TToken;
                     Function read_ident: String;
-                    Function read_type: TVType;
+                    Function read_type(const AllowArrays: Boolean=True): TVType;
                     Procedure eat(Token: TToken);
                     Procedure semicolon;
                     Function getToken(const I: Integer=0): TToken_P;
@@ -96,20 +96,31 @@ Unit Compile1;
                     Procedure PutComment(fComment: String);
 
                     { type handling functions }
-                    Procedure NewType(fName: String; fRegPrefix: Char; fInternalID, fArrayDimCount: Byte);
+                    Function NewType(fName: String; fRegPrefix: Char; fInternalID, fArrayDimCount: Byte): Integer;
+                    Function NewType(Typ: TMType): Integer;
+
                     Function findTypeByName(Name: String): TVType;
+                    Function findType(Typ: TMType): Integer;
+
+                    Function generateTypeName(const Typ: TMType; DecStringArray: Boolean=True): String;
+
                     Function getTypeName(ID: TVType): String;
                     Function getTypePrefix(ID: TVType): Char;
                     Function getTypeFromExpr(Expr: TMExpression): TVType;
-                    Function CompareTypes(T1, T2: TVType): Boolean;
+
+                    Function getArrayBaseType(ID: TVType): TVType;
+
+                    Function CompareTypes(T2, T1: TVType): Boolean;
+
                     Function isTypeVoid(ID: TVType): Boolean;
                     Function isTypeString(ID: TVType): Boolean;
                     Function isTypeNumerical(ID: TVType): Boolean;
                     Function isTypeBool(ID: TVType): Boolean;
                     Function isTypeInt(ID: TVType): Boolean;
                     Function isTypeFloat(ID: TVType): Boolean;
-                    Function isTypeArray(ID: TVType): Boolean;
                     Function isTypeChar(ID: TVType): Boolean;
+                    Function isTypeArray(ID: TVType; const RegardStringAsArray: Boolean=True): Boolean;
+                    Function isTypeObject(ID: TVType): Boolean;
 
                     { scope handling functions }
                     Procedure NewScope(const Typ: TMScopeType; LoopBegin: String=''; LoopEnd: String='');
@@ -122,10 +133,8 @@ Unit Compile1;
                     Function getVariableRegID(ID: Integer): Integer;
                     Function getVariableRegChar(ID: Integer): Char;
                     Function isVariableConstant(ID: Integer): Boolean;
+
                     Procedure __variable_create(fName: String; fTyp: TVType; fRegID: Integer; fIsParam: Boolean);
-                    Procedure __variable_setvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
-                    Procedure __variable_getvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
-                    Procedure __variable_getvalue_stack(VarID: Integer; const PushedValues: Integer=0);
 
                     Function isConstValue(Expr: TMExpression): Boolean;
 
@@ -338,7 +347,7 @@ Begin
    End;
 
    { opcode }
-   Str := Opcodes.OpcodeList[ord(Opcode)].Name+'('; // fetch opcode name
+   Str := Opcodes.OpcodeList[ord(Opcode)].Name+'('; // fetch current opcode's name
 
    { opcode's parameters }
    For Arg in Args Do
@@ -537,29 +546,73 @@ End;
 
 { TCompiler.read_type }
 (*
- Reads a type name or a full type (based on current token); returns its ID.
+ Reads a type name or a full type (based on current token) and returns its ID.
 *)
-Function TCompiler.read_type: TVType;
-Var Token: TToken_P;
+Function TCompiler.read_type(const AllowArrays: Boolean=True): TVType;
+Var Base : TVType;
+    Typ  : TMType;
+    Token: TToken_P;
+
+    isArray, isStringBased: Boolean;
 Begin
  Result := -1;
  Token  := read;
 
+ { read current token }
  Case Token.Token of
-  _IDENTIFIER: Result := findTypeByName(Token.Display);
+  _IDENTIFIER: Base := findTypeByName(Token.Display);
   else CompileError(eExpectedIdentifier, [Token.Display]);
  End;
 
- if (Result = -1) Then
+ { check for primary type existence }
+ if (Base = -1) Then
  Begin
-  CompileError(eUnknownType, [Token.Display]);
-  Exit(TYPE_ANY);
+  CompileError(eExpectedType, [Token.Display]);
+  Exit;
  End;
+
+ Typ           := TypeTable[Base];
+ isStringBased := (Typ = TypeTable[TYPE_STRING]);
+
+ { is it an array (is the next token a `[`)? }
+ While (next_t = _BRACKET2_OP) and (AllowArrays) Do
+ Begin
+  if (isTypeVoid(Base)) Then // `void` array cannot be created (it would destroy our universe)
+  Begin
+   CompileError(eVoidArray);
+   Exit;
+  End;
+
+  eat(_BRACKET2_OP);
+  eat(_BRACKET2_CL);
+
+  Inc(Typ.ArrayDimCount);
+ End;
+
+ if (isStringBased) Then // is it an array?
+  isArray := Typ.ArrayDimCount > 1 Else
+  isArray := Typ.ArrayDimCount > 0;
+
+ if (isArray) Then
+ Begin
+  Typ.RegPrefix := 'r';
+  Typ.ArrayBase := Base;
+
+  if (isStringBased) Then
+  Begin
+   Typ.ArrayBase := TYPE_STRING;
+  // Dec(Typ.ArrayDimCount);
+  End;
+ End;
+
+ { set result }
+ Typ.Name := generateTypeName(Typ);
+ Result   := NewType(Typ);
 End;
 
 { TCompiler.eat }
 (*
- 'eats' a specified token; if current token isn't `Token`, displays a syntax error
+ 'eats' a specified token (if current token isn't token passed in the parameter, displays a syntax error).
 *)
 Procedure TCompiler.eat(Token: TToken);
 Begin
@@ -569,7 +622,7 @@ End;
 
 { TCompiler.semicolon }
 (*
- Eats a semicolon
+ Eats a semicolon (`_SEMICOLON` token)
 *)
 Procedure TCompiler.semicolon;
 Begin
@@ -648,10 +701,12 @@ End;
 
 Var Name: String;
 Begin
+ { read identifier }
  if (next_t = _IDENTIFIER) Then
  Begin
   Name := read_ident;
   eat(_BRACKET1_OP);
+  { parse macro }
   Case Name of
    'visibility': _visibility;
    else CompileError(eUnknownMacro, [Name]);
@@ -661,6 +716,7 @@ Begin
   Parse_include.Parse(self);
 End;
 
+// main block
 Var Token : TToken_P;
     TmpVis: TMVisibility;
 Begin
@@ -669,6 +725,7 @@ Begin
  if (Length(Scope) = 0) Then // outside the function
  Begin
   Case Token.Token of
+   { public }
    _PUBLIC:
    Begin
     TmpVis     := Visibility;
@@ -677,6 +734,7 @@ Begin
     Visibility := TmpVis;
    End;
 
+   { private }
    _PRIVATE:
    Begin
     TmpVis     := Visibility;
@@ -684,6 +742,8 @@ Begin
     ParseToken;
     Visibility := TmpVis;
    End;
+
+   { other }
 
    _CONST   : Parse_CONST.Parse(self, True);
    _FUNCTION: Parse_Function.Parse(self);
@@ -705,10 +765,11 @@ Begin
    _ELSE       : CompileError(eNotAllowed, ['else']);
    _WHILE      : Parse_WHILE.Parse(self);
    _DO         : Parse_WHILE.Parse_DO_WHILE(self);
+   _DELETE     : Parse_DELETE.Parse(self);
    _BREAK      : ParseBreak;
    _CONTINUE   : ParseContinue;
 
-   _SEMICOLON:
+   _SEMICOLON: // at pure semicolon, don't do anything
 
    Else
    Begin
@@ -763,7 +824,7 @@ Var I, T: Integer;
 
     DoCheck: Boolean;
 Begin
- DoCheck := (fTokenPos <> 0); // check only bytecode generated by user
+ DoCheck := (fTokenPos <> 0); // check only bytecode written by user
 
  if (fTokenPos = 0) Then
   fTokenPos := TokenPos;
@@ -891,12 +952,12 @@ Begin
   Compiler := self;
  End;
 
- // check opcode
+ { check opcode }
  if (DoCheck) Then
   if (not isValidOpcode(Item^)) Then
    CompileError(Item^.Token^, eBytecode_InvalidOpcode, []);
 
- // add into the list
+ { ...and add it into the list }
  OpcodeList.Add(Item);
 End;
 
@@ -921,7 +982,8 @@ End;
 { TCompiler.PutLabel }
 (*
  Puts label, either directly into the code (when `asConstruction` = false) or as a construction
- (so the label will be created next to the previous opcodes), when `asConstruction` = true.
+ (so the label will be created next to the previous opcode), when `asConstruction` = true.
+ At least one function have to be created, when enabling `asConstruction`
 
  Sample code:
   PutLabel('first', False);
@@ -987,21 +1049,44 @@ End;
 
 { TCompiler.NewType }
 (*
- Adds new type into the type list; should be used only for creating an internal types
+ Adds new type into the type list; should be used only for creating internal types
 *)
-Procedure TCompiler.NewType(fName: String; fRegPrefix: Char; fInternalID, fArrayDimCount: Byte);
+Function TCompiler.NewType(fName: String; fRegPrefix: Char; fInternalID, fArrayDimCount: Byte): Integer;
 Begin
- SetLength(TypeTable, High(TypeTable)+2);
- With TypeTable[High(TypeTable)] do
+ SetLength(TypeTable, Length(TypeTable)+1);
+ Result := High(TypeTable);
+ With TypeTable[Result] do
  Begin
   Name      := fName;
   RegPrefix := fRegPrefix;
 
-  InternalID    := fInternalID;
+  InternalID := fInternalID;
+
+  ArrayBase     := TYPE_ANY;
   ArrayDimCount := fArrayDimCount;
 
   isStrict := False;
  End;
+End;
+
+{ TCompiler.NewType }
+(*
+ Adds new type into the type list; checks for duplicates.
+*)
+Function TCompiler.NewType(Typ: TMType): Integer;
+Var I: Integer;
+Begin
+ I := findType(Typ);
+ if (I <> -1) Then
+  Exit(I);
+
+ //I := findTypeByName(Typ.Name);
+ //if (I <> -1) Then
+ // Exit(I);
+
+ SetLength(TypeTable, Length(TypeTable)+1);
+ Result            := High(TypeTable);
+ TypeTable[Result] := Typ;
 End;
 
 { TCompiler.findTypeByName }
@@ -1017,6 +1102,37 @@ Begin
  For I := Low(TypeTable) To High(TypeTable) Do
   if (TypeTable[I].Name = Name) Then
    Exit(I);
+End;
+
+{ TCompiler.findType }
+(*
+ Searches for some specific type in the type table
+*)
+Function TCompiler.findType(Typ: TMType): Integer;
+Var I: Integer;
+Begin
+ Result := -1;
+
+ For I := Low(TypeTable) To High(TypeTable) Do
+  if (TypeTable[I] = Typ) Then
+   Exit(I);
+End;
+
+{ TCompiler.generateTypeName }
+(*
+ Generates type name, based on particular type.
+ Result can be eg. `int[]`, `string[]`, `char[]` (...)
+*)
+Function TCompiler.generateTypeName(const Typ: TMType; DecStringArray: Boolean=True): String;
+Var I: Integer;
+Begin
+ if (isTypeString(Typ.ArrayBase)) and (DecStringArray) Then
+  I := Typ.ArrayDimCount-1 Else
+  I := Typ.ArrayDimCount;
+
+ Result := getTypeName(Typ.ArrayBase);
+ For I := 1 To I Do
+  Result += '[]';
 End;
 
 { TCompiler.getTypeName }
@@ -1062,36 +1178,77 @@ Begin
  End;
 End;
 
+{ TCompiler.getArrayBaseType }
+Function TCompiler.getArrayBaseType(ID: TVType): TVType;
+Begin
+ if (ID < 0) or (ID > High(TypeTable)) Then
+  Exit(TYPE_ANY);
+
+ Result := TypeTable[ID].ArrayBase;
+End;
+
 { TCompiler.CompareTypes }
 (*
- Compares two types
+ Compares two types.
+
+ Function should be understand as:
+ [ CompareTypes(Type 1, Type 2) ]
+ Result = true, when `Type 1` can be assigned into `Type 2`.
+
+ ----------------------------------
+ ... also, `T2, T1` is a correct order in the parameter list, because of my some mistake in the beginning of writing this compiler...
 *)
-Function TCompiler.CompareTypes(T1, T2: TVType): Boolean;
+Function TCompiler.CompareTypes(T2, T1: TVType): Boolean;
 Begin
  Result := True;
 
- if (T1 = TYPE_VOID) and (T2 <> TYPE_VOID) Then
+ if (TypeTable[T1].isStrict) or (TypeTable[T2].isStrict) Then
+  Exit(T1 = T2);
+
+ if (T1 = TYPE_ANY) or (T2 = TYPE_ANY) Then // any or any => true
+  Exit(True);
+
+ { compare arrays }
+ if (isTypeArray(T1) and isTypeArray(T2)) Then
+ Begin
+  Exit(
+  (TypeTable[TypeTable[T2].ArrayBase].InternalID = TypeTable[TypeTable[T1].ArrayBase].InternalID) and // arrays' base types must be correct
+  (TypeTable[T1].ArrayDimCount = TypeTable[T2].ArrayDimCount) // and also their dimensions amount must be the same
+  );
+ End Else
+
+ { comparing array with non-array always returns false (except `string` with `char`) }
+ if (isTypeArray(T1) and (not isTypeArray(T2))) or ((not isTypeArray(T1)) and (isTypeArray(T2))) Then
+ Begin
+  if (isTypeChar(T1)) and (isTypeString(T2)) Then
+   Exit(True);
+
+  if (isTypeString(T1)) and (isTypeChar(T2)) Then
+   Exit(True);
+
   Exit(False);
+ End Else
 
- if (T1 = TYPE_ANY) or (T2 = TYPE_ANY) Then
-  Exit(True);
+ { compare-table for simple (primary) types }
+ Begin
+  if (isTypeVoid(T1)) and (not isTypeVoid(T2)) Then // void to non void => false
+   Exit(False);
 
- if (T1 = TYPE_FLOAT) and (T2 = TYPE_INT) Then
-  Exit(True);
+  if (isTypeInt(T1)) and (isTypeFloat(T2)) Then // int to float => true
+   Exit(True);
 
- if (T1 = TYPE_CHAR) and (T2 = TYPE_INT) Then
-  Exit(True);
+  if (isTypeInt(T1)) and (isTypeChar(T2)) Then // int to char => true
+   Exit(True);
 
- if (T1 = TYPE_INT) and (T2 = TYPE_CHAR) Then
-  Exit(True);
+  if (isTypeChar(T1)) and (isTypeInt(T2)) Then // char to int => true
+   Exit(True);
 
- if (T1 = TYPE_BOOL) and (T2 = TYPE_INT) Then
-  Exit(True);
+  if (isTypeInt(T1)) and (isTypeBool(T2)) Then // int to bool => true (as it's supported by the VM)
+   Exit(True);
+ End;
 
- //if (T1 = TYPE_STRING) and (T2 = TYPE_CHAR) Then
- // Exit(True);
-
- Exit(T1 = T2);
+ { compare types }
+ Exit(TypeTable[T1] = TypeTable[T2]);
 End;
 
 { TCompiler.isTypeVoid }
@@ -1152,7 +1309,7 @@ End;
 { TCompiler.isTypeFloat }
 (*
  Returns `true`, when type passed in parameter is `float`-derived; in other case, returns `false`.
- @Note: Also returns `false` when type is `int`!
+ @Note: Also returns `false` when passed type is `int`!
 *)
 Function TCompiler.isTypeFloat(ID: TVType): Boolean;
 Begin
@@ -1161,27 +1318,46 @@ Begin
  Exit(TypeTable[ID].InternalID = TYPE_FLOAT);
 End;
 
-{ TCompiler.isTypeArray }
-(*
- Returns `true`, when type passed in parameter is array; in other case, returns `false`.
-*)
-Function TCompiler.isTypeArray(ID: TVType): Boolean;
-Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
-  Exit(False);
- Exit(TypeTable[ID].InternalID = TYPE_STRING); // temporary (until I'll write code for array support)
-End;
-
 { TCompiler.isTypeChar }
 (*
  Returns `true`, when type passed in parameter is `char`-derived; in other case, returns `false`.
- @Note: Also returns `false` when type is `int`!
+ @Note: Also returns `false` when passed type is `int`!
 *)
 Function TCompiler.isTypeChar(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
   Exit(False);
  Exit(TypeTable[ID].InternalID in [TYPE_CHAR]);
+End;
+
+{ TCompiler.isTypeArray }
+(*
+ Returns `true`, when type passed in parameter is an array; in other case, returns `false`.
+*)
+Function TCompiler.isTypeArray(ID: TVType; const RegardStringAsArray: Boolean=True): Boolean;
+Begin
+ if (ID < 0) or (ID > High(TypeTable)) Then
+  Exit(False);
+
+ if (isTypeString(ID)) Then
+  Exit(RegardStringAsArray);
+
+ Exit(TypeTable[ID].ArrayDimCount > 0);
+End;
+
+{ TCompiler.isTypeObject }
+(*
+ Returns `true`, when type passed in parameter is an object.
+*)
+Function TCompiler.isTypeObject(ID: TVType): Boolean;
+Begin
+ if (ID < 0) or (ID > High(TypeTable)) Then
+  Exit(False);
+
+ Result := isTypeArray(ID); // for now, only arrays are some-kind-of-objects
+
+ if (isTypeString(ID)) and (TypeTable[ID].ArrayDimCount = 0) Then // ... excepts strings - despite the fact, that strings are arrays, they're not objects as-is
+  Exit(False);
 End;
 
 { TCompiler.NewScope }
@@ -1308,83 +1484,6 @@ Begin
    isParam := fIsParam;
    isConst := False;
   End;
- End;
-End;
-
-{ TCompiler.__variable_setvalue_reg }
-(*
- Sets a variable's value to the value stored in register identified by `RegChar`+`RegID`.
-
- When eg.a variable is located in `ei3` and it has ID 1, calling:
-  __variable_setvalue_reg(1, 4, 'i');
- Will add opcode:
-  mov(ei3, ei4)
-
- `PushedValues` is also important, because when a variable is allocated on the stack and something is pushed onto it, eg. pseudocode:
-   push(ei3)
-   __variable_setvalue_reg(...)
-  We need to take care of that `push`, because we could overwrite not our variable, but some value on the stack.
-*)
-Procedure TCompiler.__variable_setvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
-Var RegStr: String;
-Begin
- RegStr := 'e'+RegChar+IntToStr(RegID); { get full register name (ei1, es3 etc.) }
-
- With getCurrentFunction.VariableList[VarID] do
- Begin
-  if (isConst) Then
-   CompileError(eInternalError, ['Cannot change a constant value']);
-
-  if (RegID > 0) Then // variable is in the register
-   PutOpcode(o_mov, ['e'+RegChar+IntToStr(RegID), RegStr]) Else
-   PutOpcode(o_mov, ['['+IntToStr(RegID-PushedValues)+']', RegStr]); // variable is on the stack
- End;
-End;
-
-{ TCompiler.__variable_getvalue_reg }
-(*
- Loads a variable's value onto the register identified by `RegChar`+`RegID`.
- See description above for info about `PushedValues`.
-
- Example:
- We have a string variable (with ID 2) loaded onto the `es4` and we want to load it's value into `es1`:
-  __variable_getvalue_reg(2, 41 's');
- This will add one opcode:
-  mov(es1, es4)
-*)
-Procedure TCompiler.__variable_getvalue_reg(VarID: Integer; RegID: Byte; RegChar: Char; const PushedValues: Integer=0);
-Var RegStr: String;
-Begin
- RegStr := 'e'+RegChar+IntToStr(RegID); { get full register name }
-
- With getCurrentFunction.VariableList[VarID] do
- Begin
-  if (isConst) Then
-  Begin
-   PutOpcode(o_mov, [RegStr, getValueFromExpression(self, @Value)]);
-  End Else
-   if (RegID > 0) Then // variable is in the register
-    PutOpcode(o_mov, [RegStr, 'e'+RegChar+IntToStr(RegID)]) Else
-    PutOpcode(o_mov, [RegStr, '['+IntToStr(RegID-PushedValues)+']']); // variable is on the stack
- End;
-End;
-
-{ TCompiler.__variable_getvalue_stack }
-(*
- Pushes variable's value onto the stack.
- See examples and descriptions above.
-*)
-Procedure TCompiler.__variable_getvalue_stack(VarID: Integer; const PushedValues: Integer=0);
-Begin
- With getCurrentFunction.VariableList[VarID] do
- Begin
-  if (isConst) Then
-  Begin
-   PutOpcode(o_push, [getValueFromExpression(self, @Value)]);
-  End Else
-   if (RegID > 0) Then // variable is in the register
-    PutOpcode(o_push, ['e'+RegChar+IntToStr(RegID)]) Else
-    PutOpcode(o_push, ['['+IntToStr(RegID-PushedValues)+']']); // variable is on the stack
  End;
 End;
 
@@ -1661,6 +1760,12 @@ Begin
  NewType('int', 'i', TYPE_INT, 0);
  NewType('float', 'f', TYPE_FLOAT, 0);
  NewType('string', 's', TYPE_STRING, 0);
+
+ With TypeTable[TYPE_STRING] do
+ Begin
+  ArrayBase     := TYPE_STRING;
+  ArrayDimCount := 1;
+ End;
 
  { clear variables }
  CurrentDeep := 0;

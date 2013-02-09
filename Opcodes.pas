@@ -72,7 +72,8 @@ Unit Opcodes;
                    o_strjoin,
                    o_not, o_or, o_xor, o_and, o_shl, o_shr,
                    o_mod,
-                   o_arset, o_arget,
+                   o_arset, o_arget, o_arcrt, o_arlen,
+                   o_objfree,
                    o_byte, o_word, o_integer, o_extended);
 
  // TMOpcodeArg
@@ -96,7 +97,7 @@ Unit Opcodes;
                   Compiler: Pointer;
                  End;
 
- Const OpcodeList: Array[0..35] of TOpcode =
+ Const OpcodeList: Array[0..38] of TOpcode =
  (
   (* ====== NOP ====== *)
   (Name: 'nop'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
@@ -174,11 +175,20 @@ Unit Opcodes;
   (* ===== MOD () ===== *)
   (Name: 'mod'; ParamC: 2; ParamT: (ptAnyReg, ptAny, ptNone)),
 
-  (* ===== ARSET (refreg, index, value) ===== *)
+  (* ===== ARSET (refreg, indexes count, value) ===== *)
   (Name: 'arset'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAny)),
 
-  (* ===== ARGET (refreg, index, reg) ===== *)
+  (* ===== ARGET (refreg, indexes count, out reg) ===== *)
   (Name: 'arget'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAnyReg)),
+
+  (* ===== ARCRT (refreg, primary type id, array dim count) ===== *)
+  (Name: 'arcrt'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptInt)),
+
+  (* ===== ARLEN (refreg) ===== *)
+  (Name: 'arlen'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
+
+  (* ===== OBJFREE (refreg) ===== *)
+  (Name: 'objfree'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
 
   (* ===== ===== ===== ===== *)
   (Name: 'db'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),
@@ -245,8 +255,7 @@ Begin
 
  if (O.Opcode = o_mov) Then
  Begin
-  if (not CheckMOV(O.Args[0].Typ, O.Args[1].Typ)) or not (O.Args[0].Typ in [ptStackVal, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg]) Then
-   Exit;
+  Result := CheckMOV(O.Args[0].Typ, O.Args[1].Typ) and (O.Args[0].Typ in [ptStackVal, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg]);
  End Else
  Begin
   For I := 0 To High(O.Args) Do

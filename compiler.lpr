@@ -18,6 +18,8 @@
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 *)
 
+{$DEFINE NIGHTLY}
+
 Program compiler;
 Uses Windows, SysUtils, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
 Var Input, Output: String;
@@ -76,7 +78,7 @@ Begin
    Writeln('-Or      allocate variables in registers');
    Writeln('-Of      enable constant expression folding');
    Writeln('-Op      peephole bytecode optimizer');
-   Writeln('-O1      optimization level 1: enables `-Or` `-Of` `-Op`');
+   Writeln('-O1      optimization level 1; enables `-Or` `-Of` `-Op`');
    Writeln('-iconst  inline constants directly when building an expression (may affect on displayed errors)');
 
    Writeln;
@@ -97,17 +99,16 @@ Begin
 
    Writeln;
    Writeln('-> Other options');
-   Writeln('-includepath  include path for modules');
-   Writeln('-stacksize    change stack size (default: ', DEF_STACKSIZE, ')');
-   Writeln('-wait         wait for `enter` when finished (-)');
-   Writeln('-logo         if you set this as an input file name, the compiler will display only its version, but won''t compile anything');
-   Writeln('-quiet        when enabled, the compiler displays only important messages (eg.code errors/warnings/hints)');
+   Writeln('-stacksize  change stack size (default: ', DEF_STACKSIZE, ')');
+   Writeln('-wait       wait for `enter` when finished (-)');
+   Writeln('-logo       if you set this as an input file name, the compiler will display only its version, but won''t compile anything');
+   Writeln('-quiet      when enabled, the compiler displays only important messages (eg.code errors/warnings/hints)');
   End Else
   Begin
    Input  := ExpandFileName(ParamStr(1));
    Output := ExpandFileName(getStringOption('o', 'output.ssc'));
 
-   { Optimize level 1? }
+   { Optimize level 1 (-O1) }
    if (_O1 in Options) Then
    Begin
     Include(Options, _Or);
@@ -115,22 +116,23 @@ Begin
     Include(Options, _Op);
    End;
 
-   { parse command line (now searching for disabling some options) }
+   { parse command line (now checking disabled options) }
    For I := Low(OptionNames) To High(OptionNames) Do
     if (getBoolOption(OptionNames[I]+'-', False)) Then
      Exclude(Options, TCompileOption(I));
 
-   Log('SScript Compiler '+Version);
+   Log('SScript Compiler, version '+Version+' ['+{$I %DATE%}+']');
    Log('by Patryk Wychowaniec');
+
+   {$IFDEF NIGHTLY}
+    Log;
+    Log('Warning: This is a nightly, untested and most likely unstable version - not intended for daily use!');
+   {$ENDIF}
 
    { `-logo` passed as an input file name? }
    if (ParamStr(1) = '-logo') Then
     raise Exception.Create(''); // stop compiler
 
-   Log;
-   Log('Input file  : '+Input);
-   Log('Output file : '+Output);
-   Log('Command line: '+GetCommandLine);
    Log;
 
    if (_Clib in Options) Then // `init` code would be unusable in a library
@@ -151,21 +153,19 @@ Begin
     Writeln('Exception raised:');
     Writeln(E.Message);
     Writeln;
-    //Try
     Writeln('Callstack:');
     Writeln(BackTraceStrFunc(ExceptAddr));
     Frames := ExceptFrames;
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
-    //Except
-    // yo dawg - i herd u like exceptions so we raised an exception in exception handler, so u can handle exceptions while handling exceptions...
-    //End;
    End;
  End;
 
- if not (ParamStr(1) = '-logo') Then
-  Log('-- done --');
-
+ { -wait }
  if (getBoolOption('wait', False)) Then
+ Begin
+  if not (ParamStr(1) = '-logo') Then
+   Log('-- done --');
   Readln;
+ End;
 End.

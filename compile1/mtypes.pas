@@ -7,7 +7,7 @@ Unit MTypes;
  Interface
  Uses Tokens;
 
- Type TVType       = Integer;
+ Type TVType       = Integer; // must be a `signed` type (as some functions from compiler returns eg.`-1` when a variable is not found, and we don't want any overflows...)
       TMVisibility = (mvPublic, mvPrivate);
 
  // TMString
@@ -39,8 +39,10 @@ Unit MTypes;
                 Name     : String;
                 RegPrefix: Char;
 
-                InternalID   : Byte;
-                ArrayDimCount: Byte;
+                InternalID: Byte;
+
+                ArrayBase    : TVType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
+                ArrayDimCount: Byte; // array dimension amount
 
                 isStrict: Boolean;
                End;
@@ -51,7 +53,8 @@ Unit MTypes;
                           mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq,
                           mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent,
                           mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq,
-                          mtNeg, mtLogicalNOT, mtBitwiseNOT, mtPreInc, mtPreDec, mtPostInc, mtPostDec);
+                          mtNeg, mtLogicalNOT, mtBitwiseNOT, mtPreInc, mtPreDec, mtPostInc, mtPostDec,
+                          mtNew);
 
  Const MExpressionDisplay: Array[TMExpressionType] of String =
  ('<nothing>', '<variable>', '<function>', '<tree>', '(', ')', '[', ']', '[]',
@@ -59,14 +62,15 @@ Unit MTypes;
   '+', '-', '*', '/', '%', '=', '+=', '-=', '*=', '/=', '%=',
   '<', '>', '==', '<=', '>=', '!=',
   '&&', '||', '&', '|', '^', '<<', '>>', '<<=', '>>=',
-  '-', '!', '~', '++', '--', '++', '--');
+  '-', '!', '~', '++', '--', '++', '--',
+  'new');
 
  Type TMExprSet = Set of TMExpressionType;
 
  Const MBinaryOperators: TMExprSet  = [mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq];
  Const MUnaryOperators: TMExprSet   = [mtNeg, mtLogicalNOT, mtBitwiseNOT, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
  Const MCompareOperators: TMExprSet = [mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent];
- Const MOperators: TMExprSet        = [mtArrayElement, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
+ Const MOperators: TMExprSet        = [mtArrayElement, mtNew, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
 
  Type PMExpression = ^TMExpression;
       TMExpression = Record
@@ -83,7 +87,7 @@ Unit MTypes;
  Type TMExpressionList = Array of TMExpression;
 
  // TMConstruction
- Type TMConstructionType = (ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end);
+ Type TMConstructionType = (ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end, ctDelete);
  Type PMConstruction = ^TMConstruction;
       TMConstruction = Record
                         Typ   : TMConstructionType;
@@ -109,7 +113,7 @@ Unit MTypes;
                    End;
  Type TMVariableList = Array of TMVariable;
 
- // primary types; order is important!
+ // primary types; order is important (as it is the same in the virtual machine)!
  Const TYPE_ANY    = 0;
        TYPE_VOID   = 1;
        TYPE_BOOL   = 2;
@@ -118,6 +122,40 @@ Unit MTypes;
        TYPE_FLOAT  = 5;
        TYPE_STRING = 6;
 
+ // operators
+ Operator = (A, B: TMType): Boolean;
+
+ // functions
+ Function getEmptyType: TMType;
+
  Implementation
+
+(* TMType = TMType *)
+{
+ Compares two TMType-d variables (except their names)
+}
+Operator = (A, B: TMType): Boolean;
+Begin
+ Result :=
+ (A.ArrayDimCount = B.ArrayDimCount) and
+ (A.ArrayBase     = B.ArrayBase) and
+ (A.InternalID    = B.InternalID) and
+ (A.isStrict      = B.isStrict) and
+ (A.RegPrefix     = B.RegPrefix);
+End;
+
+(* getEmptyType *)
+{
+ Returns an empty type; i.e. - each field is zeroed, nil-ed or falsed
+}
+Function getEmptyType: TMType;
+Begin
+ Result.Name          := '';
+ Result.ArrayDimCount := 0;
+ Result.ArrayBase     := -1;
+ Result.InternalID    := 0;
+ Result.isStrict      := False;
+ Result.RegPrefix     := #0;
+End;
 
 End.

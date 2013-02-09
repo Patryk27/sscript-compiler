@@ -54,13 +54,14 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="$(ProjOutDir)"/>
+      <IncludeFiles Value="$(ProjOutDir);compile1\expression"/>
       <OtherUnitFiles Value="compile1;compile1\syntax"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <CodeGeneration>
       <Optimizations>
-        <OptimizationLevel Value="0"/>
+        <VariablesInRegisters Value="True"/>
+        <UncertainOptimizations Value="True"/>
       </Optimizations>
     </CodeGeneration>
     <Other>

@@ -25,6 +25,7 @@ Begin
  Variable.Typ := read_type; // [type]
  eat(_GREATER); // >
 
+ { read variables }
  While (true) do
  Begin
   Variable.Name := read_ident; // [identifier]
@@ -35,7 +36,7 @@ Begin
   if (findVariable(Variable.Name) <> -1) Then // redeclaration of variable
    CompileError(eRedeclaration, [Variable.Name]);
 
-  if (_Or in Options) Then // allowed to allocate variables in registers
+  if (_Or in Options) Then // can we allocate variables in registers?
   Begin
    With Variable do
    Begin
@@ -51,18 +52,22 @@ Begin
 
    Variable.RegChar := getTypePrefix(Variable.Typ);
 
+   { find a stack position, where we can allocate this variable }
    Pos := 0;
    With FunctionList[High(FunctionList)] do
     For I := Low(VariableList) To High(VariableList) Do
      if (VariableList[I].Deep <= CurrentDeep) and (VariableList[I].RegID <= 0) and (not VariableList[I].isParam) Then
       Inc(Pos);
+
+   { ... and place it there }
    Variable.RegID := -Pos;
   End;
 
   Variable.Deep    := CurrentDeep;
   Variable.isParam := False;
 
-  With FunctionList[High(FunctionList)] do // add variable into the function
+  { insert variable into the function  }
+  With FunctionList[High(FunctionList)] do
   Begin
    SetLength(VariableList, Length(VariableList)+1); // expand the array
    VariableList[High(VariableList)] := Variable;

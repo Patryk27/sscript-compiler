@@ -53,6 +53,8 @@ Begin
   For P in ParamList Do
    Result += TCompiler(Compiler).getTypeName(P.Typ)+'_';
  End;
+
+ Result := StringReplace(Result, '[]', '_arraytype_', [rfReplaceAll]);
 End;
 
 (* Parse *)
@@ -279,6 +281,17 @@ Begin
     { loop end }
     PutLabel(Str3);
    End;
+
+(* ctDelete *)
+   ctDelete:
+   Begin
+    EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
+    if (not isTypeObject(EType)) Then
+     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), 'object']);
+
+    PutOpcode(o_pop, ['er1']);
+    PutOpcode(o_objfree, ['er1']);
+   End;
   End;
  End;
 End;
@@ -335,6 +348,9 @@ Begin
   CompileError(eRedeclaration, [Func.Name]);
 
  if (findFunction(Func.Name) <> -1) Then // check for redeclaration
+  CompileError(eRedeclaration, [Func.Name]);
+
+ if (Func.Name = 'array_length') Then // cannot redeclare internal function
   CompileError(eRedeclaration, [Func.Name]);
 
  { make parameter list }
