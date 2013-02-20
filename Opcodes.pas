@@ -67,7 +67,7 @@ Unit Opcodes;
  Type TOpcode_E = (o_nop, o_stop,
                    o_push, o_pop,
                    o_add, o_sub, o_mul, o_div, o_neg, o_mov,
-                   o_jmp, o_tjmp, o_fjmp, o_call, o_icall, o_ret,
+                   o_jmp, o_tjmp, o_fjmp, o_call, o_icall, o_acall, o_ret,
                    o_if_e, o_if_ne, o_if_g, o_if_l, o_if_ge, o_if_le,
                    o_strjoin,
                    o_not, o_or, o_xor, o_and, o_shl, o_shr,
@@ -97,7 +97,7 @@ Unit Opcodes;
                   Compiler: Pointer;
                  End;
 
- Const OpcodeList: Array[0..38] of TOpcode =
+ Const OpcodeList: Array[0..39] of TOpcode =
  (
   (* ====== NOP ====== *)
   (Name: 'nop'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
@@ -139,6 +139,9 @@ Unit Opcodes;
 
   (* ===== ICALL (name) ===== *)
   (Name: 'icall'; ParamC: 1; ParamT: (ptString, ptNone, ptNone)),
+
+  (* ===== ACALL (position) ===== *)
+  (Name: 'acall'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),
 
   (* ===== RET () ===== *)
   (Name: 'ret'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
@@ -184,8 +187,8 @@ Unit Opcodes;
   (* ===== ARCRT (refreg, primary type id, array dim count) ===== *)
   (Name: 'arcrt'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptInt)),
 
-  (* ===== ARLEN (refreg) ===== *)
-  (Name: 'arlen'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
+  (* ===== ARLEN (refreg, indexes count, out intreg) ===== *)
+  (Name: 'arlen'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptIntReg)),
 
   (* ===== OBJFREE (refreg) ===== *)
   (Name: 'objfree'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
@@ -227,7 +230,7 @@ Begin
   ptInt, ptIntReg      : Result := B in [ptStackVal, ptInt, ptIntReg, ptChar, ptCharReg, ptFloat, ptFloatReg];
   ptFloat, ptFloatReg  : Result := B in [ptStackVal, ptInt, ptIntReg, ptFloat, ptFloatReg];
   ptString, ptStringReg: Result := B in [ptStackVal, ptString, ptStringReg, ptChar, ptCharReg];
-  ptReferenceReg       : Result := B in [ptStackVal, ptInt, ptString, ptStringReg, ptReferenceReg];
+  ptReferenceReg       : Result := B in [ptStackVal, ptInt, {ptString,} ptStringReg, ptReferenceReg];
  End;
 End;
 

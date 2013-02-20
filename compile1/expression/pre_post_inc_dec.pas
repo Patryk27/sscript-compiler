@@ -46,7 +46,7 @@ Begin
  Begin
   // Step 1: load a current array's element's value into second register
   RegChar := Compiler.getTypePrefix(Compiler.getArrayBaseType(Variable.Typ));
-  TypeID  := __variable_getvalue_array_reg(Variable.ID, 2, RegChar, Left);
+  TypeID  := __variable_getvalue_array_reg(Variable, 2, RegChar, Left);
 
   if (Compiler.isTypeArray(TypeID)) Then
   Begin
@@ -69,7 +69,7 @@ Begin
    Compiler.PutOpcode(o_mov, ['e'+RegChar+'1', 'e'+RegChar+'2']);
 
   // Step 3: save new value into the array
-  __variable_setvalue_array_reg(Variable.ID, 2, RegChar, Left);
+  __variable_setvalue_array_reg(Variable, 2, RegChar, Left);
 
   Result := TypeID;
  End;

@@ -344,7 +344,10 @@ Begin
  FreeMem(Output);
 End;
 
-{ TSSM.Load }
+(* TSSM.Load *)
+{
+ Loads a SSM file.
+}
 Function TSSM.Load(InputFile, fModuleName: String; pC1: Pointer; fResolveLabelsNames: Boolean=True): Boolean;
 Begin
  Result := False;

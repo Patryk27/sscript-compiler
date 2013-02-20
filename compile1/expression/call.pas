@@ -1,102 +1,106 @@
 Procedure ParseCall;
-Var FuncID, Param, TypeID: Integer;
+Var IdentID, Param, TypeID, Namespace: Integer;
+    Variable                         : TRVariable;
+    fParamList                       : TMParamList;
 
- { array_length (array type) }
- Procedure __array_length;
- Var Param: TVType;
-     Ch   : Char;
- Begin
-  Error(eInternalError, ['Sorry, but it doesn''t work now - check in future updates ;<']);
+{$I array_length.pas}
 
-  // parameter check
-  if (Length(Expr^.ParamList) <> 1) Then
-  Begin
-   Error(eWrongParamCount, [Expr^.Value, Length(Expr^.ParamList), 1]);
-   Exit;
-  End;
-
-  // parse parameter and check types
-  Param := Parse(Expr^.ParamList[0], 1);
-  RePop(Expr^.ParamList[0], Param, 1);
-  if (not Compiler.isTypeArray(Param)) Then
-  Begin
-   Error(eWrongTypeInCall, ['array_length', 1, Compiler.getTypeName(Param), 'array']);
-   Exit;
-  End;
-
-  Ch := Compiler.getTypePrefix(Param);
-  Compiler.PutOpcode(o_arlen, ['e'+Ch+'1']);
-
-  Result := TYPE_INT;
-  Exit;
- End;
-
-Label NotAnInternalFunction;
 Begin
- FuncID := Compiler.findFunction(Expr^.Value); // get function ID
+ IdentID    := Expr^.IdentID;
+ Namespace  := Expr^.IdentNamespace;
 
- if (FuncID = -1) Then // function not found
+ if (Expr^.IdentID = -1) Then // function not found
  Begin
   // is it any of internal functions?
   Case VarToStr(Expr^.Value) of
+   { @Note: when changing internal functions, modify also @TInterpreter.MakeTree.CreateNodeFromStack }
+
    'array_length': __array_length;
-   else goto NotAnInternalFunction;
   End;
-  Exit;
-
- NotAnInternalFunction:
-  FuncID := Compiler.findTypeByName(Expr^.Value); // so, is it a type-casting?
-
-  if (FuncID = -1) Then // No, it's not ;<
-  Begin
-   Error(eUnknownFunction, [Expr^.Value]);
-   Exit;
-  End;
-
-  // Yes, it is - so do casting
-  if (Length(Expr^.ParamList) <> 1) Then
-  Begin
-   Error(eWrongParamCount, [Expr^.Value, Length(Expr^.ParamList), 1]);
-   Exit;
-  End;
-
-  // load a value to cast onto the register
-  Expr^.ResultOnStack := False;
-  TypeID := Parse(Expr^.ParamList[0], 1, Compiler.getTypePrefix(FuncID));
-
-  Result := FuncID;
-
-  // ... but fail on `void`-casting (from `void` or to `void`)
-  if (Compiler.isTypeVoid(Result) or Compiler.isTypeVoid(TypeID)) Then
-   Error(eVoidCasting, []);
 
   Exit;
  End;
 
- With Compiler.FunctionList[FuncID] do
+ { local variable call }
+ if (Expr^.isLocal) Then
  Begin
+  Variable := getVariable(Expr^.Left);
+
+  if (Variable.ID = -1) Then
+   Exit;
+
+  TypeID := __variable_getvalue_reg(Variable, 1, 'r');
+
+  With Compiler do
+   if (not isTypeFunctionPointer(TypeID)) Then
+   Begin
+    Error(eWrongType, [getTypeName(TypeID), 'function pointer']);
+    Exit;
+   End;
+
+  fParamList := Compiler.TypeTable[TypeID].FuncParams;
+
   // check param count
-  if (Length(Expr^.ParamList) <> Length(ParamList)) Then
+  if (Length(Expr^.ParamList) <> Length(fParamList)) Then
   Begin
-   Error(eWrongParamCount, [Name, Length(ParamList), Length(Expr^.ParamList)]);
+   Error(eWrongParamCount, [Variable.Name, Length(fParamList), Length(Expr^.ParamList)]);
    Exit;
   End;
 
   // push parameters onto the stack
-  For Param := Low(ParamList) To High(ParamList) Do
+  For Param := Low(fParamList) To High(fParamList) Do
   Begin
    TypeID := Parse(Expr^.ParamList[Param]);
 
    With Compiler do
-    if (not CompareTypes(ParamList[High(ParamList)-Param].Typ, TypeID)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Expr^.Value, High(ParamList)-Param+1, getTypeName(TypeID), getTypeName(ParamList[High(ParamList)-Param].Typ)]);
+    if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, getTypeName(TypeID), getTypeName(fParamList[High(fParamList)-Param].Typ)]);
   End;
 
-  Dec(PushedValues, Length(ParamList));
+  Dec(PushedValues, Length(fParamList));
 
-  // call function
-  Compiler.PutOpcode(o_call, [':'+MName]);
+  // call function-pointer
+  Compiler.PutOpcode(o_acall, ['er1']);
 
-  Result := Return;
+  Exit;
  End;
-End; 
+
+ { function call }
+ if (Compiler.NamespaceList[Namespace].GlobalList[IdentID].Typ = gdFunction) Then
+ Begin
+  With Compiler.NamespaceList[Namespace].GlobalList[IdentID].mFunction do
+  Begin
+   // check param count
+   if (Length(Expr^.ParamList) <> Length(ParamList)) Then
+   Begin
+    Error(eWrongParamCount, [Name, Length(ParamList), Length(Expr^.ParamList)]);
+    Exit;
+   End;
+
+   // push parameters onto the stack
+   For Param := Low(ParamList) To High(ParamList) Do
+   Begin
+    TypeID := Parse(Expr^.ParamList[Param]);
+
+    With Compiler do
+     if (not CompareTypes(ParamList[High(ParamList)-Param].Typ, TypeID)) Then
+      Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Expr^.Value, High(ParamList)-Param+1, getTypeName(TypeID), getTypeName(ParamList[High(ParamList)-Param].Typ)]);
+   End;
+
+   Dec(PushedValues, Length(ParamList));
+
+   // call function
+   Compiler.PutOpcode(o_call, [':'+MName]);
+
+   Result := Return;
+  End;
+ End Else
+
+ { variable call }
+ Begin
+  With Compiler.NamespaceList[Namespace].GlobalList[IdentID].mVariable do
+  Begin
+   raise Exception.Create('@TODO');
+  End;
+ End;
+End;

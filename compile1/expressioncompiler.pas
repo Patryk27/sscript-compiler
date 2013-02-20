@@ -1,9 +1,6 @@
 (*
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
-
- @TODO:
- - Separate making expression tree and optimizing it
 *)
 
 { ... and now the fun begins ;) }
@@ -16,28 +13,30 @@ Unit ExpressionCompiler;
  Interface
  Uses Compile1, MTypes, Variants, Tokens;
 
- Const STACK_SIZE = 1000;
+ Const STACK_SIZE = 5000;
 
  Const UnaryOperations  = ['!'];
        BinaryOperations = ['+', '-', '*', '/', '%', '='];
 
        _UNARY_MINUS = #01;
 
+ Type TOptions = Set of (oGetFromCommandLine, oConstantFolding);
+
+ { TStackValue }
  Type TStackValue = Record // value on the stack
                      Typ  : TMExpressionType;
                      Value: Variant;
                      Token: TToken_P;
                      Deep : Integer;
 
-                     ParamCount: Integer; // if `Typ == stFunction`, there's hold read param count
+                     ParamCount : Integer; // if `Typ == stFunction`, there's hold read param count
+                     NamespaceID: Integer; // function calls, variables and constants only
                     End;
 
+ { TInterpreter }
  Type TInterpreter = Class
                       Private
                        Compiler: TCompiler;
-
-                       FoldConstants: Boolean;
-                       InlineConst  : Boolean;
 
                        Stack   : Array of TStackValue; // whole stack
                        StackPos: Integer;
@@ -53,24 +52,26 @@ Unit ExpressionCompiler;
                        Function StackPeek: TStackValue;
 
                        Procedure FinalExprPush(Val: TStackValue);
-                       Procedure FinalExprPush(Typ: TMExpressionType; Value: Variant; Token: TToken_P);
+                       Procedure FinalExprPush(Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1);
                        Function FinalExprPop: TStackValue;
                        Function FinalExprPeek: TStackValue;
 
-                       Function CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; Deep: Integer): PMExpression;
+                       Function CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; Deep: Integer; NamespaceID: Integer=-1): PMExpression;
                       Public
                        Constructor Create(fCompiler: TCompiler);
 
-                       Procedure Parse(EndTokens: TTokenSet; fFoldConstants, fInlineConst: Boolean);
+                       Procedure Parse(EndTokens: TTokenSet);
                        Function MakeTree: PMExpression;
+                       Function Optimize(const Tree: PMExpression; Options: TOptions): PMExpression;
                       End;
 
  Function MakeStringExpression(const Value: String): PMExpression;
  Function MakeIntExpression(const Value: Integer): PMExpression;
+ Function MakeIntExpression(const Value: String): PMExpression;
  Function MakeFloatExpression(const Value: Extended): PMExpression;
  Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
 
- Function MakeConstruction(const Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; FoldConstants: Boolean=False; InlineConsts: Boolean=False): TMConstruction;
+ Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): TMConstruction;
  Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TVType;
 
  Implementation
@@ -90,6 +91,17 @@ End;
 
 { MakeIntExpression }
 Function MakeIntExpression(const Value: Integer): PMExpression;
+Begin
+ New(Result);
+
+ Result^.Typ   := mtInt;
+ Result^.Left  := nil;
+ Result^.Right := nil;
+ Result^.Value := Value;
+End;
+
+{ MakeIntExpression }
+Function MakeIntExpression(const Value: String): PMExpression;
 Begin
  New(Result);
 
@@ -119,7 +131,7 @@ Begin
  if (Beautify) Then
  Begin
   Case Expr^.Typ of
-   mtChar  : Exit('chr('+IntToStr(ord(Value[1]))+')');
+   mtChar  : Exit('''\0x'+IntToHex(ord(Value[1]), 2)+'''');
    mtString: Exit('"'+Value+'"');
   End;
  End;
@@ -294,13 +306,14 @@ Begin
 End;
 
 { TInterpreter.FinalExprPush }
-Procedure TInterpreter.FinalExprPush(Typ: TMExpressionType; Value: Variant; Token: TToken_P);
+Procedure TInterpreter.FinalExprPush(Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1);
 Var Val: TStackValue;
 Begin
- Val.Typ   := Typ;
- Val.Value := Value;
- Val.Token := Token;
- Val.Deep  := Compiler.CurrentDeep;
+ Val.Typ         := Typ;
+ Val.Value       := Value;
+ Val.Token       := Token;
+ Val.Deep        := Compiler.CurrentDeep;
+ Val.NamespaceID := NamespaceID;
  FinalExprPush(Val);
 End;
 
@@ -322,16 +335,26 @@ Begin
 End;
 
 { TInterpreter.CreateNode }
-Function TInterpreter.CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; Deep: Integer): PMExpression;
+Function TInterpreter.CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; Deep: Integer; NamespaceID: Integer=-1): PMExpression;
 Begin
  New(Result);
 
- Result^.Left  := Left;
- Result^.Right := Right;
- Result^.Typ   := Typ;
- Result^.Value := Value;
- Result^.Token := Token;
- Result^.Deep  := Deep;
+ if (NamespaceID = -1) Then
+  Result^.Namespaces := Compiler.SelectedNamespaces Else
+  Begin
+   SetLength(Result^.Namespaces, 1);
+   Result^.Namespaces[0] := NamespaceID;
+  End;
+
+ Result^.Left           := Left;
+ Result^.Right          := Right;
+ Result^.Typ            := Typ;
+ Result^.Value          := Value;
+ Result^.Token          := Token;
+ Result^.Deep           := Deep;
+ Result^.IdentID        := -1;
+ Result^.IdentNamespace := -1;
+ Result^.isLocal        := False;
 
  Result^.ResultOnStack := False;
 End;
@@ -349,7 +372,7 @@ Begin
 End;
 
 { TInterpreter.Parse }
-Procedure TInterpreter.Parse(EndTokens: TTokenSet; fFoldConstants, fInlineConst: Boolean);
+Procedure TInterpreter.Parse(EndTokens: TTokenSet);
 Var Token: TToken_P;
 
     Str   : String;
@@ -362,6 +385,8 @@ Var Token: TToken_P;
     Expect         : (eNothing, eValue, eOperator);
 
     Parsed: Boolean;
+
+    NamespaceID, PreviousNamespace: Integer;
 
     {$IFDEF DISPLAY_FINALEXPR}
     I: Integer;
@@ -376,8 +401,11 @@ Begin
  TmpPos  := Compiler.getPosition;
  Bracket := 0; { bracket level/deep }
 
- if (Compiler.next_t(1) = _BRACKET1_CL) Then { func() }
+ if (Compiler.next_t(0) = _BRACKET1_CL) Then { func() }
   Exit(0);
+
+ With Compiler do
+  setPosition(getPosition-1);
 
  While (true) Do
  Begin
@@ -430,15 +458,14 @@ Begin
 End;
 
 Begin
- FoldConstants := fFoldConstants;
- InlineConst   := fInlineConst;
-
 With Compiler do
 Begin
- StackPos        := 0;
- FinalExprPos    := 0;
- FunctionBracket := 0;
- Expect          := eValue;
+ StackPos          := 0;
+ FinalExprPos      := 0;
+ FunctionBracket   := 0;
+ NamespaceID       := -1;
+ PreviousNamespace := -1;
+ Expect            := eValue;
 
  While (true) do
  Begin
@@ -484,16 +511,61 @@ Begin
   if (Parsed) Then
    Continue;
 
-  { function }
-  if (Token.Token = _IDENTIFIER) and (next_t = _BRACKET1_OP) Then
+  { type casting }
+  if (Token.Token = _CAST) Then
   Begin
-   if (FunctionBracket = 0) Then
-    FunctionBracket := Bracket+1;
+   eat(_LOWER);
+   TypeID := read_type;
+   eat(_GREATER);
 
-   StackPush(mtFunction, Token.Display, Token); // push it onto the stack
+   if (next_t <> _BRACKET1_OP) Then
+   Begin
+    read;
+    CompileError(eExpected, ['(', next(-1).Display]);
+   End;
+
+   StackPush(mtTypeCast, TypeID, Token);
+
+   Expect := eValue;
+  End Else
+
+  { namespace identifier }
+  if (Token.Token = _IDENTIFIER) and (next_t = _DOUBLE_COLON) Then
+  Begin
+   PreviousNamespace := NamespaceID;
+   NamespaceID       := findNamespace(Token.Display);
+
+   if (NamespaceID = -1) Then
+   Begin
+    CompileError(eUnknownNamespace, [Token.Display]);
+    NamespaceID := 0;
+   End;
+
+   eat(_DOUBLE_COLON);
+
+   if (next_t <> _IDENTIFIER) Then
+    CompileError(eExpectedIdentifier, [next.Display]);
+
+   if (next_t(1) = _DOUBLE_COLON) Then // namespace-in-namespace isn't supported for now
+   Begin
+    read;
+    CompileError(eUnimplemented, ['namespace-in-namespace']);
+   End;
+  End Else
+
+  { function call }
+  if (Token.Token = _BRACKET1_OP) and (next_t(-2) in [_IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) Then
+  Begin
+   Inc(Bracket);
+
+   if (FunctionBracket = 0) Then
+    FunctionBracket := Bracket;
+
+   StackPush(mtFunctionCall, Token.Display, Token); // push it onto the stack
    Stack[StackPos-1].ParamCount := ReadParamCount;
 
    Expect := eValue;
+   StackPush(mtOpeningBracket, null, Token);
   End Else
 
   { function parameters separator (comma) }
@@ -518,7 +590,9 @@ Begin
     Compiler.CompileError(eExpectedOperator, [Token.Display]);
 
    Expect := eOperator;
-   FinalExprPush(mtVariable, Token.Display, Token); // add it directly into the final expression
+   FinalExprPush(mtVariable, Token.Display, Token, NamespaceID); // add it directly into the final expression
+
+   NamespaceID := PreviousNamespace;
   End Else
 
   { opening bracket }
@@ -557,7 +631,7 @@ Begin
     FinalExprPush(Value);
    End;
    if (StackPos > 0) Then
-    if (StackPeek.Typ = mtFunction) Then
+    if (StackPeek.Typ = mtFunctionCall) Then
      FinalExprPush(StackPop);
   End Else
 
@@ -720,7 +794,7 @@ Begin
    Writeln(MExpressionDisplay[FinalExpr[I].Typ]) Else
 
    Case FinalExpr[I].Typ of
-    mtFunction: Writeln(FinalExpr[I].Value, ' (', FinalExpr[I].ParamCount, ')');
+    mtFunctionCall: Writeln(FinalExpr[I].Value, ' (', FinalExpr[I].ParamCount, ')');
     else Writeln(FinalExpr[I].Value);
    End;
  End;
@@ -731,46 +805,98 @@ End;
 
 { TInterpreter.MakeTree }
 Function TInterpreter.MakeTree: PMExpression;
-Const Constants: Set of TMExpressionType = [mtBool, mtChar, mtInt, mtFloat, mtString];
 Var Pos, I: Integer;
     Value : TStackValue;
-    Value2: TStackValue;
     MType : TMExpressionType;
     Node  : PMExpression;
+
+    ID, Namespace: Integer;
 
 { CreateNodeFromStack }
 Function CreateNodeFromStack: PMExpression;
 Var Value: TStackValue;
+
+    Expr : PMExpression;
+    Tmp  : PMExpression;
+
+    Name      : String;
+    Namespaces: TMIntegerArray;
 Begin
  Value := StackPop;
 
- if (Value.Typ = mtTree) Then // whole expression tree
+ { whole expression tree }
+ if (Value.Typ = mtTree) Then
  Begin
   if (Value.Value = null) Then
    Compiler.CompileError(eInternalError, ['Value.Value = null']);
 
-  Exit(PMExpression(LongWord(Value.Value)));
+  Expr := PMExpression(LongWord(Value.Value));
+
+  if (Expr^.Typ = mtFunctionCall) Then
+  Begin
+   Tmp := Expr^.Left;
+
+   if (Tmp^.Typ <> mtVariable) Then
+    Compiler.CompileError(eUnimplemented, ['variable-calls']);
+
+   Name       := Tmp^.Value;
+   Namespaces := Tmp^.Namespaces;
+
+   if (Name <> 'array_length') Then
+   Begin
+    ID := Compiler.findLocalVariable(Name); // local things at first
+
+    if (ID = -1) Then // not a local variable
+    Begin
+     Compiler.findGlobalCandidate(Name, Namespaces, ID, Namespace, @Expr^.Token);
+
+     if (ID = -1) Then // nor a global variable/function - so raise error
+      Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
+     Begin // global variable
+      Expr^.IdentID        := ID;
+      Expr^.IdentNamespace := Namespace;
+      Expr^.isLocal        := False;
+     End;
+    End Else // local variable
+    Begin
+     Expr^.IdentID        := ID;
+     Expr^.IdentNamespace := Namespace;
+     Expr^.isLocal        := True;
+    End;
+   End;
+  End;
+
+  Exit(Expr);
  End;
 
- // something else (variable, value etc.)
- Result      := CreateNode(nil, nil, mtNothing, Value.Value, Value.Token, Value.Deep);
+ { something else (variable, some constant value etc.) }
+ Result      := CreateNode(nil, nil, mtNothing, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
  Result^.Typ := Value.Typ;
+
+ { variable or constant }
+ if (Value.Typ = mtVariable) Then
+ Begin
+  ID := Compiler.findLocalVariable(Result^.Value); // local things at first
+
+  if (ID = -1) Then // not a local variable
+  Begin
+   Compiler.findGlobalCandidate(Result^.Value, Result^.Namespaces, ID, Namespace, @Result^.Token);
+
+   if (ID <> -1) Then // nor a global variable - so raise error
+   Begin // global variable
+    Result^.IdentID        := ID;
+    Result^.IdentNamespace := Namespace;
+    Result^.isLocal        := False;
+   End;
+  End Else // local variable
+  Begin
+   Result^.IdentID        := ID;
+   Result^.IdentNamespace := Namespace;
+   Result^.isLocal        := True;
+  End;
+ End;
 End;
 
-{ AreStackNodesConstants }
-Function AreStackNodesConstants: Boolean;
-Begin
- Result := (Stack[StackPos-1].Typ in Constants) and
-           (Stack[StackPos-2].Typ in Constants);
-End;
-
-{ isStackNodeConstant }
-Function isStackNodeConstant: Boolean;
-Begin
- Result := (Stack[StackPos-1].Typ in Constants);
-End;
-
-Label CannotOptimize, CannotOptimize2;
 Begin
  Pos      := 0;
  StackPos := 0;
@@ -801,48 +927,29 @@ Begin
     Value.Value := False;
    End;
 
-   // try to inline a constant
-   if (InlineConst) Then
-   Begin
-    With Compiler do
-    Begin
-     if (inFunction) Then // inside function?
-     Begin
-      With getCurrentFunction do
-      Begin
-       I := findVariable(Value.Value);
-
-       if (I <> -1) Then
-        if (VariableList[I].isConst) Then
-        Begin
-         Value.Typ   := VariableList[I].Value.Typ;
-         Value.Value := VariableList[I].Value.Value;
-        End;
-      End;
-     End Else // outside function?
-     Begin
-      I := findGlobalConstant(Value.Value);
-
-      if (I <> -1) Then
-      Begin
-       Value.Typ   := ConstantList[I].Value.Typ;
-       Value.Value := ConstantList[I].Value.Value;
-      End;
-     End;
-    End;
-   End;
-
    StackPush(Value);
   End Else
 
-  { function call }
-  if (Value.Typ = mtFunction) Then
+  { type cast }
+  if (Value.Typ = mtTypeCast) Then
   Begin
-   Node := CreateNode(nil, nil, mtFunction, Value.Value, Value.Token, Value.Deep);
+   Node := CreateNode(nil, nil, mtTypeCast, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
+
+   Node^.Left := CreateNodeFromStack;
+
+   StackPush(mtTree, LongWord(Node));
+  End Else
+
+  { function call }
+  if (Value.Typ = mtFunctionCall) Then
+  Begin
+   Node := CreateNode(nil, nil, mtFunctionCall, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
 
    SetLength(Node^.ParamList, Value.ParamCount);
    For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
     Node^.ParamList[I] := CreateNodeFromStack;
+
+   Node^.Left := CreateNodeFromStack;
 
    StackPush(mtTree, LongWord(Node));
   End Else
@@ -856,82 +963,6 @@ Begin
     MType := Value.Typ;
     Node  := CreateNode(nil, nil, MType, null, Value.Token, Value.Deep);
 
-    if (AreStackNodesConstants) and (FoldConstants) Then
-    Begin
-     { constant folding }
-     Value2 := Stack[StackPos-1];
-     Value  := Stack[StackPos-2];
-
-     if (Value.Typ = mtInt) and (Value2.Typ = mtFloat) Then // extend types
-      Value.Typ := mtFloat;
-     if (Value.Typ = mtFloat) and (Value2.Typ = mtInt) Then
-      Value2.Typ := mtFloat;
-
-     if (Value.Typ = Value2.Typ) Then // types must be the same
-     Begin
-      if (Value.Typ in [mtInt, mtFloat]) Then // for numerical types
-      Begin
-       Case MType of
-        mtAdd: Value.Value += Value2.Value;
-        mtSub: Value.Value -= Value2.Value;
-        mtMul: Value.Value *= Value2.Value;
-        mtDiv: if (Value2.Value = 0) Then
-                Compiler.CompileError(eDivByZero, []) Else
-                Value.Value /= Value2.Value;
-        mtMod: if (Value2.Value = 0) Then
-                Compiler.CompileError(eDivByZero, []) Else
-                Value.Value := Value.Value mod Value2.Value;
-        else
-         goto CannotOptimize; // @TODO: bitwise and, or, xor
-       End;
-      End Else
-
-      if (Value.Typ in [mtString]) Then // for string types
-      Begin
-       Case MType of
-        mtAdd: Value.Value += Value2.Value;
-
-        else
-         goto CannotOptimize;
-       End;
-      End Else
-
-      if (Value.Typ in [mtBool]) Then // for boolean types
-      Begin
-       Case MType of
-        mtLogicalOR: Value.Value := Value.Value or Value2.Value;
-        mtLogicalAND: Value.Value := Value.Value and Value2.Value;
-
-        else
-         goto CannotOptimize;
-       End;
-      End Else
-       goto CannotOptimize; // unknown type
-
-      if (MType in MCompareOperators) Then
-      Begin
-       Value.Typ := mtBool;
-
-       Case MType of
-        mtLower       : Value.Value := Value.Value < Value2.Value;
-        mtGreater     : Value.Value := Value.Value > Value2.Value;
-        mtEqual       : Value.Value := Value.Value = Value2.Value;
-        mtDifferent   : Value.Value := Value.Value <> Value2.Value;
-        mtLowerEqual  : Value.Value := Value.Value <= Value2.Value;
-        mtGreaterEqual: Value.Value := Value.Value >= Value2.Value;
-       End;
-      End;
-
-      Dec(StackPos, 2);
-      StackPush(Value);
-
-      Inc(Pos); // next token
-      Continue; // go to next step
-     End Else
-      goto CannotOptimize;
-    End;
-
-   CannotOptimize:
     Node^.Right := CreateNodeFromStack;
     Node^.Left  := CreateNodeFromStack;
 
@@ -944,28 +975,6 @@ Begin
     MType := Value.Typ;
     Node  := CreateNode(nil, nil, MType, null, Value.Token, Value.Deep);
 
-    if (isStackNodeConstant) and (_Of in Compiler.Options) Then
-    Begin
-     { constant folding }
-     Value := Stack[StackPos-1];
-
-     if (Value.Typ in [mtInt, mtFloat]) Then
-     Begin
-      Case MType of
-       mtNeg: Value.Value := -Value.Value;
-       else goto CannotOptimize2;
-      End;
-     End Else
-      goto CannotOptimize2;
-
-     Dec(StackPos);
-     StackPush(Value);
-
-     Inc(Pos); // next token
-     Continue; // go to next step
-    End;
-
-   CannotOptimize2:
     Node^.Left := CreateNodeFromStack;
     StackPush(mtTree, LongWord(Node));
    End Else
@@ -996,28 +1005,43 @@ Begin
   Inc(Pos);
  Until (Pos >= FinalExprPos);
 
- Result := CreateNodeFromStack;
+ if (StackPos <> 1) Then
+  Compiler.CompileError(eInvalidExpression, []) Else
+  Result := CreateNodeFromStack;
+End;
+
+{ TInterpreter.Optimize }
+Function TInterpreter.Optimize(const Tree: PMExpression; Options: TOptions): PMExpression;
+
+{$I constant_folding.pas}
+
+Begin
+ if (oConstantFolding in Options) Then
+  __constant_folding;
+
+ Exit(Tree);
 End;
 
 // ---------- </> ---------- //
 
 { MakeConstruction }
-Function MakeConstruction(const Compiler: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; FoldConstants: Boolean=False; InlineConsts: Boolean=False): TMConstruction;
-Var Interpreter: TInterpreter;
+Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): TMConstruction;
+Var Compiler   : TCompiler absolute CompilerPnt;
+    Interpreter: TInterpreter;
 Begin
- // we need to make RPN and then evaluate it; as a result, we'll have TMConstruction with 1 value - the whole expression tree.
- Interpreter := TInterpreter(TCompiler(Compiler).Interpreter);
+ Interpreter := TInterpreter(Compiler.Interpreter);
 
- Interpreter.Parse
- (
-        EndTokens,
-        FoldConstants or (_Of in TCompiler(Compiler).Options),
-        InlineConsts or (_ICONST in TCompiler(Compiler).Options)
- );
+ if (oGetFromCommandLine in Options) Then
+ Begin
+  if (Compiler.getBoolOption(opt__constant_folding)) Then
+   Include(Options, oConstantFolding);
+ End;
+
+ Interpreter.Parse(EndTokens);
 
  Result.Typ := ctExpression;
  SetLength(Result.Values, 1);
- Result.Values[0] := Interpreter.MakeTree;
+ Result.Values[0] := Interpreter.Optimize(Interpreter.MakeTree, Options);
 
  {$IFDEF DISPLAY_TREE}
  DisplayTree(Result.Values[0]);
@@ -1040,6 +1064,7 @@ Type TRVariable = Record
                    RegChar: Char;
                    Typ    : TVType;
                    PosStr : String;
+                   Value  : TMExpression;
 
                    getArray: Byte;
 
@@ -1068,6 +1093,12 @@ Begin
  Compiler.CompileError(Token, Error, Args);
 End;
 
+{ Hint }
+Procedure Hint(Hint: TCompileHint; Args: Array of Const);
+Begin
+ Compiler.CompileHint(Expr^.Token, Hint, Args);
+End;
+
 { RePop }
 Procedure RePop(Expr: PMExpression; TypeID: TVType; Reg: Byte);
 Begin
@@ -1083,49 +1114,64 @@ End;
 Function getVariable(Expr: PMExpression; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
 Label Failed;
 Begin
+ { set default values }
+ With Result do
+ Begin
+  RegID   := 0;
+  RegChar := #0;
+  Typ     := TYPE_ANY;
+  isConst := False;
+  PosStr  := '[0]';
+ End;
+
  Result.getArray := 0;
 
- // is it array element?
+ { is it an array element? }
  While (Expr^.Typ = mtArrayElement) do
  Begin
   Expr := Expr^.Left;
   Inc(Result.getArray);
  End;
 
- // just some just-in-case check
- if (Expr^.Value = null) Then
+ Result.Name := Expr^.Value;
+ Result.ID   := Expr^.IdentID;
+
+ if (Result.ID = -1) Then // variable or constant not found
   goto Failed;
 
- Result.Name := Expr^.Value;
- Result.ID   := Compiler.findVariable(Result.Name, Expr^.Deep);
-
- if (Result.ID = -1) Then // variable not found
+ if (Expr^.isLocal) Then
  Begin
- Failed:
-  With Result do
-  Begin
-   RegID   := 0;
-   RegChar := #0;
-   Typ     := TYPE_ANY;
-   PosStr  := '[0]';
-   isConst := False;
-  End;
-
-  if (FailWhenNotFound) Then
-   Error(eUnknownVariable, [Result.Name]);
- End Else
- Begin // variable found
+  { local variable or constant }
   With Result do
   Begin
    RegID   := Compiler.getVariableRegID(ID);
    RegChar := Compiler.getVariableRegChar(ID);
    Typ     := Compiler.getVariableType(ID);
+   Value   := Compiler.getVariableValue(ID);
    isConst := Compiler.isVariableConstant(ID);
 
    if (RegID > 0) Then
     PosStr := 'e'+RegChar+IntToStr(RegID) Else
     PosStr := '['+IntToStr(RegID-PushedValues)+']';
   End;
+ End Else
+ Begin
+  { global variable or constant }
+  With Compiler.NamespaceList[Expr^.IdentNamespace].GlobalList[Result.ID], Result do
+  Begin
+   RegID   := mVariable.RegID;
+   RegChar := mVariable.RegChar;
+   Typ     := mVariable.Typ;
+   Value   := mVariable.Value;
+   isConst := mVariable.isConst;
+  End;
+ End;
+
+Failed:
+ if (Result.ID = -1) and (FailWhenNotFound) Then
+ Begin
+  Error(eUnknownVariable, [Result.Name]);
+  Exit;
  End;
 
  if (Result.isConst) and (not AllowConstants) Then
@@ -1157,17 +1203,25 @@ End;
 
 { isLValue }
 Function isLValue(Expr: PMExpression): Boolean;
-Var ID: Integer;
+Var ID, Namespace: Integer;
 Begin
  Result := (Expr^.Typ in [mtVariable, mtArrayElement]);
 
- if (Expr^.Typ = mtVariable) Then // check if a variable isn't, in fact, a constant
+ if (Expr^.Typ = mtVariable) Then // check if passed variable identifier isn't a constant
  Begin
-  ID := Compiler.findVariable(Expr^.Value);
+  ID := Compiler.findLocalVariable(Expr^.Value);
 
-  if (ID <> -1) Then
+  if (ID = -1) Then
+  Begin
+   Compiler.findGlobalVariableCandidate(Expr^.Value, Expr^.Namespaces, ID, Namespace, @Expr^.Token);
+
+   if (ID > -1) Then
+    With Compiler do
+     if (NamespaceList[Namespace].GlobalList[ID].mVariable.isConst) Then // global constant
+      Exit(False);
+  End Else
    With Compiler do
-    if (getCurrentFunction.VariableList[ID].isConst) Then
+    if (getCurrentFunction.VariableList[ID].isConst) Then // local constant
      Exit(False);
  End;
 End;
@@ -1182,6 +1236,7 @@ Begin
  With Expr^ do
  Begin
   Result := 1;
+
   if (Left <> nil) Then
    Result += countLeaves(Left);
   if (Right <> nil) Then
@@ -1190,7 +1245,7 @@ Begin
   For I := Low(ParamList) To High(ParamList) Do
    Result += countLeaves(ParamList[I]);
 
-  if (Typ = mtFunction) Then
+  if (Typ = mtFunctionCall) Then
    Inc(Result);
  End;
 End;
@@ -1234,10 +1289,6 @@ End;
 // ^
 {$I xor.pas}
 
-{ ParseCall }
-// ()
-{$I call.pas}
-
 { ParsePIncDec }
 // ++
 // --
@@ -1255,6 +1306,10 @@ End;
 // ~
 {$I bitwise_not.pas}
 
+{ ParseCall }
+// ()
+{$I call.pas}
+
 { ParseArrayElement }
 // []
 {$I array_element.pas}
@@ -1262,6 +1317,10 @@ End;
 { ParseNEW }
 // new
 {$I new.pas}
+
+{ ParseTypeCast }
+// type<type>(value)
+{$I typecast.pas}
 
 Var Variable: TRVariable;
 Label Over;
@@ -1275,12 +1334,6 @@ Begin
 
  if (Left = nil) and (Right = nil) Then // both child nodes are `nil`
  Begin
-  if (Expr^.Typ = mtFunction) Then // function call
-  Begin
-   ParseCall;
-   goto Over;
-  End;
-
   // load value onto the register `FinalRegID`
   if (Expr^.Typ = mtVariable) Then // if variable...
   Begin
@@ -1288,7 +1341,7 @@ Begin
 
    if (Variable.ID = -1) Then // variable not found
    Begin
-    if (Variable.Name = '__line') and (_SCONST in Compiler.Options) Then // is it a special variable?
+    if (Variable.Name = '__line') and (Compiler.getBoolOption(opt_internal_const)) Then // is it a special variable?
     Begin
      if (FinalRegChar = #0) Then
       FinalRegChar := 'i';
@@ -1312,10 +1365,13 @@ Begin
     FinalRegChar := Variable.RegChar;
 
    if (FinalRegID > 0) Then
-    __variable_getvalue_reg(Variable.ID, FinalRegID, FinalRegChar) Else // load a variable's value into the register
-    __variable_getvalue_stack(Variable.ID);
+    __variable_getvalue_reg(Variable, FinalRegID, FinalRegChar) Else // load a variable's value into the register
+    __variable_getvalue_stack(Variable);
 
    Result := Variable.Typ;
+
+   if (Compiler.isTypeFunctionPointer(Result)) and (not isSubCall) Then
+    Hint(hDidntYouMean, [Variable.Name+'()']);
   End Else
   Begin // if const value
    Result := getTypeFromMExpr(Expr);
@@ -1372,8 +1428,10 @@ Begin
 
  // parse other operators
  Case Expr^.Typ of
+  mtFunctionCall: ParseCall;
   mtArrayElement: ParseArrayElement;
   mtNew         : ParseNEW;
+  mtTypeCast    : ParseTypeCast;
  End;
 
 Over:

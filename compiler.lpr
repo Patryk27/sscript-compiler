@@ -21,38 +21,104 @@
 {$DEFINE NIGHTLY}
 
 Program compiler;
-Uses Windows, SysUtils, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
+Uses Windows, SysUtils, TypInfo, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
 Var Input, Output: String;
 
-    Options: TCompileOptions;
-
-    I: Cardinal;
+    Options  : TCompileOptions;
+    logo_only: Boolean=False;
 
     Frame : Integer;
     Frames: PPointer;
 
-{ Log }
-Procedure Log(const Text: String);
+{ AddOption }
+Procedure AddOption(const Option: TCommandLineOption; Value: Variant);
 Begin
- if not (getBoolOption('quiet', False)) Then
-  Writeln(Text);
+ SetLength(Options, Length(Options)+1);
+ Options[High(Options)].Option := Option;
+ Options[High(Options)].Value  := Value;
 End;
 
-{ Log }
-Procedure Log;
+{ ParseCommandLine }
+Procedure ParseCommandLine;
+Var Current        : String;
+    Option         : TCommandLineOption;
+    Pos, Tmp, OptID: Integer;
+    Value          : Variant;
 Begin
- Log('');
+ if (Copy(ParamStr(1), 1, 1) = '-') Then
+  Pos := 1 Else
+  Pos := 2;
+
+ SetLength(Options, 0);
+
+ Repeat
+  Current := ParamStr(Pos);
+
+  if (Length(Current) = 0) Then // shouldn't happen (?)
+  Begin
+   Inc(Pos);
+   Continue;
+  End;
+
+  { -O1 (optimize level 1) }
+  if (Current = '-O1') Then
+  Begin
+   AddOption(opt__register_alloc, True);
+   AddOption(opt__constant_folding, True);
+   AddOption(opt__bytecode_optimize, True);
+  End Else
+
+  { -logo }
+  if (Current = '-logo') Then
+  Begin
+   logo_only := True;
+   Exit;
+  End Else
+
+  { -verbose / -v }
+  if (Current = '-verbose') or (Current = '-v') Then
+  Begin
+   verbose_mode := True;
+  End Else
+
+  { another option }
+  if (Current[1] = '-') Then
+  Begin
+   Tmp   := Length(Current);
+   Value := not (Current[Tmp] = '-');
+
+   // find this option
+   OptID := -1;
+   For Option := Low(CommandLineNames) To High(CommandLineNames) Do
+    if (CommandLineNames[Option].Names[0] = Current) or (CommandLineNames[Option].Names[1] = Current) Then
+     OptID := ord(Option);
+   Option := TCommandLineOption(OptID);
+
+   if (ord(Option) = -1) Then
+    Writeln('Unknown command-line option: ', Current) Else
+    Begin
+     if (CommandLineNames[Option].Typ <> pBool) Then
+     Begin
+      Inc(Pos);
+      Value := ParamStr(Pos);
+     End;
+
+     AddOption(Option, Value);
+    End;
+  End Else
+
+  { unexpected }
+   Writeln('Unexpected command-line argument: ', Current);
+
+  Inc(Pos);
+ Until (Pos > ParamCount);
 End;
 
 { program's body }
 Begin
  DefaultFormatSettings.DecimalSeparator := '.';
 
- { parse command line }
- Options := [];
- For I := Low(OptionNames) To High(OptionNames) Do
-  if (getBoolOption(OptionNames[I], False)) Then
-   Include(Options, TCompileOption(I));
+ ParseCommandLine;
 
  Try
   if (ParamCount < 1) Then // too few parameters specified
@@ -60,66 +126,14 @@ Begin
    Writeln('Usage:');
    Writeln('compiler.exe [input file] <options>');
    Writeln;
-   Writeln('Available options:');
-   Writeln('To enable a boolean switch use `name+` (or just `name`), to disable `name-`');
-   Writeln;
-
-   Writeln('name = description');
-   Writeln;
-
-   Writeln('-> Compiler');
-   Writeln('-s <file>     save output verbal bytecode');
-   Writeln('-o <file>     change output file name');
-   Writeln('-ninit        do not include `init.sm` file into the program');
-   Writeln('-includepath  include path for module including (see documentation for description)');
-
-   Writeln;
-   Writeln('-> Optimizations');
-   Writeln('-Or      allocate variables in registers');
-   Writeln('-Of      enable constant expression folding');
-   Writeln('-Op      peephole bytecode optimizer');
-   Writeln('-O1      optimization level 1; enables `-Or` `-Of` `-Op`');
-   Writeln('-iconst  inline constants directly when building an expression (may affect on displayed errors)');
-
-   Writeln;
-   Writeln('-> Hints & warnings');
-
-   Writeln;
-   Writeln('-> Output file');
-   Writeln('-dbg  generate debug data (applications only)'); // @TODO: debug data in libraries?
-
-   Writeln;
-   Writeln('-> Compile modes');
-   Writeln('-Clib    compile file as a library');
-   Writeln('-Cbcode  compile file as a bytecode');
-
-   Writeln;
-   Writeln('-> For libraries');
-   Writeln('-h <file> generate header file for input source file');
-
-   Writeln;
-   Writeln('-> Other options');
-   Writeln('-stacksize  change stack size (default: ', DEF_STACKSIZE, ')');
-   Writeln('-wait       wait for `enter` when finished (-)');
-   Writeln('-logo       if you set this as an input file name, the compiler will display only its version, but won''t compile anything');
-   Writeln('-quiet      when enabled, the compiler displays only important messages (eg.code errors/warnings/hints)');
+   Writeln('See `command-line.txt` for more informations.');
   End Else
   Begin
    Input  := ExpandFileName(ParamStr(1));
    Output := ExpandFileName(getStringOption('o', 'output.ssc'));
 
-   { Optimize level 1 (-O1) }
-   if (_O1 in Options) Then
-   Begin
-    Include(Options, _Or);
-    Include(Options, _Of);
-    Include(Options, _Op);
-   End;
-
-   { parse command line (now checking disabled options) }
-   For I := Low(OptionNames) To High(OptionNames) Do
-    if (getBoolOption(OptionNames[I]+'-', False)) Then
-     Exclude(Options, TCompileOption(I));
+   if (logo_only) Then
+    verbose_mode := True;
 
    Log('SScript Compiler, version '+Version+' ['+{$I %DATE%}+']');
    Log('by Patryk Wychowaniec');
@@ -129,14 +143,10 @@ Begin
     Log('Warning: This is a nightly, untested and most likely unstable version - not intended for daily use!');
    {$ENDIF}
 
-   { `-logo` passed as an input file name? }
-   if (ParamStr(1) = '-logo') Then
-    raise Exception.Create(''); // stop compiler
+   if (logo_only) Then
+    raise Exception.Create('');
 
-   Log;
-
-   if (_Clib in Options) Then // `init` code would be unusable in a library
-    Include(Options, _NINIT);
+   Log; // newline
 
    if (not FileExists(Input)) Then
     raise Exception.Create('Input file does not exist.'); // error: input file not found
@@ -162,10 +172,9 @@ Begin
  End;
 
  { -wait }
- if (getBoolOption('wait', False)) Then
+ if (getBoolOption('wait', False)) Then // @TODO
  Begin
-  if not (ParamStr(1) = '-logo') Then
-   Log('-- done --');
+  Writeln('-- done --');
   Readln;
  End;
 End.

@@ -7,6 +7,9 @@
 @("math.ss")
 @visibility("public")
 
+namespace std
+{
+
 function<string> intsys(int num, int base)
 {
  if ((base < 2) || (base > 35)) // invalid numeric base
@@ -24,8 +27,8 @@ function<string> intsys(int num, int base)
  {             
   var<int> rem = num%base;
   if (rem > 9)
-   result += char('A'-10+rem); else
-   result += char(rem%10+48);
+   result += cast<char>('A'-10+rem); else
+   result += cast<char>(rem%10+48);
   num /= base;
  }
  
@@ -131,7 +134,7 @@ function<string> fltstr(float n)
   idx = 0;
   while (decimalNum != 0)
   {
-   tmp += char('0'+(decimalNum%10));
+   tmp += cast<char>('0'+(decimalNum%10));
    decimalNum /= 10;
    idx++;
   }
@@ -171,4 +174,6 @@ function<float> strflt(string str)
   right = strint(decimalPart)/power(10, strlen(decimalPart));
 
  return left+right;
+}
+
 }

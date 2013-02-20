@@ -5,6 +5,9 @@
 
 @visibility("public")
 
+namespace std
+{
+
 /* ===== CHAR FUNCTIONS ===== */
 function<char> chupper(char ch)
 {
@@ -46,7 +49,7 @@ function<bool> isalnum(char ch)
 
 function<bool> isspace(char ch)
 {
- return ((ch == char(0)) || (ch == '\n') || (ch == '\r') || (ch == '\t') || (ch == '\v') || (ch == '\f') || (ch == ' '));
+ return ((ch == cast<char>(0)) || (ch == '\n') || (ch == '\r') || (ch == '\t') || (ch == '\v') || (ch == '\f') || (ch == ' '));
 }
 
 /* ===== STRING FUNCTIONS ===== */
@@ -227,7 +230,7 @@ function<string> strdup(string text, int amount)
 function<string> strrot(string text, int key)
 {
  for (var<int> i=1; i<=strlen(text); i++)
-  text[i] = char(text[i]+key);
+  text[i] = cast<char>(text[i]+key);
  return text;
 }
 
@@ -373,4 +376,14 @@ function<string> boolstrb(bool b, string _true, string _false)
  if (b)
   return _true; else
   return _false;
+}
+
+function<string[]> strexplode(string text, char separator)
+{
+}
+
+function<string> strimplode(string[] arr, char separator)
+{
+}
+
 }

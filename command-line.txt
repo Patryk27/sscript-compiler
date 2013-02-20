@@ -1,0 +1,33 @@
+To enable option, write `option+` or just `option`; to disable: `option-`.
+By the default, all switches are disabled.
+
+1.Compiler
+	-bytecode / -b <file>	saves generated verbal bytecode into specified file
+	-output / -o <file>	changes output file name
+	-initcode		includes `init.sm` into the program (programs only)
+
+	-includepath <path>	changes the include path; default: `$file;$compiler`
+	-stacksize <int>	changes the stack size; default: `1000000`
+
+2.Code
+	-Cm <mode>
+		-Cm app		compiles file as an application (default)
+		-Cm lib		compiles file as a library
+		-Cm bytecode	compiles file as a bytecode
+
+	-internal-const / -Cconst	enable special (internal) constants; eg.`__self` or `__line`
+
+3.Optimizations
+	--register-alloc / -Or		allows to allocate variables in registers (when possible)
+	--constant-folding / -Of	enables constant folding
+	--bytecode-optimize / Op	optimizes bytecode
+
+	-O1	enables `--register-alloc`, `--constant-folding` and `--bytecode-optimize`
+
+5.Libraries only
+	-header / -h <file>	generates header file for input source file
+
+6.Other options
+	-logo		displays only a logo, doesn't compile anything
+	-wait		waits for `enter` when finished
+	-verbose / -v	enables `verbose` mode

@@ -1,3 +1,7 @@
+(*
+ Copyright © by Patryk Wychowaniec, 2013
+ All rights reserved.
+*)
 Unit Parse_include;
 
  Interface
@@ -5,14 +9,15 @@ Unit Parse_include;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, Tokens, Messages, MTypes, SysUtils;
+Uses Compile1, ExpressionCompiler, Tokens, Messages, MTypes, SysUtils;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var FileName: String;
-    NewC    : TCompiler;
-    I, Q    : LongWord;
-    Found   : Boolean;
+Var FileName         : String;
+    NewC             : TCompiler;
+    NS, I, Q         : LongWord;
+    Found            : Boolean;
+    TmpNamespace, Tmp: Integer;
 Begin
 With TCompiler(Compiler) do
 Begin
@@ -38,28 +43,97 @@ Begin
 
  NewC.CompileCode(FileName, FileName+'.ssc', Options, True, Parent);
 
- { constants }
- if (Length(NewC.ConstantList) > 0) Then
-  For I := Low(NewC.ConstantList) To High(NewC.ConstantList) Do
-   With NewC.ConstantList[I] do
+ { for each namespace }
+ TmpNamespace := CurrentNamespace;
+ For NS := Low(NewC.NamespaceList) To High(NewC.NamespaceList) Do
+ Begin
+  if (NewC.NamespaceList[NS].Visibility <> mvPublic) Then
+   Continue;
+
+  Tmp := findNamespace(NewC.NamespaceList[NS].Name);
+  if (Tmp = -1) Then // new namespace
+  Begin
+   SetLength(NamespaceList, Length(NamespaceList)+1);
+
+   CurrentNamespace := High(NamespaceList);
+   With NamespaceList[CurrentNamespace] do
    Begin
-    if (Visibility <> mvPublic) Then // must be public
-     Continue;
-
-    SetLength(ConstantList, Length(ConstantList)+1);
-    ConstantList[High(ConstantList)] := NewC.ConstantList[I];
+    Name       := NewC.NamespaceList[NS].Name;
+    Visibility := mvPrivate;
+    mCompiler  := NewC;
+    DeclToken  := NewC.NamespaceList[NS].DeclToken;
+    SetLength(GlobalList, 0);
    End;
+  End Else // already existing namespace
+   CurrentNamespace := Tmp;
 
- { functions }
- if (Length(NewC.FunctionList) > 0) Then
-  For I := Low(NewC.FunctionList) To High(NewC.FunctionList) Do
-   if (NewC.FunctionList[I].Visibility = mvPublic) Then
-    With NewC.FunctionList[I] do
-     if ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '') Then // don't copy functions imported from other modules (as they are useless for us)
+  With NewC.NamespaceList[NS] do
+  Begin
+   if (Length(GlobalList) = 0) Then
+    Continue;
+
+   { global constants }
+   For I := Low(GlobalList) To High(GlobalList) Do
+    With GlobalList[I] do
+    Begin
+     if (Typ <> gdConstant) Then // skip not-constants
+      Continue;
+
+     With mVariable do
      Begin
-      SetLength(FunctionList, Length(FunctionList)+1);
-      FunctionList[High(FunctionList)] := NewC.FunctionList[I];
+      if (Visibility <> mvPublic) Then // constant must be public
+       Continue;
+
+      RedeclarationCheck(Name);
+
+      With getCurrentNamespacePnt^ do
+       SetLength(GlobalList, Length(GlobalList)+1);
+
+      With getCurrentNamespacePnt^.GlobalList[High(getCurrentNamespace.GlobalList)] do
+      Begin
+       Typ       := gdConstant;
+       mVariable := GlobalList[I].mVariable;
+      End;
      End;
+    End;
+
+   { functions }
+   For I := Low(GlobalList) To High(GlobalList) Do
+    With GlobalList[I] do
+    Begin
+     if (Typ <> gdFunction) Then
+      Continue;
+
+     With mFunction do
+     Begin
+      if (Visibility <> mvPublic) Then // function must be public
+       Continue;
+
+      if ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '') Then // don't copy functions imported from other modules (as they are useless for us)
+      Begin
+       RedeclarationCheck(Name);
+
+       With getCurrentNamespacePnt^ do
+        SetLength(GlobalList, Length(GlobalList)+1);
+
+       With getCurrentNamespacePnt^.GlobalList[High(getCurrentNamespace.GlobalList)] do
+       Begin
+        Typ       := gdFunction;
+        mFunction := GlobalList[I].mFunction;
+
+        mVariable.Name    := mFunction.Name;
+        mVariable.Typ     := NewTypeFromFunction(mFunction);
+        mVariable.Value   := MakeIntExpression('@'+mFunction.MName)^;
+        mVariable.RegChar := 'r';
+        mVariable.RegID   := 1;
+        mVariable.isConst := True;
+       End;
+      End;
+     End;
+    End;
+  End;
+ End;
+ CurrentNamespace := TmpNamespace;
 
  { bytecode }
  if (NewC.OpcodeList.Count > 0) Then

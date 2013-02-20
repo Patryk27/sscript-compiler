@@ -23,7 +23,7 @@ Begin
  SetLength(C.Values, 2);
 
  Str := GetMem(128);
- StrPCopy(Str, FunctionList[High(FunctionList)].MName+'__if_'+IntToStr(SomeCounter)+'_');
+ StrPCopy(Str, getCurrentFunction.MName+'__if_'+IntToStr(SomeCounter)+'_');
  Inc(SomeCounter);
 
  C.Values[0] := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]).Values[0]; // read condition

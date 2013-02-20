@@ -40,7 +40,7 @@ Begin
  With Compiler do
  Begin
   { cast table }
-  if (isTypeArray(TypeLeft, False) or isTypeArray(TypeRight, False)) Then // don't check arrays
+  if (isTypeArray(TypeLeft, False) or isTypeArray(TypeRight, False)) Then // don't check arrays (except pure strings)
    Exit(TypeLeft);
 
   { float, int -> float, float }
@@ -98,7 +98,8 @@ Begin
   End;
 
   { unsupported operator (eg.`int+string`) }
-  if (not CompareTypes(TypeLeft, TypeRight)) Then
+  if (not CompareTypes(TypeLeft, TypeRight)) or
+     (isTypeFunctionPointer(TypeLeft) or isTypeFunctionPointer(TypeRight)) Then
   Begin
    Error(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]);
    Exit;

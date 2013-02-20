@@ -6,17 +6,55 @@ Unit CompilerUnit;
 
  Interface
 
- Type TCompileOption =
+ { types }
+ // TCommandLineOption
+ Type TCommandLineOption =
  (
-  _NINIT, _Or, _Of, _Op, _O1, _DBG, _Clib, _Cbcode, _iconst, _sconst
+  opt_bytecode, opt_output, opt_initcode, opt_includepath, opt_stacksize,
+  opt_Cm, opt_internal_const,
+  opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt_O1,
+  opt_header,
+  opt_logo, opt_wait, opt_verbose
  );
- 
- Type TCompileOptions = Set of TCompileOption;
 
- Const OptionNames: Array[0..9] of String =
+ Type TCommandLineName = Record
+                          Names: Array[0..1] of String;
+                          Typ  : (pBool, pString, pInt);
+                         End;
+
+ Const CommandLineNames: Array[TCommandLineOption] of TCommandLineName =
  (
-  'ninit', 'Or', 'Of', 'Op', 'O1', 'dbg', 'Clib', 'Cbcode', 'iconst', 'sconst'
+  (Names: ('-bytecode',       '-b'); Typ: pString),
+  (Names: ('-output',         '-o'); Typ: pString),
+  (Names: ('-initcode',       '');   Typ: pBool),
+  (Names: ('-includepath',    '');   Typ: pString),
+  (Names: ('-stacksize',      '');   Typ: pInt),
+
+  (Names: ('-Cm', '');                    Typ: pString),
+  (Names: ('-internal-const', '-Cconst'); Typ: pBool),
+
+  (Names: ('--register-alloc', '-Or');    Typ: pBool),
+  (Names: ('--constant-folding', '-Of');  Typ: pBool),
+  (Names: ('--bytecode-optimize', '-Op'); Typ: pBool),
+  (Names: ('-O1', '');                    Typ: pBool),
+
+  (Names: ('-header', '-h'); Typ: pString),
+
+  (Names: ('-logo', '');      Typ: pBool),
+  (Names: ('-wait', '');      Typ: pBool),
+  (Names: ('-verbose', '-v'); Typ: pBool)
  );
+
+ // TCompileOption
+ Type TCompileOption = Record
+                        Option: TCommandLineOption;
+                        Value : Variant;
+                       End;
+ Type TCompileOptions = Array of TCompileOption;
+
+ { functions }
+ Procedure Log(const Text: String);
+ Procedure Log;
 
  Function getCompiler: Pointer;
 
@@ -26,9 +64,23 @@ Unit CompilerUnit;
 
  Procedure CompileCode(Input, Output: String; Options: TCompileOptions);
 
+ Var verbose_mode: Boolean = False;
  Implementation
 Uses Compile1, SysUtils;
 Var Compiler: TCompiler = nil;
+
+{ Log }
+Procedure Log(const Text: String);
+Begin
+ if (verbose_mode) Then
+  Writeln(Text);
+End;
+
+{ Log }
+Procedure Log;
+Begin
+ Log('');
+End;
 
 (* getCompiler *)
 {

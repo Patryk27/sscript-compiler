@@ -11,12 +11,7 @@ Unit Peephole;
  Procedure OptimizeBytecode(Compiler: TCompiler);
 
  Implementation
-Uses Opcodes, SysUtils;
-
-Const SafeOpcodes: Set of TOpcode_E =
-[
- o_if_e, o_if_ne, o_if_g, o_if_l, o_if_ge, o_if_le
-];
+Uses Opcodes, SysUtils, Messages;
 
 (* isRegister *)
 {
@@ -40,28 +35,56 @@ End;
 {
  Returns `true` when passed opcode argument is a variable-holder.
 
- @Note: 'variable-holders' are registers `e_3` and `e_4`, as only there a variable
-        can be allocated (when `-Or` is passed into the compiler).
+ @Note: 'variable-holders' are registers `e_3` and `e_4`, and also a stackvals - as only there a variable
+        can be allocated.
 }
 Function isVariableHolder(T: TMOpcodeArg): Boolean;
 Begin
  Result := isRegister(T.Typ);
 
  if (Result) Then
-  Exit(StrToInt(VarToStr(T.Value)) > 2);
+  Exit(StrToInt(VarToStr(T.Value)) > 2) Else
+  Exit(T.Typ = ptStackVal);
 End;
 
 (* OptimizeBytecode *)
 {
- Optimizes bytecode for smaller size and faster execution.
+ Optimizes bytecode for faster execution.
 }
 Procedure OptimizeBytecode(Compiler: TCompiler);
 Var Pos, Pos2            : LongWord;
     oCurrent, oNext, oTmp: TMOpcode;
     pCurrent, pNext, pTmp: PMOpcode;
-    PushFix              : Integer;
+    PushFix, I           : Integer;
     Optimized            : Boolean;
     TmpArg               : TMOpcodeArg;
+
+    // isArgumentChanging
+    Function isArgumentChanging(Param: Byte): Boolean;
+    Begin
+     Result := (oTmp.Args[Param] = oCurrent.Args[0]) or (oTmp.Args[Param] = oCurrent.Args[1]);
+    End;
+
+    // __optimize1
+    Procedure __optimize1(Param: Byte);
+    Begin
+     if (oTmp.Args[Param] = oCurrent.Args[0]) Then
+     Begin
+      TmpArg           := oTmp.Args[Param];
+      pTmp.Args[Param] := oCurrent.Args[1]; // replace register with value
+
+      if (isValidOpcode(pTmp^)) Then // is it a valid opcode now?
+      Begin
+       if (pTmp.Args[Param].Typ = ptStackVal) and (PushFix <> 0) Then
+        pTmp.Args[Param].Value -= PushFix;
+
+       Optimized := True;
+      End Else // if it's not
+       pTmp.Args[Param] := TmpArg;
+     End;
+    End;
+
+
 Begin
  With Compiler do
  Begin
@@ -106,7 +129,7 @@ Begin
     if (oCurrent.Args[0] = oNext.Args[0]) Then
     Begin
      {
-      push(register)
+      push(some register)
       pop(the same register)
       ->
       [nothing]
@@ -129,8 +152,9 @@ Begin
    End;
 
    {
-    add(register, 0)
-    sub(register, 0)
+     add(register, 0)
+    or
+     sub(register, 0)
     ->
     [nothing]
    }
@@ -149,12 +173,10 @@ Begin
     mov(register, value)
     (...)
     opcode(some value or reg, register)
-    [ safe opcode(register, some value or reg) ]
     ->
     opcode(some value or reg, value)
-    [ safe opcode(value, some value or reg) ]
 
-    Assuming that the register isn't changing in the opcodes between.
+    Assuming that the register's value does not change in the opcodes between.
    }
    if (oCurrent.Opcode = o_mov) and not (oCurrent.Args[0].Typ = ptStackVal) Then
    Begin
@@ -177,15 +199,30 @@ Begin
      End;
 
      if (oTmp.Opcode in [o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_mov, o_pop, o_add, o_sub, o_mul, o_div, o_mod]) and
-        ((oTmp.Args[0] = oCurrent.Args[0]) or (oTmp.Args[0] = oCurrent.Args[1])) Then
+        (isArgumentChanging(0)) Then
          Break; // the register's value is changing somewhere by the way
 
-     if (oTmp.Opcode = o_arget) Then
-      if (oTmp.Args[2] = oCurrent.Args[0]) or (oTmp.Args[2] = oCurrent.Args[1]) Then
-       Break; // the register's value is changed by `arget` (`arget(in, in, out)`)
+     if (oTmp.Opcode = o_arset) Then // arset(out, in, in)
+      if (isArgumentChanging(0)) Then
+       Break;
 
-     if (oTmp.Opcode in [o_jmp, o_fjmp, o_tjmp]) or (oTmp.Opcode = o_call) Then // stop on jumps and calls
+     if (oTmp.Opcode = o_arget) Then // arget(in, in, out)
+      if (isArgumentChanging(2)) Then
+       Break;
+
+     if (oTmp.Opcode = o_arset) Then // arcrt(out, in, in)
+      if (isArgumentChanging(0)) Then
+       Break;
+
+     if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
       Break;
+
+     if (oTmp.Opcode = o_arget) and (oTmp.Args[1].Typ = ptInt) Then
+      PushFix -= oTmp.Args[1].Value;
+
+     { optimize }
+     For I := Low(oTmp.Args) To High(oTmp.Args) Do
+      __optimize1(I);
 
      if (oTmp.Opcode = o_push) Then
       Inc(PushFix);
@@ -193,78 +230,19 @@ Begin
      if (oTmp.Opcode = o_pop) Then
       Dec(PushFix);
 
-     { 1-param opcodes }
-     if (Length(oTmp.Args) = 1) Then
-     Begin
-      if (oTmp.Opcode in [o_push, o_jmp, o_tjmp, o_fjmp, o_call]) Then // push, jmp, tjmp, fjmp, call
-      Begin
-       if (oTmp.Args[0] = oCurrent.Args[0]) Then // yes, optimize! :)
-       Begin
-        TmpArg       := oTmp.Args[0];
-        pTmp.Args[0] := oCurrent.Args[1];
-
-        if (isValidOpcode(pTmp^)) Then
-        Begin
-         if (pTmp.Args[0].Typ = ptStackVal) Then
-          pTmp.Args[0].Value -= PushFix;
-
-         Optimized := True;
-        End Else
-         pTmp.Args[0] := TmpArg;
-       End;
-      End;
-     End;
-
-     { 2-param opcodes }
-     if (Length(oTmp.Args) = 2) Then
-     Begin
-      if (oTmp.Opcode in SafeOpcodes) Then
-      Begin
-       if (oTmp.Args[0] = oCurrent.Args[0]) Then // yes, optimize! :)
-       Begin
-        TmpArg       := oTmp.Args[0];
-        pTmp.Args[0] := oCurrent.Args[1]; // replace register with pure value
-
-        if (isValidOpcode(pTmp^)) Then
-        Begin
-         if (pTmp.Args[0].Typ = ptStackVal) Then
-          pTmp.Args[0].Value -= PushFix;
-
-         Optimized := True;
-        End Else
-         pTmp.Args[0] := TmpArg;
-       End;
-      End;
-
-      if (oTmp.Args[1] = oCurrent.Args[0]) Then // yes, optimize! :)
-      Begin
-       TmpArg       := oTmp.Args[1];
-       pTmp.Args[1] := oCurrent.Args[1]; // replace register with pure value
-
-       if (isValidOpcode(pTmp^)) Then
-       Begin
-        if (pTmp.Args[1].Typ = ptStackVal) Then
-         pTmp.Args[1].Value -= PushFix;
-
-        Optimized := True;
-       End Else
-        pTmp.Args[1] := TmpArg;
-      End;
-     End;
-
-     { 3-param opcodes }
-     if (Length(oTmp.Args) = 3) Then
-     Begin
-      // @TODO (arget/arset)
-     End;
-
      Inc(Pos2);
     End;
 
+    { if optimized anything }
     if (Optimized) Then
     Begin
      if (not isVariableHolder(pCurrent^.Args[0])) Then
+     Begin
+      if (pCurrent^.Opcode <> o_mov) Then
+       CompileError(eInternalError, ['`mov` expected, but `'+Opcodes.OpcodeList[ord(pCurrent^.Opcode)].Name+'` found']);
+
       OpcodeList.Remove(pCurrent); // and remove the first `mov`
+     End;
 
      Dec(Pos);
      Continue;

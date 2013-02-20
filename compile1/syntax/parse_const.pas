@@ -18,10 +18,12 @@ Var Variable: TMVariable;
 Begin
 With TCompiler(Compiler) do
 Begin
- Variable.RegChar := 'i';
- Variable.isConst := True;
- Variable.isParam := False;
- Variable.Deep    := 0;
+ Variable.RegChar    := 'i';
+ Variable.isConst    := True;
+ Variable.isParam    := False;
+ Variable.Deep       := 0;
+ Variable.mCompiler  := Compiler;
+ Variable.Visibility := getVisibility;
 
  eat(_LOWER); // <
  Variable.Typ := read_type; // [type]
@@ -29,52 +31,51 @@ Begin
 
  While (true) Do
  Begin
-  Variable.Name := read_ident; // [identifier]
+  Variable.DeclToken := getToken;
+  Variable.Name      := read_ident; // [identifier]
 
   eat(_EQUAL); // =
 
-  Case isGlobal of
-   True: if (findGlobalConstant(Variable.Name) <> -1) Then // redeclaration of global constant
-          CompileError(eRedeclaration, [Variable.Name]);
+  RedeclarationCheck(Variable.Name); // redeclaration of a constant
 
-   False: if (findVariable(Variable.Name) <> -1) Then // redeclaration of constant
-           CompileError(eRedeclaration, [Variable.Name]);
-  End;
-
-  Variable.Value := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], True, True).Values[0])^; // [constant value]
+  Variable.Value   := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], [oConstantFolding]).Values[0])^; // [constant value]
+  Variable.RegChar := getTypePrefix(Variable.Typ);
 
   With Variable.Value do
   Begin
-   if (isConstValue(Variable.Value)) Then  // is this a constant expression?
+   if (isConstantValue(Variable.Value)) Then  // is this a constant expression?
    Begin
     VTyp := getTypeFromExpr(Variable.Value);
 
-    Variable.RegChar := getTypePrefix(VTyp);
-
     if (not CompareTypes(Variable.Typ, VTyp)) Then // type check
-     CompileError(eWrongType, [getTypeName(VTyp), getTypeName(Variable.Typ)]);
-   End Else
+     CompileError(eWrongTypeInAssign, [Variable.Name, getTypeName(VTyp), getTypeName(Variable.Typ)]);
+   End Else // if it's not - show error
     CompileError(eExpectedConstant, []);
   End;
 
   if (isGlobal) Then
   Begin
-   Variable.Visibility := Visibility;
-
-   SetLength(ConstantList, Length(ConstantList)+1);
-   ConstantList[High(ConstantList)] := Variable;
+   With getCurrentNamespacePnt^ do
+   Begin
+    SetLength(GlobalList, Length(GlobalList)+1);
+    With GlobalList[High(GlobalList)] do
+    Begin
+     Typ       := gdConstant;
+     mVariable := Variable;
+    End;
+   End;
   End Else
   Begin
-   With FunctionList[High(FunctionList)] do // add this constant into the function
+   With getCurrentFunctionPnt^ do
    Begin
-    SetLength(VariableList, Length(VariableList)+1); // expand the array
+    SetLength(VariableList, Length(VariableList)+1);
     VariableList[High(VariableList)] := Variable;
    End;
   End;
 
   setPosition(getPosition-1); // ExpressionCompiler 'eats' comma.
 
-  if (next_t = _COMMA) Then // const(...) name1, name2, name3...
+  if (next_t = _COMMA) Then // const(...) name1=value1, name2=value2, name3=value3...
    read Else
    Begin
     semicolon;

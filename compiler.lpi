@@ -31,7 +31,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-logo -wait"/>
+        <CommandLineParams Value="input.ss -b bytecode.ssb -wait"/>
       </local>
     </RunParams>
     <Units Count="2">
@@ -54,7 +54,7 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="$(ProjOutDir);compile1\expression"/>
+      <IncludeFiles Value="$(ProjOutDir);compile1\expression;compile1\expression\internal_functions;compile1\syntax"/>
       <OtherUnitFiles Value="compile1;compile1\syntax"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
@@ -62,6 +62,7 @@
       <Optimizations>
         <VariablesInRegisters Value="True"/>
         <UncertainOptimizations Value="True"/>
+        <OptimizationLevel Value="0"/>
       </Optimizations>
     </CodeGeneration>
     <Other>

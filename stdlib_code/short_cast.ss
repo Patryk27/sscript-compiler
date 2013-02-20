@@ -10,6 +10,9 @@
  bool, char, int, float, string
 */
 
+namespace std
+{
+
 /* bool */
 function<bool> b2b(bool b)
 {
@@ -18,12 +21,12 @@ function<bool> b2b(bool b)
 
 function<bool> c2b(char c)
 {
- return bool(c);
+ return cast<bool>(c);
 }
 
 function<bool> i2b(int i)
 {
- return bool(i);
+ return cast<bool>(i);
 }
 
 function<bool> f2b(float f)
@@ -39,7 +42,7 @@ function<bool> s2b(string s)
 /* char */
 function<char> b2c(bool b)
 {
- return int(b);
+ return cast<int>(b);
 }
 
 function<char> c2c(char c)
@@ -54,7 +57,7 @@ function<char> i2c(int i)
 
 function<char> f2c(float f)
 {
- return int(f);
+ return cast<int>(f);
 }
 
 function<char> s2c(string s)
@@ -65,12 +68,12 @@ function<char> s2c(string s)
 /* int */
 function<int> b2i(bool b)
 {
- return int(b);
+ return cast<int>(b);
 }
 
 function<int> c2i(char c)
 {
- return int(c);
+ return cast<int>(c);
 }
 
 function<int> i2i(int i)
@@ -80,7 +83,7 @@ function<int> i2i(int i)
 
 function<int> f2i(float f)
 {
- return int(f);
+ return cast<int>(f);
 }
 
 function<int> s2i(string s)
@@ -91,12 +94,12 @@ function<int> s2i(string s)
 /* float */
 function<float> b2f(bool b)
 {
- return int(b);
+ return cast<int>(b);
 }
 
 function<float> c2f(char c)
 {
- return int(c);
+ return cast<int>(c);
 }
 
 function<float> i2f(int i)
@@ -124,7 +127,7 @@ function<string> b2s(bool b)
 
 function<string> c2s(char c)
 {
- return string(c);
+ return cast<string>(c);
 }
 
 function<string> i2s(int i)
@@ -140,4 +143,6 @@ function<string> f2s(float f)
 function<string> s2s(string s)
 {
  return s;
+}
+
 }

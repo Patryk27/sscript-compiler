@@ -22,7 +22,7 @@ Begin
  eat(_BRACKET1_OP); // (
 
  Str := GetMem(128);
- StrPCopy(Str, FunctionList[High(FunctionList)].MName+'__while_'+IntToStr(SomeCounter)+'_');
+ StrPCopy(Str, getCurrentFunction.MName+'__while_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 
@@ -61,7 +61,7 @@ Begin
 With TCompiler(Compiler) do
 Begin
  Str := GetMem(128);
- StrPCopy(Str, FunctionList[High(FunctionList)].MName+'__do_while_'+IntToStr(SomeCounter)+'_');
+ StrPCopy(Str, getCurrentFunction.MName+'__do_while_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 

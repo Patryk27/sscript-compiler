@@ -36,6 +36,7 @@ With TCompiler(Compiler) do
 Begin
  if (not DirectlyBytecode) Then
   eat(_IDENTIFIER);
+
  Deep := CurrentDeep;
  Repeat
   Token := read;
@@ -48,7 +49,7 @@ Begin
    Begin
     if (DirectlyBytecode) Then
      CompileError(eUnexpected, ['&']);
-    PutLabel(FunctionList[High(FunctionList)].MName + read_ident, True);
+    PutLabel(getCurrentFunction.MName + read_ident, True);
     eat(_COLON);
    End;
 
@@ -103,14 +104,14 @@ Begin
      if (Token.Token = _PERCENT) Then // %
      Begin
       Token := read;
-      I     := findVariable(Token.Display);
+      I     := findLocalVariable(Token.Display);
 
       if (I = -1) Then
       Begin
        Token.Display := '[0]';
        CompileError(eUnknownVariable, [Token.Display]);
       End Else
-       With FunctionList[High(FunctionList)].VariableList[I] do
+       With getCurrentFunction.VariableList[I] do
         if (RegID <= 0) Then
          Token.Display := '['+IntToStr(RegID)+']' Else
          Token.Display := 'e'+RegChar+IntToStr(RegID);
@@ -118,7 +119,7 @@ Begin
 
      if (Token.Token = _AMPERSAND) Then // &
      Begin
-      Token.Display := FunctionList[High(FunctionList)].MName;
+      Token.Display := getCurrentFunction.MName;
      End;
 
      if (Token.Token = _COMMA) Then // ,

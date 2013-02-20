@@ -34,8 +34,6 @@ Unit Compile2;
 
                     StringSection: String;
 
-                    FilePosition: LongWord;
-
                     OpcodeLen: LongWord;
                     DebugLen : LongWord; // 'DEBUG' section length
 
@@ -67,7 +65,6 @@ Uses SSM_parser;
 Procedure TCompiler.write_byte(V: Byte);
 Begin
  PByte(Output+OutputPos)^ := V;
- Inc(FilePosition, sizeof(V));
  Inc(OutputPos, sizeof(V));
 End;
 
@@ -75,7 +72,6 @@ End;
 Procedure TCompiler.write_word(V: Word);
 Begin
  PWord(Output+OutputPos)^ := V;
- Inc(FilePosition, sizeof(V));
  Inc(OutputPos, sizeof(V));
 End;
 
@@ -83,7 +79,6 @@ End;
 Procedure TCompiler.write_longword(V: LongWord);
 Begin
  PLongWord(Output+OutputPos)^ := V;
- Inc(FilePosition, sizeof(V));
  Inc(OutputPos, sizeof(V));
 End;
 
@@ -91,7 +86,6 @@ End;
 Procedure TCompiler.write_integer(V: Integer);
 Begin
  PInteger(Output+OutputPos)^ := V;
- Inc(FilePosition, sizeof(V));
  Inc(OutputPos, sizeof(V));
 End;
 
@@ -99,7 +93,6 @@ End;
 Procedure TCompiler.write_extended(V: Extended);
 Begin
  PExtended(Output+OutputPos)^ := V;
- Inc(FilePosition, sizeof(V));
  Inc(OutputPos, sizeof(V));
 End;
 
@@ -140,6 +133,9 @@ Begin
 
  With Compiler do
  Begin
+  if (OpcodeList.Count = 0) Then
+   Compile1.TCompiler(Compiler).CompileError(eInternalError, ['OpcodeList.Count = 0']);
+
   // search for strings in opcodes
   For I := 0 To OpcodeList.Count-1 Do
    With OpcodeList[I]^ do
@@ -204,8 +200,8 @@ Begin
 
         Str := VarToStr(Value);
 
-        { label }
-        if (Copy(Str, 1, 1) = ':') Then
+        { label address }
+        if (Copy(Str, 1, 1) = ':') or (Copy(Str, 1, 1) = '@') Then
          Typ := ptInt;
 
         { register }
@@ -262,9 +258,11 @@ Procedure TCompiler.Preparse2;
 Var I, Q: LongWord;
     Int : Integer;
     Str : String;
+
+    FuncID, Namespace: Integer;
 Label LabelNotFound;
 Begin
- { from here, we have already parsed all the labels }
+ { from here, we have already parsed each label }
 
  With Compiler do
  Begin
@@ -297,7 +295,7 @@ Begin
 
         Str := VarToStr(Value);
 
-        { label }
+        { label relative address }
         if (Copy(Str, 1, 1) = ':') Then
         Begin
          Delete(Str, 1, 1); // remove `:`
@@ -308,12 +306,13 @@ Begin
           Begin
            With Compile1.TCompiler(Compiler) do
            Begin
-            Int := FindFunctionByLabel(Str);
-            if (Int = -1) Then
+            findFunctionByLabel(Str, FuncID, Namespace);
+            if (FuncID = -1) Then
              goto LabelNotFound;
 
-            With FunctionList[Int] do
-             CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
+            With Compile1.TCompiler(Compiler) do
+             With NamespaceList[Namespace].GlobalList[FuncID].mFunction do
+              CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
            End;
           End Else // just some "random" label not found
           Begin
@@ -326,6 +325,22 @@ Begin
           Value := 0; // otherwise compiler could crash
          End Else
           Value := LabelList[Int].Position - Pos; // jump have to be relative against the current opcode
+        End;
+
+        { label absolute address }
+        if (Copy(Str, 1, 1) = '@') Then
+        Begin
+         Delete(Str, 1, 1); // remove `@`
+         Int := getLabelID(Str);
+
+         if (Int = -1) Then
+         Begin
+          if (Token = nil) Then
+           Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
+           Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
+          Value := 0;
+         End Else
+          Value := LabelList[Int].Position;
         End;
 
         { char }
@@ -377,8 +392,6 @@ Var Opcode: PMOpcode;
     Str   : String;
     Ch    : Char;
 Begin
- FilePosition := 0;
-
  For Opcode in Compiler.OpcodeList Do
   With Opcode^ do
   Begin
@@ -445,17 +458,17 @@ Begin
  SectionsCount := 3; // info, exports, code
  DebugLen      := 0;
 
- Output    := AllocMem(5*1024*1024); // 5 MB
+ Output    := AllocMem(15*1024*1024); // 15 MB
  OutputPos := 0;
 
  Preparse;
  Preparse2;
 
- if (_DBG in Compiler.Options) Then
- Begin
+ {if (_DBG in Compiler.Options) Then
+ Begin @TODO
   PreparseDebugData;
   Inc(SectionsCount); // + debug data
- End;
+ End;}
 
  if (SaveAs_SSM) Then
  Begin
@@ -484,8 +497,8 @@ Begin
   write_section(5, Tmp, DataPos); // 'CODE' section; type = 5; length = OpcodeLen + Length(StringSection)
   DataPos += Tmp;
 
-  if (_DBG in Compiler.Options) Then
-   write_section(6, DebugLen, DataPos); // 'DEBUG DATA' section; type = 6; length = DebugSectionPos
+ // if (_DBG in Compiler.Options) Then
+ //  write_section(6, DebugLen, DataPos); // 'DEBUG DATA' section; type = 6; length = DebugSectionPos
 
   { now - save the sections' data }
 
@@ -499,7 +512,10 @@ Begin
   Begin
    Ex.Pos := getLabelID(Ex.Name);
    if (Ex.Pos = -1) Then
+   Begin
     Compiler.CompileError(eBytecode_ExportNotFound, [Ex.Name]);
+    Continue;
+   End;
 
    if (Ex.Pos < 0) or (Ex.Pos > High(LabelList)) Then
     Compiler.CompileError(eInternalError, ['Invalid `Ex.Pos`']);
@@ -513,8 +529,8 @@ Begin
   Parse;
 
   // 4.'DEBUG DATA' section
-  if (_DBG in Compiler.Options) Then
-   ParseDebugData;
+ // if (_DBG in Compiler.Options) Then
+ //  ParseDebugData;
  Except
   Writeln('-- bytecode compile failed --');
   raise;

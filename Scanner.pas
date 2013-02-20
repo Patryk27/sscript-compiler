@@ -48,11 +48,12 @@ Begin
  Code := Code_.Text;
 
  I := 1;
- Repeat
-  if (Code[I] = #9) Then
-   Delete(Code, I, 1) Else
-   Inc(I);
- Until (I >= Length(Code));
+ if (Length(Code) > 0) Then
+  Repeat
+   if (Code[I] = #9) Then
+    Delete(Code, I, 1) Else
+    Inc(I);
+  Until (I >= Length(Code));
 
  Position      := 1;
  NLPosition    := 0;

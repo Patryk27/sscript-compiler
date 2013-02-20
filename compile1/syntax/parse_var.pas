@@ -19,7 +19,8 @@ Label AllocateOntoTheStack;
 Begin
 With TCompiler(Compiler) do
 Begin
- Variable.isConst := False;
+ Variable.isConst   := False;
+ Variable.mCompiler := Compiler;
 
  eat(_LOWER); // <
  Variable.Typ := read_type; // [type]
@@ -28,15 +29,15 @@ Begin
  { read variables }
  While (true) do
  Begin
-  Variable.Name := read_ident; // [identifier]
+  Variable.DeclToken := getToken;
+  Variable.Name      := read_ident; // [identifier]
 
   if (isTypeVoid(Variable.Typ)) Then // cannot create a void-variable
-   CompileError(eVarVoid, [Variable.Name]);
+   CompileError(eVoidVar, [Variable.Name]);
 
-  if (findVariable(Variable.Name) <> -1) Then // redeclaration of variable
-   CompileError(eRedeclaration, [Variable.Name]);
+  RedeclarationCheck(Variable.Name); // redeclaration of a variable
 
-  if (_Or in Options) Then // can we allocate variables in registers?
+  if (getBoolOption(opt__register_alloc)) Then // can we allocate variables in registers?
   Begin
    With Variable do
    Begin
@@ -54,7 +55,7 @@ Begin
 
    { find a stack position, where we can allocate this variable }
    Pos := 0;
-   With FunctionList[High(FunctionList)] do
+   With getCurrentFunction do
     For I := Low(VariableList) To High(VariableList) Do
      if (VariableList[I].Deep <= CurrentDeep) and (VariableList[I].RegID <= 0) and (not VariableList[I].isParam) Then
       Inc(Pos);
@@ -67,7 +68,7 @@ Begin
   Variable.isParam := False;
 
   { insert variable into the function  }
-  With FunctionList[High(FunctionList)] do
+  With getCurrentFunctionPnt^ do
   Begin
    SetLength(VariableList, Length(VariableList)+1); // expand the array
    VariableList[High(VariableList)] := Variable;

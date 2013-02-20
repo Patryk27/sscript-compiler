@@ -42,7 +42,7 @@ Begin
   mtSub, mtSubEq: Opcode := o_sub;
   mtMul, mtMulEq: Opcode := o_mul;
   mtDiv, mtDivEq: Opcode := o_div;
-  mtMod, mtModEq: Opcode := o_mod; // @TODO: ints only
+  mtMod, mtModEq: Opcode := o_mod;
   mtSHL, mtSHLEq: Opcode := o_shl;
   mtSHR, mtSHREq: Opcode := o_shr;
  End;
@@ -50,19 +50,20 @@ Begin
  { not arrays }
  if (Variable.getArray = 0) or (Compiler.isTypeString(Variable.Typ) and (Compiler.TypeTable[Variable.Typ].ArrayDimCount = 1)) Then
  Begin
-  if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Compiler.isTypeNumerical(Result))) Then // numerical types only (except '+' and '+=' for strings)
+  if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Compiler.isTypeNumerical(Result))) or // numerical types only (except '+' and '+=' for strings)
+     ((Opcode in [o_mod, o_shl, o_shr]) and (not Compiler.isTypeInt(Result))) Then // some operators are `int-`only
   Begin
    Error(eUnsupportedOperator, [Compiler.getTypeName(TypeLeft), getDisplay(Expr), Compiler.getTypeName(TypeRight)]);
    Exit;
   End;
 
-  // opcode
+  // put opcode
   Case WithAssign of
    True: Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
    False: Compiler.PutOpcode(Opcode, ['e'+Compiler.getTypePrefix(TypeLeft)+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
   End;
 
-  // type-check
+  // check types
   if (WithAssign) Then
    if (not Compiler.CompareTypes(Variable.Typ, TypeRight)) Then
     Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeName(TypeRight), Compiler.getTypeName(Variable.Typ)]);
@@ -82,7 +83,7 @@ Begin
 
   // Step 1: get a current value from the array
   RegChar  := Compiler.getTypePrefix(Compiler.getArrayBaseType(Variable.Typ));
-  TypeLeft := __variable_getvalue_array_reg(Variable.ID, 1, RegChar, Left);
+  TypeLeft := __variable_getvalue_array_reg(Variable, 1, RegChar, Left);
 
   if (not Compiler.CompareTypes(TypeLeft, TypeRight)) Then
   Begin
@@ -93,13 +94,13 @@ Begin
   // Step 1.5: cast-table
   With Compiler do
   Begin
-   // ?
+   // @TODO ?
   End;
 
   // Step 2: change this value
   Compiler.PutOpcode(Opcode, ['e'+RegChar+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
 
   // Step 3: save new value into the array
-  __variable_setvalue_array_reg(Variable.ID, 1, RegChar, Left);
+  __variable_setvalue_array_reg(Variable, 1, RegChar, Left);
  End;
 End;

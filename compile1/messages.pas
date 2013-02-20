@@ -2,16 +2,18 @@ Unit Messages;
 
  Interface
 
+ { errors }
  Type TCompileError =
  (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedType, eNotAllowed,
   eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
-  eVarVoid, eParamVoid, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
+  eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
+  ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousCall, eAmbiguousVariable, eAmbiguousIdentifier, eVoidNoNameParam,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
                                            eExpectedDeclOrDef, eExpectedType, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
-                                           eUnknownMacro, eInvalidExpression];
+                                           eUnknownMacro, eInvalidExpression, eUnimplemented];
 
  Const CompileError_fmt: Array[TCompileError] of String =
  (
@@ -50,11 +52,39 @@ Unit Messages;
   'Wrong type (in assignment to ''%s'') - got `%s` expected `%s`',
   'Invalid array assignment',
   'Invalid expression',
+  'Previously declared here',
+  'Namespace not found: `%s`',
+  'Feature `%s` is not implemented yet, sorry ;< Check in future releases.',
+  'Call to function `%s` is ambiguous in current namespace',
+  'Variable `%s` is ambiguous in current namespace',
+  'Identifier `%s` is ambiguous in current namespace',
+  'Parameter declared as void',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',
   '[Bytecode] Invalid opcode',
   '[Bytecode] String not found: `%s`'
+ );
+
+ { warnings }
+
+ { hints }
+ Type TCompileHint =
+ (hDidntYouMean);
+
+ Const CompileHint_fmt: Array[TCompileHint] of String =
+ (
+  'Didn''t you mean: `%s`?'
+ );
+
+ { notes }
+ Type TCompileNote =
+ (nCandidates, nCandidate);
+
+ Const CompileNote_fmt: Array[TCompileNote] of String =
+ (
+  'Candidates are:',
+  '%s'
  );
 
  Implementation

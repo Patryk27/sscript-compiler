@@ -16,6 +16,9 @@ Begin
  if (Variable.ID = -1) Then // variable not found
   Exit;
 
+ if (Variable.isConst) Then
+  Exit;
+
  (* ===== not arrays ===== *)
  if (not Compiler.isTypeArray(Variable.Typ)) or (Right^.Typ = mtNew) Then
  Begin
@@ -33,7 +36,7 @@ Begin
    TypeID := Parse(Right, 1); // parse expression and load it into the helper register (e_1)
    RePop(Right, TypeID, 1);
 
-   __variable_setvalue_reg(Variable.ID, 1, Compiler.getTypePrefix(TypeID));
+   __variable_setvalue_reg(Variable, 1, Compiler.getTypePrefix(TypeID));
   End;
 
   Compiler.PutOpcode(o_mov, ['e'+Compiler.getTypePrefix(TypeID)+'1', Variable.PosStr]);
@@ -78,7 +81,7 @@ Begin
   End;
 
   { set new pointer }
-  __variable_setvalue_reg(Variable.ID, 1, Compiler.getTypePrefix(TypeID));
+  __variable_setvalue_reg(Variable, 1, Compiler.getTypePrefix(TypeID));
 
   Exit;
  End;
@@ -104,7 +107,7 @@ Begin
 
   ShouldFail := False;
 
-  if ((isTypeString(TmpType) and (Compiler.TypeTable[TmpType].ArrayDimCount-Index in [-1, 0]))) Then
+  if ((isTypeString(TmpType) and (Integer(Compiler.TypeTable[TmpType].ArrayDimCount)-Index < 0))) Then
   Begin
    ShouldFail := not isTypeChar(TypeID);
    TmpType    := TYPE_CHAR;

@@ -21,7 +21,7 @@ Begin
  eat(_BRACKET1_OP); // (
 
  Str := GetMem(128);
- StrPCopy(Str, FunctionList[High(FunctionList)].MName+'__for_'+IntToStr(SomeCounter)+'_');
+ StrPCopy(Str, getCurrentFunction.MName+'__for_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 

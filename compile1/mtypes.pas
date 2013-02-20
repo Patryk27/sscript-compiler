@@ -7,8 +7,10 @@ Unit MTypes;
  Interface
  Uses Tokens;
 
- Type TVType       = Integer; // must be a `signed` type (as some functions from compiler returns eg.`-1` when a variable is not found, and we don't want any overflows...)
+ Type TVType       = Integer; // must be a `signed` type (as some functions from compiler returns eg.`-1` when a variable is not found, and we don't want any integer overflows...)
       TMVisibility = (mvPublic, mvPrivate);
+
+      TMIntegerArray = Array of Integer;
 
  // TMString
  Type TMString = Record
@@ -34,6 +36,13 @@ Unit MTypes;
                   FuncList : Array of TMImportFunc;
                  End;
 
+ // TMParam
+ Type TMParam = Record
+                 Name: String;
+                 Typ : TVType;
+                End;
+ Type TMParamList = Array of TMParam;
+
  // TMType
  Type TMType = Record
                 Name     : String;
@@ -44,11 +53,14 @@ Unit MTypes;
                 ArrayBase    : TVType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
                 ArrayDimCount: Byte; // array dimension amount
 
-                isStrict: Boolean;
+                FuncReturn: TVType;
+                FuncParams: TMParamList;
+
+                isStrict, isFunction: Boolean;
                End;
 
  // TMExpression
- Type TMExpressionType = (mtNothing, mtVariable, mtFunction, mtTree, mtOpeningBracket, mtClosingBracket, mtOpeningBracket2, mtClosingBracket2, mtArrayElement,
+ Type TMExpressionType = (mtNothing, mtVariable, mtFunctionCall, mtTypeCast, mtTree, mtOpeningBracket, mtClosingBracket, mtOpeningBracket2, mtClosingBracket2, mtArrayElement,
                           mtBool, mtChar, mtInt, mtFloat, mtString,
                           mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq,
                           mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent,
@@ -57,7 +69,7 @@ Unit MTypes;
                           mtNew);
 
  Const MExpressionDisplay: Array[TMExpressionType] of String =
- ('<nothing>', '<variable>', '<function>', '<tree>', '(', ')', '[', ']', '[]',
+ ('<nothing>', '<variable>', '<function call>', '<type cast>', '<tree>', '(', ')', '[', ']', '[]',
   '<bool value>', '<char value>', '<int value>', '<float value>', '<string value>',
   '+', '-', '*', '/', '%', '=', '+=', '-=', '*=', '/=', '%=',
   '<', '>', '==', '<=', '>=', '!=',
@@ -83,6 +95,11 @@ Unit MTypes;
                       ParamList: Array of PMExpression; // for mtFunction
 
                       ResultOnStack: Boolean;
+
+                      Namespaces: TMIntegerArray; // function calls, variables and constants only
+
+                      IdentID, IdentNamespace: Integer;
+                      isLocal                : Boolean;
                      End;
  Type TMExpressionList = Array of TMExpression;
 
@@ -98,7 +115,7 @@ Unit MTypes;
  // TMVariable
  Type PMVariable = ^TMVariable;
       TMVariable = Record
-                    RegID  : Integer; // negative values and zero for stack position, positive values for register id
+                    RegID  : Integer; // negative values and zero for stack position, positive values for register ID (1..4)
                     RegChar: Char;
 
                     Name : String;
@@ -109,11 +126,61 @@ Unit MTypes;
                     isParam: Boolean;
                     isConst: Boolean;
 
-                    Visibility: TMVisibility; // used (as for now) only for global constant; work's the same way as the function visibility
+                    Visibility: TMVisibility; // as for now, used only for global constants; works the same way as the function visibility
+
+                    mCompiler: Pointer;
+                    DeclToken: TToken_P;
                    End;
  Type TMVariableList = Array of TMVariable;
 
- // primary types; order is important (as it is the same in the virtual machine)!
+ // TMFunction
+ Type PMFunction = ^TMFunction;
+      TMFunction = Record
+                    Name         : String; // function name
+                    MName        : String; // mangled name (used as a label name)
+                    ModuleName   : String; // module name in which function has been declared
+                    NamespaceName: String;
+                    Return       : TVType; // return type
+                    ParamList    : TMParamList;
+
+                    LibraryFile: String;
+
+                    ConstructionList: TMConstructionList;
+                    VariableList    : TMVariableList;
+
+                    isNaked      : Boolean;
+                    isDeclaration: Boolean;
+                    Visibility   : TMVisibility;
+
+                    mCompiler: Pointer;
+                    DeclToken: TToken_P; // `{` token's line
+                   End;
+
+ // TMGlobalDeclaration
+ Type TMGlobalDeclarationType = (gdConstant, gdVariable, gdFunction);
+ Type TMGlobalDeclaration = Record
+                             Typ: TMGlobalDeclarationType;
+
+                             mVariable: TMVariable; // gdConstant, gdVariable
+                             mFunction: TMFunction; // gtFunction
+                            End;
+
+ // TMNamespace
+ Type PMNamespace = ^TMNamespace;
+      TMNamespace = Record
+                     Name: String;
+
+                     GlobalList: Array of TMGlobalDeclaration; // declaration list
+
+                     Visibility: TMVisibility;
+
+                     mCompiler: Pointer;
+                     DeclToken: TToken_P;
+                    End;
+
+ Type TMNamespaceArray = Array of TMNamespace;
+
+ // primary types; order (those numbers) is important, as it is the same in the virtual machine!
  Const TYPE_ANY    = 0;
        TYPE_VOID   = 1;
        TYPE_BOOL   = 2;
@@ -141,7 +208,11 @@ Begin
  (A.ArrayBase     = B.ArrayBase) and
  (A.InternalID    = B.InternalID) and
  (A.isStrict      = B.isStrict) and
- (A.RegPrefix     = B.RegPrefix);
+ (A.isFunction    = B.isFunction) and
+ (A.RegPrefix     = B.RegPrefix) and
+ (A.FuncReturn    = B.FuncReturn) and
+
+ (Length(A.FuncParams) = Length(B.FuncParams));
 End;
 
 (* getEmptyType *)

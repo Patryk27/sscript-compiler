@@ -6,6 +6,9 @@
 @("numbers.ss")
 @visibility("public")
 
+namespace std
+{
+
 /* ===== writing text on screen ===== */
 
 function<void> print(any text) naked
@@ -31,6 +34,9 @@ function<void> println(any text) naked
 
   push(#10) // char(10) = newline char
   icall("output.print")
+
+  push(#13) // char(13) = caret return
+  icall("output.print")
  }
 }
 
@@ -39,6 +45,9 @@ function<void> newline() naked
  :CODE
  {
   push(#10)
+  icall("output.print")
+
+  push(#13)
   icall("output.print")
  }
 }
@@ -116,7 +125,7 @@ function<float> read_float()
 function<float> read_float_t(string text)
 {
  print(text);
- return read_int();
+ return read_float();
 }
 
 function<string> read_until(char terminator)
@@ -159,9 +168,14 @@ function<void> wait_for_t(string text, char ch)
 
 /* ===== console settings ===== */
 
-function<void> set_size(int width, int height) naked
+function<void> set_size_ex(int console_width, int console_height, int crtwindow_width, int crtwindow_height) naked
 {
  :CODE icall("output.set_size")
+}
+
+function<void> set_size(int width, int height)
+{
+ set_size_ex(width, height, width, height);
 }
 
 function<void> set_buffered(bool buffered) naked
@@ -177,4 +191,16 @@ function<void> flush() naked
 function<void> clear() naked
 {
  :CODE icall("output.clear")
+}
+
+function<void> hide_cursor() naked
+{
+ :CODE icall("output.cursor.hide")
+}
+
+function<void> show_cursor() naked
+{
+ :CODE icall("output.cursor.show")
+}
+
 }

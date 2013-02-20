@@ -5,6 +5,9 @@
 
 @visibility("public")
 
+namespace std
+{
+
 function<int> get_ticks() naked
 {
  :CODE
@@ -32,4 +35,6 @@ function<void> sleep(int milis) naked
   if_l(ei1, ei2) // if (ei1 < ei2)
   tjmp(:&loop)
  }
+}
+
 }

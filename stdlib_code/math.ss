@@ -5,7 +5,10 @@
 
 @visibility("public")
 
-/* ===== ICALL functions ===== */
+namespace std
+{
+
+/* ===== `icall` functions ===== */
 
 function<float> sqrt(float value) naked
 {
@@ -105,7 +108,7 @@ function<float> power(float base, int exp) /* fast power algorithm (non-recursiv
 
 function<int> ipower(int base, int exp)
 {
- return int(power(base, exp));
+ return cast<int>(power(base, exp));
 }
 
 function<bool> is_odd(int n)
@@ -155,7 +158,7 @@ function<int> round_down(float f) naked
 function<int> round_trunc(float x)
 {
  var<float> tmp = (x*10);
- return int(tmp)/10;
+ return cast<int>(tmp)/10;
 }
 
 function<float> round_to(float x, int digit)
@@ -190,4 +193,47 @@ function<float> fmin(float a, float b)
  if (a < b)
   return a; else
   return b;
+}
+
+/* http://en.wikipedia.org/wiki/Binary_GCD_algorithm#Iterative_version_in_C */
+function<int> gcd(int u, int v)
+{
+ if ((u < 0) || (v < -0))
+  return 0;
+
+ var<int> shift;
+ 
+ if (u == 0)
+  return v;
+  
+ if (v == 0)
+  return u;
+ 
+ for (shift = 0; ((u | v) & 1) == 0; ++shift)
+ {
+  u >>= 1;
+  v >>= 1;
+ }
+ 
+ while ((u & 1) == 0)
+  u >>= 1;
+ 
+ do
+ { 
+  while ((v & 1) == 0)
+   v >>= 1;
+
+  if (u > v)
+  {
+   var<int> t = v;
+   v = u;
+   u = t;
+  } 
+       
+  v-= u;
+ } while (v != 0);
+
+ return u << shift;
+}
+
 }

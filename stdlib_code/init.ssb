@@ -1,7 +1,7 @@
 /*
- This is program's (but not unit's) init script.
- Before calling the `main()` function, the `__init` is called (thus it have to be public), unless you specify `-ninit` to the compiler.
- And - since `__init` is a function - at the end of it, there should be a `ret()`
+ This is programs' (but not libraries') init script.
+ Before calling the `main()` function, the `__init` is called (thus it have to be public).
+ And - since `__init` is called by `call()` - at the end of it, there have to be a `ret()`
 
  PS: as the names aren't exporeted anywhere outside this file, you can name them anyhow you like to.
 */

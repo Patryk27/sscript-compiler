@@ -1,5 +1,8 @@
 @visibility("public")
 
+namespace std
+{
+
 const<float> EPSILON = 0.00001;
 
 function<float> fabs(float f)
@@ -27,4 +30,6 @@ function<bool> f_diff(float a, float b)
 function<bool> f_diff_eps(float a, float b, float eps)
 {
  return !f_equal_eps(a, b, eps);
+}
+
 }
