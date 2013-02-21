@@ -36,7 +36,7 @@ End;
 
 (* Parse *)
 {
- Parses a function or function declaration
+ Parses a whole function or a function declaration.
 }
 Procedure Parse(Compiler: Pointer);
 Type TVarRecArray = Array of TVarRec;
