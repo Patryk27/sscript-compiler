@@ -163,6 +163,8 @@ Unit MTypes;
 
                              mVariable: TMVariable; // gdConstant, gdVariable
                              mFunction: TMFunction; // gtFunction
+
+                             isInternal: Boolean; // eg.`null` is internal
                             End;
 
  // TMNamespace
@@ -182,12 +184,13 @@ Unit MTypes;
 
  // primary types; order (those numbers) is important, as it is the same in the virtual machine!
  Const TYPE_ANY    = 0;
-       TYPE_VOID   = 1;
-       TYPE_BOOL   = 2;
-       TYPE_CHAR   = 3;
-       TYPE_INT    = 4;
-       TYPE_FLOAT  = 5;
-       TYPE_STRING = 6;
+       TYPE_NULL   = 1;
+       TYPE_VOID   = 2;
+       TYPE_BOOL   = 3;
+       TYPE_CHAR   = 4;
+       TYPE_INT    = 5;
+       TYPE_FLOAT  = 6;
+       TYPE_STRING = 7;
 
  // operators
  Operator = (A, B: TMType): Boolean;
@@ -222,11 +225,15 @@ End;
 Function getEmptyType: TMType;
 Begin
  Result.Name          := '';
- Result.ArrayDimCount := 0;
- Result.ArrayBase     := -1;
- Result.InternalID    := 0;
- Result.isStrict      := False;
  Result.RegPrefix     := #0;
+ Result.ArrayDimCount := 0;
+ Result.ArrayBase     := TYPE_ANY;
+ Result.InternalID    := 0;
+ Result.FuncReturn    := TYPE_ANY;
+ Result.isStrict      := False;
+ Result.isFunction    := False;
+
+ SetLength(Result.FuncParams, 0);
 End;
 
 End.

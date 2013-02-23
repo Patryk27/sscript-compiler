@@ -107,7 +107,7 @@ Begin
 
   ShouldFail := False;
 
-  if ((isTypeString(TmpType) and (Integer(Compiler.TypeTable[TmpType].ArrayDimCount)-Index < 0))) Then
+  if (isTypeString(TmpType) and (Integer(Compiler.TypeTable[Variable.Typ].ArrayDimCount)-Index <= 0)) Then
   Begin
    ShouldFail := not isTypeChar(TypeID);
    TmpType    := TYPE_CHAR;

@@ -382,7 +382,7 @@ Var Token: TToken_P;
     Bracket        : Integer=0;
     Bracket2       : Integer=0;
     FunctionBracket: Integer=0;
-    Expect         : (eNothing, eValue, eOperator);
+    Expect         : (eValueOrOperator, eValue, eOperator);
 
     Parsed: Boolean;
 
@@ -576,11 +576,10 @@ Begin
    if (FunctionBracket = 0) Then
     Compiler.CompileError(eExpectedOperator, [Token.Display]);
 
-   Expect := eNothing;
+   Expect := eValue;
 
-  // if (StackPos > 0) Then
-    While (StackPos > 0) and (StackPeek.Typ <> mtOpeningBracket) do
-     FinalExprPush(StackPop);
+   While (StackPos > 0) and (StackPeek.Typ <> mtOpeningBracket) do
+    FinalExprPush(StackPop);
   End Else
 
   { variable or constant }
@@ -590,7 +589,7 @@ Begin
     Compiler.CompileError(eExpectedOperator, [Token.Display]);
 
    Expect := eOperator;
-   FinalExprPush(mtVariable, Token.Display, Token, NamespaceID); // add it directly into the final expression
+   FinalExprPush(mtVariable, Token.Display, Token, NamespaceID); // add it directly to the final expression
 
    NamespaceID := PreviousNamespace;
   End Else
@@ -600,7 +599,7 @@ Begin
   Begin
    Inc(Bracket);
 
-   if ((Expect = eOperator) and (next_t(-2) <> _IDENTIFIER)) or (Expect = eNothing) Then
+   if ((Expect = eOperator) and (next_t(-2) <> _IDENTIFIER)) Then
     Compiler.CompileError(eExpectedOperator, ['(']);
 
    Expect := eValue;
@@ -615,10 +614,14 @@ Begin
 
    Dec(Bracket);
    if (Bracket < 0) Then
-    Compiler.CompileError(eUnexpected, [')']);
+    Compiler.CompileError(next, eUnexpected, [')']);
 
-   if (Expect = eValue) Then
-    if not ((next_t(-3) = _IDENTIFIER) and (next_t(-2) = _BRACKET1_OP)) Then // not a function call
+   if (next_t(-2) = _BRACKET1_OP) Then // construction `() is valid only when calling a function
+   Begin
+    if (Stack[StackPos-2].Typ <> mtFunctionCall) Then
+     Compiler.CompileError(eExpectedValue, [')']);
+   End Else
+    if (Expect = eValue) Then
      Compiler.CompileError(eExpectedValue, [')']);
 
    Expect := eOperator;
@@ -654,7 +657,7 @@ Begin
    if (Expect = eValue) Then
     Compiler.CompileError(eExpectedValue, [']']);
 
-   Expect := eNothing;
+   Expect := eValueOrOperator;
 
    While (StackPos > 0) do
    Begin
@@ -771,11 +774,8 @@ Begin
      End;
    End;
 
-   if (Stack[StackPos-1].Typ in [mtPreInc, mtPostInc, mtPreDec, mtPostDec]) Then
-    Expect := eNothing;
-
-   if (Stack[StackPos-1].Typ in [mtLogicalNot, mtBitwiseNot]) Then
-    Expect := eValue;
+   if (Stack[StackPos-1].Typ in [mtPostInc, mtPostDec]) Then
+    Expect := eOperator;
   End;
  End;
 
@@ -836,33 +836,36 @@ Begin
   Begin
    Tmp := Expr^.Left;
 
-   if (Tmp^.Typ <> mtVariable) Then
-    Compiler.CompileError(eUnimplemented, ['variable-calls']);
-
-   Name       := Tmp^.Value;
-   Namespaces := Tmp^.Namespaces;
-
-   if (Name <> 'array_length') Then
+   if (Tmp^.Typ = mtVariable) Then // calling an identifier
    Begin
-    ID := Compiler.findLocalVariable(Name); // local things at first
+    Name       := Tmp^.Value;
+    Namespaces := Tmp^.Namespaces;
 
-    if (ID = -1) Then // not a local variable
+    if (Name <> 'array_length') Then
     Begin
-     Compiler.findGlobalCandidate(Name, Namespaces, ID, Namespace, @Expr^.Token);
+     ID := Compiler.findLocalVariable(Name); // local things at first
 
-     if (ID = -1) Then // nor a global variable/function - so raise error
-      Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
-     Begin // global variable
+     if (ID = -1) Then // not a local variable
+     Begin
+      Compiler.findGlobalCandidate(Name, Namespaces, ID, Namespace, @Expr^.Token);
+
+      if (ID = -1) Then // nor a global variable/function - so raise error
+       Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
+      Begin // global variable
+       Expr^.IdentID        := ID;
+       Expr^.IdentNamespace := Namespace;
+       Expr^.isLocal        := False;
+      End;
+     End Else // local variable
+     Begin
       Expr^.IdentID        := ID;
       Expr^.IdentNamespace := Namespace;
-      Expr^.isLocal        := False;
+      Expr^.isLocal        := True;
      End;
-    End Else // local variable
-    Begin
-     Expr^.IdentID        := ID;
-     Expr^.IdentNamespace := Namespace;
-     Expr^.isLocal        := True;
     End;
+   End Else // calling not identifier (cast-call)
+   Begin
+    Expr^.Value := 'cast-call';
    End;
   End;
 
@@ -1132,6 +1135,9 @@ Begin
   Expr := Expr^.Left;
   Inc(Result.getArray);
  End;
+
+ if (Expr^.Value = null) Then
+  Error(eInternalError, ['Expr^.Value = null']);
 
  Result.Name := Expr^.Value;
  Result.ID   := Expr^.IdentID;

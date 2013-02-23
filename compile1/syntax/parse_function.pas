@@ -24,9 +24,9 @@ Begin
  With Func do
  Begin
   if (SimplifiedName) Then
-   Exit('_'+NamespaceName+'_function_'+Name);
+   Exit('__function_'+NamespaceName+'_'+Name);
 
-  Result := '_'+NamespaceName+'_function_'+Name+'_'+ModuleName+'_'+TCompiler(Compiler).getTypeName(Return)+'_';
+  Result := '__function_'+NamespaceName+'_'+Name+'_'+ModuleName+'_'+TCompiler(Compiler).getTypeName(Return)+'_';
   For P in ParamList Do
    Result += Compiler.getTypeName(P.Typ)+'_';
  End;

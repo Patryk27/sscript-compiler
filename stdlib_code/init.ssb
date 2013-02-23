@@ -16,6 +16,8 @@ prepare_console:
 // sets console size to 90x30 chars and disables buffered mode
 	push(30)
 	push(90)
+	push(30)
+	push(90)
 	icall("output.set_size")
 
 	push(false)

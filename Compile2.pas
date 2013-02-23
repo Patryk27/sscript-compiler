@@ -200,29 +200,32 @@ Begin
 
         Str := VarToStr(Value);
 
-        { label address }
-        if (Copy(Str, 1, 1) = ':') or (Copy(Str, 1, 1) = '@') Then
-         Typ := ptInt;
-
-        { register }
-        if (isRegisterName(Str)) Then
+        if (Typ <> ptString) Then
         Begin
-         Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register type
-         Value := IntToStr(getRegister(Str).ID);
-        End;
+         { label address }
+         if ((Copy(Str, 1, 1) = ':') or (Copy(Str, 1, 1) = '@')) Then
+          Typ := ptInt;
 
-        { boolean truth }
-        if (Str = 'true') or (Str = 'True') Then
-        Begin
-         Typ   := ptBool;
-         Value := '1';
-        End;
+         { register }
+         if (isRegisterName(Str)) Then
+         Begin
+          Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register type
+          Value := IntToStr(getRegister(Str).ID);
+         End;
 
-        { boolean false }
-        if (Str = 'false') or (Str = 'False') Then
-        Begin
-         Typ   := ptBool;
-         Value := '0';
+         { boolean truth }
+         if (Str = 'true') or (Str = 'True') Then
+         Begin
+          Typ   := ptBool;
+          Value := '1';
+         End;
+
+         { boolean false }
+         if (Str = 'false') or (Str = 'False') Then
+         Begin
+          Typ   := ptBool;
+          Value := '0';
+         End;
         End;
 
         Case Typ of
@@ -295,64 +298,67 @@ Begin
 
         Str := VarToStr(Value);
 
-        { label relative address }
-        if (Copy(Str, 1, 1) = ':') Then
+        if (Typ <> ptString) Then
         Begin
-         Delete(Str, 1, 1); // remove `:`
-         Int := getLabelID(Str);
-         if (Int = -1) Then
+         { label relative address }
+         if (Copy(Str, 1, 1) = ':') Then
          Begin
-          if (Copy(Str, 1, 11) = '__function_') Then // function label not found
+          Delete(Str, 1, 1); // remove `:`
+          Int := getLabelID(Str);
+          if (Int = -1) Then
           Begin
-           With Compile1.TCompiler(Compiler) do
+           if (Copy(Str, 1, 11) = '__function_') Then // function label not found
            Begin
-            findFunctionByLabel(Str, FuncID, Namespace);
-            if (FuncID = -1) Then
-             goto LabelNotFound;
-
             With Compile1.TCompiler(Compiler) do
-             With NamespaceList[Namespace].GlobalList[FuncID].mFunction do
-              CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
+            Begin
+             findFunctionByLabel(Str, FuncID, Namespace);
+             if (FuncID = -1) Then
+              goto LabelNotFound;
+
+             With Compile1.TCompiler(Compiler) do
+              With NamespaceList[Namespace].GlobalList[FuncID].mFunction do
+               CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
+            End;
+           End Else // just some "random" label not found
+           Begin
+           LabelNotFound:
+            if (Token = nil) Then
+             Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
+             Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
            End;
-          End Else // just some "random" label not found
+
+          Value := 0; // otherwise compiler could crash
+           End Else
+           Value := LabelList[Int].Position - Pos; // jump have to be relative against the current opcode
+         End;
+
+         { label absolute address }
+         if (Copy(Str, 1, 1) = '@') Then
+         Begin
+          Delete(Str, 1, 1); // remove `@`
+          Int := getLabelID(Str);
+
+          if (Int = -1) Then
           Begin
-          LabelNotFound:
            if (Token = nil) Then
             Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
             Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
-          End;
+           Value := 0;
+          End Else
+           Value := LabelList[Int].Position;
+         End;
 
-          Value := 0; // otherwise compiler could crash
-         End Else
-          Value := LabelList[Int].Position - Pos; // jump have to be relative against the current opcode
-        End;
-
-        { label absolute address }
-        if (Copy(Str, 1, 1) = '@') Then
-        Begin
-         Delete(Str, 1, 1); // remove `@`
-         Int := getLabelID(Str);
-
-         if (Int = -1) Then
+         { char }
+         if (Copy(Str, 1, 1) = '#') Then
          Begin
-          if (Token = nil) Then
-           Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
-           Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
-          Value := 0;
-         End Else
-          Value := LabelList[Int].Position;
-        End;
+          Typ := ptChar;
 
-        { char }
-        if (Copy(Str, 1, 1) = '#') Then
-        Begin
-         Typ := ptChar;
+          Delete(Str, 1, 1);
 
-         Delete(Str, 1, 1);
-
-         if (TryStrToInt(Str, Int)) Then
-          Value := Int Else
-          Value := 0;
+          if (TryStrToInt(Str, Int)) Then
+           Value := Int Else
+           Value := 0;
+         End;
         End;
 
         Case Typ of

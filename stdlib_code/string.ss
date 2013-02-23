@@ -62,6 +62,17 @@ function<int> strlen(string str) naked
  }
 }
 
+function<int> strcount(string text, char sep)
+{
+ var<int> count = 0, len = strlen(text);
+
+ for (var<int> i=1; i<=len; i++)
+  if (text[i] == sep)
+   count++;
+
+ return count;
+}
+
 function<string> strreverse(string text)
 {
  var<string> str = "";
@@ -270,7 +281,7 @@ function<bool> strends(string text, string str)
  return true;
 }
 
-function<string> strinsert(string what, string text, int at)
+function<string> strinsert(string text, string what, int at)
 {
  var<int> len = strlen(what);
  var<int> len2 = strlen(text);
@@ -288,19 +299,20 @@ function<string> strinsert(string what, string text, int at)
 
 function<string> strreplace_ex(string text, string search, string replace, bool only_once)
 {
- var<int> pos = strpos(search, text);
- var<int> slen = strlen(search);
- 
- if (pos == 0) /* `search` not found */
-  return text;
+ while (true)
+ {
+  var<int> pos = strpos(search, text);
+  var<int> slen = strlen(search);
   
- text = strdelete(text, pos, slen);
- text = strinsert(text, replace, pos-1);
- 
- if (only_once) 
-  return text;
-
- return strreplace_ex(text, search, replace, false); // recursive
+  if (pos == 0) /* `search` not found */
+   return text;
+   
+  text = strdelete(text, pos, slen);
+  text = strinsert(text, replace, pos);
+  
+  if (only_once) 
+   return text;
+ }
 }
 
 function<string> strreplace(string text, string search, string replace)
@@ -378,12 +390,40 @@ function<string> boolstrb(bool b, string _true, string _false)
   return _false;
 }
 
-function<string[]> strexplode(string text, char separator)
+function<string[]> strexplode(string text, char sep)
 {
+ var<string[]> result = new string[strcount(text, sep)+1];
+ var<int> result_pos = 0;
+
+ var<string> current = "";
+ var<int> len = strlen(text);
+
+ for (var<int> i=1; i<=len; i++)
+ {
+  if (text[i] == sep)
+  {
+   result[result_pos++] = current;
+   current = "";
+  } else
+   current += text[i];
+ }
+
+ result[result_pos++] = current;
+
+ return result;
 }
 
-function<string> strimplode(string[] arr, char separator)
+function<string> strimplode(string[] arr, string separator)
 {
+ var<string> result = "";
+ var<int> arlen = array_length(arr);
+
+ for (var<int> i=0; i<arlen; i++)
+  if (i == arlen-1)
+   result += arr[i]; else
+   result += arr[i]+separator;
+
+ return result;
 }
 
 }

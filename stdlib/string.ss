@@ -10,6 +10,7 @@ namespace std
  function<bool> isalnum(char) in "string.ssm";
  function<bool> isspace(char) in "string.ssm";
  function<int> strlen(string) in "string.ssm";
+ function<int> strcount(string, char) in "string.ssm";
  function<string> strreverse(string) in "string.ssm";
  function<string> strcopy(string, int, int) in "string.ssm";
  function<string> strdelete(string, int, int) in "string.ssm";
@@ -40,5 +41,5 @@ namespace std
  function<string> boolstr(bool) in "string.ssm";
  function<string> boolstrb(bool, string, string) in "string.ssm";
  function<string[]> strexplode(string, char) in "string.ssm";
- function<string> strimplode(string[], char) in "string.ssm";
+ function<string> strimplode(string[], string) in "string.ssm";
 }

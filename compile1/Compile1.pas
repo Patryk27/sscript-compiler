@@ -109,7 +109,7 @@ Unit Compile1;
                     Function findLabel(Name: String): Integer;
 
                    { types }
-                    Function NewType(fName: String; fRegPrefix: Char; fInternalID, fArrayDimCount: Byte): Integer;
+                    Function NewType(fName: String; fRegPrefix: Char; fInternalID: Byte): Integer;
                     Function NewType(Typ: TMType): Integer;
                     Function NewTypeFromFunction(Func: TMFunction): Integer;
 
@@ -270,7 +270,7 @@ Begin
      TokenList[I].Token := noToken;
   End;
 
-  Token := Scanner.getNextToken_P(True, False); // ParseKeywords, not ParseComments
+  Token := Scanner.getNextToken_P;
 
   if (Token.Token = noToken) Then
    Continue;
@@ -750,7 +750,7 @@ Begin
  Case Token.Token of
   _IDENTIFIER: Base := findType(Token.Display);
   _FUNCTION  : isFunction := True;
-  else CompileError(eExpectedIdentifier, [Token.Display]);
+  else CompileError(next, eExpectedIdentifier, [Token.Display]);
  End;
 
  { function type }
@@ -799,12 +799,27 @@ Begin
  { check for primary type existence }
  if (Base = -1) Then
  Begin
-  CompileError(eExpectedType, [Token.Display]);
+  CompileError(next, eExpectedType, [Token.Display]);
   Exit;
  End;
 
  Typ           := TypeTable[Base];
  isStringBased := (Typ = TypeTable[TYPE_STRING]);
+
+ if (next_t = _BRACKET2_OP) Then
+ Begin
+  if (isTypeVoid(Base)) Then // `void` array cannot be created (it would destroy our universe)
+  Begin
+   CompileError(next, eVoidArray, []);
+   Exit;
+  End;
+
+  if (TypeTable[Base].InternalID = TYPE_ANY) Then // ... as well, as `any`-typed array
+  Begin
+   CompileError(next, eInternalError, ['Cannot create an `any`-typed array!']);
+   Exit;
+  End;
+ End;
 
  { is it an array (is the next token a `[`)? }
  While (next_t = _BRACKET2_OP) and (AllowArrays) Do
@@ -813,12 +828,6 @@ Begin
   eat(_BRACKET2_CL);
 
   Inc(Typ.ArrayDimCount);
- End;
-
- if (Typ.ArrayDimCount > 0) and (isTypeVoid(Base)) Then // `void` array cannot be created (it would destroy our universe)
- Begin
-  CompileError(eVoidArray);
-  Exit;
  End;
 
  if (isStringBased) Then // is it an array?
@@ -1243,7 +1252,7 @@ End;
 {
  Adds new type into the type list; should be used only for creating internal types.
 }
-Function TCompiler.NewType(fName: String; fRegPrefix: Char; fInternalID, fArrayDimCount: Byte): Integer;
+Function TCompiler.NewType(fName: String; fRegPrefix: Char; fInternalID: Byte): Integer;
 Begin
  SetLength(TypeTable, Length(TypeTable)+1);
  Result := High(TypeTable);
@@ -1256,9 +1265,6 @@ Begin
   RegPrefix := fRegPrefix;
 
   InternalID := fInternalID;
-
-  ArrayBase     := TYPE_ANY;
-  ArrayDimCount := fArrayDimCount;
  End;
 End;
 
@@ -1450,11 +1456,22 @@ Var I: Integer;
 Begin
  Result := True;
 
+ if (T1 < 0) or (T1 > High(TypeTable)) or
+    (T2 < 0) or (T2 > High(TypeTable)) Then
+     Exit(False);
+
  if (TypeTable[T1].isStrict) or (TypeTable[T2].isStrict) Then
   Exit(T1 = T2);
 
  if (T1 = TYPE_ANY) or (T2 = TYPE_ANY) Then // any or any => true
   Exit(True);
+
+ { comparing null-type }
+ if (T1 = TYPE_NULL) Then
+ Begin
+  Exit(isTypeFunctionPointer(T2) or
+       isTypeObject(T2));
+ End Else
 
  { compare function-pointers }
  if (isTypeFunctionPointer(T1) and isTypeFunctionPointer(T2)) Then
@@ -1472,11 +1489,10 @@ Begin
   Exit(True);
  End Else
 
- { comparing function-pnt with non-func-pnt always returns false }
- if (isTypeFunctionPointer(T1) and (not isTypeFunctionPointer(T2))) or
-    (isTypeFunctionPointer(T2) and (not isTypeFunctionPointer(T1))) Then
+ { comparing function-pnt with non-func-pnt }
+ if (isTypeFunctionPointer(T1) and (not isTypeFunctionPointer(T2))) Then
  Begin
-  Exit(False);
+  Exit(isTypeInt(T2));
  End Else
 
  { compare arrays }
@@ -1492,10 +1508,7 @@ Begin
  if (isTypeArray(T1) and (not isTypeArray(T2))) or
     (isTypeArray(T2) and (not isTypeArray(T1))) Then
  Begin
-  if (isTypeChar(T1)) and (isTypeString(T2)) Then
-   Exit(True);
-
-  if (isTypeString(T1)) and (isTypeChar(T2)) Then
+  if (isTypeChar(T2)) and (isTypeString(T1)) Then // char to string => true
    Exit(True);
 
   Exit(False);
@@ -1531,7 +1544,7 @@ Function TCompiler.isTypeVoid(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID = TYPE_VOID);
+ Exit(TypeTable[ID].InternalID in [TYPE_NULL, TYPE_VOID]);
 End;
 
 (* TCompiler.isTypeString *)
@@ -1547,13 +1560,13 @@ End;
 
 (* TCompiler.isTypeNumerical *)
 {
- Returns `true`, when type passed in parameter is a numerical type (int, float, char), or numerical-derived; in other case, returns `false`.
+ Returns `true`, when type passed in parameter is a numerical type (int, float, char and pointers), or numerical-derived; in other case, returns `false`.
 }
 Function TCompiler.isTypeNumerical(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID in [TYPE_INT, TYPE_FLOAT, TYPE_CHAR]);
+ Exit((TypeTable[ID].InternalID in [TYPE_INT, TYPE_FLOAT, TYPE_CHAR]) or (TypeTable[ID].isFunction));
 End;
 
 (* TCompiler.isTypeBool *)
@@ -1569,13 +1582,13 @@ End;
 
 (* TCompiler.isTypeInt *)
 {
- Returns `true`, when type passed in parameter is `int`-derived; in other case, returns `false`.
+ Returns `true`, when type passed in parameter is `int`-derived or is a pointer; in other case, returns `false`.
 }
 Function TCompiler.isTypeInt(ID: TVType): Boolean;
 Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID = TYPE_INT);
+ Exit((TypeTable[ID].InternalID = TYPE_INT) or (TypeTable[ID].isFunction));
 End;
 
 (* TCompiler.isTypeFloat *)
@@ -1611,7 +1624,7 @@ Begin
  if (ID < 0) or (ID > High(TypeTable)) Then
   Exit(False);
 
- if (isTypeString(ID)) Then
+ if (isTypeString(ID) and (TypeTable[ID].ArrayDimCount = 1)) Then
   Exit(RegardStringAsArray);
 
  Exit(TypeTable[ID].ArrayDimCount > 0);
@@ -1628,7 +1641,7 @@ Begin
 
  Result := isTypeArray(ID); // for now, only arrays are some-kind-of-objects
 
- if (isTypeString(ID)) and (TypeTable[ID].ArrayDimCount = 0) Then // ... excepts strings - despite the fact, that strings are arrays, they're not objects as-is
+ if (isTypeString(ID)) and (TypeTable[ID].ArrayDimCount = 1) Then // ... excepts strings - despite the fact, that strings are arrays, they're not objects
   Exit(False);
 End;
 
@@ -2467,7 +2480,7 @@ Begin
    if (getBoolOption(opt_initcode)) Then
     PutOpcode(o_call, [':__init']);
 
-   PutOpcode(o_call, [':__function_main_'+ModuleName+'_int_']);
+   PutOpcode(o_call, [':__function__main_'+ModuleName+'_int_']);
    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
   End;
  End Else // if included (not the main file)
@@ -2480,18 +2493,42 @@ Begin
 
  { create primary type-table (don't change the order!) }
  SetLength(TypeTable, 0);
- NewType('any', 'i', TYPE_ANY, 0);
- NewType('void', 'i', TYPE_VOID, 0);
- NewType('bool', 'b', TYPE_BOOL, 0);
- NewType('char', 'c', TYPE_CHAR, 0);
- NewType('int', 'i', TYPE_INT, 0);
- NewType('float', 'f', TYPE_FLOAT, 0);
- NewType('string', 's', TYPE_STRING, 0);
+ NewType('any', 'i', TYPE_ANY);
+ NewType('null', 'r', TYPE_NULL);
+ NewType('void', 'i', TYPE_VOID);
+ NewType('bool', 'b', TYPE_BOOL);
+ NewType('char', 'c', TYPE_CHAR);
+ NewType('int', 'i', TYPE_INT);
+ NewType('float', 'f', TYPE_FLOAT);
+ NewType('string', 's', TYPE_STRING);
 
  With TypeTable[TYPE_STRING] do
  Begin
-  ArrayBase     := TYPE_STRING; // it's a long story... with many monsters, goblins and Access Violations.
+  ArrayBase     := TYPE_STRING; // why not `TYPE_CHAR`? Well... it's a long story, with many monsters, goblins and Access Violations.
   ArrayDimCount := 1;
+ End;
+
+ { create global constants }
+ With NamespaceList[0] do
+ Begin
+  SetLength(GlobalList, 1);
+
+  With GlobalList[0] do
+  Begin
+   Typ := gdConstant;
+
+   With mVariable do
+   Begin
+    Name       := 'null';
+    Typ        := TYPE_NULL;
+    Value      := MakeIntExpression(0)^;
+    RegChar    := 'r';
+    isConst    := True;
+    Visibility := mvPrivate;
+   End;
+
+   isInternal := True;
+  End;
  End;
 
  { clear variables }

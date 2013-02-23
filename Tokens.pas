@@ -59,6 +59,7 @@ Unit Tokens;
   _PERCENT_EQUAL, // %=
   _EOF,           //
   _INTEGER,       //
+  _HEX_INTEGER,   //
   _FLOAT,         //
   _STRING,        //
   _INVALID_STRING,//
@@ -150,6 +151,7 @@ Unit Tokens;
   '%=',
   '',
   '',    
+  '',
   '',
   '',
   '',

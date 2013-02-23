@@ -23,7 +23,7 @@ Begin
   With Compiler do // array subscript must be an integer value
    if (not isTypeInt(TmpType)) or (Typ.ArrayDimCount = 0) Then
    Begin
-    Error(eInvalidArraySubscript, [getTypeName(TmpType), getTypeName(TmpType)]);
+    Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [generateTypeName(Typ), getTypeName(TmpType)]);
     Exit;
    End;
 
@@ -37,8 +37,8 @@ Begin
  if (Typ.ArrayDimCount = 0) Then
   Typ.RegPrefix := Compiler.getTypePrefix(Typ.ArrayBase);
 
-{ if (Compiler.isTypeString(Typ.ArrayBase) and (Typ.ArrayDimCount = 1)) Then // `string`
-  Typ := Compiler.TypeTable[TYPE_STRING];}
+ if (Compiler.isTypeString(Typ.ArrayBase) and (Typ.ArrayDimCount = 1)) Then // `string`
+  Typ := Compiler.TypeTable[TYPE_STRING];
 
  if (Compiler.isTypeString(Typ.ArrayBase) and (Typ.ArrayDimCount = 0)) Then // `string`
   Typ := Compiler.TypeTable[TYPE_CHAR];

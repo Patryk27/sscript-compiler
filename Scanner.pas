@@ -9,26 +9,26 @@ Unit Scanner;
 
  Type TScanner = Class
                   Private
-                   Code         : String;
-                   Position     : Integer;
-                   Line         : Integer;
-                   NLPosition   : Integer;
-                   CommentOpened: Boolean;
+                   Code      : String;
+                   Position  : Integer;
+                   Line      : Integer;
+                   NLPosition: Integer;
 
                    Function __readChar(out NewLine, Escaped: Boolean; const AllowFormatting: Boolean=False): Char;
                    Function __readCharN(out NewLine: Boolean; const AllowFormatting: Boolean=False): Char;
                    Function __readString(out OK: Boolean; const Ch: Char): String;
                    Function __readIdentifier: String;
                    Function __readNumber(out OK: Boolean; out Dot: Boolean): Extended;
+                   Function __readHexNumber(out OK: Boolean): Int64;
 
                    Procedure IncPosition;
                    Procedure DecPosition;
                   Public
-                   Constructor Create(Code_: TStringList);
+                   Constructor Create(Lines: TStringList);
                    Destructor Destroy; override;
 
                    Function getNextToken: TToken;
-                   Function getNextToken_P(const EnableKeywords: Boolean=True; const EnableComments: Boolean=True): TToken_P;
+                   Function getNextToken_P: TToken_P;
 
                    Function getLine: Integer;
                    Function getChar: Integer;
@@ -39,9 +39,10 @@ Unit Scanner;
  Implementation
 
 { TScanner.Create }
-Constructor TScanner.Create(Code_: TStringList);
+Constructor TScanner.Create(Lines: TStringList);
 Var I: Integer;
 Begin
+{
  For I := 0 To Code_.Count-1 Do
   Code_[I] := Code_[I]+#0;
 
@@ -54,11 +55,15 @@ Begin
     Delete(Code, I, 1) Else
     Inc(I);
   Until (I >= Length(Code));
+ }
+ For I := 0 To Lines.Count-1 Do
+  Lines[I] := Lines[I] + #0;
 
- Position      := 1;
- NLPosition    := 0;
- Line          := 0;
- CommentOpened := False;
+ Code := Lines.Text;
+
+ Position   := 1;
+ NLPosition := 0;
+ Line       := 0;
 End;
 
 { TScanner.Destroy }
@@ -147,12 +152,14 @@ Begin
 
    Now1:
     Dec(Position);
-    Exit(chr(StrToInt('$'+Tmp)));
+    Exit(chr(StrToInt('$'+Trim(Tmp))));
    End Else
 
    { read a decimal number }
    Begin
-    Tmp += C;
+    if (C in ['0'..'9']) Then
+     Tmp += C Else
+     Dec(Position);
 
     While (true) Do
     Begin
@@ -168,7 +175,7 @@ Begin
 
    Now2:
     Dec(Position);
-    Exit(chr(StrToInt(Tmp)));
+    Exit(chr(StrToInt(Trim(Tmp))));
    End;
   End Else
    Exit(C);
@@ -235,10 +242,10 @@ End;
 
 { TScanner.__readNumber }
 Function TScanner.__readNumber(out OK: Boolean; out Dot: Boolean): Extended;
-Var Str  : String;
-    C    : Char;
-    NL   : Boolean;
-    CodeI: Integer;
+Var Str    : String;
+    Ch     : Char;
+    Newline: Boolean;
+    ValCode: Integer;
 Begin
  Result := 0;
  Str    := '';
@@ -247,10 +254,14 @@ Begin
 
  DecPosition;
 
- Repeat
-  C := __readCharN(NL);
+ While (true) Do
+ Begin
+  Ch := __readCharN(Newline);
 
-  if (C = '.') Then
+  if (not (Ch in ['0'..'9', '.'])) or (Newline) Then
+   Break;
+
+  if (Ch = '.') Then
    if (Dot) Then
    Begin
     OK := False;
@@ -258,21 +269,47 @@ Begin
    End Else
     Dot := True;
 
-  Str += C;
- Until (not (C in ['0'..'9','.'])) or (NL);
+  Str += Ch;
+ End;
 
  DecPosition;
 
- if (not (Str[Length(Str)] in ['0'..'9'])) Then
-  Delete(Str, Length(Str), 1);
-
- Str := Trim(Str);
-
- Val(Str, Result, CodeI);
- if (CodeI <> 0) Then
-  OK := False;
+ Val(Str, Result, ValCode);
+ OK := (ValCode = 0);
 
  Dot := (Pos('.', Str) > 0);
+End;
+
+{ TScanner.__readHexNumber }
+Function TScanner.__readHexNumber(out OK: Boolean): Int64;
+Var Str    : String;
+    Ch     : Char;
+    Newline: Boolean;
+    ValCode: Integer;
+Begin
+ DecPosition;
+
+ IncPosition; // 0
+ IncPosition; // x
+
+ Result := 0;
+ Str    := '';
+ OK     := True;
+
+ While (true) Do
+ Begin
+  Ch := __readCharN(Newline);
+
+  if (not (Ch in ['0'..'9', 'a'..'f', 'A'..'F'])) or (Newline) Then
+   Break;
+
+  Str += Ch;
+ End;
+
+ DecPosition;
+
+ Val('$'+Str, Result, ValCode);
+ OK := (ValCode = 0);
 End;
 
 { TScanner.getNextToken }
@@ -306,6 +343,9 @@ Begin
 
  if (C1 in [' ', #0]) Then                              
   Result := getNextToken;
+
+ if (C1 = '0') and (C2 = 'x') Then
+  Exit(_HEX_INTEGER);
 
  Case C1 of
   '+': Result := _PLUS;
@@ -459,7 +499,7 @@ Begin
 End;
 
 { TScanner.getNextToken_P }
-Function TScanner.getNextToken_P(const EnableKeywords: Boolean=True; const EnableComments: Boolean=True): TToken_P;
+Function TScanner.getNextToken_P: TToken_P;
 Var Token: TToken;
     OK   : Boolean;
     Dot  : Boolean;
@@ -472,54 +512,55 @@ Begin
  Result.Line  := Line;
  Result.Char  := NLPosition;
 
- if (EnableComments) Then
-  if (Result.Token = _LONGCMT_OPEN) Then
-   CommentOpened := True Else
-  if (Result.Token = _LONGCMT_CLOSE) Then
-   CommentOpened := False Else
-   if (CommentOpened) Then
+ Case Token of
+  { strings }
+  _QUOTE, _APOSTR:
+  Begin
+   if (Token = _QUOTE) Then
+    Ch := '"' Else
+    Ch := '''';
+
+   Result.Token := _STRING;
+   Result.Value := __readString(OK, Ch);
+
+   if (Token = _APOSTR) Then
+    Result.Token := _CHAR;
+
+    if (not OK) Then
+     Result.Token := _INVALID_STRING;
+  End;
+
+  { identifiers }
+  _CHAR, _UNDERSCORE:
+  Begin
+   Result.Value := __readIdentifier;
+   Result.Token := _IDENTIFIER;
+
+   if (isKeyword(Result.Value)) Then
+    Result.Token := KeywordToToken(Result.Value);
+  End;
+
+  { numbers }
+  _INTEGER, _HEX_INTEGER:
+  Begin
+   Result.Token := _INTEGER;
+
+   Dot := False;
+
+   if (Token = _INTEGER) Then
+    Result.Value := FloatToStr(__readNumber(OK, Dot)) Else
+    Result.Value := IntToStr(__readHexNumber(OK));
+
+   if (Dot) Then
    Begin
-    Result.Token := noToken;
-    Exit;
+    Result.Token := _FLOAT;
+    if (Pos('.', Result.Value) = 0) Then
+     Result.Value := Result.Value+'.0';
    End;
 
- Case Token of
-  _QUOTE, _APOSTR: Begin // strings
-                    if (Token = _QUOTE) Then
-                     Ch := '"' Else
-                     Ch := '''';
-
-                    Result.Token := _STRING;
-                    Result.Value := __readString(OK, Ch);
-
-                    if (Token = _APOSTR) Then
-                     Result.Token := _CHAR;
-
-                    if (not OK) Then
-                     Result.Token := _INVALID_STRING;
-                   End;
-  _CHAR, _UNDERSCORE: Begin // identifiers
-                       Result.Value := __readIdentifier;
-                       Result.Token := _IDENTIFIER;
-
-                       if (EnableKeywords) Then
-                        if (isKeyword(Result.Value)) Then
-                         Result.Token := KeywordToToken(Result.Value);
-                      End;
-  _INTEGER: Begin // numbers
-             Result.Token := _INTEGER;
-             Result.Value := FloatToStr(__readNumber(OK, Dot));
-
-             if (Dot) Then
-             Begin
-              Result.Token := _FLOAT;
-              if (Pos('.', Result.Value) = 0) Then
-               Result.Value := Result.Value+'.0';
-             End;
-
-             if (not OK) Then
-              Result.Token := noToken;
-             End;
+   if (not OK) Then
+    Result.Token := noToken;
+  End;
  End;
 
  Result.TokenName := getTokenName(Result.Token);

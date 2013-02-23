@@ -57,6 +57,20 @@ Begin
    TypeLeft := TYPE_FLOAT;
   End;
 
+  { pointer, int -> int, int }
+  if (isTypeFunctionPointer(TypeLeft)) and (isTypeInt(TypeRight)) Then
+  Begin
+   PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
+   TypeLeft := TYPE_INT;
+  End;
+
+  { int, pointer -> int, int }
+  if (isTypeInt(TypeLeft)) and (isTypeFunctionPointer(TypeRight)) Then
+  Begin
+   PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
+   TypeRight := TYPE_INT;
+  End;
+
   { string, char -> string, string }
   if (isTypeString(TypeLeft)) and (isTypeChar(TypeRight)) and (not isComparing) Then
   Begin
@@ -98,8 +112,7 @@ Begin
   End;
 
   { unsupported operator (eg.`int+string`) }
-  if (not CompareTypes(TypeLeft, TypeRight)) or
-     (isTypeFunctionPointer(TypeLeft) or isTypeFunctionPointer(TypeRight)) Then
+  if (not CompareTypes(TypeLeft, TypeRight)) Then
   Begin
    Error(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]);
    Exit;

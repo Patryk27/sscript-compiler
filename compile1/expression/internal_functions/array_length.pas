@@ -1,28 +1,55 @@
  { array_length (array type) }
  Procedure __array_length;
- Var Param: TVType;
-     Ch   : Char;
+ Var Variable: TRVariable;
+     TmpType : TVType;
+     TmpExpr : PMExpression;
+     Typ     : TMType;
+     Ch      : Char;
  Begin
-  Error(eInternalError, ['Sorry, but it doesn''t work now - check in future updates ;<']);
-
   // parameter check
   if (Length(Expr^.ParamList) <> 1) Then
   Begin
-   Error(eWrongParamCount, [Expr^.Value, Length(Expr^.ParamList), 1]);
+   Error(eWrongParamCount, ['array_length', Length(Expr^.ParamList), 1]);
    Exit;
   End;
 
-  // parse parameter and check types
-  Param := Parse(Expr^.ParamList[0], 1);
-  RePop(Expr^.ParamList[0], Param, 1);
-  if (not Compiler.isTypeArray(Param)) Then
+  // parse parameter and check type
+  if not (Expr^.ParamList[0]^.Typ in [mtVariable, mtArrayElement]) Then
   Begin
-   Error(eWrongTypeInCall, ['array_length', 1, Compiler.getTypeName(Param), 'array']);
+   Error(eInvalidExpression, []);
    Exit;
   End;
 
-  Ch := Compiler.getTypePrefix(Param);
-  Compiler.PutOpcode(o_arlen, ['e'+Ch+'1']);
+  Variable := getVariable(Expr^.ParamList[0]);
+  TmpExpr  := Expr^.ParamList[0];
+  Typ      := Compiler.TypeTable[Variable.Typ];
+
+  if (TmpExpr^.Right <> nil) Then
+  Begin
+   Repeat
+    TmpType := Parse(TmpExpr^.Right);
+    With Compiler do // array subscript must be an integer value
+     if (not isTypeInt(TmpType)) or (Typ.ArrayDimCount = 0) Then
+     Begin
+      Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [generateTypeName(Typ), getTypeName(TmpType)]);
+      Exit;
+     End;
+
+    TmpExpr := TmpExpr^.Left;
+
+    Dec(Typ.ArrayDimCount);
+   Until not (TmpExpr^.Typ in [mtArrayElement]);
+  End;
+
+  if (Typ.ArrayDimCount = 0) Then
+  Begin
+   Error(eWrongTypeInCall, ['array_length', 1, Compiler.generateTypeName(Typ), 'array']);
+   Exit;
+  End;
+
+  // put opcode
+  Ch := Compiler.getTypePrefix(Variable.Typ);
+  Compiler.PutOpcode(o_arlen, ['e'+Ch+'1', Variable.getArray, 'ei1']);
 
   Result := TYPE_INT;
   Exit;

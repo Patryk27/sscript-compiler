@@ -258,7 +258,7 @@ Begin
 
  if (O.Opcode = o_mov) Then
  Begin
-  Result := CheckMOV(O.Args[0].Typ, O.Args[1].Typ) and (O.Args[0].Typ in [ptStackVal, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg]);
+  Exit(CheckMOV(O.Args[0].Typ, O.Args[1].Typ) and (O.Args[0].Typ in [ptStackVal, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg]));
  End Else
  Begin
   For I := 0 To High(O.Args) Do
