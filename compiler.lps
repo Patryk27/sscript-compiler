@@ -9,10 +9,11 @@
         <Filename Value="compiler.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="compiler"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="76"/>
-        <CursorPos X="16" Y="156"/>
+        <TopLine Value="62"/>
+        <CursorPos X="11" Y="82"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -58,11 +59,10 @@
       <Unit5>
         <Filename Value="Compile2.pas"/>
         <UnitName Value="Compile2"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="12"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="191"/>
-        <CursorPos X="14" Y="204"/>
+        <TopLine Value="212"/>
+        <CursorPos X="62" Y="219"/>
         <UsageCount Value="101"/>
         <Loaded Value="True"/>
       </Unit5>
@@ -472,7 +472,7 @@
     <General>
       <ActiveWindowIndexAtStart Value="0"/>
     </General>
-    <JumpHistory Count="30" HistoryIndex="29">
+    <JumpHistory Count="28" HistoryIndex="27">
       <Position1>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
         <Caret Line="28" Column="44" TopLine="4"/>
@@ -507,92 +507,84 @@
       </Position8>
       <Position9>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="5" Column="29" TopLine="25"/>
+        <Caret Line="32" Column="47" TopLine="13"/>
       </Position9>
       <Position10>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="32" Column="47" TopLine="13"/>
+        <Caret Line="39" Column="27" TopLine="26"/>
       </Position10>
       <Position11>
-        <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="39" Column="27" TopLine="26"/>
-      </Position11>
-      <Position12>
         <Filename Value="compile1\expression\array_element.pas"/>
         <Caret Line="26" Column="32" TopLine="10"/>
+      </Position11>
+      <Position12>
+        <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
+        <Caret Line="39" Column="75" TopLine="25"/>
       </Position12>
       <Position13>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="39" Column="75" TopLine="25"/>
+        <Caret Line="50" Column="88" TopLine="25"/>
       </Position13>
       <Position14>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="50" Column="88" TopLine="25"/>
+        <Caret Line="32" Column="12" TopLine="19"/>
       </Position14>
       <Position15>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="32" Column="12" TopLine="19"/>
+        <Caret Line="42" Column="64" TopLine="19"/>
       </Position15>
       <Position16>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="42" Column="64" TopLine="19"/>
+        <Caret Line="50" Column="32" TopLine="30"/>
       </Position16>
       <Position17>
-        <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
-        <Caret Line="50" Column="32" TopLine="30"/>
+        <Filename Value="Opcodes.pas"/>
+        <Caret Line="261" Column="1" TopLine="237"/>
       </Position17>
       <Position18>
         <Filename Value="Opcodes.pas"/>
-        <Caret Line="214" Column="77" TopLine="237"/>
+        <Caret Line="240" Column="1" TopLine="235"/>
       </Position18>
       <Position19>
         <Filename Value="Opcodes.pas"/>
-        <Caret Line="261" Column="1" TopLine="237"/>
+        <Caret Line="219" Column="1" TopLine="205"/>
       </Position19>
       <Position20>
         <Filename Value="Opcodes.pas"/>
-        <Caret Line="240" Column="1" TopLine="235"/>
+        <Caret Line="221" Column="1" TopLine="205"/>
       </Position20>
       <Position21>
         <Filename Value="Opcodes.pas"/>
-        <Caret Line="219" Column="1" TopLine="205"/>
+        <Caret Line="224" Column="1" TopLine="211"/>
       </Position21>
       <Position22>
         <Filename Value="Opcodes.pas"/>
-        <Caret Line="221" Column="1" TopLine="205"/>
+        <Caret Line="232" Column="1" TopLine="211"/>
       </Position22>
       <Position23>
         <Filename Value="Opcodes.pas"/>
-        <Caret Line="224" Column="1" TopLine="211"/>
+        <Caret Line="235" Column="1" TopLine="211"/>
       </Position23>
       <Position24>
         <Filename Value="Opcodes.pas"/>
-        <Caret Line="232" Column="1" TopLine="211"/>
+        <Caret Line="241" Column="25" TopLine="227"/>
       </Position24>
       <Position25>
-        <Filename Value="Opcodes.pas"/>
-        <Caret Line="235" Column="1" TopLine="211"/>
-      </Position25>
-      <Position26>
-        <Filename Value="Opcodes.pas"/>
-        <Caret Line="241" Column="25" TopLine="227"/>
-      </Position26>
-      <Position27>
         <Filename Value="compile1\expression\call.pas"/>
         <Caret Line="105" Column="21" TopLine="50"/>
-      </Position27>
-      <Position28>
+      </Position25>
+      <Position26>
         <Filename Value="compile1\expression\call.pas"/>
         <Caret Line="118" Column="19" TopLine="107"/>
-      </Position28>
-      <Position29>
+      </Position26>
+      <Position27>
         <Filename Value="compile1\Compile1.pas"/>
         <Caret Line="105" Column="40" TopLine="92"/>
-      </Position29>
-      <Position30>
+      </Position27>
+      <Position28>
         <Filename Value="compile1\Compile1.pas"/>
         <Caret Line="419" Column="35" TopLine="408"/>
-      </Position30>
+      </Position28>
     </JumpHistory>
   </ProjectSession>
   <Debugging>

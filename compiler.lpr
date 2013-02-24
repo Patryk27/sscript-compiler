@@ -26,6 +26,7 @@ Var Input, Output: String;
 
     Options  : TCompileOptions;
     logo_only: Boolean=False;
+    wait     : Boolean=False;
 
     Frame : Integer;
     Frames: PPointer;
@@ -72,7 +73,12 @@ Begin
   if (Current = '-logo') Then
   Begin
    logo_only := True;
-   Exit;
+  End Else
+
+  { -wait }
+  if (Current = '-wait') Then
+  Begin
+   wait := True;
   End Else
 
   { -verbose / -v }
@@ -172,7 +178,7 @@ Begin
  End;
 
  { -wait }
- if (getBoolOption('wait', False)) Then // @TODO
+ if (wait) Then
  Begin
   Writeln('-- done --');
   Readln;

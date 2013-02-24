@@ -31,7 +31,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="input.ss -b bytecode.ssb -wait"/>
+        <CommandLineParams Value="-logo -wait"/>
       </local>
     </RunParams>
     <Units Count="2">
