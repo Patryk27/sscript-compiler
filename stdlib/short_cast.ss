@@ -1,5 +1,6 @@
 @visibility("public")
 
+}
 namespace std
 {
  function<bool> b2b(bool) in "short_cast.ssm";

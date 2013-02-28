@@ -1,6 +1,6 @@
 Procedure ParseAssign;
 Var Variable       : TRVariable;
-    TypeID, TmpType: TVType;
+    TypeID, TmpType: PMType;
     Index, DimCount: Byte;
     ShouldFail     : Boolean;
 Begin
@@ -24,7 +24,7 @@ Begin
  Begin
   if (Left^.Typ = mtArrayElement) Then // tried to access eg.`int`-typed variable like array
   Begin
-   Error(eInvalidArraySubscript, [Compiler.getTypeName(Variable.Typ), Compiler.getTypeName(Parse(Left^.Left))]);
+   Error(eInvalidArraySubscript, [Compiler.getTypeDeclaration(Variable.Typ), Compiler.getTypeDeclaration(Parse(Left^.Left))]);
    Exit;
   End;
 
@@ -44,7 +44,7 @@ Begin
   With Compiler do
    if (not CompareTypes(Variable.Typ, TypeID)) Then // type check
    Begin
-    Error(eWrongTypeInAssign, [Variable.Name, getTypeName(TypeID), getTypeName(Variable.Typ)]);
+    Error(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(TypeID), getTypeDeclaration(Variable.Typ)]);
     Exit;
    End;
 
@@ -60,7 +60,7 @@ Begin
   TypeID := Parse(Left^.Right);
   With Compiler do // array subscript must be an integer value
    if (not isTypeInt(TypeID)) Then
-    Error(eInvalidArraySubscript, [getTypeName(Variable.Typ), getTypeName(TypeID)]);
+    Error(eInvalidArraySubscript, [getTypeDeclaration(Variable.Typ), getTypeDeclaration(TypeID)]);
 
   Left := Left^.Left;
   Inc(Index);
@@ -77,7 +77,7 @@ Begin
   With Compiler do
   Begin
    if (not CompareTypes(TypeID, Variable.Typ)) Then
-    Error(eWrongTypeInAssign, [Variable.Name, getTypeName(TypeID), getTypeName(Variable.Typ)]);
+    Error(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(TypeID), getTypeDeclaration(Variable.Typ)]);
   End;
 
   { set new pointer }
@@ -87,7 +87,7 @@ Begin
  End;
 
  { value assignment }
- DimCount := Compiler.TypeTable[Variable.Typ].ArrayDimCount;
+ DimCount := Variable.Typ^.ArrayDimCount;
  if (Index <> DimCount) Then
  Begin
   // special case: strings
@@ -107,10 +107,10 @@ Begin
 
   ShouldFail := False;
 
-  if (isTypeString(TmpType) and (Integer(Compiler.TypeTable[Variable.Typ].ArrayDimCount)-Index <= 0)) Then
+  if (isTypeString(TmpType) and (Integer(Variable.Typ^.ArrayDimCount)-Index <= 0)) Then
   Begin
    ShouldFail := not isTypeChar(TypeID);
-   TmpType    := TYPE_CHAR;
+   TmpType    := TypeInstance(TYPE_CHAR);
   End;
 
   {
@@ -131,7 +131,7 @@ Begin
   }
 
   if (not CompareTypes(TypeID, TmpType)) or (ShouldFail) Then//or (isTypeArray(TypeID) and not isTypeString(TypeID)) Then
-   Error(eWrongTypeInAssign, [Variable.Name, getTypeName(TypeID), getTypeName(TmpType)]);
+   Error(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(TypeID), getTypeDeclaration(TmpType)]);
  End;
 
  { set new array's element's value }

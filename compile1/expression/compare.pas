@@ -1,5 +1,5 @@
 Procedure ParseCompare;
-Var TypeLeft, TypeRight: TVType;
+Var TypeLeft, TypeRight: PMType;
     Opcode             : TOpcode_E;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
@@ -15,6 +15,6 @@ Begin
 
  Compiler.PutOpcode(Opcode, ['e'+Compiler.getTypePrefix(TypeLeft)+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
 
- Result      := TYPE_BOOL;
+ Result      := TypeInstance(TYPE_BOOL);
  Push_IF_reg := True;
 End;

@@ -60,8 +60,6 @@
     </SearchPaths>
     <CodeGeneration>
       <Optimizations>
-        <VariablesInRegisters Value="True"/>
-        <UncertainOptimizations Value="True"/>
         <OptimizationLevel Value="0"/>
       </Optimizations>
     </CodeGeneration>

@@ -1,9 +1,9 @@
 Procedure ParseTypeCast;
-Var TypeID, Typ: Integer;
+Var TypeID, Typ: PMType;
 Begin
- TypeID := Expr^.Value;
+ TypeID := getType(Expr^.Value);
 
- if (TypeID = -1) Then
+ if (TypeID = nil) Then
   Exit;
 
  if (Compiler.isTypeVoid(TypeID)) Then

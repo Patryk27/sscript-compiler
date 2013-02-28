@@ -408,7 +408,7 @@ function<string[]> strexplode(string text, char sep)
    current += text[i];
  }
 
- result[result_pos++] = current;
+ result[result_pos] = current;
 
  return result;
 }

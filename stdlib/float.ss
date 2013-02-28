@@ -1,5 +1,6 @@
 @visibility("public")
 
+}
 namespace std
 {
  const<float> EPSILON = 0.00001;

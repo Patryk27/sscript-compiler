@@ -1,7 +1,7 @@
  { array_length (array type) }
  Procedure __array_length;
  Var Variable: TRVariable;
-     TmpType : TVType;
+     TmpType : PMType;
      TmpExpr : PMExpression;
      Typ     : TMType;
      Ch      : Char;
@@ -22,7 +22,7 @@
 
   Variable := getVariable(Expr^.ParamList[0]);
   TmpExpr  := Expr^.ParamList[0];
-  Typ      := Compiler.TypeTable[Variable.Typ];
+  Typ      := Variable.Typ^;
 
   if (TmpExpr^.Right <> nil) Then
   Begin
@@ -31,7 +31,7 @@
     With Compiler do // array subscript must be an integer value
      if (not isTypeInt(TmpType)) or (Typ.ArrayDimCount = 0) Then
      Begin
-      Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [generateTypeName(Typ), getTypeName(TmpType)]);
+      Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [getTypeDeclaration(Typ), getTypeDeclaration(TmpType)]);
       Exit;
      End;
 
@@ -43,7 +43,7 @@
 
   if (Typ.ArrayDimCount = 0) Then
   Begin
-   Error(eWrongTypeInCall, ['array_length', 1, Compiler.generateTypeName(Typ), 'array']);
+   Error(eWrongTypeInCall, ['array_length', 1, Compiler.getTypeDeclaration(Typ), 'array']);
    Exit;
   End;
 
@@ -51,6 +51,6 @@
   Ch := Compiler.getTypePrefix(Variable.Typ);
   Compiler.PutOpcode(o_arlen, ['e'+Ch+'1', Variable.getArray, 'ei1']);
 
-  Result := TYPE_INT;
+  Result := TypeInstance(TYPE_INT);
   Exit;
  End;

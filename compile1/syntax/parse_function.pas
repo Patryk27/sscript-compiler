@@ -11,7 +11,7 @@ Unit Parse_FUNCTION;
  Function CreateFunctionMangledName(CompilerPnt: Pointer; Func: TMFunction; SimplifiedName: Boolean): String;
 
  Implementation
-Uses Compile1, Messages, Opcodes, ExpressionCompiler, SysUtils;
+Uses Compile1, Messages, Opcodes, ExpressionCompiler, SysUtils, CompilerUnit;
 
 (* CreateFunctionMangledName *)
 {
@@ -26,9 +26,9 @@ Begin
   if (SimplifiedName) Then
    Exit('__function_'+NamespaceName+'_'+Name);
 
-  Result := '__function_'+NamespaceName+'_'+Name+'_'+ModuleName+'_'+TCompiler(Compiler).getTypeName(Return)+'_';
+  Result := '__function_'+NamespaceName+'_'+Name+'_'+ModuleName+'_'+TCompiler(Compiler).getTypeDeclaration(Return)+'_';
   For P in ParamList Do
-   Result += Compiler.getTypeName(P.Typ)+'_';
+   Result += Compiler.getTypeDeclaration(P.Typ)+'_';
  End;
 
  Result := StringReplace(Result, '[]', '_arraytype_', [rfReplaceAll]);
@@ -78,7 +78,7 @@ End;
 
 // main function's block
 Var Str1, Str2, Str3, Str4: String;
-    EType                 : TVType;
+    EType                 : PMType;
     Item                  : PMOpcode;
 Begin
 With TCompiler(Compiler) do
@@ -122,7 +122,7 @@ Begin
     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
 
     if (not CompareTypes(Func.Return, EType)) Then // type check
-     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), getTypeName(Func.Return)]);
+     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeDeclaration(EType), getTypeDeclaration(Func.Return)]);
 
     if (OpcodeList.Last^.Opcode = o_push) Then // result must be in the `e_1` register, not on the stack
      PutOpcode(o_pop, ['e'+getTypePrefix(Func.Return)+'1']);
@@ -136,7 +136,7 @@ Begin
    ctVoidReturn:
    Begin
     if (not isTypeVoid(Func.Return)) Then // type check
-     CompileError(PToken_P(Values[0])^, eWrongType, [getTypeName(TYPE_VOID), getTypeName(Func.Return)]);
+     CompileError(PToken_P(Values[0])^, eWrongType, [getTypeDeclaration(TYPE_VOID), getTypeDeclaration(Func.Return)]);
     PutOpcode(o_ret);
    End;
 
@@ -154,7 +154,7 @@ Begin
     PutLabel(Str2);
     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
     if (not isTypeBool(EType)) Then
-     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), getTypeName(TYPE_BOOL)]);
+     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeDeclaration(EType), getTypeDeclaration(TYPE_BOOL)]);
 
     { condition check }
     PutOpcode(o_pop, ['if']);
@@ -183,7 +183,7 @@ Begin
     { condition }
     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
     if (not isTypeBool(EType)) Then
-     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), getTypeName(TYPE_BOOL)]);
+     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeDeclaration(EType), getTypeDeclaration(TYPE_BOOL)]);
 
     { jump }
     PutOpcode(o_pop, ['if']);
@@ -218,7 +218,7 @@ Begin
     PutLabel(Str2);
     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
     if (not isTypeBool(EType)) Then
-     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), getTypeName(TYPE_BOOL)]);
+     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeDeclaration(EType), getTypeDeclaration(TYPE_BOOL)]);
 
     { condition check }
     PutOpcode(o_pop, ['if']);
@@ -251,7 +251,7 @@ Begin
     Begin
      EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
      if (not isTypeBool(EType)) Then
-      CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), getTypeName(TYPE_BOOL)]);
+      CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeDeclaration(EType), getTypeDeclaration(TYPE_BOOL)]);
     End;
 
     { condition check }
@@ -267,7 +267,7 @@ Begin
    Begin
     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
     if (not isTypeObject(EType)) Then
-     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeName(EType), 'object']);
+     CompileError(PMExpression(Values[0])^.Token, eWrongType, [getTypeDeclaration(EType), 'object']);
 
     PutOpcode(o_pop, ['er1']);
     PutOpcode(o_objfree, ['er1']);
@@ -278,7 +278,7 @@ End;
 End;
 
 // NewCompilerConst
-Procedure NewCompilerConst(const Name: String; Typ: TVType; Value: TMExpression);
+Procedure NewCompilerConst(const Name: String; Typ: PMType; Value: TMExpression);
 Var Variable: TMVariable;
 Begin
  With TCompiler(Compiler) do
@@ -439,7 +439,9 @@ Begin
  NewScope(sFunction);
 
  { parse function's code }
+ Log('Parsing function: '+Func.Name);
  ParseCodeBlock;
+ Log('Function parsed; compiling it...');
 
  (* now, we have a full construction list used in this function; so - let's optimize and generate bytecode! :) *)
  CList := getCurrentFunction.ConstructionList;
@@ -489,6 +491,7 @@ Begin
   ParseConstruction(c_ID);
   Inc(c_ID);
  Until (c_ID > High(CList));
+ Log('... function `'+Func.Name+'` compiled.');
 
  { function end code }
  PutLabel(Func.MName+'_end');

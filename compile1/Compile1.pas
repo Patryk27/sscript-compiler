@@ -8,7 +8,7 @@ Unit Compile1;
  Uses Classes, SysUtils, Variants, FGL,
       Tokens, CompilerUnit, Scanner, Opcodes, Messages, MTypes,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include, Parse_DELETE,
-      Parse_NAMESPACE;
+      Parse_NAMESPACE, Parse_TYPE;
 
  { constants }
  Const DEF_STACKSIZE = 1000000; // default stack size for compiled app
@@ -61,8 +61,6 @@ Unit Compile1;
                     ExportList : Array of TMExport; // exports
                     IncludeList: Array of TCompiler; // include
 
-                    TypeTable: Array of TMType; // type list
-
                     NamespaceList: Array of TMNamespace; // namespaces
 
                     Scope: Array of TMScope; // scope list
@@ -91,7 +89,7 @@ Unit Compile1;
                     Function next(const I: Integer=0): TToken_P;
                     Function next_t(const I: Integer=0): TToken;
                     Function read_ident: String;
-                    Function read_type(const AllowArrays: Boolean=True): TVType;
+                    Function read_type(const AllowArrays: Boolean=True): PMType;
                     Procedure eat(Token: TToken);
                     Procedure semicolon;
                     Function getToken(const I: Integer=0): TToken_P;
@@ -109,34 +107,30 @@ Unit Compile1;
                     Function findLabel(Name: String): Integer;
 
                    { types }
-                    Function NewType(fName: String; fRegPrefix: Char; fInternalID: Byte): Integer;
-                    Function NewType(Typ: TMType): Integer;
-                    Function NewTypeFromFunction(Func: TMFunction): Integer;
+                    Function NewTypeFromFunction(Func: TMFunction): PMType;
 
-                    Function findGlobalType(Name: String): TVType;
-                    Function findType(Name: String): TVType;
-                    Function findType(Typ: TMType): Integer;
+                    Function findGlobalType(TypeName: String): PMType;
+                    Function findType(TypeName: String): PMType;
 
-                    Function generateTypeName(const Typ: TMType; DecStringArray: Boolean=True): String;
+                    Function getTypeDeclaration(const Typ: TMType; DecStringArray: Boolean=True): String;
+                    Function getTypeDeclaration(const Typ: PMType; DecStringArray: Boolean=True): String;
+                    Function getTypePrefix(ID: PMType): Char;
+                    Function getTypeFromExpr(Expr: TMExpression): PMType;
 
-                    Function getTypeName(ID: TVType): String;
-                    Function getTypePrefix(ID: TVType): Char;
-                    Function getTypeFromExpr(Expr: TMExpression): TVType;
+                    Function getArrayBaseType(ID: PMType): PMType;
 
-                    Function getArrayBaseType(ID: TVType): TVType;
+                    Function CompareTypes(pT2, pT1: PMType): Boolean;
 
-                    Function CompareTypes(T2, T1: TVType): Boolean;
-
-                    Function isTypeVoid(ID: TVType): Boolean;
-                    Function isTypeString(ID: TVType): Boolean;
-                    Function isTypeNumerical(ID: TVType): Boolean;
-                    Function isTypeBool(ID: TVType): Boolean;
-                    Function isTypeInt(ID: TVType): Boolean;
-                    Function isTypeFloat(ID: TVType): Boolean;
-                    Function isTypeChar(ID: TVType): Boolean;
-                    Function isTypeArray(ID: TVType; const RegardStringAsArray: Boolean=True): Boolean;
-                    Function isTypeObject(ID: TVType): Boolean;
-                    Function isTypeFunctionPointer(ID: TVType): Boolean;
+                    Function isTypeVoid(Typ: PMType): Boolean;
+                    Function isTypeString(Typ: PMType): Boolean;
+                    Function isTypeNumerical(Typ: PMType): Boolean;
+                    Function isTypeBool(Typ: PMType): Boolean;
+                    Function isTypeInt(Typ: PMType): Boolean;
+                    Function isTypeFloat(Typ: PMType): Boolean;
+                    Function isTypeChar(Typ: PMType): Boolean;
+                    Function isTypeArray(Typ: PMType; const RegardStringAsArray: Boolean=True): Boolean;
+                    Function isTypeObject(Typ: PMType): Boolean;
+                    Function isTypeFunctionPointer(Typ: PMType): Boolean;
 
                    { scope }
                     Procedure NewScope(const Typ: TMScopeType; LoopBegin: String=''; LoopEnd: String='');
@@ -145,14 +139,14 @@ Unit Compile1;
                    { variables }
                     Function findFreeRegister(cRegChar: Char): Integer;
                     Function findLocalVariable(fName: String; fDeep: Integer=-1): Integer;
-                    Function getVariableType(ID: Integer): TVType;
+                    Function getVariableType(ID: Integer): PMType;
                     Function getVariableRegID(ID: Integer): Integer;
                     Function getVariableRegChar(ID: Integer): Char;
                     Function getVariableValue(ID: Integer): TMExpression;
                     Function getGlobalVariableDefinition(Namespace, ID: Integer; const AddNamespace: Boolean=False): String;
                     Function isVariableConstant(ID: Integer): Boolean;
 
-                    Procedure __variable_create(fName: String; fTyp: TVType; fRegID: Integer; fIsParam: Boolean);
+                    Procedure __variable_create(fName: String; fTyp: PMType; fRegID: Integer; fIsParam: Boolean);
 
                     Function isConstantValue(Expr: TMExpression): Boolean;
 
@@ -724,20 +718,20 @@ End;
 {
  Reads a type name or a full type (based on current token) and returns its ID.
 }
-Function TCompiler.read_type(const AllowArrays: Boolean=True): TVType;
-Var Base : TVType;
+Function TCompiler.read_type(const AllowArrays: Boolean=True): PMType;
+Var Base : PMType;
     Typ  : TMType;
     Token: TToken_P;
 
-    FuncReturn: TVType;
+    FuncReturn: PMType;
     FuncParams: TMParamList;
 
     isArray, isStringBased, isFunction: Boolean;
 
 Label GenerateType;
 Begin
- Result := -1;
- Base   := TYPE_ANY;
+ Result := nil;
+ Base   := nil;
  Token  := read;
 
  isArray       := False;
@@ -783,28 +777,30 @@ Begin
   eat(_BRACKET1_CL);
 
   Typ.RegPrefix  := 'r';
-  Typ.InternalID := TYPE_ANY;
+  Typ.InternalID := TYPE_ANY_id;
   Typ.isFunction := True;
   Typ.FuncReturn := FuncReturn;
   Typ.FuncParams := FuncParams;
 
   if ((next_t = _BRACKET2_OP) and (AllowArrays)) Then
   Begin
-   Typ.Name := generateTypeName(Typ);
-   Base     := NewType(Typ);
+   Typ.Name := getTypeDeclaration(Typ);
+
+   New(Base);
+   Base^ := Typ;
   End Else
    goto GenerateType;
  End;
 
  { check for primary type existence }
- if (Base = -1) Then
+ if (Base = nil) Then
  Begin
   CompileError(next, eExpectedType, [Token.Display]);
   Exit;
  End;
 
- Typ           := TypeTable[Base];
- isStringBased := (Typ = TypeTable[TYPE_STRING]);
+ Typ           := Base^;
+ isStringBased := (Typ = TYPE_STRING);
 
  if (next_t = _BRACKET2_OP) Then
  Begin
@@ -814,7 +810,7 @@ Begin
    Exit;
   End;
 
-  if (TypeTable[Base].InternalID = TYPE_ANY) Then // ... as well, as `any`-typed array
+  if (Base^.InternalID = TYPE_ANY_id) Then // ... as well, as `any`-typed array
   Begin
    CompileError(next, eInternalError, ['Cannot create an `any`-typed array!']);
    Exit;
@@ -840,13 +836,15 @@ Begin
   Typ.ArrayBase := Base;
 
   if (isStringBased) Then
-   Typ.ArrayBase := TYPE_STRING;
+   Typ.ArrayBase := TypeInstance(TYPE_STRING);
  End;
 
  { set result }
 GenerateType:
- Typ.Name := generateTypeName(Typ);
- Result   := NewType(Typ);
+ Typ.Name := getTypeDeclaration(Typ);
+
+ New(Result);
+ Result^ := Typ;
 End;
 
 (* TCompiler.eat *)
@@ -921,10 +919,11 @@ Begin
 
    _NAMESPACE: Parse_NAMESPACE.Parse(self);
    _USE      : Parse_USE;
-   _CONST    : Parse_CONST.Parse(self, True);
+   _CONST    : Parse_CONST.Parse(self);
    _VAR      : CompileError(eUnimplemented, ['global/namespace variables']);
    _FUNCTION : Parse_Function.Parse(self);
    _AT       : ParseMacro_Outside;
+   _TYPE     : Parse_TYPE.Parse(self);
 
    else CompileError(eExpectedDeclOrDef, [Token.Display]);
   End;
@@ -934,7 +933,7 @@ Begin
    _BRACKET3_OP: Inc(CurrentDeep);
    _BRACKET3_CL: Dec(CurrentDeep);
    _VAR        : Parse_VAR.Parse(self);
-   _CONST      : Parse_CONST.Parse(self, False);
+   _CONST      : Parse_CONST.Parse(self);
    _RETURN     : Parse_RETURN.Parse(self);
    _COLON      : if (next.Display = 'CODE') Then Parse_CODE.Parse(self) Else CompileError(eUnexpected, [next.Display]);
    _FOR        : Parse_FOR.Parse(self);
@@ -947,6 +946,7 @@ Begin
    _DELETE     : Parse_DELETE.Parse(self);
    _BREAK      : ParseBreak;
    _CONTINUE   : ParseContinue;
+   _TYPE       : Parse_TYPE.Parse(self);
 
    _SEMICOLON: // at pure semicolon, don't do anything
 
@@ -1168,7 +1168,7 @@ End;
 (* TCompiler.PutLabel *)
 {
  Puts label, either directly into the code (when `asConstruction` = false) or as a construction
- (so the label will be created next to the previous opcode), when `asConstruction` = true.
+ (so the label will be added when compiling (not parsing!) a function), when `asConstruction` = true.
  At least one function have to be created, when enabling `asConstruction`
 
  Sample code:
@@ -1248,117 +1248,82 @@ Begin
    Exit(I);
 End;
 
-(* TCompiler.NewType *)
-{
- Adds new type into the type list; should be used only for creating internal types.
-}
-Function TCompiler.NewType(fName: String; fRegPrefix: Char; fInternalID: Byte): Integer;
-Begin
- SetLength(TypeTable, Length(TypeTable)+1);
- Result := High(TypeTable);
-
- TypeTable[Result] := getEmptyType;
-
- With TypeTable[Result] do
- Begin
-  Name      := fName;
-  RegPrefix := fRegPrefix;
-
-  InternalID := fInternalID;
- End;
-End;
-
-(* TCompiler.NewType *)
-{
- Adds new type into the type list and also checks for duplicates.
-}
-Function TCompiler.NewType(Typ: TMType): Integer;
-Var I: Integer;
-Begin
- I := findType(Typ);
- if (I <> -1) Then
-  Exit(I);
-
- SetLength(TypeTable, Length(TypeTable)+1);
- Result            := High(TypeTable);
- TypeTable[Result] := Typ;
-End;
-
 (* TCompiler.NewTypeFromFunction *)
 {
  Creates new function-pointer-type and adds it into the type list.
 }
-Function TCompiler.NewTypeFromFunction(Func: TMFunction): Integer;
+Function TCompiler.NewTypeFromFunction(Func: TMFunction): PMType;
 Var Typ: TMType;
 Begin
  Typ := getEmptyType;
 
  Typ.RegPrefix  := 'r';
- Typ.InternalID := TYPE_INT;
+ Typ.InternalID := TYPE_INT_id;
  Typ.FuncParams := Func.ParamList;
  Typ.FuncReturn := Func.Return;
  Typ.isFunction := True;
+ Typ.DeclToken  := Func.DeclToken;
+ Typ.mCompiler  := Func.mCompiler;
 
- Typ.Name := generateTypeName(Typ);
+ Typ.Name := getTypeDeclaration(Typ);
 
- Exit(NewType(Typ));
+ New(Result);
+ Result^ := Typ;
 End;
 
 (* TCompiler.findType *)
 {
  See @TCompiler.findGlobalTypeByName
 }
-Function TCompiler.findType(Name: String): TVType;
+Function TCompiler.findType(TypeName: String): PMType;
 Begin
- Result := findGlobalType(Name); // @TODO
+ Result := findGlobalType(TypeName); // @TODO: local types
 End;
 
 (* TCompiler.findGlobalType *)
 {
- Searches the type table for type named `Name`.
- If found, returns its type ID; if not found, returns -1
+ Searches the type table for type named `Name` in global and currently parsed namespace.
+ If found, returns its ID; if not found, returns -1
 }
-Function TCompiler.findGlobalType(Name: String): TVType;
-Var I: Integer;
-Begin
- Result := -1;
+Function TCompiler.findGlobalType(TypeName: String): PMType;
 
- For I := Low(TypeTable) To High(TypeTable) Do
-  if (TypeTable[I].Name = Name) Then
-   Exit(I);
+ Procedure Search(Namespace: TMNamespace);
+ Var I: Integer;
+ Begin
+  With Namespace do
+   For I := Low(GlobalList) To High(GlobalList) Do
+    if (GlobalList[I].Typ = gdType) and (GlobalList[I].mType.Name = TypeName) Then
+    Begin
+     Result := @GlobalList[I].mType;
+     Exit;
+    End;
+ End;
+
+
+Begin
+ Result := nil;
+
+ Search(NamespaceList[0]);
+ Search(getCurrentNamespace);
 End;
 
-(* TCompiler.findType *)
+(* TCompiler.getTypeDeclaration *)
 {
- Searches for some specific type in the type table
+ Returns type declaration.
+ Eg.`int[]` or `function<void>(string)`.
 }
-Function TCompiler.findType(Typ: TMType): Integer;
-Var I: Integer;
-Begin
- Result := -1;
-
- For I := Low(TypeTable) To High(TypeTable) Do
-  if (TypeTable[I] = Typ) Then
-   Exit(I);
-End;
-
-(* TCompiler.generateTypeName *)
-{
- Generates type name, based on particular type.
- Result can be eg. `int`, `string[]`, `char[][]` (...)
-}
-Function TCompiler.generateTypeName(const Typ: TMType; DecStringArray: Boolean=True): String;
+Function TCompiler.getTypeDeclaration(const Typ: TMType; DecStringArray: Boolean=True): String;
 Var I: Integer;
 Begin
  Result := '';
 
  if (Typ.isFunction) Then
  Begin
-  Result := 'function<'+getTypeName(Typ.FuncReturn)+'>(';
+  Result := 'function<'+getTypeDeclaration(Typ.FuncReturn)+'>(';
 
   For I := Low(Typ.FuncParams) To High(Typ.FuncParams) Do
   Begin
-   Result += getTypeName(Typ.FuncParams[I].Typ);
+   Result += getTypeDeclaration(Typ.FuncParams[I].Typ);
    if (I <> High(Typ.FuncParams)) Then
     Result += ', ';
   End;
@@ -1367,64 +1332,72 @@ Begin
 
   For I := 1 To Typ.ArrayDimCount Do
    Result += '[]';
+
   Exit;
  End;
 
- if (Typ.ArrayDimCount = 0) Then
+ if (Typ.ArrayDimCount = 0) or ((Typ.ArrayDimCount = 1) and (Typ.InternalID = TYPE_STRING_id)) Then
  Begin
-  Result += getTypeName(Typ.InternalID);
+  Result += PrimaryTypeNames[Typ.InternalID];
  End Else
  Begin
   if (isTypeString(Typ.ArrayBase)) and (DecStringArray) Then
    I := Typ.ArrayDimCount-1 Else
    I := Typ.ArrayDimCount;
 
-  Result += getTypeName(Typ.ArrayBase);
+  if (Typ.ArrayBase = nil) Then
+   CompileError(eInternalError, ['Typ.ArrayBase = nil']);
+
+  Result += getTypeDeclaration(Typ.ArrayBase);
+
   For I := 1 To I Do
    Result += '[]';
  End;
 End;
 
-(* TCompiler.getTypeName *)
+(* TCompiler.getTypeDeclaration *)
 {
- Gets type name by type ID; also checks for valid ID (if ID is not valid, returns `erroneous type`).
+ See @TCompiler.getTypeDeclaration
 }
-Function TCompiler.getTypeName(ID: TVType): String;
+Function TCompiler.getTypeDeclaration(const Typ: PMType; DecStringArray: Boolean=True): String;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit('erroneous type');
 
- Exit(TypeTable[ID].Name);
+ Result := getTypeDeclaration(Typ^, DecStringArray);
 End;
 
 (* TCompiler.getTypePrefix *)
 {
  Gets type register prefix; when ID is not valid, returns 'i'.
 }
-Function TCompiler.getTypePrefix(ID: TVType): Char;
+Function TCompiler.getTypePrefix(ID: PMType): Char;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
-  Exit('i');
+ With getCurrentNamespace do
+ Begin
+  if (ID = nil) Then
+   Exit('i');
 
- Exit(TypeTable[ID].RegPrefix);
+  Exit(ID^.RegPrefix);
+ End;
 End;
 
 (* TCompiler.getTypeFromExpr *)
 {
  Gets a type from TMExpression; works only for constant (already folded) expressions (only a parent without children).
 }
-Function TCompiler.getTypeFromExpr(Expr: TMExpression): TVType;
+Function TCompiler.getTypeFromExpr(Expr: TMExpression): PMType;
 Begin
  if (Expr.Left <> nil) or (Expr.Right <> nil) Then
-  CompileError(eInternalError, ['Folded expression was needed']);
+  CompileError(eInternalError, ['Expected folded expression']);
 
  Case Expr.Typ of
-  mtBool  : Exit(TYPE_BOOL);
-  mtChar  : Exit(TYPE_CHAR);
-  mtInt   : Exit(TYPE_INT);
-  mtFloat : Exit(TYPE_FLOAT);
-  mtString: Exit(TYPE_STRING);
-  else CompileError(eInternalError, ['Invalid expression value']);
+  mtBool  : Exit(TypeInstance(TYPE_BOOL));
+  mtChar  : Exit(TypeInstance(TYPE_CHAR));
+  mtInt   : Exit(TypeInstance(TYPE_INT));
+  mtFloat : Exit(TypeInstance(TYPE_FLOAT));
+  mtString: Exit(TypeInstance(TYPE_STRING));
+  else CompileError(eInternalError, ['Invalid expression type']);
  End;
 End;
 
@@ -1432,12 +1405,9 @@ End;
 {
  Returns array's base type.
 }
-Function TCompiler.getArrayBaseType(ID: TVType): TVType;
+Function TCompiler.getArrayBaseType(ID: PMType): PMType;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
-  Exit(TYPE_ANY);
-
- Result := TypeTable[ID].ArrayBase;
+ Result := ID^.ArrayBase;
 End;
 
 (* TCompiler.CompareTypes *)
@@ -1449,18 +1419,21 @@ End;
  Result = true, when `Type 1` can be assigned into `Type 2`.
 
  ----------------------------------
- ... also, `T2, T1` is a correct order in the parameter list, because of my some mistake in the beginning of writing this compiler...
+ ... also, `T2_id, T1_id` is a correct order in the parameter list :P
 }
-Function TCompiler.CompareTypes(T2, T1: TVType): Boolean;
-Var I: Integer;
+Function TCompiler.CompareTypes(pT2, pT1: PMType): Boolean;
+Var I     : Integer;
+    T1, T2: TMType;
 Begin
  Result := True;
 
- if (T1 < 0) or (T1 > High(TypeTable)) or
-    (T2 < 0) or (T2 > High(TypeTable)) Then
-     Exit(False);
+ if (pT1 = nil) or (pT2 = nil) Then
+  Exit(False);
 
- if (TypeTable[T1].isStrict) or (TypeTable[T2].isStrict) Then
+ T1 := pT1^;
+ T2 := pT2^;
+
+ if (T1.isStrict) or (T2.isStrict) Then
   Exit(T1 = T2);
 
  if (T1 = TYPE_ANY) or (T2 = TYPE_ANY) Then // any or any => true
@@ -1469,46 +1442,46 @@ Begin
  { comparing null-type }
  if (T1 = TYPE_NULL) Then
  Begin
-  Exit(isTypeFunctionPointer(T2) or
-       isTypeObject(T2));
+  Exit(isTypeFunctionPointer(pT2) or
+       isTypeObject(pT2));
  End Else
 
  { compare function-pointers }
- if (isTypeFunctionPointer(T1) and isTypeFunctionPointer(T2)) Then
+ if (isTypeFunctionPointer(pT1) and isTypeFunctionPointer(pT2)) Then
  Begin
-  Result := (TypeTable[T1].FuncReturn = TypeTable[T2].FuncReturn) and
-            (Length(TypeTable[T1].FuncParams) = Length(TypeTable[T2].FuncParams));
+  Result := (T1.FuncReturn = T2.FuncReturn) and
+            (Length(T1.FuncParams) = Length(T2.FuncParams));
 
   if (not Result) Then
    Exit(False);
 
-  For I := Low(TypeTable[T1].FuncParams) To High(TypeTable[T2].FuncParams) Do
-   if not (TypeTable[TypeTable[T1].FuncParams[I].Typ] = TypeTable[TypeTable[T2].FuncParams[I].Typ]) Then
+  For I := Low(T1.FuncParams) To High(T2.FuncParams) Do
+   if not (T1.FuncParams[I].Typ = T2.FuncParams[I].Typ) Then
     Exit(False);
 
   Exit(True);
  End Else
 
  { comparing function-pnt with non-func-pnt }
- if (isTypeFunctionPointer(T1) and (not isTypeFunctionPointer(T2))) Then
+ if (isTypeFunctionPointer(pT1) and (not isTypeFunctionPointer(pT2))) Then
  Begin
-  Exit(isTypeInt(T2));
+  Exit(isTypeInt(pT2));
  End Else
 
  { compare arrays }
- if (isTypeArray(T1) and isTypeArray(T2)) Then
+ if (isTypeArray(pT1) and isTypeArray(pT2)) Then
  Begin
   Exit(
-  (TypeTable[TypeTable[T2].ArrayBase].InternalID = TypeTable[TypeTable[T1].ArrayBase].InternalID) and // arrays' base types must be correct
-  (TypeTable[T1].ArrayDimCount = TypeTable[T2].ArrayDimCount) // and also their dimensions amount must be the same
+  (T2.ArrayBase^.InternalID = T1.ArrayBase^.InternalID) and // arrays' base types must be correct
+  (T1.ArrayDimCount = T2.ArrayDimCount) // and also their dimensions amount must be the same
   );
  End Else
 
  { comparing array with non-array always returns false (except `string` with `char`) }
- if (isTypeArray(T1) and (not isTypeArray(T2))) or
-    (isTypeArray(T2) and (not isTypeArray(T1))) Then
+ if (isTypeArray(pT1) and (not isTypeArray(pT2))) or
+    (isTypeArray(pT2) and (not isTypeArray(pT1))) Then
  Begin
-  if (isTypeChar(T2)) and (isTypeString(T1)) Then // char to string => true
+  if (isTypeChar(pT2)) and (isTypeString(pT1)) Then // char to string => true
    Exit(True);
 
   Exit(False);
@@ -1516,79 +1489,80 @@ Begin
 
  { compare-table for simple (primary) types }
  Begin
-  if (isTypeVoid(T1)) and (not isTypeVoid(T2)) Then // void to non void => false
+  if (isTypeVoid(pT1)) and (not isTypeVoid(pT2)) Then // void to non void => false
    Exit(False);
 
-  if (isTypeInt(T1)) and (isTypeFloat(T2)) Then // int to float => true
+  if (isTypeInt(pT1)) and (isTypeFloat(pT2)) Then // int to float => true
    Exit(True);
 
-  if (isTypeInt(T1)) and (isTypeChar(T2)) Then // int to char => true
+  if (isTypeInt(pT1)) and (isTypeChar(pT2)) Then // int to char => true
    Exit(True);
 
-  if (isTypeChar(T1)) and (isTypeInt(T2)) Then // char to int => true
+  if (isTypeChar(pT1)) and (isTypeInt(pT2)) Then // char to int => true
    Exit(True);
 
-  if (isTypeInt(T1)) and (isTypeBool(T2)) Then // int to bool => true (as it's supported by the VM)
+  if (isTypeInt(pT1)) and (isTypeBool(pT2)) Then // int to bool => true (as it's supported by the VM)
    Exit(True);
  End;
 
  { compare types }
- Exit(TypeTable[T1] = TypeTable[T2]);
+ Exit(T1 = T2);
 End;
 
 (* TCompiler.isTypeVoid *)
 {
  Returns `true`, when type passed in parameter is `void`-derived; in other case, returns `false`.
 }
-Function TCompiler.isTypeVoid(ID: TVType): Boolean;
+Function TCompiler.isTypeVoid(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID in [TYPE_NULL, TYPE_VOID]);
+ Exit(Typ^.InternalID in [TYPE_NULL_id, TYPE_VOID_id]);
 End;
 
 (* TCompiler.isTypeString *)
 {
  Returns `true`, when type passed in parameter is `string`-derived; in other case, returns `false`.
 }
-Function TCompiler.isTypeString(ID: TVType): Boolean;
+Function TCompiler.isTypeString(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID = TYPE_STRING);
+ Exit(Typ^.InternalID = TYPE_STRING_id);
 End;
 
 (* TCompiler.isTypeNumerical *)
 {
  Returns `true`, when type passed in parameter is a numerical type (int, float, char and pointers), or numerical-derived; in other case, returns `false`.
 }
-Function TCompiler.isTypeNumerical(ID: TVType): Boolean;
+Function TCompiler.isTypeNumerical(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
- Exit((TypeTable[ID].InternalID in [TYPE_INT, TYPE_FLOAT, TYPE_CHAR]) or (TypeTable[ID].isFunction));
+ Exit((Typ^.InternalID in [TYPE_INT_id, TYPE_FLOAT_id, TYPE_CHAR_id]) or (Typ^.isFunction));
 End;
 
 (* TCompiler.isTypeBool *)
 {
  Returns `true`, when type passed in parameter is `bool`-derived; in other case, returns `false`.
 }
-Function TCompiler.isTypeBool(ID: TVType): Boolean;
+Function TCompiler.isTypeBool(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID in [TYPE_BOOL, TYPE_INT]);
+ Exit(Typ^.InternalID in [TYPE_BOOL_id, TYPE_INT_id]);
 End;
 
 (* TCompiler.isTypeInt *)
 {
  Returns `true`, when type passed in parameter is `int`-derived or is a pointer; in other case, returns `false`.
 }
-Function TCompiler.isTypeInt(ID: TVType): Boolean;
+Function TCompiler.isTypeInt(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
- Exit((TypeTable[ID].InternalID = TYPE_INT) or (TypeTable[ID].isFunction));
+
+ Exit((Typ^.InternalID = TYPE_INT_id) or (Typ^.isFunction));
 End;
 
 (* TCompiler.isTypeFloat *)
@@ -1596,11 +1570,11 @@ End;
  Returns `true`, when type passed in parameter is `float`-derived; in other case, returns `false`.
  @Note: Also returns `false` when passed type is `int`!
 }
-Function TCompiler.isTypeFloat(ID: TVType): Boolean;
+Function TCompiler.isTypeFloat(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID = TYPE_FLOAT);
+ Exit(Typ^.InternalID = TYPE_FLOAT_id);
 End;
 
 (* TCompiler.isTypeChar *)
@@ -1608,40 +1582,40 @@ End;
  Returns `true`, when type passed in parameter is `char`-derived; in other case, returns `false`.
  @Note: Also returns `false` when passed type is `int`!
 }
-Function TCompiler.isTypeChar(ID: TVType): Boolean;
+Function TCompiler.isTypeChar(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
- Exit(TypeTable[ID].InternalID = TYPE_CHAR);
+ Exit(Typ^.InternalID = TYPE_CHAR_id);
 End;
 
 (* TCompiler.isTypeArray *)
 {
  Returns `true`, when type passed in parameter is an array; in other case, returns `false`.
 }
-Function TCompiler.isTypeArray(ID: TVType; const RegardStringAsArray: Boolean=True): Boolean;
+Function TCompiler.isTypeArray(Typ: PMType; const RegardStringAsArray: Boolean=True): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
 
- if (isTypeString(ID) and (TypeTable[ID].ArrayDimCount = 1)) Then
+ if (isTypeString(Typ) and (Typ^.ArrayDimCount = 1)) Then
   Exit(RegardStringAsArray);
 
- Exit(TypeTable[ID].ArrayDimCount > 0);
+ Exit(Typ^.ArrayDimCount > 0);
 End;
 
 (* TCompiler.isTypeObject *)
 {
  Returns `true`, when type passed in parameter is an object.
 }
-Function TCompiler.isTypeObject(ID: TVType): Boolean;
+Function TCompiler.isTypeObject(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
 
- Result := isTypeArray(ID); // for now, only arrays are some-kind-of-objects
+ Result := isTypeArray(Typ); // for now, only arrays are some-kind-of-objects
 
- if (isTypeString(ID)) and (TypeTable[ID].ArrayDimCount = 1) Then // ... excepts strings - despite the fact, that strings are arrays, they're not objects
+ if (isTypeString(Typ)) and (Typ^.ArrayDimCount = 1) Then // ... excepts strings - despite the fact, that strings are arrays, they're not objects
   Exit(False);
 End;
 
@@ -1649,12 +1623,11 @@ End;
 {
  Returns `true`, when type passed in parameter is a function pointer.
 }
-Function TCompiler.isTypeFunctionPointer(ID: TVType): Boolean;
+Function TCompiler.isTypeFunctionPointer(Typ: PMType): Boolean;
 Begin
- if (ID < 0) or (ID > High(TypeTable)) Then
+ if (Typ = nil) Then
   Exit(False);
-
- Result := TypeTable[ID].isFunction;
+ Exit(Typ^.isFunction);
 End;
 
 (* TCompiler.NewScope *)
@@ -1733,7 +1706,7 @@ End;
 {
  Gets specified variable's type
 }
-Function TCompiler.getVariableType(ID: Integer): TVType;
+Function TCompiler.getVariableType(ID: Integer): PMType;
 Begin
  Result := getCurrentFunction.VariableList[ID].Typ;
 End;
@@ -1793,7 +1766,7 @@ Begin
   Result += 'const<' Else
   Result += 'var<';
 
- Result += getTypeName(mVar.Typ)+'> '+mVar.Name;
+ Result += getTypeDeclaration(mVar.Typ)+'> '+mVar.Name;
 
  if (mVar.isConst) Then
   Result += ' = '+getValueFromExpression(self, @mVar.Value, True);
@@ -1814,7 +1787,7 @@ End;
 {
  Creates a variable in current function
 }
-Procedure TCompiler.__variable_create(fName: String; fTyp: TVType; fRegID: Integer; fIsParam: Boolean);
+Procedure TCompiler.__variable_create(fName: String; fTyp: PMType; fRegID: Integer; fIsParam: Boolean);
 Begin
  With getCurrentFunctionPnt^ do
  Begin
@@ -1984,11 +1957,11 @@ Begin
    Result += 'default namespace :: ' Else
    Result += NamespaceList[Namespace].Name+ ' :: ';
 
- Result += 'function<'+getTypeName(Func.Return)+'> '+Func.Name+'(';
+ Result += 'function<'+getTypeDeclaration(Func.Return)+'> '+Func.Name+'(';
 
  For I := Low(Func.ParamList) To High(Func.ParamList) Do
  Begin
-  Result += getTypeName(Func.ParamList[I].Typ);
+  Result += getTypeDeclaration(Func.ParamList[I].Typ);
 
   if (I <> High(Func.ParamList)) Then
    Result += ', ';
@@ -2292,7 +2265,8 @@ End;
  Returns `true`, when an identifier is redeclared.
 }
 Procedure TCompiler.RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
-Var ID: Integer;
+Var ID : Integer;
+    Typ: PMType;
 Begin
  // function
  ID := findFunction(Name);
@@ -2303,6 +2277,13 @@ Begin
    TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
   Exit;
  End;
+
+ if (Name = 'any') or (Name = 'null') or (Name = 'void') or (Name = 'bool') or
+    (Name = 'int') or (Name = 'float') or (Name = 'string') Then
+     Begin
+      CompileError(eRedeclaration, [Name]);
+      Exit;
+     End;
 
  if (inFunction) Then
  Begin
@@ -2316,6 +2297,7 @@ Begin
   End;
 
   // local type
+  // @TODO
  End Else
  Begin
   // global variable or constant
@@ -2329,11 +2311,13 @@ Begin
   End;
 
   // global type
-  ID := findGlobalType(Name);
-  if (ID <> -1) Then
+  Typ := findGlobalType(Name);
+  if (Typ <> nil) Then
   Begin
    CompileError(eRedeclaration, [Name]);
-   // @TODO
+   With Typ^ do
+    if (mCompiler <> nil) Then // `mCompiler = nil` should be true only for internal types (like `bool`, `string` (...))
+     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
    Exit;
   End;
 
@@ -2372,6 +2356,40 @@ Var Compiler2: Compile2.TCompiler;
     VBytecode, Str: String;
 
     I, NS: Integer;
+
+    // AddPrimaryType
+    Procedure AddPrimaryType(Typ: PMType);
+    Begin
+     With NamespaceList[0] do
+     Begin
+      SetLength(GlobalList, Length(GlobalList)+1);
+      GlobalList[High(GlobalList)].Typ        := gdType;
+      GlobalList[High(GlobalList)].mType      := Typ^;
+      GlobalList[High(GlobalList)].isInternal := True;
+     End;
+    End;
+
+    // CheckMain
+    Function CheckMain: Boolean;
+    Var FuncID: Integer;
+    Begin
+     if (CompileMode <> cmApp) Then
+      Exit(True);
+
+     FuncID := findFunction('main', 0); // search for `main` function in global namespace
+
+     if (FuncID = -1) Then // not found!
+      Exit(False);
+
+     With NamespaceList[0].GlobalList[FuncID].mFunction do
+     Begin
+      Result :=
+      (Length(ParamList) = 0) and
+      (isTypeInt(Return)) and
+      (not isTypeObject(Return));
+     End;
+    End;
+
 Begin
  InputFile   := fInputFile;
  OutputFile  := fOutputFile;
@@ -2480,7 +2498,7 @@ Begin
    if (getBoolOption(opt_initcode)) Then
     PutOpcode(o_call, [':__init']);
 
-   PutOpcode(o_call, [':__function__main_'+ModuleName+'_int_']);
+   PutOpcode(o_call, [':__function_self_main_'+ModuleName+'_int_']);
    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
   End;
  End Else // if included (not the main file)
@@ -2491,36 +2509,31 @@ Begin
  { preparse code (parse tokens, remove comments etc.) }
  Preparse;
 
- { create primary type-table (don't change the order!) }
- SetLength(TypeTable, 0);
- NewType('any', 'i', TYPE_ANY);
- NewType('null', 'r', TYPE_NULL);
- NewType('void', 'i', TYPE_VOID);
- NewType('bool', 'b', TYPE_BOOL);
- NewType('char', 'c', TYPE_CHAR);
- NewType('int', 'i', TYPE_INT);
- NewType('float', 'f', TYPE_FLOAT);
- NewType('string', 's', TYPE_STRING);
-
- With TypeTable[TYPE_STRING] do
- Begin
-  ArrayBase     := TYPE_STRING; // why not `TYPE_CHAR`? Well... it's a long story, with many monsters, goblins and Access Violations.
-  ArrayDimCount := 1;
- End;
+ { create primary type-table }
+ AddPrimaryType(TypeInstance(TYPE_ANY));
+ AddPrimaryType(TypeInstance(TYPE_NULL));
+ AddPrimaryType(TypeInstance(TYPE_VOID));
+ AddPrimaryType(TypeInstance(TYPE_BOOL));
+ AddPrimaryType(TypeInstance(TYPE_CHAR));
+ AddPrimaryType(TypeInstance(TYPE_INT));
+ AddPrimaryType(TypeInstance(TYPE_FLOAT));
+ AddPrimaryType(TypeInstance(TYPE_STRING));
 
  { create global constants }
  With NamespaceList[0] do
  Begin
-  SetLength(GlobalList, 1);
+  Name := 'self';
 
-  With GlobalList[0] do
+  SetLength(GlobalList, Length(GlobalList)+1);
+
+  With GlobalList[High(GlobalList)] do
   Begin
    Typ := gdConstant;
 
    With mVariable do
    Begin
     Name       := 'null';
-    Typ        := TYPE_NULL;
+    Typ        := TypeInstance(TYPE_NULL);
     Value      := MakeIntExpression(0)^;
     RegChar    := 'r';
     isConst    := True;
@@ -2529,6 +2542,8 @@ Begin
 
    isInternal := True;
   End;
+
+  // @TODO: special constants
  End;
 
  { clear variables }
@@ -2590,6 +2605,13 @@ Begin
  { compile bytecode }
  if (not isIncluded) Then
  Begin
+  { ... but at first - check for valid "main" function declaration }
+  if (not CheckMain) Then
+  Begin
+   CompileError(eNoValidMainFunctionFound);
+   Exit;
+  End;
+
   Compiler2 := Compile2.TCompiler.Create;
   Compiler2.Compile(self, getIntOption(opt_stacksize, DEF_STACKSIZE), CompileMode = cmLibrary);
   Compiler2.Free;
@@ -2707,8 +2729,9 @@ End;
 }
 Procedure TCompiler.GenerateHeaderFile(const fOutputFile: String);
 Var Output     : TStringList;
-    Func       : TMFunction;
-    Cnst       : TMVariable;
+    mFunc      : TMFunction;
+    mCnst      : TMVariable;
+    mType      : TMType;
     Typ        : TMGlobalDeclarationType;
     NS, Item, I: Integer;
     Str        : String;
@@ -2727,7 +2750,7 @@ Begin
     if (Visibility <> mvPublic) Then
      Continue;
 
-    if (Name <> '') Then // only the global namespace doesn't have name
+    if (Name <> 'self') Then // `self` is the global namespace
     Begin
      Add('namespace '+Name);
      Add('{');
@@ -2737,32 +2760,43 @@ Begin
     Begin
      Typ := GlobalList[Item].Typ;
      Case Typ of
-      gdConstant: Cnst := GlobalList[Item].mVariable;
-      gdFunction: Func := GlobalList[Item].mFunction;
+      gdType    : mType := GlobalList[Item].mType;
+      gdConstant: mCnst := GlobalList[Item].mVariable;
+      gdFunction: mFunc := GlobalList[Item].mFunction;
      End;
+
+     { global type }
+     if (Typ = gdType) Then
+      With mType do
+      Begin
+       if (Visibility <> mvPublic) or (GlobalList[Item].isInternal) Then
+        Continue;
+
+       Str := 'type<'+getTypeDeclaration(@mType)+'> '+Name+';';
+      End;
 
      { global constant }
      if (Typ = gdConstant) Then
-      With Cnst do
+      With mCnst do
       Begin
-       if (Visibility <> mvPublic) Then
+       if (Visibility <> mvPublic) or (GlobalList[Item].isInternal) Then
         Continue;
 
-       Str := 'const<'+getTypeName(Typ)+'> '+Name+' = '+getValueFromExpression(self, @Value, True)+';';
+       Str := 'const<'+getTypeDeclaration(Typ)+'> '+Name+' = '+getValueFromExpression(self, @Value, True)+';';
       End;
 
      { function }
      if (Typ = gdFunction) Then
-      With Func do
+      With mFunc do
       Begin
-       if (ModuleName <> self.ModuleName) or (Visibility <> mvPublic) Then
+       if (ModuleName <> self.ModuleName) or (Visibility <> mvPublic) {or (GlobalList[Item].isInternal)} Then
         Continue;
 
-       Str := 'function<'+getTypeName(Return)+'> '+Name+'(';
+       Str := 'function<'+getTypeDeclaration(Return)+'> '+Name+'(';
 
        For I := Low(ParamList) To High(ParamList) Do
        Begin
-        Str += getTypeName(ParamList[I].Typ);
+        Str += getTypeDeclaration(ParamList[I].Typ);
 
         if (I <> High(ParamList)) Then
          Str += ', ';

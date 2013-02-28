@@ -55,6 +55,7 @@ Procedure OptimizeBytecode(Compiler: TCompiler);
 Var Pos, Pos2            : LongWord;
     oCurrent, oNext, oTmp: TMOpcode;
     pCurrent, pNext, pTmp: PMOpcode;
+    CanBeRemoved         : Boolean;
     PushFix, I           : Integer;
     Optimized            : Boolean;
     TmpArg               : TMOpcodeArg;
@@ -167,6 +168,22 @@ Begin
     End;
    End;
 
+   {
+    mov(reg1, reg2)
+    mov(reg2, reg1)
+    ->
+    mov(reg1, reg2)
+   }
+   if (oCurrent.Opcode = o_mov) and (oNext.Opcode = o_mov) Then
+   Begin
+    if (oCurrent.Args[0] = oNext.Args[1]) and
+       (oCurrent.Args[1] = oNext.Args[0]) Then
+       Begin
+        OpcodeList.Remove(pNext);
+        Continue;
+       End;
+   End;
+
    // @TODO: mul(register, 0) -> mov(register, 0)
 
    {
@@ -176,13 +193,14 @@ Begin
     ->
     opcode(some value or reg, value)
 
-    Assuming that the register's value does not change in the opcodes between.
+    Assuming that the register's value does not change in the opcodes between (it's checked, of course).
    }
    if (oCurrent.Opcode = o_mov) and not (oCurrent.Args[0].Typ = ptStackVal) Then
    Begin
-    Optimized := False;
-    Pos2      := Pos+1;
-    PushFix   := 0;
+    CanBeRemoved := False;
+    Optimized    := False;
+    Pos2         := Pos+1;
+    PushFix      := 0;
 
     While (Pos2 < OpcodeList.Count-1) Do
     Begin
@@ -198,21 +216,36 @@ Begin
       Continue;
      End;
 
-     if (oTmp.Opcode in [o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_mov, o_pop, o_add, o_sub, o_mul, o_div, o_mod]) and
+     if (oTmp.Opcode in [o_mov, o_pop]) and (isArgumentChanging(0)) Then
+     Begin
+      CanBeRemoved := True;
+      Break;
+     End;
+
+     if (oTmp.Opcode in [o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
         (isArgumentChanging(0)) Then
          Break; // the register's value is changing somewhere by the way
 
      if (oTmp.Opcode = o_arset) Then // arset(out, in, in)
       if (isArgumentChanging(0)) Then
+      Begin
+       CanBeRemoved := True;
        Break;
+      End;
 
      if (oTmp.Opcode = o_arget) Then // arget(in, in, out)
       if (isArgumentChanging(2)) Then
+      Begin
+       CanBeRemoved := True;
        Break;
+      End;
 
      if (oTmp.Opcode = o_arset) Then // arcrt(out, in, in)
       if (isArgumentChanging(0)) Then
+      Begin
+       CanBeRemoved := True;
        Break;
+      End;
 
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
       Break;
@@ -242,10 +275,18 @@ Begin
        CompileError(eInternalError, ['`mov` expected, but `'+Opcodes.OpcodeList[ord(pCurrent^.Opcode)].Name+'` found']);
 
       OpcodeList.Remove(pCurrent); // and remove the first `mov`
-     End;
 
-     Dec(Pos);
-     Continue;
+      Dec(Pos);
+      Continue;
+     End;
+    End Else
+    Begin
+     if (not isVariableHolder(pCurrent^.Args[0])) and (CanBeRemoved) Then
+     Begin
+      OpcodeList.Remove(pCurrent);
+      Dec(Pos);
+      Continue;
+     End;
     End;
    End;
 

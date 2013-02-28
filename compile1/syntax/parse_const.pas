@@ -6,15 +6,15 @@ Unit Parse_CONST;
 
  Interface
 
- Procedure Parse(Compiler: Pointer; isGlobal: Boolean);
+ Procedure Parse(Compiler: Pointer);
 
  Implementation
 Uses Compile1, ExpressionCompiler, Tokens, MTypes, Messages, Opcodes;
 
 { Parse }
-Procedure Parse(Compiler: Pointer; isGlobal: Boolean);
+Procedure Parse(Compiler: Pointer);
 Var Variable: TMVariable;
-    VTyp    : TVType;
+    VTyp    : PMType;
 Begin
 With TCompiler(Compiler) do
 Begin
@@ -48,12 +48,19 @@ Begin
     VTyp := getTypeFromExpr(Variable.Value);
 
     if (not CompareTypes(Variable.Typ, VTyp)) Then // type check
-     CompileError(eWrongTypeInAssign, [Variable.Name, getTypeName(VTyp), getTypeName(Variable.Typ)]);
+     CompileError(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(VTyp), getTypeDeclaration(Variable.Typ)]);
    End Else // if it's not - show error
     CompileError(eExpectedConstant, []);
   End;
 
-  if (isGlobal) Then
+  if (inFunction) Then // local constant
+  Begin
+   With getCurrentFunctionPnt^ do
+   Begin
+    SetLength(VariableList, Length(VariableList)+1);
+    VariableList[High(VariableList)] := Variable;
+   End;
+  End Else // global constant
   Begin
    With getCurrentNamespacePnt^ do
    Begin
@@ -63,13 +70,6 @@ Begin
      Typ       := gdConstant;
      mVariable := Variable;
     End;
-   End;
-  End Else
-  Begin
-   With getCurrentFunctionPnt^ do
-   Begin
-    SetLength(VariableList, Length(VariableList)+1);
-    VariableList[High(VariableList)] := Variable;
    End;
   End;
 

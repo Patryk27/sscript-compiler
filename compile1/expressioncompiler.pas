@@ -72,7 +72,7 @@ Unit ExpressionCompiler;
  Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
 
  Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): TMConstruction;
- Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TVType;
+ Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): PMType;
 
  Implementation
 Uses SysUtils,
@@ -377,7 +377,7 @@ Var Token: TToken_P;
 
     Str   : String;
     Value : TStackValue;
-    TypeID: Integer;
+    TypeID: PMType;
 
     Bracket        : Integer=0;
     Bracket2       : Integer=0;
@@ -524,7 +524,7 @@ Begin
     CompileError(eExpected, ['(', next(-1).Display]);
    End;
 
-   StackPush(mtTypeCast, TypeID, Token);
+   StackPush(mtTypeCast, LongWord(TypeID), Token);
 
    Expect := eValue;
   End Else
@@ -755,7 +755,7 @@ Begin
      StackPush(mtNew, Token);
 
      TypeID := read_type(False); // read type
-     StackPush(mtInt, TypeID, Token);
+     StackPush(mtInt, LongWord(TypeID), Token);
 
      if (next_t <> _BRACKET2_OP) Then // fast syntax-check
      Begin
@@ -1065,7 +1065,7 @@ Type TRVariable = Record
                    ID     : Integer;
                    RegID  : Integer;
                    RegChar: Char;
-                   Typ    : TVType;
+                   Typ    : PMType;
                    PosStr : String;
                    Value  : TMExpression;
 
@@ -1075,12 +1075,12 @@ Type TRVariable = Record
                   End;
 
 { CompileConstruction }
-Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TVType;
+Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): PMType;
 Var Compiler    : TCompiler;
     PushedValues: Integer=0;
 
 { Parse }
-Function Parse(Expr: PMExpression; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): TVType;
+Function Parse(Expr: PMExpression; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): PMType;
 Var Right, Left: PMExpression;
     Push_IF_reg: Boolean=False;
 
@@ -1103,7 +1103,7 @@ Begin
 End;
 
 { RePop }
-Procedure RePop(Expr: PMExpression; TypeID: TVType; Reg: Byte);
+Procedure RePop(Expr: PMExpression; TypeID: PMType; Reg: Byte);
 Begin
  if (Expr^.ResultOnStack) Then
  Begin
@@ -1122,7 +1122,7 @@ Begin
  Begin
   RegID   := 0;
   RegChar := #0;
-  Typ     := TYPE_ANY;
+  Typ     := nil;
   isConst := False;
   PosStr  := '[0]';
  End;
@@ -1184,16 +1184,25 @@ Failed:
   Error(eLValueExpected, [Expr^.Value]);
 End;
 
-{ getTypeFromMExpr }
-Function getTypeFromMExpr(Expr: PMExpression): TVType;
+{ getType }
+Function getType(Value: Variant): PMType;
 Begin
- Result := TYPE_ANY;
+ if (Value = null) Then
+  Exit(nil);
+
+ Result := PMType(LongWord(Value));
+End;
+
+{ getTypeFromMExpr }
+Function getTypeFromMExpr(Expr: PMExpression): PMType;
+Begin
+ Result := TypeInstance(TYPE_ANY);
  Case Expr^.Typ of
-  mtBool    : Result := TYPE_BOOL;
-  mtChar    : Result := TYPE_CHAR;
-  mtInt     : Result := TYPE_INT;
-  mtFloat   : Result := TYPE_FLOAT;
-  mtString  : Result := TYPE_STRING;
+  mtBool    : Result := TypeInstance(TYPE_BOOL);
+  mtChar    : Result := TypeInstance(TYPE_CHAR);
+  mtInt     : Result := TypeInstance(TYPE_INT);
+  mtFloat   : Result := TypeInstance(TYPE_FLOAT);
+  mtString  : Result := TypeInstance(TYPE_STRING);
   mtVariable: Result := getVariable(Expr).Typ;
  End;
 End;
@@ -1332,9 +1341,9 @@ Var Variable: TRVariable;
 Label Over;
 Begin
  if (Expr = nil) Then
-  Exit(TYPE_VOID);
+  Exit(TypeInstance(TYPE_VOID));
 
- Result := TYPE_ANY; // assuming no type
+ Result := nil; // assuming no type
  Left   := Expr^.Left;
  Right  := Expr^.Right;
 
@@ -1359,7 +1368,7 @@ Begin
        Inc(PushedValues);
       End;
 
-     Exit(TYPE_INT);
+     Exit(TypeInstance(TYPE_INT));
     End Else // no, it's not... so - display error
     Begin
      Error(eUnknownVariable, [Variable.Name]);

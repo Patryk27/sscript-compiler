@@ -18,21 +18,6 @@ Var FileName         : String;
     NS, I, Q         : LongWord;
     Found            : Boolean;
     TmpNamespace, Tmp: Integer;
-
-    // FixType
-    Procedure FixType(var Typ: TVType);
-    Var Found: TVType;
-    Begin
-     With TCompiler(Compiler) do
-     Begin
-      Found := findType(NewC.TypeTable[Typ]);
-
-      if (Found = -1) Then
-       Typ := NewType(NewC.TypeTable[Typ]) Else
-       Typ := Found;
-     End;
-    End;
-
 Begin
 With TCompiler(Compiler) do
 Begin
@@ -108,7 +93,6 @@ Begin
       Begin
        Typ       := gdConstant;
        mVariable := GlobalList[I].mVariable;
-       FixType(mVariable.Typ);
       End;
      End;
     End;
@@ -136,11 +120,6 @@ Begin
        Begin
         Typ       := gdFunction;
         mFunction := GlobalList[I].mFunction;
-
-        FixType(mFunction.Return);
-        if (Length(mFunction.ParamList) > 0) Then
-         For Q := Low(mFunction.ParamList) To High(mFunction.ParamList) Do
-          FixType(mFunction.ParamList[Q].Typ);
 
         mVariable.Name    := mFunction.Name;
         mVariable.Typ     := NewTypeFromFunction(mFunction);

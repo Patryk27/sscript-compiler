@@ -1,5 +1,6 @@
 @visibility("public")
 
+}
 namespace std
 {
  function<float> sqrt(float) in "math.ssm";

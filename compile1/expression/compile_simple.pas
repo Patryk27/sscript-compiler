@@ -1,4 +1,4 @@
-Function CompileSimple(out TypeLeft, TypeRight: TVType; const isLeftVariable: Boolean=False): TVType;
+Function CompileSimple(out TypeLeft, TypeRight: PMType; const isLeftVariable: Boolean=False): PMType;
 Var Variable   : TRVariable;
     LeftFirst  : Boolean=False;
     isComparing: Boolean;
@@ -47,28 +47,28 @@ Begin
   if (isTypeFloat(TypeLeft)) and (isTypeInt(TypeRight)) Then
   Begin
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
-   TypeRight := TYPE_FLOAT;
+   TypeRight := TypeInstance(TYPE_FLOAT);
   End;
 
   { int, float -> float, float }
   if (isTypeInt(TypeLeft)) and (isTypeFloat(TypeRight)) Then
   Begin
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-   TypeLeft := TYPE_FLOAT;
+   TypeLeft := TypeInstance(TYPE_FLOAT);
   End;
 
   { pointer, int -> int, int }
   if (isTypeFunctionPointer(TypeLeft)) and (isTypeInt(TypeRight)) Then
   Begin
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-   TypeLeft := TYPE_INT;
+   TypeLeft := TypeInstance(TYPE_INT);
   End;
 
   { int, pointer -> int, int }
   if (isTypeInt(TypeLeft)) and (isTypeFunctionPointer(TypeRight)) Then
   Begin
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
-   TypeRight := TYPE_INT;
+   TypeRight := TypeInstance(TYPE_INT);
   End;
 
   { string, char -> string, string }
@@ -76,12 +76,12 @@ Begin
   Begin
    if (isTypeInt(TypeRight)) Then
    Begin
-    PutOpcode(o_mov, ['e'+getTypePrefix(TYPE_CHAR)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
-    TypeRight := TYPE_CHAR;
+    PutOpcode(o_mov, ['e'+TYPE_CHAR.RegPrefix+'2', 'e'+getTypePrefix(TypeRight)+'2']);
+    TypeRight := TypeInstance(TYPE_CHAR);
    End;
 
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'2', 'e'+getTypePrefix(TypeRight)+'2']);
-   TypeRight := TYPE_STRING;
+   TypeRight := TypeInstance(TYPE_STRING);
   End;
 
   { char, string -> string, string }
@@ -89,32 +89,32 @@ Begin
   Begin
    if (isTypeInt(TypeRight)) Then
    Begin
-    PutOpcode(o_mov, ['e'+getTypePrefix(TYPE_CHAR)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-    TypeRight := TYPE_CHAR;
+    PutOpcode(o_mov, ['e'+TYPE_CHAR.RegPrefix+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
+    TypeRight := TypeInstance(TYPE_CHAR);
    End;
 
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-   TypeLeft := TYPE_STRING;
+   TypeLeft := TypeInstance(TYPE_STRING);
   End;
 
   { char, int -> int, int }
   if (isTypeChar(TypeLeft)) and (isTypeInt(TypeRight)) Then
   Begin
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeRight)+'1', 'e'+getTypePrefix(TypeLeft)+'1']);
-   TypeLeft := TYPE_INT;
+   TypeLeft := TypeInstance(TYPE_INT);
   End;
 
   { int, char -> int, int }
   if (isTypeInt(TypeLeft)) and (isTypeChar(TypeRight)) Then
   Begin
    PutOpcode(o_mov, ['e'+getTypePrefix(TypeLeft)+'1', 'e'+getTypePrefix(TypeRight)+'1']);
-   TypeLeft := TYPE_INT;
+   TypeLeft := TypeInstance(TYPE_INT);
   End;
 
   { unsupported operator (eg.`int+string`) }
   if (not CompareTypes(TypeLeft, TypeRight)) Then
   Begin
-   Error(eUnsupportedOperator, [getTypeName(TypeLeft), getDisplay(Expr), getTypeName(TypeRight)]);
+   Error(eUnsupportedOperator, [getTypeDeclaration(TypeLeft), getDisplay(Expr), getTypeDeclaration(TypeRight)]);
    Exit;
   End;
  End;

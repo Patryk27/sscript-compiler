@@ -1,13 +1,13 @@
 Procedure ParsePIncDec;
 Var Variable: TRVariable;
     RegChar : Char;
-    TypeID  : TVType;
+    TypeID  : PMType;
 
  Procedure Fail;
  Begin
   if (Expr^.Typ in [mtPreInc, mtPreDec]) Then
-   Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeName(Variable.Typ)]) Else
-   Error(eUnsupportedUOperator, [Compiler.getTypeName(Variable.Typ), getDisplay(Expr)]);
+   Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeDeclaration(Variable.Typ)]) Else
+   Error(eUnsupportedUOperator, [Compiler.getTypeDeclaration(Variable.Typ), getDisplay(Expr)]);
  End;
 
 Begin

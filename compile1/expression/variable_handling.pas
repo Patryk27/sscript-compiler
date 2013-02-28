@@ -7,7 +7,7 @@
  Will add opcode:
   mov(ei3, ei4)
 *)
-Function __variable_setvalue_reg(_var: TRVariable; RegID: Byte; RegChar: Char): TVType;
+Function __variable_setvalue_reg(_var: TRVariable; RegID: Byte; RegChar: Char): PMType;
 Var RegStr: String;
 Begin
  Result := _var.Typ;
@@ -27,7 +27,7 @@ End;
  This will add one opcode:
   mov(es1, es4)
 *)
-Function __variable_getvalue_reg(_var: TRVariable; RegID: Byte; RegChar: Char): TVType;
+Function __variable_getvalue_reg(_var: TRVariable; RegID: Byte; RegChar: Char): PMType;
 Var RegStr: String;
 Begin
  Result := _var.Typ;
@@ -44,7 +44,7 @@ End;
  Pushes variable's value onto the stack.
  See examples and descriptions above.
 *)
-Function __variable_getvalue_stack(_var: TRVariable): TVType;
+Function __variable_getvalue_stack(_var: TRVariable): PMType;
 Begin
  Result := _var.Typ;
 
@@ -60,7 +60,7 @@ End;
 (*
  See description of @__variable_getvalue_reg
 *)
-Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PMExpression): TVType;
+Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PMExpression): PMType;
 Var RegStr: String;
 Begin
  Result := _var.Typ;
@@ -69,7 +69,7 @@ Begin
  With Compiler do
  Begin
   if (not isTypeArray(_var.Typ)) Then
-   Exit(TYPE_ANY);
+   Exit(TypeInstance(TYPE_ANY));
 
   if (ArrayElements = nil) Then
    Error(eInternalError, ['ArrayElements = nil']);
@@ -91,9 +91,9 @@ End;
 (*
  See description of @__variable_setvalue_reg
 *)
-Function __variable_setvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PMExpression): TVType;
+Function __variable_setvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PMExpression): PMType;
 Var RegStr    : String;
-    TmpType   : TVType;
+    TmpType   : PMType;
     TmpExpr   : PMExpression;
     IndexCount: Integer;
     Variable  : TRVariable;
@@ -104,7 +104,7 @@ Begin
  With Compiler do
  Begin
   if (not isTypeArray(_var.Typ)) Then
-   Exit(TYPE_ANY);
+   Exit(TypeInstance(TYPE_ANY));
 
   if (ArrayElements = nil) Then
    Error(eInternalError, ['ArrayElements = nil']);
@@ -123,7 +123,7 @@ Begin
    With Compiler do // array subscript must be an integer value
     if (not isTypeInt(TmpType)) Then
     Begin
-     Error(eInvalidArraySubscript, [getTypeName(Variable.Typ), getTypeName(TmpType)]);
+     Error(eInvalidArraySubscript, [getTypeDeclaration(Variable.Typ), getTypeDeclaration(TmpType)]);
      Exit;
     End;
 

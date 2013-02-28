@@ -5,8 +5,9 @@ Var IdentID, Namespace: Integer;
 
 { CastCall }
 Procedure CastCall;
-Var TypeID, Param: Integer;
-    fParamList   : TMParamList;
+Var TypeID    : PMType;
+    Param     : Integer;
+    fParamList: TMParamList;
 Begin
  TypeID := Parse(Left, 1, 'r');
  RePop(Left, TypeID, 1);
@@ -14,12 +15,12 @@ Begin
  With Compiler do
   if (not isTypeFunctionPointer(TypeID)) Then
   Begin
-   Error(eWrongType, [getTypeName(TypeID), 'function pointer']);
+   Error(eWrongType, [getTypeDeclaration(TypeID), 'function pointer']);
    Exit;
   End;
 
- fParamList := Compiler.TypeTable[TypeID].FuncParams;
- Result     := Compiler.TypeTable[TypeID].FuncReturn;
+ fParamList := TypeID^.FuncParams;
+ Result     := TypeID^.FuncReturn;
 
  // check param count
  if (Length(Expr^.ParamList) <> Length(fParamList)) Then
@@ -35,7 +36,7 @@ Begin
 
   With Compiler do
    if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
-    Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, getTypeName(TypeID), getTypeName(fParamList[High(fParamList)-Param].Typ)]);
+    Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
  End;
 
  Dec(PushedValues, Length(fParamList));
@@ -46,9 +47,10 @@ End;
 
 { LocalVarCall }
 Procedure LocalVarCall;
-Var TypeID, Param: Integer;
-    Variable     : TRVariable;
-    fParamList   : TMParamList;
+Var TypeID    : PMType;
+    Param     : Integer;
+    Variable  : TRVariable;
+    fParamList: TMParamList;
 Begin
  Variable := getVariable(Expr^.Left);
 
@@ -60,12 +62,12 @@ Begin
  With Compiler do
   if (not isTypeFunctionPointer(TypeID)) Then
   Begin
-   Error(eWrongType, [getTypeName(TypeID), 'function pointer']);
+   Error(eWrongType, [getTypeDeclaration(TypeID), 'function pointer']);
    Exit;
   End;
 
- fParamList := Compiler.TypeTable[TypeID].FuncParams;
- Result     := Compiler.TypeTable[TypeID].FuncReturn;
+ fParamList := TypeID^.FuncParams;
+ Result     := TypeID^.FuncReturn;
 
  // check param count
  if (Length(Expr^.ParamList) <> Length(fParamList)) Then
@@ -81,7 +83,7 @@ Begin
 
   With Compiler do
    if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
-    Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, getTypeName(TypeID), getTypeName(fParamList[High(fParamList)-Param].Typ)]);
+    Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
  End;
 
  Dec(PushedValues, Length(fParamList));
@@ -92,7 +94,8 @@ End;
 
 { GlobalFuncCall }
 Procedure GlobalFuncCall;
-Var TypeID, Param: Integer;
+Var TypeID: PMType;
+    Param : Integer;
 Begin
  With Compiler.NamespaceList[Namespace].GlobalList[IdentID].mFunction do
  Begin
@@ -110,7 +113,7 @@ Begin
 
    With Compiler do
     if (not CompareTypes(ParamList[High(ParamList)-Param].Typ, TypeID)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Name, High(ParamList)-Param+1, getTypeName(TypeID), getTypeName(ParamList[High(ParamList)-Param].Typ)]);
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Name, High(ParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(ParamList[High(ParamList)-Param].Typ)]);
   End;
 
   Dec(PushedValues, Length(ParamList));

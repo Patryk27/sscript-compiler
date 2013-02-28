@@ -24,12 +24,15 @@ Program compiler;
 Uses Windows, SysUtils, TypInfo, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
 Var Input, Output: String;
 
-    Options  : TCompileOptions;
-    logo_only: Boolean=False;
-    wait     : Boolean=False;
+    Options   : TCompileOptions;
+    _logo_only: Boolean=False;
+    _wait     : Boolean=False;
+    _time     : Boolean=False;
 
     Frame : Integer;
     Frames: PPointer;
+
+    Time: Cardinal;
 
 { AddOption }
 Procedure AddOption(const Option: TCommandLineOption; Value: Variant);
@@ -72,13 +75,19 @@ Begin
   { -logo }
   if (Current = '-logo') Then
   Begin
-   logo_only := True;
+   _logo_only := True;
+  End Else
+
+  { -time }
+  if (Current = '-time') Then
+  Begin
+   _time := True;
   End Else
 
   { -wait }
   if (Current = '-wait') Then
   Begin
-   wait := True;
+   _wait := True;
   End Else
 
   { -verbose / -v }
@@ -122,6 +131,8 @@ End;
 
 { program's body }
 Begin
+ Time := GetTickCount;
+
  DefaultFormatSettings.DecimalSeparator := '.';
 
  ParseCommandLine;
@@ -138,7 +149,7 @@ Begin
    Input  := ExpandFileName(ParamStr(1));
    Output := ExpandFileName(getStringOption('o', 'output.ssc'));
 
-   if (logo_only) Then
+   if (_logo_only) Then
     verbose_mode := True;
 
    Log('SScript Compiler, version '+Version+' ['+{$I %DATE%}+']');
@@ -149,7 +160,7 @@ Begin
     Log('Warning: This is a nightly, untested and most likely unstable version - not intended for daily use!');
    {$ENDIF}
 
-   if (logo_only) Then
+   if (_logo_only) Then
     raise Exception.Create('');
 
    Log; // newline
@@ -174,11 +185,44 @@ Begin
     Frames := ExceptFrames;
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
+
+    Writeln;
+    if (getCompiler <> nil) Then
+    Begin
+     With TCompiler(getCompiler) do
+     Begin
+      Writeln('Additional compilation info:');
+
+      Writeln;
+
+      Writeln('Last namespace: ');
+      if (getCurrentNamespace.Name <> 'self') Then
+       Writeln('  -> ', getCurrentNamespace.Name) Else
+       Writeln('  -> (default namespace: `self`)');
+
+      Writeln;
+
+      Writeln('Last function:');
+      With getCurrentFunction do
+      Begin
+       Writeln('  -> ', Name);
+       Writeln('  -> declared at line ', DeclToken.Line+1);
+      End;
+     End;
+    End Else
+     Writeln('No additional compilation info available.');
    End;
  End;
 
+ { -time }
+ if (_time) Then
+ Begin
+  Time := GetTickCount-Time;
+  Writeln('Total time: ', Time, ' ms');
+ End;
+
  { -wait }
- if (wait) Then
+ if (_wait) Then
  Begin
   Writeln('-- done --');
   Readln;

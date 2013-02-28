@@ -6,7 +6,7 @@ Begin
 
  if (not Compiler.isTypeNumerical(Result)) Then // numerical types only
  Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeName(Result)]);
+  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeDeclaration(Result)]);
   Exit;
  End;
 

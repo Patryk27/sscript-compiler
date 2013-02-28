@@ -3,10 +3,22 @@ Procedure Parse_USE;
 Var Namespace: Integer;
     Name     : String;
 
+  // Add
   Procedure Add(const Namespace: Integer);
   Begin
    SetLength(SelectedNamespaces, Length(SelectedNamespaces)+1);
    SelectedNamespaces[High(SelectedNamespaces)] := Namespace;
+  End;
+
+  // notDuplicated
+  Function notDuplicated(const Namespace: Integer): Boolean;
+  Var NS: Integer;
+  Begin
+   Result := True;
+
+   For NS in SelectedNamespaces Do
+    if (NS = Namespace) Then
+     Exit(False);
   End;
 
 Begin
@@ -14,6 +26,7 @@ Begin
  Begin
   SetLength(SelectedNamespaces, 1);
   SelectedNamespaces[0] := 0;
+  eat(_SEMICOLON);
   Exit;
  End;
 
@@ -26,7 +39,8 @@ Begin
    CompileError(eUnknownNamespace, [Name]) Else
    Begin
     // add it into the list
-    Add(Namespace);
+    if (notDuplicated(Namespace)) Then
+     Add(Namespace);
    End;
 
   // check

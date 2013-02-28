@@ -6,7 +6,7 @@ Begin
 
  if (not Compiler.isTypeInt(Result)) and (not Compiler.isTypeBool(Result)) Then
  Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeName(Result)]);
+  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeDeclaration(Result)]);
   Exit;
  End;
 
@@ -15,5 +15,5 @@ Begin
 
  Compiler.PutOpcode(o_not, ['eb1']);
 
- Result := TYPE_BOOL;
+ Result := TypeInstance(TYPE_BOOL);
 End;

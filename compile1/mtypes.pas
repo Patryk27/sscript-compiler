@@ -7,8 +7,7 @@ Unit MTypes;
  Interface
  Uses Tokens;
 
- Type TVType       = Integer; // must be a `signed` type (as some functions from compiler returns eg.`-1` when a variable is not found, and we don't want any integer overflows...)
-      TMVisibility = (mvPublic, mvPrivate);
+ Type TMVisibility = (mvPublic, mvPrivate);
 
       TMIntegerArray = Array of Integer;
 
@@ -36,27 +35,35 @@ Unit MTypes;
                   FuncList : Array of TMImportFunc;
                  End;
 
+ // PMType
+ Type PMType = ^TMType;
+
  // TMParam
- Type TMParam = Record
+     TMParam = Record
                  Name: String;
-                 Typ : TVType;
+                 Typ : PMType;
                 End;
- Type TMParamList = Array of TMParam;
+      TMParamList = Array of TMParam;
 
  // TMType
- Type TMType = Record
+      TMType = Record
                 Name     : String;
                 RegPrefix: Char;
 
                 InternalID: Byte;
 
-                ArrayBase    : TVType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
+                ArrayBase    : PMType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
                 ArrayDimCount: Byte; // array dimension amount
 
-                FuncReturn: TVType;
+                FuncReturn: PMType;
                 FuncParams: TMParamList;
 
                 isStrict, isFunction: Boolean;
+
+                Visibility: TMVisibility;
+
+                mCompiler: Pointer;
+                DeclToken: TToken_P;
                End;
 
  // TMExpression
@@ -119,7 +126,7 @@ Unit MTypes;
                     RegChar: Char;
 
                     Name : String;
-                    Typ  : TVType;
+                    Typ  : PMType;
                     Value: TMExpression;
                     Deep : Integer;
 
@@ -140,7 +147,7 @@ Unit MTypes;
                     MName        : String; // mangled name (used as a label name)
                     ModuleName   : String; // module name in which function has been declared
                     NamespaceName: String;
-                    Return       : TVType; // return type
+                    Return       : PMType; // return type
                     ParamList    : TMParamList;
 
                     LibraryFile: String;
@@ -157,12 +164,13 @@ Unit MTypes;
                    End;
 
  // TMGlobalDeclaration
- Type TMGlobalDeclarationType = (gdConstant, gdVariable, gdFunction);
+ Type TMGlobalDeclarationType = (gdConstant, gdVariable, gdFunction, gdType);
  Type TMGlobalDeclaration = Record
                              Typ: TMGlobalDeclarationType;
 
                              mVariable: TMVariable; // gdConstant, gdVariable
                              mFunction: TMFunction; // gtFunction
+                             mType    : TMType;
 
                              isInternal: Boolean; // eg.`null` is internal
                             End;
@@ -183,20 +191,31 @@ Unit MTypes;
  Type TMNamespaceArray = Array of TMNamespace;
 
  // primary types; order (those numbers) is important, as it is the same in the virtual machine!
- Const TYPE_ANY    = 0;
-       TYPE_NULL   = 1;
-       TYPE_VOID   = 2;
-       TYPE_BOOL   = 3;
-       TYPE_CHAR   = 4;
-       TYPE_INT    = 5;
-       TYPE_FLOAT  = 6;
-       TYPE_STRING = 7;
+ Const PrimaryTypeNames: Array[0..7] of String = ('any', 'null', 'void', 'bool', 'char', 'int', 'float', 'string');
+ Const TYPE_ANY_id    = 0;
+       TYPE_NULL_id   = 1;
+       TYPE_VOID_id   = 2;
+       TYPE_BOOL_id   = 3;
+       TYPE_CHAR_id   = 4;
+       TYPE_INT_id    = 5;
+       TYPE_FLOAT_id  = 6;
+       TYPE_STRING_id = 7;
 
  // operators
  Operator = (A, B: TMType): Boolean;
 
  // functions
  Function getEmptyType: TMType;
+ Function TYPE_ANY: TMType;
+ Function TYPE_NULL: TMType;
+ Function TYPE_VOID: TMType;
+ Function TYPE_BOOL: TMType;
+ Function TYPE_CHAR: TMType;
+ Function TYPE_INT: TMType;
+ Function TYPE_FLOAT: TMType;
+ Function TYPE_STRING: TMType;
+
+ Function TypeInstance(Typ: TMType): PMType;
 
  Implementation
 
@@ -208,14 +227,21 @@ Operator = (A, B: TMType): Boolean;
 Begin
  Result :=
  (A.ArrayDimCount = B.ArrayDimCount) and
- (A.ArrayBase     = B.ArrayBase) and
  (A.InternalID    = B.InternalID) and
  (A.isStrict      = B.isStrict) and
  (A.isFunction    = B.isFunction) and
- (A.RegPrefix     = B.RegPrefix) and
- (A.FuncReturn    = B.FuncReturn) and
+ (A.RegPrefix     = B.RegPrefix);
 
- (Length(A.FuncParams) = Length(B.FuncParams));
+ if (not Result) Then
+  Exit(False);
+
+ if (A.ArrayBase <> nil) and (B.ArrayBase <> nil) Then
+  Result := Result and (A.ArrayBase^ = B.ArrayBase^);
+
+ if (A.FuncReturn <> nil) and (B.FuncReturn <> nil) Then
+  Result := Result and (A.FuncReturn^ = B.FuncReturn^);
+
+ Result := Result and (Length(A.FuncParams) = Length(B.FuncParams));
 End;
 
 (* getEmptyType *)
@@ -224,16 +250,134 @@ End;
 }
 Function getEmptyType: TMType;
 Begin
- Result.Name          := '';
- Result.RegPrefix     := #0;
- Result.ArrayDimCount := 0;
- Result.ArrayBase     := TYPE_ANY;
- Result.InternalID    := 0;
- Result.FuncReturn    := TYPE_ANY;
- Result.isStrict      := False;
- Result.isFunction    := False;
+ With Result do
+ Begin
+  Name          := '';
+  RegPrefix     := #0;
+  ArrayDimCount := 0;
+  ArrayBase     := nil;
+  InternalID    := 0;
+  FuncReturn    := nil;
+  isStrict      := False;
+  isFunction    := False;
+  Visibility    := mvPublic;
 
- SetLength(Result.FuncParams, 0);
+  SetLength(FuncParams, 0);
+ End;
+End;
+
+(* TYPE_ANY *)
+Function TYPE_ANY: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'any';
+  RegPrefix  := 'i';
+  InternalID := TYPE_ANY_id;
+ End;
+End;
+
+(* TYPE_NULL *)
+Function TYPE_NULL: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'null';
+  RegPrefix  := 'r';
+  InternalID := TYPE_NULL_id;
+ End;
+End;
+
+(* TYPE_VOID *)
+Function TYPE_VOID: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'void';
+  RegPrefix  := 'i';
+  InternalID := TYPE_VOID_id;
+ End;
+End;
+
+(* TYPE_BOOL *)
+Function TYPE_BOOL: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'bool';
+  RegPrefix  := 'b';
+  InternalID := TYPE_BOOL_id;
+ End;
+End;
+
+(* TYPE_CHAR *)
+Function TYPE_CHAR: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'char';
+  RegPrefix  := 'c';
+  InternalID := TYPE_CHAR_id;
+ End;
+End;
+
+(* TYPE_INT *)
+Function TYPE_INT: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'int';
+  RegPrefix  := 'i';
+  InternalID := TYPE_INT_id;
+ End;
+End;
+
+(* TYPE_FLOAT *)
+Function TYPE_FLOAT: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'float';
+  RegPrefix  := 'f';
+  InternalID := TYPE_FLOAT_id;
+ End;
+End;
+
+(* TYPE_STRING *)
+Function TYPE_STRING: TMType;
+Begin
+ Result := getEmptyType;
+
+ With Result do
+ Begin
+  Name       := 'string';
+  RegPrefix  := 's';
+  InternalID := TYPE_STRING_id;
+
+  ArrayBase     := TypeInstance(TYPE_STRING); // why not `TYPE_CHAR`? Well... it's a long story with many monsters, goblins and Access Violations.
+  ArrayDimCount := 1;
+ End;
+End;
+
+(* TypeInstance *)
+Function TypeInstance(Typ: TMType): PMType;
+Begin
+ New(Result);
+ Result^ := Typ;
 End;
 
 End.

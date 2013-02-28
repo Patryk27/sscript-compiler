@@ -1,5 +1,6 @@
 @visibility("public")
 
+}
 namespace std
 {
  function<int> get_ticks() in "time.ssm";

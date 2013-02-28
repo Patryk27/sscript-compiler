@@ -1,5 +1,5 @@
 Procedure ParseArithmeticOperator(const WithAssign: Boolean);
-Var TypeLeft, TypeRight: TVType;
+Var TypeLeft, TypeRight: PMType;
     Opcode             : TOpcode_E;
     Variable           : TRVariable;
     RegChar            : Char;
@@ -30,7 +30,7 @@ Begin
   if (isTypeArray(TypeLeft) and isTypeArray(TypeRight)) and
      ((not isTypeString(TypeLeft)) or (not isTypeString(TypeRight))) Then
   Begin
-   Error(eUnsupportedOperator, [Compiler.getTypeName(TypeLeft), getDisplay(Expr), Compiler.getTypeName(TypeRight)]);
+   Error(eUnsupportedOperator, [Compiler.getTypeDeclaration(TypeLeft), getDisplay(Expr), Compiler.getTypeDeclaration(TypeRight)]);
    Exit;
   End;
 
@@ -48,12 +48,12 @@ Begin
  End;
 
  { not arrays }
- if (Variable.getArray = 0) or (Compiler.isTypeString(Variable.Typ) and (Compiler.TypeTable[Variable.Typ].ArrayDimCount = 1)) Then
+ if (Variable.getArray = 0) or (Compiler.isTypeString(Variable.Typ) and (Variable.Typ^.ArrayDimCount = 1)) Then
  Begin
   if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Compiler.isTypeNumerical(Result))) or // numerical types only (except '+' and '+=' for strings)
      ((Opcode in [o_mod, o_shl, o_shr]) and (not Compiler.isTypeInt(Result))) Then // some operators are `int-`only
   Begin
-   Error(eUnsupportedOperator, [Compiler.getTypeName(TypeLeft), getDisplay(Expr), Compiler.getTypeName(TypeRight)]);
+   Error(eUnsupportedOperator, [Compiler.getTypeDeclaration(TypeLeft), getDisplay(Expr), Compiler.getTypeDeclaration(TypeRight)]);
    Exit;
   End;
 
@@ -66,7 +66,7 @@ Begin
   // check types
   if (WithAssign) Then
    if (not Compiler.CompareTypes(Variable.Typ, TypeRight)) Then
-    Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeName(TypeRight), Compiler.getTypeName(Variable.Typ)]);
+    Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeDeclaration(TypeRight), Compiler.getTypeDeclaration(Variable.Typ)]);
  End Else
 
  { arrays }
@@ -87,7 +87,7 @@ Begin
 
   if (not Compiler.CompareTypes(TypeLeft, TypeRight)) Then
   Begin
-   Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeName(TypeRight), Compiler.getTypeName(TypeLeft)]);
+   Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeDeclaration(TypeRight), Compiler.getTypeDeclaration(TypeLeft)]);
    Exit;
   End;
 

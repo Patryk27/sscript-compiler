@@ -1,5 +1,6 @@
 @visibility("public")
 
+}
 namespace std
 {
  function<char> chupper(char) in "string.ssm";
