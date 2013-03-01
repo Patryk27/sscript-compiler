@@ -6,112 +6,39 @@
 Unit Compile2;
 
  Interface
- Uses CompilerUnit, Compile1, Classes, SysUtils, Variants, MTypes, Opcodes, Messages;
+ Uses CompilerUnit, Compile1, Classes, SysUtils, Variants, MTypes, Opcodes, Messages, Zipper, Stream;
 
+ // TLabel
  Type TLabel = Record
                 Name    : String;
                 Position: LongWord;
                End;
 
- Type dbgTLabel = Record
-                   Name, Position: LongWord;
-                  End;
-
- Type TDebugSection = Record
-                      { LabelsCount: LongWord; }
-                       LabelList: Array of dbgTLabel;
-                      End;
-
+ // TCompiler
  Type TCompiler = Class
-                   Private
-                    Output   : PByte;
-                    OutputPos: LongWord;
                    Public
+                    BytecodeStream: TStream;
+                    HeaderStream  : TStream;
+
                     Compiler: Compile1.TCompiler;
-                    Debug   : TDebugSection;
+                    Bytecode: TWriter;
 
                     LabelList: Array of TLabel;
 
-                    StringSection: String;
-
-                    OpcodeLen: LongWord;
-                    DebugLen : LongWord; // 'DEBUG' section length
-
-                    Procedure write_byte(V: Byte);
-                    Procedure write_word(V: Word);
-                    Procedure write_longword(V: LongWord);
-                    Procedure write_integer(V: Integer);
-                    Procedure write_extended(V: Extended);
-                    Procedure write_string(V: String);
-                    Procedure write_section(ID: Byte; Length, DataPnt: LongWord);
-
                     Function getLabelID(Name: String): Integer;
 
+                   Private
                     Procedure Preparse;
                     Procedure Preparse2;
-                    Procedure PreparseDebugData;
 
                     Procedure Parse;
-                    Procedure ParseDebugData;
 
                    Public
-                    Procedure Compile(fCompiler: Compile1.TCompiler; fStackSize: LongWord; SaveAs_SSM: Boolean);
+                    Procedure Compile(fCompiler: Compile1.TCompiler; SaveAs_SSM: Boolean);
                    End;
 
  Implementation
 Uses SSM_parser;
-
-{ TCompiler.write_byte }
-Procedure TCompiler.write_byte(V: Byte);
-Begin
- PByte(Output+OutputPos)^ := V;
- Inc(OutputPos, sizeof(V));
-End;
-
-{ TCompiler.write_word }
-Procedure TCompiler.write_word(V: Word);
-Begin
- PWord(Output+OutputPos)^ := V;
- Inc(OutputPos, sizeof(V));
-End;
-
-{ TCompiler.write_longword }
-Procedure TCompiler.write_longword(V: LongWord);
-Begin
- PLongWord(Output+OutputPos)^ := V;
- Inc(OutputPos, sizeof(V));
-End;
-
-{ TCompiler.write_integer }
-Procedure TCompiler.write_integer(V: Integer);
-Begin
- PInteger(Output+OutputPos)^ := V;
- Inc(OutputPos, sizeof(V));
-End;
-
-{ TCompiler.write_extended }
-Procedure TCompiler.write_extended(V: Extended);
-Begin
- PExtended(Output+OutputPos)^ := V;
- Inc(OutputPos, sizeof(V));
-End;
-
-{ TCompiler.write_string }
-Procedure TCompiler.write_string(V: String);
-Var Ch: Char;
-Begin
- For Ch in V Do
-  write_byte(ord(Ch));
- write_byte(0);
-End;
-
-{ TCompiler.write_section }
-Procedure TCompiler.write_section(ID: Byte; Length, DataPnt: LongWord);
-Begin
- write_byte(ID);
- write_longword(Length);
- write_longword(DataPnt);
-End;
 
 { TCompiler.getLabelID }
 Function TCompiler.getLabelID(Name: String): Integer;
@@ -128,9 +55,9 @@ Procedure TCompiler.Preparse;
 Var I, Q: LongWord;
     Int : Integer;
     Str : String;
-Begin
- StringSection := '';
 
+    OpcodeLen: LongWord = 0;
+Begin
  With Compiler do
  Begin
   if (OpcodeList.Count = 0) Then
@@ -244,15 +171,6 @@ Begin
      LabelList[High(LabelList)].Name     := Name;
      LabelList[High(LabelList)].Position := OpcodeLen;
     End;
-
-  // add exports' names
-  if (Length(ExportList) > 0) Then
-   For I := Low(ExportList) To High(ExportList) Do
-   Begin
-    ExportList[I].NamePos := OpcodeLen;
-    StringSection += ExportList[I].Name+#0;
-    OpcodeLen += Length(ExportList[I].Name)+1;
-   End;
  End;
 End;
 
@@ -262,7 +180,10 @@ Var I, Q: LongWord;
     Int : Integer;
     Str : String;
 
+    OpcodeLen: Longword;
+
     FuncID, Namespace: Integer;
+
 Label LabelNotFound;
 Begin
  { from here, we have already parsed each label }
@@ -366,28 +287,11 @@ Begin
          ptBool: Inc(OpcodeLen, sizeof(Byte));
          ptChar: Inc(OpcodeLen, sizeof(Byte));
          ptFloat: Inc(OpcodeLen, sizeof(Extended));
-         ptString: Inc(OpcodeLen, Length(Str)+sizeof(Byte)); // string + terminator (0x00) char
+         ptString: Inc(OpcodeLen, Length(Str)+sizeof(Byte)); // string + terminator char (0x00)
          else Inc(OpcodeLen, sizeof(Integer));
         End;
        End;
     End;
- End;
-End;
-
-{ TCompiler.PreparseDebugData }
-Procedure TCompiler.PreparseDebugData;
-Var I: Integer;
-Begin
- SetLength(Debug.LabelList, Length(LabelList));
-
- For I := Low(LabelList) To High(LabelList) Do
- Begin
-  Debug.LabelList[I].Name     := Length(StringSection);
-  Debug.LabelList[I].Position := LabelList[I].Position;
-
-  Inc(DebugLen, 2*sizeof(LongWord));
-
-  StringSection += LabelList[I].Name+#0;
  End;
 End;
 
@@ -398,154 +302,105 @@ Var Opcode: PMOpcode;
     Str   : String;
     Ch    : Char;
 Begin
- For Opcode in Compiler.OpcodeList Do
-  With Opcode^ do
-  Begin
-   if (isComment) or (isLabel) Then // we care neither about comments nor labels
-    Continue;
-
-   if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then
+ With BytecodeStream do
+ Begin
+  For Opcode in Compiler.OpcodeList Do
+   With Opcode^ do
    Begin
-    Case Opcode of
-     o_byte: write_byte(Args[0].Value);
-     o_word: write_word(Args[0].Value);
-     o_integer: write_integer(Args[0].Value);
-     o_extended: write_extended(Args[0].Value);
-    End;
+    if (isComment) or (isLabel) Then // we care neither about comments nor labels
+     Continue;
 
-    Continue;
-   End;
-
-   write_byte(ord(Opcode)); // opcode type
-   For Arg in Args Do
-    With Arg do
+    if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then
     Begin
-     Str := VarToStr(Value);
-
-     write_byte(ord(Typ)); // param type
-     Case Typ of // param value
-      ptBoolReg..ptReferenceReg: write_byte(StrToInt(Str));
-      ptBool: write_byte(StrToInt(Str));
-      ptChar: write_byte(StrToInt(Str));
-      ptFloat: write_extended(StrToFloat(Str));
-      ptString: write_string(Str);
-      else write_integer(StrToInt(Str));
+     Case Opcode of
+      o_byte: write_byte(Args[0].Value);
+      o_word: write_word(Args[0].Value);
+      o_integer: write_integer(Args[0].Value);
+      o_extended: write_extended(Args[0].Value);
      End;
+
+     Continue;
     End;
-  End;
 
- { save strings }
- For Ch in StringSection Do
-  write_byte(ord(Ch));
-End;
+    write_byte(ord(Opcode)); // opcode type
+    For Arg in Args Do
+     With Arg do
+     Begin
+      Str := VarToStr(Value);
 
-{ TCompiler.ParseDebugData }
-Procedure TCompiler.ParseDebugData;
-Var I: Integer;
-Begin
- write_longword(Length(Debug.LabelList));
-
- For I := Low(Debug.LabelList) To High(Debug.LabelList) Do
-  With Debug.LabelList[I] do
-  Begin
-   write_longword(Name);
-   write_longword(Position);
-  End;
+      write_byte(ord(Typ)); // param type
+      Case Typ of // param value
+       ptBoolReg..ptReferenceReg: write_byte(StrToInt(Str));
+       ptBool: write_byte(StrToInt(Str));
+       ptChar: write_byte(StrToInt(Str));
+       ptFloat: write_extended(StrToFloat(Str));
+       ptString: write_string(Str);
+       else write_integer(StrToInt(Str));
+      End;
+     End;
+   End;
+ End;
 End;
 
 { TCompiler.Compile }
-Procedure TCompiler.Compile(fCompiler: Compile1.TCompiler; fStackSize: LongWord; SaveAs_SSM: Boolean);
-Var Ex: TMExport;
-    FFile: File of Byte;
-    Tmp, DataBegin, DataPos, SectionsCount: LongWord;
+Procedure TCompiler.Compile(fCompiler: Compile1.TCompiler; SaveAs_SSM: Boolean);
+Var Zip   : TZipper;
+    Output: String;
+
+    // AddFile
+    Procedure AddFile(const Stream: TStream; FileName: String);
+    Begin
+     Stream.SaveToFile(Output+FileName);
+     Zip.Entries.AddFileEntry(Output+FileName, FileName);
+    End;
+
 Begin
  Compiler := fCompiler;
-
- SectionsCount := 3; // info, exports, code
- DebugLen      := 0;
-
- Output    := AllocMem(15*1024*1024); // 15 MB
- OutputPos := 0;
 
  Preparse;
  Preparse2;
 
- {if (_DBG in Compiler.Options) Then
- Begin @TODO
-  PreparseDebugData;
-  Inc(SectionsCount); // + debug data
- End;}
+ Output := Compiler.OutputFile;
 
- if (SaveAs_SSM) Then
- Begin
-  TSSM.Create.Create_SSM(Compiler.OutputFile, fCompiler, self).Free;
-  Exit;
- End;
+ BytecodeStream := TStream.Create;
+ HeaderStream   := TStream.Create;
+ Zip            := TZipper.Create;
 
  Try
-  { header }
-  write_byte($53);
-  write_byte($53);
-  write_byte($04);
-  write_byte(SectionsCount); { sections count }
-
-  DataBegin := 4+SectionsCount*9; // header size + 4*section size
-  DataPos   := DataBegin;
-
-  write_section(1, 8, DataPos); // 'INFO' section; type = 1; length = 12; data position = DataPos
-  DataPos += 8;
-
-  Tmp := (2*sizeof(LongWord)) * Length(Compiler.ExportList) + sizeof(Word);
-  write_section(3, Tmp, DataPos); // 'EXPORTS' section; type = 3; length = Tmp
-  DataPos += Tmp;
-
-  Tmp := OpcodeLen+Length(StringSection);
-  write_section(5, Tmp, DataPos); // 'CODE' section; type = 5; length = OpcodeLen + Length(StringSection)
-  DataPos += Tmp;
-
- // if (_DBG in Compiler.Options) Then
- //  write_section(6, DebugLen, DataPos); // 'DEBUG DATA' section; type = 6; length = DebugSectionPos
-
-  { now - save the sections' data }
-
-  // 1.'INFO' section
-  write_longword(fStackSize); // stack size
-  write_longword(0); // entry point
-
-  // 2.'EXPORTS' section
-  write_word(Length(Compiler.ExportList));
-  For Ex in Compiler.ExportList Do
-  Begin
-   Ex.Pos := getLabelID(Ex.Name);
-   if (Ex.Pos = -1) Then
-   Begin
-    Compiler.CompileError(eBytecode_ExportNotFound, [Ex.Name]);
-    Continue;
-   End;
-
-   if (Ex.Pos < 0) or (Ex.Pos > High(LabelList)) Then
-    Compiler.CompileError(eInternalError, ['Invalid `Ex.Pos`']);
-
-   Ex.Pos := LabelList[Ex.Pos].Position;
-   write_longword(Ex.NamePos); // function name
-   write_longword(Ex.Pos);     // function position
-  End;
-
-  // 3.'CODE' section+strings
   Parse;
 
-  // 4.'DEBUG DATA' section
- // if (_DBG in Compiler.Options) Then
- //  ParseDebugData;
- Except
-  Writeln('-- bytecode compile failed --');
-  raise;
- End;
+  With HeaderStream do
+  Begin
+   write_longword($0DEFACED);
 
- AssignFile(FFile, fCompiler.OutputFile);
- Rewrite(FFile);
- BlockWrite(FFile, Output[0], OutputPos);
- CloseFile(FFile);
+   if (SaveAs_SSM) Then
+    write_byte(0) { not runnable } else
+    write_byte(1) { runnable };
+
+   write_byte(bytecode_version_major);
+   write_byte(bytecode_version_minor);
+  End;
+
+  if (SaveAs_SSM) Then // save as a library?
+  Begin
+   TSSM.Create.Save(Compiler.OutputFile, fCompiler, self).Free;
+   Exit;
+  End;
+
+  { make zip archive }
+  AddFile(HeaderStream, '.header');
+  AddFile(BytecodeStream, '.bytecode');
+
+  { save it }
+  Zip.FileName := Output;
+  Zip.ZipAllFiles;
+ Finally
+  BytecodeStream.Free;
+  Zip.Free;
+
+  DeleteFile(Output+'.header');
+  DeleteFile(Output+'.bytecode');
+ End;
 End;
 
 End.

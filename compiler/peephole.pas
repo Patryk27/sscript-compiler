@@ -282,6 +282,12 @@ Begin
     End Else
     Begin
      if (not isVariableHolder(pCurrent^.Args[0])) and (CanBeRemoved) Then
+     {
+      the first `mov` is unusable.
+      Like in this code:
+       mov(ei1, 10) // current `ei1` in unused, so this `mov` can be removed and it won't affect anything
+       mov(ei1, 20)
+     }
      Begin
       OpcodeList.Remove(pCurrent);
       Dec(Pos);

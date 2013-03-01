@@ -7,7 +7,6 @@ By default, all switches are disabled.
 	-initcode		includes `init.sm` into the program (programs only)
 
 	-includepath <path>	changes the include path; default: `$file;$compiler`
-	-stacksize <int>	changes the stack size; default: `1000000`
 
 2.Code
 	-Cm <mode>

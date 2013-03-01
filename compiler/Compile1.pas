@@ -11,9 +11,11 @@ Unit Compile1;
       Parse_NAMESPACE, Parse_TYPE;
 
  { constants }
- Const DEF_STACKSIZE = 1000000; // default stack size for compiled app
-       Version       = '2.2 nightly'; // version of the compiler
-       iVersion      = 2.2;
+ Const Version  = '2.2 nightly'; // version of the compiler
+       iVersion = 2.2;
+
+       bytecode_version_major = 0;
+       bytecode_version_minor = 4;
 
  { types }
  // TMScope
@@ -330,7 +332,7 @@ Begin
     Begin
      Can := True;
 
-     For Q := Low(GlobalList) To I-1 Do // we don't want some file to be loaded eg.10 times instead of 1 time (searching for multiple imports from same file)
+     For Q := Low(GlobalList) To I-1 Do // we don't want some file to be loaded eg.10 times instead of 1 time (it just skips multiple imports from same file)
       if (GlobalList[Q].mFunction.LibraryFile = GlobalList[I].mFunction.LibraryFile) Then
        Can := False;
 
@@ -416,7 +418,7 @@ Begin
  End;
 
  Compiler2 := Compile2.TCompiler.Create;
- Compiler2.Compile(self, getIntOption(opt_stacksize, DEF_STACKSIZE), True);
+ Compiler2.Compile(self, True);
  Compiler2.Free;
 End;
 
@@ -2613,7 +2615,7 @@ Begin
   End;
 
   Compiler2 := Compile2.TCompiler.Create;
-  Compiler2.Compile(self, getIntOption(opt_stacksize, DEF_STACKSIZE), CompileMode = cmLibrary);
+  Compiler2.Compile(self, CompileMode = cmLibrary);
   Compiler2.Free;
 
   Str := getStringOption(opt_header);

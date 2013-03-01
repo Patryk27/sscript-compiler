@@ -54,8 +54,8 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="$(ProjOutDir);compile1\expression;compile1\expression\internal_functions;compile1\syntax"/>
-      <OtherUnitFiles Value="compile1;compile1\syntax"/>
+      <IncludeFiles Value="$(ProjOutDir);compiler\expression;compiler\expression\internal_functions;compiler\syntax"/>
+      <OtherUnitFiles Value="compiler;compiler\syntax"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <CodeGeneration>

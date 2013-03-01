@@ -1,0 +1,19 @@
+Compiled bytecode file (`ssc` file) is a ZIP archive with following files:
+	.header
+	.bytecode
+
+Description:
+
+.header
+	Here are hold some various file's data, like bytecode version or magic number.
+
+	Format:
+		4 byte - longword - magic number: 0x0DEFACED
+		1 byte - byte - equal `1` if it's a runnable application, or `0` when it's not. Any another value is invalid.
+		1 byte - byte - bytecode major version
+		1 byte - byte - bytecode minor version
+
+.bytecode
+	Here is hold the compiled bytecode.
+
+	See `compiled bytecode.txt` for description.
