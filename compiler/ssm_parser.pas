@@ -8,8 +8,6 @@ Unit SSM_parser;
  Interface
  Uses Compile1, Compile2, Opcodes, MTypes, Messages, Classes, Stream, Zipper;
 
- Const Header: Array[0..2] of Byte = ($53, $4D, $04);
-
  Type TSSM = Class
               Private
                Zip   : TZipper;
@@ -41,7 +39,7 @@ Unit SSM_parser;
               End;
 
  Implementation
-Uses SysUtils, Variants;
+Uses CompilerUnit, SysUtils, Variants;
 
 (* TSSM.WriteExports *)
 {
@@ -75,17 +73,32 @@ End;
 Procedure TSSM.ReadHeader(const AStream: TStream);
 Var magic_number                : Longword;
     version_major, version_minor: Byte;
+
+    // EndingZero
+    Function EndingZero(const Text: String): String;
+    Begin
+     if (Length(Text) = 1) Then
+      Exit(Text+'0') Else
+      Exit(Text);
+    End;
+
 Begin
- magic_number := AStream.ReadDWord;
+ magic_number := AStream.read_longword;
  AStream.ReadByte; // is_runnable
- version_major := AStream.ReadByte;
- version_minor := AStream.ReadByte;
+ version_major := AStream.read_byte;
+ version_minor := AStream.read_byte;
 
  if (magic_number <> $0DEFACED) Then
+ Begin
+  Log('Invalid magic number: 0x'+IntToHex(magic_number, 2*sizeof(LongWord)));
   LoadOK := False;
+ End;
 
  if (version_major <> bytecode_version_major) or (version_minor <> bytecode_version_minor) Then
+ Begin
+  Log('Invalid bytecode version: '+IntToStr(version_major)+'.'+EndingZero(IntToStr(version_minor)));
   LoadOK := False;
+ End;
 End;
 
 (* TSSM.ReadExports *)
@@ -232,9 +245,15 @@ Begin
   FileList.Add('.header');
   Unzip.UnzipFiles(FileList);
 
+  if (not LoadOK) Then
+   Exit(False);
+
   FileList.Clear;
   FileList.Add('.exports');
   Unzip.UnzipFiles(FileList);
+
+  if (not LoadOK) Then
+   Exit(False);
 
   FileList.Clear;
   FileList.Add('.bytecode');
@@ -244,7 +263,7 @@ Begin
   FileList.Free;
  End;
 
- Exit(LoadOK);
+ Exit(True);
 End;
 
 End.

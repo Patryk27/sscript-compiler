@@ -1,4 +1,4 @@
-Bytecode version: 0.4 (major.minor)
+Bytecode version: 0.41 (major.minor)
 
 1 byte - byte - opcode type (see `\compiler\Opcodes.pas` for the opcode list)
   [for each opcode argument (parameter):]

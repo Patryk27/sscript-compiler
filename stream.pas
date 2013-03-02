@@ -39,19 +39,19 @@ End;
 { TStream.write_word }
 Procedure TStream.write_word(const V: Word);
 Begin
- Write(V, sizeof(V));
+ Write(NtoBE(V), sizeof(V));
 End;
 
 { TStream.write_integer }
 Procedure TStream.write_integer(const V: Integer);
 Begin
- Write(V, sizeof(V));
+ Write(NtoBE(V), sizeof(V));
 End;
 
 { TStream.write_longword }
 Procedure TStream.write_longword(const V: Longword);
 Begin
- Write(V, sizeof(V));
+ Write(NtoBE(V), sizeof(V));
 End;
 
 { TStream.write_extended }
@@ -79,6 +79,7 @@ End;
 Function TStream.read_longword: Longword;
 Begin
  Read(Result, sizeof(Result));
+ Result := BEtoN(Result);
 End;
 
 { TStream.read_string }

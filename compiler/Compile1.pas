@@ -15,7 +15,7 @@ Unit Compile1;
        iVersion = 2.2;
 
        bytecode_version_major = 0;
-       bytecode_version_minor = 4;
+       bytecode_version_minor = 41;
 
  { types }
  // TMScope
