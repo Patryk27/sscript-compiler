@@ -24,7 +24,6 @@ Unit Stream;
                   Function read_string: String;
 
                   // other functions
-                  Procedure CopyToBuffer(var Buffer: PByte; const AllocateMemory: Boolean);
                   Function Can: Boolean;
                  End;
 
@@ -97,21 +96,6 @@ Begin
 
   Result += char(Ch);
  End;
-End;
-
-{ TStream.CopyToBuffer }
-Procedure TStream.CopyToBuffer(var Buffer: PByte; const AllocateMemory: Boolean);
-Var OldPos, I: LongWord;
-Begin
- OldPos := Position;
-
- if (AllocateMemory) Then
-  Buffer := AllocMem(Size);
-
- For I := 0 To Size Do
-  Buffer[I] := read_byte;
-
- Position := OldPos;
 End;
 
 { TStream.Can }

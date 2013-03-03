@@ -35,7 +35,7 @@ Begin
 
  With Compiler do
   if (_var.isConst) Then
-   PutOpcode(o_mov, [RegStr, getValueFromExpression(Compiler, @_var.Value)]) Else
+   PutOpcode(o_mov, [RegStr, getValueFromExpression(Compiler, _var.Value)]) Else
    PutOpcode(o_mov, [RegStr, _var.PosStr]);
 End;
 
@@ -50,7 +50,7 @@ Begin
 
  With Compiler do
   if (_var.isConst) Then
-   PutOpcode(o_push, [getValueFromExpression(Compiler, @_var.Value)]) Else
+   PutOpcode(o_push, [getValueFromExpression(Compiler, _var.Value)]) Else
    PutOpcode(o_push, [_var.PosStr]);
 
  Inc(PushedValues);

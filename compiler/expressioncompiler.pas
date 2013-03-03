@@ -13,7 +13,7 @@ Unit ExpressionCompiler;
  Interface
  Uses Compile1, MTypes, Variants, Tokens;
 
- Const STACK_SIZE = 5000;
+ Const STACK_SIZE = 5000; // internal compiler stack size (in elements)
 
  Const UnaryOperations  = ['!'];
        BinaryOperations = ['+', '-', '*', '/', '%', '='];
@@ -388,6 +388,8 @@ Var Token: TToken_P;
 
     NamespaceID, PreviousNamespace: Integer;
 
+    OperatorNew: Boolean = False;
+
     {$IFDEF DISPLAY_FINALEXPR}
     I: Integer;
     {$ENDIF}
@@ -457,6 +459,7 @@ Begin
  End;
 End;
 
+{ function's body }
 Begin
 With Compiler do
 Begin
@@ -500,6 +503,7 @@ Begin
    else Parsed := False;
   End;
 
+  { constant value }
   if (Token.Token in [_INTEGER, _FLOAT, _STRING, _CHAR]) Then
   Begin
    if (Expect = eOperator) Then
@@ -529,7 +533,7 @@ Begin
    Expect := eValue;
   End Else
 
-  { namespace identifier }
+  { namespace operator }
   if (Token.Token = _IDENTIFIER) and (next_t = _DOUBLE_COLON) Then
   Begin
    PreviousNamespace := NamespaceID;
@@ -645,6 +649,12 @@ Begin
 
    Expect := eValue;
    StackPush(mtOpeningBracket2, null, Token);
+
+   if (OperatorNew) Then
+   Begin
+    StackPush(mtInt, 0, Token);
+    OperatorNew := False;
+   End;
   End Else
 
   { array bracket close }
@@ -695,46 +705,46 @@ Begin
    End;
 
    Case Token.Token of // translate token into the operator
-    _PLUS   : StackPush(mtAdd, Token);
-    _MINUS  : if (Str = _UNARY_MINUS) Then StackPush(mtNeg, Token) Else StackPush(mtSub, Token);
-    _STAR   : StackPush(mtMul, Token);
-    _SLASH  : StackPush(mtDiv, Token);
-    _PERCENT: StackPush(mtMod, Token);
-    _EQUAL  : StackPush(mtAssign, Token);
+    _PLUS   : StackPush(mtAdd, Token); // +
+    _MINUS  : if (Str = _UNARY_MINUS) Then StackPush(mtNeg, Token) Else StackPush(mtSub, Token); // -
+    _STAR   : StackPush(mtMul, Token); // *
+    _SLASH  : StackPush(mtDiv, Token); // /
+    _PERCENT: StackPush(mtMod, Token); // %
+    _EQUAL  : StackPush(mtAssign, Token); // =
 
-    _PLUS_EQUAL   : StackPush(mtAddEq, Token);
-    _MINUS_EQUAL  : StackPush(mtSubEq, Token);
-    _STAR_EQUAL   : StackPush(mtMulEq, Token);
-    _SLASH_EQUAL  : StackPush(mtDivEq, Token);
-    _PERCENT_EQUAL: StackPush(mtModEq, Token);
+    _PLUS_EQUAL   : StackPush(mtAddEq, Token); // +=
+    _MINUS_EQUAL  : StackPush(mtSubEq, Token); // -=
+    _STAR_EQUAL   : StackPush(mtMulEq, Token); // *=
+    _SLASH_EQUAL  : StackPush(mtDivEq, Token); // /=
+    _PERCENT_EQUAL: StackPush(mtModEq, Token); // %=
 
-    _EXCLM_MARK: StackPush(mtLogicalNOT, Token);
-    _TILDE     : StackPush(mtBitwiseNOT, Token);
+    _EXCLM_MARK: StackPush(mtLogicalNOT, Token); // !
+    _TILDE     : StackPush(mtBitwiseNOT, Token); // ~
 
-    _DOUBLE_PLUS:
+    _DOUBLE_PLUS: // ++
     if (is_a_post_operator) Then
      StackPush(mtPostInc, Token) Else
      StackPush(mtPreInc, Token);
 
-    _DOUBLE_MINUS:
+    _DOUBLE_MINUS: // --
     if (is_a_post_operator) Then
      StackPush(mtPostDec, Token) Else
      StackPush(mtPreDec, Token);
 
-    _LOWER        : StackPush(mtLower, Token);
-    _GREATER      : StackPush(mtGreater, Token);
-    _EQUAL_EQUAL  : StackPush(mtEqual, Token);
-    _LOWER_EQUAL  : StackPush(mtLowerEqual, Token);
-    _GREATER_EQUAL: StackPush(mtGreaterEqual, Token);
-    _DIFFERENT    : StackPush(mtDifferent, Token);
+    _LOWER        : StackPush(mtLower, Token); // <
+    _GREATER      : StackPush(mtGreater, Token); // >
+    _EQUAL_EQUAL  : StackPush(mtEqual, Token); // ==
+    _LOWER_EQUAL  : StackPush(mtLowerEqual, Token); // <=
+    _GREATER_EQUAL: StackPush(mtGreaterEqual, Token); // >=
+    _DIFFERENT    : StackPush(mtDifferent, Token); // !=
 
-    _PIPE            : StackPush(mtBitwiseOR, Token);
-    _DOUBLE_PIPE     : StackPush(mtLogicalOR, Token);
-    _AMPERSAND       : StackPush(mtBitwiseAND, Token);
-    _DOUBLE_AMPERSAND: StackPush(mtLogicalAND, Token);
-    _CARON           : StackPush(mtXOR, Token);
+    _PIPE            : StackPush(mtBitwiseOR, Token); // |
+    _DOUBLE_PIPE     : StackPush(mtLogicalOR, Token); // ||
+    _AMPERSAND       : StackPush(mtBitwiseAND, Token); // &
+    _DOUBLE_AMPERSAND: StackPush(mtLogicalAND, Token); // &&
+    _CARON           : StackPush(mtXOR, Token); // ^
 
-    _DOUBLE_LOWER:
+    _DOUBLE_LOWER: // <<
     if (next_t = _EQUAL) Then
     Begin
      read;
@@ -742,7 +752,7 @@ Begin
     End Else
      StackPush(mtSHL, Token);
 
-    _DOUBLE_GREATER:
+    _DOUBLE_GREATER: // >>
     if (next_t = _EQUAL) Then
     Begin
      read;
@@ -750,7 +760,7 @@ Begin
     End Else
      StackPush(mtSHL, Token);
 
-    _NEW:
+    _NEW: // `new`
     Begin
      StackPush(mtNew, Token);
 
@@ -763,9 +773,10 @@ Begin
       Compiler.CompileError(eExpected, ['[', next(-1).Display]);
      End;
 
-     setPosition(getPosition-1);
+     OperatorNew := True;
     End;
 
+    { invalid operator }
     else
      Case Expect of
       eOperator: Compiler.CompileError(eExpectedOperator, [Token.Display]);
@@ -789,7 +800,7 @@ Begin
  {$IFDEF DISPLAY_FINALEXPR}
  For I := 0 To FinalExprPos-1 Do
  Begin
-  Write(FinalExpr[I].Token.Line, ' :: ');
+  Write(FinalExpr[I].Token.Line+1, ' :: ');
   if (FinalExpr[I].Value = null) Then
    Writeln(MExpressionDisplay[FinalExpr[I].Typ]) Else
 
@@ -836,7 +847,7 @@ Begin
   Begin
    Tmp := Expr^.Left;
 
-   if (Tmp^.Typ = mtVariable) Then // calling an identifier
+   if (Tmp^.Typ = mtVariable) Then // calling a valid identifier
    Begin
     Name       := Tmp^.Value;
     Namespaces := Tmp^.Namespaces;
@@ -863,7 +874,7 @@ Begin
       Expr^.isLocal        := True;
      End;
     End;
-   End Else // calling not identifier (cast-call)
+   End Else // calling not identifier (cast-call, like: `(cast<function<void>()>(somevar))()` )
    Begin
     Expr^.Value := 'cast-call';
    End;
@@ -1067,7 +1078,7 @@ Type TRVariable = Record
                    RegChar: Char;
                    Typ    : PMType;
                    PosStr : String;
-                   Value  : TMExpression;
+                   Value  : PMExpression;
 
                    getArray: Byte;
 
@@ -1385,8 +1396,8 @@ Begin
 
    Result := Variable.Typ;
 
-   if (Compiler.isTypeFunctionPointer(Result)) and (not isSubCall) Then
-    Hint(hDidntYouMean, [Variable.Name+'()']);
+  // if (Compiler.isTypeFunctionPointer(Result)) and (not isSubCall) Then
+  //  Hint(hDidntYouMean, [Variable.Name+'()']);
   End Else
   Begin // if const value
    Result := getTypeFromMExpr(Expr);

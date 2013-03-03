@@ -1,6 +1,5 @@
 @visibility("public")
 
-}
 namespace std
 {
  function<string> intsys(int, int) in "numbers.ssm";

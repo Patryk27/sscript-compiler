@@ -38,14 +38,14 @@ Begin
 
   RedeclarationCheck(Variable.Name); // redeclaration of a constant
 
-  Variable.Value   := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], [oConstantFolding]).Values[0])^; // [constant value]
+  Variable.Value   := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], [oConstantFolding]).Values[0]); // [constant value]
   Variable.RegChar := getTypePrefix(Variable.Typ);
 
-  With Variable.Value do
+  With Variable.Value^ do
   Begin
-   if (isConstantValue(Variable.Value)) Then  // is this a constant expression?
+   if (isConstantValue(Variable.Value^)) Then  // is this a constant expression?
    Begin
-    VTyp := getTypeFromExpr(Variable.Value);
+    VTyp := getTypeFromExpr(Variable.Value^);
 
     if (not CompareTypes(Variable.Typ, VTyp)) Then // type check
      CompileError(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(VTyp), getTypeDeclaration(Variable.Typ)]);

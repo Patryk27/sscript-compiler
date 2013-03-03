@@ -228,24 +228,15 @@ Begin
 
      if (oTmp.Opcode = o_arset) Then // arset(out, in, in)
       if (isArgumentChanging(0)) Then
-      Begin
-       CanBeRemoved := True;
        Break;
-      End;
 
      if (oTmp.Opcode = o_arget) Then // arget(in, in, out)
       if (isArgumentChanging(2)) Then
-      Begin
-       CanBeRemoved := True;
        Break;
-      End;
 
      if (oTmp.Opcode = o_arset) Then // arcrt(out, in, in)
       if (isArgumentChanging(0)) Then
-      Begin
-       CanBeRemoved := True;
        Break;
-      End;
 
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
       Break;

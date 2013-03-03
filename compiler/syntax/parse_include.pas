@@ -9,7 +9,7 @@ Unit Parse_include;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, Tokens, Messages, MTypes, SysUtils;
+Uses Compile1, CompilerUnit, ExpressionCompiler, Tokens, Messages, MTypes, SysUtils;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
@@ -24,6 +24,7 @@ Begin
  eat(_BRACKET1_OP); // (
 
  FileName := read.Display;
+ Log('Including file: '+FileName);
 
  eat(_BRACKET1_CL); // )
 
@@ -35,6 +36,8 @@ Begin
   Exit;
  End;
 
+ Log('Found file: '+FileName);
+
  { compile that file }
  NewC := TCompiler.Create;
 
@@ -44,15 +47,19 @@ Begin
  NewC.CompileCode(FileName, FileName+'.ssc', Options, True, Parent);
 
  { for each namespace }
+ Log('Including...');
  TmpNamespace := CurrentNamespace;
  For NS := Low(NewC.NamespaceList) To High(NewC.NamespaceList) Do
  Begin
   if (NewC.NamespaceList[NS].Visibility <> mvPublic) Then
    Continue;
 
+  Log('Including namespace: '+NewC.NamespaceList[NS].Name);
+
   Tmp := findNamespace(NewC.NamespaceList[NS].Name);
   if (Tmp = -1) Then // new namespace
   Begin
+   Log('Included namespace is new in current scope.');
    SetLength(NamespaceList, Length(NamespaceList)+1);
 
    CurrentNamespace := High(NamespaceList);
@@ -65,7 +72,10 @@ Begin
     SetLength(GlobalList, 0);
    End;
   End Else // already existing namespace
+  Begin
+   Log('Included namespace extends another one.');
    CurrentNamespace := Tmp;
+  End;
 
   With NewC.NamespaceList[NS] do
   Begin
@@ -123,7 +133,7 @@ Begin
 
         mVariable.Name    := mFunction.Name;
         mVariable.Typ     := NewTypeFromFunction(mFunction);
-        mVariable.Value   := MakeIntExpression('@'+mFunction.MName)^;
+        mVariable.Value   := MakeIntExpression('@'+mFunction.MName);
         mVariable.RegChar := 'r';
         mVariable.RegID   := 1;
         mVariable.isConst := True;

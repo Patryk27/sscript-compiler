@@ -116,6 +116,8 @@ Unit Compile1;
 
                     Function getTypeDeclaration(const Typ: TMType; DecStringArray: Boolean=True): String;
                     Function getTypeDeclaration(const Typ: PMType; DecStringArray: Boolean=True): String;
+                    Function getBytecodeType(const Typ: TMType): String;
+                    Function getBytecodeType(const Typ: PMType): String;
                     Function getTypePrefix(ID: PMType): Char;
                     Function getTypeFromExpr(Expr: TMExpression): PMType;
 
@@ -144,7 +146,7 @@ Unit Compile1;
                     Function getVariableType(ID: Integer): PMType;
                     Function getVariableRegID(ID: Integer): Integer;
                     Function getVariableRegChar(ID: Integer): Char;
-                    Function getVariableValue(ID: Integer): TMExpression;
+                    Function getVariableValue(ID: Integer): PMExpression;
                     Function getGlobalVariableDefinition(Namespace, ID: Integer; const AddNamespace: Boolean=False): String;
                     Function isVariableConstant(ID: Integer): Boolean;
 
@@ -204,6 +206,7 @@ Unit Compile1;
                    End;
 
  Function makeModuleName(FileName: String): String;
+ Function CopyStringToPChar(const Str: String): PChar;
 
  Implementation
 Uses Compile2, ExpressionCompiler, SSM_parser, Peephole;
@@ -222,6 +225,19 @@ Begin
   if (Ch in ['a'..'z', 'A'..'Z', '0'..'9', '_']) Then
    Result += Ch Else
    Result += '_';
+End;
+
+(* CopyStringToPChar *)
+{
+ Copies a String into PChar (also automatically allocates memory).
+}
+Function CopyStringToPChar(const Str: String): PChar;
+Var I: Integer;
+Begin
+ Result := AllocMem(Length(Str)+1);
+
+ For I := 1 To Length(Str) Do
+  Result[I-1] := Str[I];
 End;
 
 (* TCompiler.Preparse *)
@@ -752,39 +768,51 @@ Begin
  { function type }
  if (isFunction) Then
  Begin
-  eat(_LOWER);
-  FuncReturn := read_type(); // return type
-  eat(_GREATER);
-  eat(_BRACKET1_OP);
-  SetLength(FuncParams, 0);
-
-  While (true) Do // parameter list
+  if (next_t = _LOWER) Then
   Begin
-   Token := next;
+  { specialized function }
+   eat(_LOWER);
+   FuncReturn := read_type(); // return type
+   eat(_GREATER);
+   eat(_BRACKET1_OP);
+   SetLength(FuncParams, 0);
 
-   if (Token.Token = _BRACKET1_CL) Then
-    Break;
+   While (true) Do // parameter list
+   Begin
+    Token := next;
 
-   SetLength(FuncParams, Length(FuncParams)+1);
-   FuncParams[High(FuncParams)].Typ := read_type();
+    if (Token.Token = _BRACKET1_CL) Then
+     Break;
 
-   if (isTypeVoid(FuncParams[High(FuncParams)].Typ)) Then
-    CompileError(eVoidNoNameParam);
+    SetLength(FuncParams, Length(FuncParams)+1);
+    FuncParams[High(FuncParams)].Typ := read_type();
 
-   if (next_t = _BRACKET1_CL) Then
-    Break;
+    if (isTypeVoid(FuncParams[High(FuncParams)].Typ)) Then
+     CompileError(eVoidNoNameParam);
 
-   eat(_COMMA);
+    if (next_t = _BRACKET1_CL) Then
+     Break;
+
+    eat(_COMMA);
+   End;
+   eat(_BRACKET1_CL);
+
+   Typ.RegPrefix  := 'r';
+   Typ.InternalID := TYPE_INT_id;
+   Typ.isFunction := True;
+   Typ.FuncReturn := FuncReturn;
+   Typ.FuncParams := FuncParams;
+  End Else
+  Begin
+  { unspecialized function }
+   Typ.RegPrefix       := 'r';
+   Typ.InternalID      := TYPE_INT_id;
+   Typ.FuncReturn      := TypeInstance(TYPE_VOID);
+   Typ.isFunction      := True;
+   Typ.isUnspecialized := True;
   End;
-  eat(_BRACKET1_CL);
 
-  Typ.RegPrefix  := 'r';
-  Typ.InternalID := TYPE_ANY_id;
-  Typ.isFunction := True;
-  Typ.FuncReturn := FuncReturn;
-  Typ.FuncParams := FuncParams;
-
-  if ((next_t = _BRACKET2_OP) and (AllowArrays)) Then
+  if ((next_t = _BRACKET2_OP) and (AllowArrays)) Then // is it an array declaration?
   Begin
    Typ.Name := getTypeDeclaration(Typ);
 
@@ -1202,8 +1230,7 @@ Begin
  Begin
   C.Typ := ctLabel;
   SetLength(C.Values, 2);
-  GetMem(C.Values[0], Length(fName)+1);
-  StrPCopy(C.Values[0], fName);
+  C.Values[0] := CopyStringToPChar(fName);
   C.Values[1] := @TokenList[TokenPos-1];
   AddConstruction(C);
  End Else
@@ -1319,18 +1346,23 @@ Var I: Integer;
 Begin
  Result := '';
 
+ { is function? }
  if (Typ.isFunction) Then
  Begin
-  Result := 'function<'+getTypeDeclaration(Typ.FuncReturn)+'>(';
-
-  For I := Low(Typ.FuncParams) To High(Typ.FuncParams) Do
+  if (Typ.isUnspecialized) Then
+   Result := 'unspecialized function' Else
   Begin
-   Result += getTypeDeclaration(Typ.FuncParams[I].Typ);
-   if (I <> High(Typ.FuncParams)) Then
-    Result += ', ';
-  End;
+   Result := 'function<'+getTypeDeclaration(Typ.FuncReturn)+'>(';
 
-  Result += ')';
+   For I := Low(Typ.FuncParams) To High(Typ.FuncParams) Do
+   Begin
+    Result += getTypeDeclaration(Typ.FuncParams[I].Typ);
+    if (I <> High(Typ.FuncParams)) Then
+     Result += ', ';
+   End;
+
+   Result += ')';
+  End;
 
   For I := 1 To Typ.ArrayDimCount Do
    Result += '[]';
@@ -1338,11 +1370,13 @@ Begin
   Exit;
  End;
 
+ { is primary? }
  if (Typ.ArrayDimCount = 0) or ((Typ.ArrayDimCount = 1) and (Typ.InternalID = TYPE_STRING_id)) Then
  Begin
   Result += PrimaryTypeNames[Typ.InternalID];
  End Else
  Begin
+  { is array? }
   if (isTypeString(Typ.ArrayBase)) and (DecStringArray) Then
    I := Typ.ArrayDimCount-1 Else
    I := Typ.ArrayDimCount;
@@ -1367,6 +1401,63 @@ Begin
   Exit('erroneous type');
 
  Result := getTypeDeclaration(Typ^, DecStringArray);
+End;
+
+(* TCompiler.getBytecodeType *)
+{
+ Returns type declaration, that can be used as a label's name.
+ Eg.instead of "int[]" returns "int_arraytype".
+}
+Function TCompiler.getBytecodeType(const Typ: TMType): String;
+Var I: Integer;
+Begin
+ Result := '';
+
+ { is function? }
+ if (Typ.isFunction) Then
+ Begin
+  if (Typ.isUnspecialized) Then
+   Result := 'unspecialized_function' Else
+  Begin
+   Result := 'function_'+getBytecodeType(Typ.FuncReturn)+'_';
+
+   For I := Low(Typ.FuncParams) To High(Typ.FuncParams) Do
+    Result += getBytecodeType(Typ.FuncParams[I].Typ)+'_';
+  End;
+
+  For I := 1 To Typ.ArrayDimCount Do
+   Result += '_arraytype_';
+
+  Exit;
+ End;
+
+ { is primary? }
+ if (Typ.ArrayDimCount = 0) or ((Typ.ArrayDimCount = 1) and (Typ.InternalID = TYPE_STRING_id)) Then
+ Begin
+  Result += PrimaryTypeNames[Typ.InternalID]+'_';
+ End Else
+ Begin
+  { is array? }
+  if (Typ.ArrayBase = nil) Then
+   CompileError(eInternalError, ['Typ.ArrayBase = nil']);
+
+  Result += getBytecodeType(Typ.ArrayBase);
+
+  For I := 1 To Typ.ArrayDimCount Do
+   Result += '_arraytype_';
+ End;
+End;
+
+(* TCompiler.getBytecodeType *)
+{
+ See @TCompiler.getBytecodeType
+}
+Function TCompiler.getBytecodeType(const Typ: PMType): String;
+Begin
+ if (Typ = nil) Then
+  Exit('erroneous type');
+
+ Result := getBytecodeType(Typ^);
 End;
 
 (* TCompiler.getTypePrefix *)
@@ -1435,9 +1526,14 @@ Begin
  T1 := pT1^;
  T2 := pT2^;
 
+// if (T1.isUnspecialized) Then
+//  CompileError(eInternalError, ['Invalid type comparing: CompareTypes("'+getTypeDeclaration(pT2)+'", "'+getTypeDeclaration(pT1)+'")']);
+
+ { strict types }
  if (T1.isStrict) or (T2.isStrict) Then
   Exit(T1 = T2);
 
+ { 'any' types }
  if (T1 = TYPE_ANY) or (T2 = TYPE_ANY) Then // any or any => true
   Exit(True);
 
@@ -1451,14 +1547,17 @@ Begin
  { compare function-pointers }
  if (isTypeFunctionPointer(pT1) and isTypeFunctionPointer(pT2)) Then
  Begin
-  Result := (T1.FuncReturn = T2.FuncReturn) and
+  if (T1.isUnspecialized) or (T2.isUnspecialized) Then
+   Exit(True);
+
+  Result := (T1.FuncReturn^ = T2.FuncReturn^) and
             (Length(T1.FuncParams) = Length(T2.FuncParams));
 
   if (not Result) Then
    Exit(False);
 
   For I := Low(T1.FuncParams) To High(T2.FuncParams) Do
-   if not (T1.FuncParams[I].Typ = T2.FuncParams[I].Typ) Then
+   if not (T1.FuncParams[I].Typ^ = T2.FuncParams[I].Typ^) Then
     Exit(False);
 
   Exit(True);
@@ -1735,7 +1834,7 @@ End;
 {
  Return variable's value (if known); for now, used only for constants.
 }
-Function TCompiler.getVariableValue(ID: Integer): TMExpression;
+Function TCompiler.getVariableValue(ID: Integer): PMExpression;
 Begin
  Result := getCurrentFunction.VariableList[ID].Value;
 End;
@@ -1771,7 +1870,7 @@ Begin
  Result += getTypeDeclaration(mVar.Typ)+'> '+mVar.Name;
 
  if (mVar.isConst) Then
-  Result += ' = '+getValueFromExpression(self, @mVar.Value, True);
+  Result += ' = '+getValueFromExpression(self, mVar.Value, True);
 
  Result += ';';
 End;
@@ -2536,7 +2635,7 @@ Begin
    Begin
     Name       := 'null';
     Typ        := TypeInstance(TYPE_NULL);
-    Value      := MakeIntExpression(0)^;
+    Value      := MakeIntExpression(0);
     RegChar    := 'r';
     isConst    := True;
     Visibility := mvPrivate;
@@ -2784,7 +2883,7 @@ Begin
        if (Visibility <> mvPublic) or (GlobalList[Item].isInternal) Then
         Continue;
 
-       Str := 'const<'+getTypeDeclaration(Typ)+'> '+Name+' = '+getValueFromExpression(self, @Value, True)+';';
+       Str := 'const<'+getTypeDeclaration(Typ)+'> '+Name+' = '+getValueFromExpression(self, Value, True)+';';
       End;
 
      { function }
@@ -2813,7 +2912,7 @@ Begin
      Add(Str);
     End;
 
-    if (Name <> '') Then
+    if (Name <> 'self') Then
      Add('}');
    End;
   End;

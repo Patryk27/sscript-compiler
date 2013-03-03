@@ -22,6 +22,7 @@ Var Deep, I: Integer;
     ArgList: PVarRecArray;
     C      : TMConstruction;
 
+// NewArg
 Procedure NewArg;
 Const Size = 100;
 Var I: Integer;
@@ -76,8 +77,7 @@ Begin
     End;
 
     { opcode }
-    Name := StrAlloc(Length(Token.Display)+1);
-    StrPCopy(Name, Token.Display);
+    Name := CopyStringToPChar(Token.Display);
 
     eat(_BRACKET1_OP);
     New(ArgList);

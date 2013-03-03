@@ -26,12 +26,10 @@ Begin
   if (SimplifiedName) Then
    Exit('__function_'+NamespaceName+'_'+Name);
 
-  Result := '__function_'+NamespaceName+'_'+Name+'_'+ModuleName+'_'+TCompiler(Compiler).getTypeDeclaration(Return)+'_';
+  Result := '__function_'+NamespaceName+'_'+Name+'_'+ModuleName+'_'+Compiler.getBytecodeType(Return);
   For P in ParamList Do
-   Result += Compiler.getTypeDeclaration(P.Typ)+'_';
+   Result += Compiler.getBytecodeType(P.Typ)+'_';
  End;
-
- Result := StringReplace(Result, '[]', '_arraytype_', [rfReplaceAll]);
 End;
 
 (* Parse *)
@@ -277,8 +275,8 @@ Begin
 End;
 End;
 
-// NewCompilerConst
-Procedure NewCompilerConst(const Name: String; Typ: PMType; Value: TMExpression);
+// NewConst
+Procedure NewConst(const Name: String; Typ: PMType; Value: PMExpression);
 Var Variable: TMVariable;
 Begin
  With TCompiler(Compiler) do
@@ -332,6 +330,8 @@ Begin
  Func.LibraryFile   := '';
  Func.isDeclaration := False;
  Func.Visibility    := getVisibility;
+
+ Log('Parsing function: '+Func.Name);
 
  RedeclarationCheck(Func.Name); // check for redeclaration
 
@@ -401,9 +401,10 @@ Begin
 
  SetLength(Func.ConstructionList, 0); // there are no constructions in this compiled function so far
 
+ { add new function into the list }
  With getCurrentNamespacePnt^ do
  Begin
-  SetLength(GlobalList, Length(GlobalList)+1); // add new function into the list
+  SetLength(GlobalList, Length(GlobalList)+1);
   With GlobalList[High(GlobalList)] do
   Begin
    Typ       := gdFunction;
@@ -411,7 +412,7 @@ Begin
 
    mVariable.Name    := Func.Name;
    mVariable.Typ     := NewTypeFromFunction(Func);
-   mVariable.Value   := MakeIntExpression('@'+Func.MName)^;
+   mVariable.Value   := MakeIntExpression('@'+Func.MName);
    mVariable.RegChar := 'r';
    mVariable.RegID   := 1;
    mVariable.isConst := True;
@@ -432,6 +433,12 @@ Begin
   For I := Low(ParamList) To High(ParamList) Do
    __variable_create(ParamList[I].Name, ParamList[I].Typ, -I, True);
 
+ { add special constants (if `-Sconst` enabled) }
+ if (getBoolOption(opt_internal_const)) Then
+ Begin
+  NewConst('__self', TypeInstance(TYPE_STRING), MakeStringExpression(Func.Name));
+ End;
+
  { new label (function's beginning) }
  PutLabel(Func.MName);
 
@@ -439,7 +446,6 @@ Begin
  NewScope(sFunction);
 
  { parse function's code }
- Log('Parsing function: '+Func.Name);
  ParseCodeBlock;
  Log('Function parsed; compiling it...');
 
@@ -459,7 +465,7 @@ Begin
   PutOpcode(o_add, ['stp', AllocatedVars]);
  End;
 
- { if register is occupied by a variable, we need to at first save this register's value  }
+ { if register is occupied by a variable, we need to at first save this register's value (and restore it at the end of the function) }
  SavedRegs := 0;
  With getCurrentFunctionPnt^ do
  Begin

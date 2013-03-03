@@ -17,7 +17,7 @@ function<void> print(any text) naked
   On `stack[stp]` we have our `text` parameter (wich have unknown - for us - type); but its type doesn't actually matter.
   We use the `naked` directive to force compiler to not create the stack frame, so our function's code will be only what we'll write here.
   ..and here we have only an 'icall' opcode.
-  This instruction gets an argument from the stack and puts it directly onto the screen, so it's a perfect solution, because we have
+  This icall-call gets an argument from the stack and puts it directly onto the screen, so it's a perfect solution, because we have
   nothing to worry about, as the virtual machine will handle it ;)
  */
  :CODE icall("output.print")

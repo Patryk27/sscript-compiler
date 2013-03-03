@@ -60,6 +60,17 @@ Unit MTypes;
 
                 isStrict, isFunction: Boolean;
 
+                isUnspecialized: Boolean;
+                {
+                 Unspecialied types are those, who are only eg."a function".
+                 Not "a function returning `int` with parameters (...)" - just some function-type.
+                 Like:
+                 function<void> do_func(function func)
+                 {
+                  func();
+                 }
+                }
+
                 Visibility: TMVisibility;
 
                 mCompiler: Pointer;
@@ -127,7 +138,7 @@ Unit MTypes;
 
                     Name : String;
                     Typ  : PMType;
-                    Value: TMExpression;
+                    Value: PMExpression;
                     Deep : Integer;
 
                     isParam: Boolean;
@@ -252,15 +263,16 @@ Function getEmptyType: TMType;
 Begin
  With Result do
  Begin
-  Name          := '';
-  RegPrefix     := #0;
-  ArrayDimCount := 0;
-  ArrayBase     := nil;
-  InternalID    := 0;
-  FuncReturn    := nil;
-  isStrict      := False;
-  isFunction    := False;
-  Visibility    := mvPublic;
+  Name            := '';
+  RegPrefix       := #0;
+  ArrayDimCount   := 0;
+  ArrayBase       := nil;
+  InternalID      := 0;
+  FuncReturn      := nil;
+  isStrict        := False;
+  isFunction      := False;
+  Visibility      := mvPublic;
+  isUnspecialized := False;
 
   SetLength(FuncParams, 0);
  End;

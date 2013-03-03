@@ -33,7 +33,10 @@ Begin
  { make an array from that base type }
  While (Right^.Typ = mtArrayElement) Do
  Begin
-  TmpType := Parse(Right^.Right);
+  if (Right^.Left^.Right = nil) Then
+   TmpType := Parse(Right^.Left) Else
+   TmpType := Parse(Right^.Right);
+
   With Compiler do // array subscript must be an integer value
    if (not isTypeInt(TmpType)) Then
     Error(eInvalidArraySubscript, [getTypeDeclaration(BaseType), getTypeDeclaration(TmpType)]);

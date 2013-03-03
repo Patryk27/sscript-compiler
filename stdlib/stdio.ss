@@ -1,6 +1,5 @@
 @visibility("public")
 
-}
 namespace std
 {
  function<void> print(any) in "stdio.ssm";

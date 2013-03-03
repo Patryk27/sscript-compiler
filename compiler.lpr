@@ -202,11 +202,15 @@ Begin
 
       Writeln;
 
-      Writeln('Last function:');
-      With getCurrentFunction do
+      if (getCurrentFunctionPnt = nil) Then
+       Writeln('Last function: <none>') Else
       Begin
-       Writeln('  -> ', Name);
-       Writeln('  -> declared at line ', DeclToken.Line+1);
+       Writeln('Last function:');
+       With getCurrentFunction do
+       Begin
+        Writeln('  -> ', Name);
+        Writeln('  -> declared at line ', DeclToken.Line+1);
+       End;
       End;
      End;
     End Else

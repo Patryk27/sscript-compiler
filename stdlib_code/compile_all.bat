@@ -75,6 +75,10 @@ echo -] STDIO
 call :compile "stdio"
 
 echo.
+echo -] VM
+call :compile "vm"
+
+echo.
 echo -] other units
 call :compile "short_cast"
 

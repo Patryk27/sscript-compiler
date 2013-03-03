@@ -304,7 +304,7 @@ function<string> strreplace_ex(string text, string search, string replace, bool 
   var<int> pos = strpos(search, text);
   var<int> slen = strlen(search);
   
-  if (pos == 0) /* `search` not found */
+  if (pos == 0) // `search` not found
    return text;
    
   text = strdelete(text, pos, slen);
@@ -424,6 +424,36 @@ function<string> strimplode(string[] arr, string separator)
    result += arr[i]+separator;
 
  return result;
+}
+
+function<string> streach(string text, function<char>(char) func)
+{
+ var<int> len = strlen(text);
+
+ for (var<int> i=1; i<=len; i++)
+  text[i] = func(text[i]);
+
+ return text;
+}
+
+function<string> streach_index(string text, function<char>(char, int) func)
+{
+ var<int> len = strlen(text);
+
+ for (var<int> i=1; i<=len; i++)
+  text[i] = func(text[i], i);
+
+ return text;
+}
+
+function<string> streach_index_string(string text, function<char>(char, int, string) func)
+{
+ var<int> len = strlen(text);
+
+ for (var<int> i=1; i<=len; i++)
+  text[i] = func(text[i], i, text);
+
+ return text;
 }
 
 }

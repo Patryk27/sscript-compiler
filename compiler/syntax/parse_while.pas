@@ -21,8 +21,7 @@ With TCompiler(Compiler) do
 Begin
  eat(_BRACKET1_OP); // (
 
- Str := GetMem(128);
- StrPCopy(Str, getCurrentFunction.MName+'__while_'+IntToStr(SomeCounter)+'_');
+ Str := CopyStringToPChar(getCurrentFunction.MName+'__while_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 
@@ -60,8 +59,7 @@ Var Str         : PChar;
 Begin
 With TCompiler(Compiler) do
 Begin
- Str := GetMem(128);
- StrPCopy(Str, getCurrentFunction.MName+'__do_while_'+IntToStr(SomeCounter)+'_');
+ Str := CopyStringToPChar(getCurrentFunction.MName+'__do_while_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 

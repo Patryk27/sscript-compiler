@@ -4,15 +4,15 @@
     <PathDelim Value="\"/>
     <Version Value="9"/>
     <BuildModes Active="Default"/>
-    <Units Count="67">
+    <Units Count="91">
       <Unit0>
         <Filename Value="compiler.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="compiler"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="16"/>
-        <CursorPos X="52" Y="35"/>
+        <TopLine Value="190"/>
+        <CursorPos X="33" Y="195"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -28,10 +28,12 @@
       <Unit2>
         <Filename Value="CompilerUnit.pas"/>
         <UnitName Value="CompilerUnit"/>
+        <EditorIndex Value="12"/>
         <WindowIndex Value="0"/>
         <TopLine Value="55"/>
-        <CursorPos X="12" Y="55"/>
+        <CursorPos X="47" Y="52"/>
         <UsageCount Value="100"/>
+        <Loaded Value="True"/>
       </Unit2>
       <Unit3>
         <Filename Value="compile1\Compile1.pas"/>
@@ -39,7 +41,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="797"/>
         <CursorPos X="67" Y="821"/>
-        <UsageCount Value="99"/>
+        <UsageCount Value="98"/>
       </Unit3>
       <Unit4>
         <Filename Value="..\Scanner.pas"/>
@@ -47,15 +49,15 @@
         <WindowIndex Value="0"/>
         <TopLine Value="94"/>
         <CursorPos X="46" Y="114"/>
-        <UsageCount Value="59"/>
+        <UsageCount Value="58"/>
       </Unit4>
       <Unit5>
         <Filename Value="Compile2.pas"/>
         <UnitName Value="Compile2"/>
-        <EditorIndex Value="2"/>
+        <EditorIndex Value="6"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="238"/>
-        <CursorPos X="56" Y="287"/>
+        <TopLine Value="319"/>
+        <CursorPos X="26" Y="323"/>
         <UsageCount Value="101"/>
         <Loaded Value="True"/>
       </Unit5>
@@ -65,7 +67,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="206"/>
         <CursorPos X="24" Y="212"/>
-        <UsageCount Value="60"/>
+        <UsageCount Value="59"/>
       </Unit6>
       <Unit7>
         <Filename Value="..\Tokens.pas"/>
@@ -73,7 +75,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="179"/>
         <CursorPos X="7" Y="179"/>
-        <UsageCount Value="66"/>
+        <UsageCount Value="65"/>
       </Unit7>
       <Unit8>
         <Filename Value="compile1\messages.pas"/>
@@ -81,7 +83,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="40"/>
         <CursorPos X="36" Y="62"/>
-        <UsageCount Value="107"/>
+        <UsageCount Value="106"/>
       </Unit8>
       <Unit9>
         <Filename Value="compile1\mtypes.pas"/>
@@ -89,7 +91,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="354"/>
         <CursorPos X="2" Y="364"/>
-        <UsageCount Value="106"/>
+        <UsageCount Value="105"/>
       </Unit9>
       <Unit10>
         <Filename Value="compile1\syntax\parse_function.pas"/>
@@ -97,7 +99,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="15"/>
         <CursorPos X="42" Y="258"/>
-        <UsageCount Value="110"/>
+        <UsageCount Value="109"/>
       </Unit10>
       <Unit11>
         <Filename Value="compile1\syntax\parse_var.pas"/>
@@ -105,7 +107,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="23"/>
         <CursorPos X="25" Y="36"/>
-        <UsageCount Value="105"/>
+        <UsageCount Value="104"/>
       </Unit11>
       <Unit12>
         <Filename Value="compile1\syntax\parse_return.pas"/>
@@ -113,7 +115,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="6" Y="4"/>
-        <UsageCount Value="99"/>
+        <UsageCount Value="98"/>
       </Unit12>
       <Unit13>
         <Filename Value="compile1\syntax\parse_code.pas"/>
@@ -121,7 +123,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="45"/>
         <CursorPos X="9" Y="57"/>
-        <UsageCount Value="105"/>
+        <UsageCount Value="104"/>
       </Unit13>
       <Unit14>
         <Filename Value="compile1\syntax\parse_for.pas"/>
@@ -129,7 +131,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="11"/>
         <CursorPos X="34" Y="24"/>
-        <UsageCount Value="101"/>
+        <UsageCount Value="100"/>
       </Unit14>
       <Unit15>
         <Filename Value="compile1\syntax\parse_if.pas"/>
@@ -137,7 +139,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="12"/>
         <CursorPos X="34" Y="26"/>
-        <UsageCount Value="116"/>
+        <UsageCount Value="115"/>
       </Unit15>
       <Unit16>
         <Filename Value="compile1\syntax\parse_while.pas"/>
@@ -145,7 +147,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="51"/>
         <CursorPos X="34" Y="64"/>
-        <UsageCount Value="104"/>
+        <UsageCount Value="103"/>
       </Unit16>
       <Unit17>
         <Filename Value="compile1\syntax\parse_include.pas"/>
@@ -153,7 +155,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="78" Y="25"/>
-        <UsageCount Value="111"/>
+        <UsageCount Value="110"/>
       </Unit17>
       <Unit18>
         <Filename Value="compile1\ssm_parser.pas"/>
@@ -161,7 +163,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="307"/>
         <CursorPos X="51" Y="325"/>
-        <UsageCount Value="99"/>
+        <UsageCount Value="98"/>
       </Unit18>
       <Unit19>
         <Filename Value="compile1\peephole.pas"/>
@@ -169,7 +171,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="275"/>
         <CursorPos X="34" Y="291"/>
-        <UsageCount Value="99"/>
+        <UsageCount Value="98"/>
       </Unit19>
       <Unit20>
         <Filename Value="compile1\syntax\parse_const.pas"/>
@@ -177,33 +179,31 @@
         <WindowIndex Value="0"/>
         <TopLine Value="37"/>
         <CursorPos X="99" Y="51"/>
-        <UsageCount Value="113"/>
+        <UsageCount Value="112"/>
       </Unit20>
       <Unit21>
         <Filename Value="Tokens.pas"/>
         <UnitName Value="Tokens"/>
-        <EditorIndex Value="6"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="166"/>
-        <CursorPos X="12" Y="193"/>
+        <TopLine Value="43"/>
+        <CursorPos X="3" Y="43"/>
         <UsageCount Value="114"/>
-        <Loaded Value="True"/>
       </Unit21>
       <Unit22>
         <Filename Value="Opcodes.pas"/>
         <UnitName Value="Opcodes"/>
-        <EditorIndex Value="5"/>
+        <EditorIndex Value="7"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="249"/>
-        <CursorPos X="106" Y="260"/>
+        <TopLine Value="76"/>
+        <CursorPos X="19" Y="97"/>
         <UsageCount Value="101"/>
         <Loaded Value="True"/>
       </Unit22>
       <Unit23>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\inc\systemh.inc"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="608"/>
-        <CursorPos X="10" Y="620"/>
+        <TopLine Value="489"/>
+        <CursorPos X="3" Y="489"/>
         <UsageCount Value="10"/>
       </Unit23>
       <Unit24>
@@ -212,7 +212,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="6"/>
         <CursorPos X="79" Y="22"/>
-        <UsageCount Value="105"/>
+        <UsageCount Value="104"/>
       </Unit24>
       <Unit25>
         <Filename Value="compile1\expression\assign.pas"/>
@@ -220,7 +220,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="98"/>
         <CursorPos X="41" Y="113"/>
-        <UsageCount Value="103"/>
+        <UsageCount Value="102"/>
       </Unit25>
       <Unit26>
         <Filename Value="compile1\expression\pre_post_inc_dec.pas"/>
@@ -228,7 +228,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="61" Y="10"/>
-        <UsageCount Value="102"/>
+        <UsageCount Value="101"/>
       </Unit26>
       <Unit27>
         <Filename Value="compile1\expression\array_element.pas"/>
@@ -236,7 +236,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="25"/>
         <CursorPos X="19" Y="43"/>
-        <UsageCount Value="103"/>
+        <UsageCount Value="102"/>
       </Unit27>
       <Unit28>
         <Filename Value="compile1\expression\new.pas"/>
@@ -244,7 +244,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="15"/>
         <CursorPos X="15" Y="30"/>
-        <UsageCount Value="102"/>
+        <UsageCount Value="101"/>
       </Unit28>
       <Unit29>
         <Filename Value="compile1\expression\compile_simple.pas"/>
@@ -252,7 +252,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="94"/>
         <CursorPos X="38" Y="111"/>
-        <UsageCount Value="104"/>
+        <UsageCount Value="103"/>
       </Unit29>
       <Unit30>
         <Filename Value="compile1\expression\arithmetic_operator.pas"/>
@@ -260,7 +260,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="66"/>
         <CursorPos X="113" Y="90"/>
-        <UsageCount Value="102"/>
+        <UsageCount Value="101"/>
       </Unit30>
       <Unit31>
         <Filename Value="compile1\expression\variable_handling.pas"/>
@@ -268,7 +268,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="92"/>
         <CursorPos X="32" Y="107"/>
-        <UsageCount Value="103"/>
+        <UsageCount Value="102"/>
       </Unit31>
       <Unit32>
         <Filename Value="compile1\expression\call.pas"/>
@@ -276,7 +276,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="92"/>
         <CursorPos X="139" Y="116"/>
-        <UsageCount Value="101"/>
+        <UsageCount Value="100"/>
       </Unit32>
       <Unit33>
         <Filename Value="compile1\expression\constant_folding.pas"/>
@@ -284,15 +284,15 @@
         <WindowIndex Value="0"/>
         <TopLine Value="52"/>
         <CursorPos X="54" Y="71"/>
-        <UsageCount Value="101"/>
+        <UsageCount Value="100"/>
       </Unit33>
       <Unit34>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\inc\variants.pp"/>
         <UnitName Value="variants"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="85"/>
+        <TopLine Value="73"/>
         <CursorPos X="10" Y="85"/>
-        <UsageCount Value="4"/>
+        <UsageCount Value="10"/>
       </Unit34>
       <Unit35>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\typinfo.pp"/>
@@ -300,7 +300,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="359"/>
         <CursorPos X="10" Y="359"/>
-        <UsageCount Value="4"/>
+        <UsageCount Value="3"/>
       </Unit35>
       <Unit36>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\rtlconsts.pp"/>
@@ -308,14 +308,14 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
-        <UsageCount Value="4"/>
+        <UsageCount Value="3"/>
       </Unit36>
       <Unit37>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\rtlconst.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="360"/>
         <CursorPos X="76" Y="62"/>
-        <UsageCount Value="4"/>
+        <UsageCount Value="3"/>
       </Unit37>
       <Unit38>
         <Filename Value="Scanner.pas"/>
@@ -323,7 +323,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="132"/>
         <CursorPos X="65" Y="170"/>
-        <UsageCount Value="108"/>
+        <UsageCount Value="107"/>
       </Unit38>
       <Unit39>
         <Filename Value="compile1\syntax\parse_namespace.pas"/>
@@ -331,7 +331,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="39"/>
         <CursorPos X="38" Y="39"/>
-        <UsageCount Value="103"/>
+        <UsageCount Value="102"/>
       </Unit39>
       <Unit40>
         <Filename Value="compile1\syntax\parse_break_continue.pas"/>
@@ -339,7 +339,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="5" Y="39"/>
-        <UsageCount Value="17"/>
+        <UsageCount Value="16"/>
       </Unit40>
       <Unit41>
         <Filename Value="compile1\syntax\parse_macro.pas"/>
@@ -347,7 +347,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="18" Y="2"/>
-        <UsageCount Value="17"/>
+        <UsageCount Value="16"/>
       </Unit41>
       <Unit42>
         <Filename Value="compile1\syntax\parse_use.pas"/>
@@ -355,7 +355,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="24"/>
         <CursorPos X="46" Y="42"/>
-        <UsageCount Value="71"/>
+        <UsageCount Value="70"/>
       </Unit42>
       <Unit43>
         <Filename Value="compile1\expression\internal_functions\array_length.pas"/>
@@ -363,7 +363,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="27"/>
         <CursorPos X="35" Y="54"/>
-        <UsageCount Value="88"/>
+        <UsageCount Value="87"/>
       </Unit43>
       <Unit44>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\objpas.pp"/>
@@ -371,7 +371,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="28"/>
         <CursorPos X="8" Y="28"/>
-        <UsageCount Value="4"/>
+        <UsageCount Value="3"/>
       </Unit44>
       <Unit45>
         <Filename Value="compile1\expression\typecast.pas"/>
@@ -379,14 +379,14 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="6" Y="3"/>
-        <UsageCount Value="81"/>
+        <UsageCount Value="80"/>
       </Unit45>
       <Unit46>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\classes\classesh.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="813"/>
         <CursorPos X="14" Y="813"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="9"/>
       </Unit46>
       <Unit47>
         <Filename Value="compile1\syntax\parse_type.pas"/>
@@ -394,7 +394,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="40" Y="1"/>
-        <UsageCount Value="36"/>
+        <UsageCount Value="35"/>
       </Unit47>
       <Unit48>
         <Filename Value="compile1\expression\compare.pas"/>
@@ -402,7 +402,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="40" Y="18"/>
-        <UsageCount Value="35"/>
+        <UsageCount Value="34"/>
       </Unit48>
       <Unit49>
         <Filename Value="compile1\expression\logical_or.pas"/>
@@ -410,7 +410,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="51" Y="8"/>
-        <UsageCount Value="35"/>
+        <UsageCount Value="34"/>
       </Unit49>
       <Unit50>
         <Filename Value="compile1\expression\logical_and.pas"/>
@@ -418,7 +418,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="99" Y="8"/>
-        <UsageCount Value="35"/>
+        <UsageCount Value="34"/>
       </Unit50>
       <Unit51>
         <Filename Value="compile1\expression\bitwise_or.pas"/>
@@ -426,7 +426,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="106" Y="8"/>
-        <UsageCount Value="35"/>
+        <UsageCount Value="34"/>
       </Unit51>
       <Unit52>
         <Filename Value="compile1\expression\bitwise_and.pas"/>
@@ -434,7 +434,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="62" Y="7"/>
-        <UsageCount Value="35"/>
+        <UsageCount Value="34"/>
       </Unit52>
       <Unit53>
         <Filename Value="compile1\expression\xor.pas"/>
@@ -442,7 +442,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="106" Y="12"/>
-        <UsageCount Value="35"/>
+        <UsageCount Value="34"/>
       </Unit53>
       <Unit54>
         <Filename Value="compile1\expression\neg.pas"/>
@@ -450,7 +450,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="78" Y="9"/>
-        <UsageCount Value="33"/>
+        <UsageCount Value="32"/>
       </Unit54>
       <Unit55>
         <Filename Value="compile1\expression\logical_not.pas"/>
@@ -458,7 +458,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="35" Y="18"/>
-        <UsageCount Value="33"/>
+        <UsageCount Value="32"/>
       </Unit55>
       <Unit56>
         <Filename Value="compile1\expression\bitwise_not.pas"/>
@@ -466,14 +466,14 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="78" Y="9"/>
-        <UsageCount Value="33"/>
+        <UsageCount Value="32"/>
       </Unit56>
       <Unit57>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\inc\objpash.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="203"/>
         <CursorPos X="21" Y="218"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="9"/>
       </Unit57>
       <Unit58>
         <Filename Value="writer.pas"/>
@@ -481,27 +481,26 @@
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="8"/>
-        <UsageCount Value="9"/>
+        <UsageCount Value="8"/>
       </Unit58>
       <Unit59>
         <Filename Value="compiler\ssm_parser.pas"/>
         <UnitName Value="SSM_parser"/>
-        <IsVisibleTab Value="True"/>
-        <EditorIndex Value="3"/>
+        <EditorIndex Value="5"/>
         <WindowIndex Value="0"/>
         <TopLine Value="239"/>
-        <CursorPos X="9" Y="266"/>
-        <UsageCount Value="16"/>
+        <CursorPos X="51" Y="165"/>
+        <UsageCount Value="23"/>
         <Loaded Value="True"/>
       </Unit59>
       <Unit60>
         <Filename Value="stream.pas"/>
         <UnitName Value="Stream"/>
-        <EditorIndex Value="4"/>
+        <EditorIndex Value="23"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="65"/>
-        <CursorPos X="2" Y="82"/>
-        <UsageCount Value="16"/>
+        <TopLine Value="1"/>
+        <CursorPos X="88" Y="25"/>
+        <UsageCount Value="23"/>
         <Loaded Value="True"/>
       </Unit60>
       <Unit61>
@@ -510,16 +509,17 @@
         <WindowIndex Value="0"/>
         <TopLine Value="381"/>
         <CursorPos X="3" Y="383"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="9"/>
       </Unit61>
       <Unit62>
         <Filename Value="compiler\Compile1.pas"/>
         <UnitName Value="Compile1"/>
-        <EditorIndex Value="1"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="8"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="211"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="16"/>
+        <TopLine Value="2871"/>
+        <CursorPos X="64" Y="2886"/>
+        <UsageCount Value="23"/>
         <Loaded Value="True"/>
       </Unit62>
       <Unit63>
@@ -528,7 +528,7 @@
         <WindowIndex Value="0"/>
         <TopLine Value="25"/>
         <CursorPos X="33" Y="84"/>
-        <UsageCount Value="9"/>
+        <UsageCount Value="8"/>
       </Unit63>
       <Unit64>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\types.pp"/>
@@ -536,148 +536,365 @@
         <WindowIndex Value="0"/>
         <TopLine Value="263"/>
         <CursorPos X="14" Y="264"/>
-        <UsageCount Value="9"/>
+        <UsageCount Value="8"/>
       </Unit64>
       <Unit65>
         <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\inc\wstringh.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="21"/>
         <CursorPos X="11" Y="30"/>
-        <UsageCount Value="9"/>
+        <UsageCount Value="8"/>
       </Unit65>
       <Unit66>
         <Filename Value="input.ss"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="9"/>
         <DefaultSyntaxHighlighter Value="None"/>
       </Unit66>
+      <Unit67>
+        <Filename Value="compiler\mtypes.pas"/>
+        <UnitName Value="MTypes"/>
+        <EditorIndex Value="4"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="135"/>
+        <CursorPos X="89" Y="163"/>
+        <UsageCount Value="15"/>
+        <Loaded Value="True"/>
+      </Unit67>
+      <Unit68>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <UnitName Value="ExpressionCompiler"/>
+        <EditorIndex Value="13"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1213"/>
+        <CursorPos X="12" Y="1227"/>
+        <UsageCount Value="16"/>
+        <Loaded Value="True"/>
+      </Unit68>
+      <Unit69>
+        <Filename Value="compiler\expression\array_element.pas"/>
+        <UnitName Value="array_element"/>
+        <EditorIndex Value="16"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="4"/>
+        <CursorPos X="28" Y="7"/>
+        <UsageCount Value="16"/>
+        <Loaded Value="True"/>
+      </Unit69>
+      <Unit70>
+        <Filename Value="..\bytecode.ssb"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="1" Y="1"/>
+        <UsageCount Value="10"/>
+        <DefaultSyntaxHighlighter Value="None"/>
+      </Unit70>
+      <Unit71>
+        <Filename Value="compiler\expression\new.pas"/>
+        <UnitName Value="new"/>
+        <EditorIndex Value="15"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="16"/>
+        <CursorPos X="45" Y="35"/>
+        <UsageCount Value="15"/>
+        <Loaded Value="True"/>
+      </Unit71>
+      <Unit72>
+        <Filename Value="compiler\syntax\parse_function.pas"/>
+        <UnitName Value="Parse_FUNCTION"/>
+        <EditorIndex Value="3"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="320"/>
+        <CursorPos X="62" Y="323"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit72>
+      <Unit73>
+        <Filename Value="compiler\peephole.pas"/>
+        <UnitName Value="Peephole"/>
+        <EditorIndex Value="17"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="57"/>
+        <CursorPos X="28" Y="61"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit73>
+      <Unit74>
+        <Filename Value="compiler\expression\call.pas"/>
+        <UnitName Value="call"/>
+        <EditorIndex Value="14"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="13"/>
+        <CursorPos X="33" Y="29"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit74>
+      <Unit75>
+        <Filename Value="compiler\syntax\parse_include.pas"/>
+        <UnitName Value="Parse_include"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="121"/>
+        <CursorPos X="68" Y="136"/>
+        <UsageCount Value="13"/>
+        <Loaded Value="True"/>
+      </Unit75>
+      <Unit76>
+        <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\fgl.pp"/>
+        <UnitName Value="fgl"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="74"/>
+        <CursorPos X="14" Y="83"/>
+        <UsageCount Value="10"/>
+      </Unit76>
+      <Unit77>
+        <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\inc\mathh.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="67"/>
+        <CursorPos X="14" Y="80"/>
+        <UsageCount Value="10"/>
+      </Unit77>
+      <Unit78>
+        <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\sysutils\sysstrh.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="120"/>
+        <CursorPos X="10" Y="120"/>
+        <UsageCount Value="10"/>
+      </Unit78>
+      <Unit79>
+        <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\inc\varianth.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="143"/>
+        <CursorPos X="63" Y="157"/>
+        <UsageCount Value="10"/>
+      </Unit79>
+      <Unit80>
+        <Filename Value="compiler\syntax\parse_var.pas"/>
+        <UnitName Value="Parse_VAR"/>
+        <EditorIndex Value="22"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="25"/>
+        <CursorPos X="1" Y="92"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit80>
+      <Unit81>
+        <Filename Value="compiler\syntax\parse_while.pas"/>
+        <UnitName Value="Parse_WHILE"/>
+        <EditorIndex Value="18"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="48"/>
+        <CursorPos X="93" Y="62"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit81>
+      <Unit82>
+        <Filename Value="compiler\syntax\parse_namespace.pas"/>
+        <UnitName Value="Parse_NAMESPACE"/>
+        <EditorIndex Value="11"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="48"/>
+        <CursorPos X="1" Y="67"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit82>
+      <Unit83>
+        <Filename Value="compiler\syntax\parse_const.pas"/>
+        <UnitName Value="Parse_CONST"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="33"/>
+        <CursorPos X="32" Y="49"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit83>
+      <Unit84>
+        <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\inc\heaph.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="70"/>
+        <CursorPos X="46" Y="96"/>
+        <UsageCount Value="10"/>
+      </Unit84>
+      <Unit85>
+        <Filename Value="C:\lazarus\fpc\2.6.0\source\rtl\objpas\sysutils\syspchh.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="20"/>
+        <CursorPos X="10" Y="47"/>
+        <UsageCount Value="10"/>
+      </Unit85>
+      <Unit86>
+        <Filename Value="compiler\syntax\parse_if.pas"/>
+        <UnitName Value="Parse_IF"/>
+        <EditorIndex Value="20"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="8"/>
+        <CursorPos X="9" Y="25"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit86>
+      <Unit87>
+        <Filename Value="compiler\syntax\parse_for.pas"/>
+        <UnitName Value="Parse_FOR"/>
+        <EditorIndex Value="21"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="26" Y="23"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit87>
+      <Unit88>
+        <Filename Value="compiler\syntax\parse_break_continue.pas"/>
+        <UnitName Value="parse_break_continue"/>
+        <EditorIndex Value="9"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="7"/>
+        <CursorPos X="4" Y="32"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit88>
+      <Unit89>
+        <Filename Value="compiler\syntax\parse_code.pas"/>
+        <UnitName Value="Parse_CODE"/>
+        <EditorIndex Value="10"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="88"/>
+        <CursorPos X="10" Y="25"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit89>
+      <Unit90>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <UnitName Value="variable_handling"/>
+        <EditorIndex Value="19"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="28"/>
+        <CursorPos X="23" Y="53"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit90>
     </Units>
     <General>
       <ActiveWindowIndexAtStart Value="0"/>
     </General>
-    <JumpHistory Count="30" HistoryIndex="29">
+    <JumpHistory Count="29" HistoryIndex="28">
       <Position1>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="104" Column="11" TopLine="84"/>
+        <Filename Value="compiler\syntax\parse_while.pas"/>
+        <Caret Line="62" Column="93" TopLine="48"/>
       </Position1>
       <Position2>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="31" Column="53" TopLine="13"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="37" Column="43" TopLine="23"/>
       </Position2>
       <Position3>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="75" Column="42" TopLine="59"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="34" Column="66" TopLine="23"/>
       </Position3>
       <Position4>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="92" Column="43" TopLine="76"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="46" Column="89" TopLine="23"/>
       </Position4>
       <Position5>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="141" Column="35" TopLine="124"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="38" Column="1" TopLine="23"/>
       </Position5>
       <Position6>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="140" Column="14" TopLine="124"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="128" Column="1" TopLine="122"/>
       </Position6>
       <Position7>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="145" Column="29" TopLine="127"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="129" Column="1" TopLine="122"/>
       </Position7>
       <Position8>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="96" Column="32" TopLine="88"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="38" Column="1" TopLine="23"/>
       </Position8>
       <Position9>
-        <Filename Value="stream.pas"/>
-        <Caret Line="72" Column="21" TopLine="60"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="130" Column="30" TopLine="109"/>
       </Position9>
       <Position10>
-        <Filename Value="stream.pas"/>
-        <Caret Line="74" Column="24" TopLine="60"/>
+        <Filename Value="compiler\syntax\parse_code.pas"/>
+        <Caret Line="80" Column="5" TopLine="66"/>
       </Position10>
       <Position11>
-        <Filename Value="stream.pas"/>
-        <Caret Line="75" Column="31" TopLine="60"/>
+        <Filename Value="compiler\Compile1.pas"/>
+        <Caret Line="1248" Column="79" TopLine="1219"/>
       </Position11>
       <Position12>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="96" Column="19" TopLine="80"/>
+        <Filename Value="compiler\Compile1.pas"/>
+        <Caret Line="1232" Column="26" TopLine="1219"/>
       </Position12>
       <Position13>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="182" Column="5" TopLine="149"/>
+        <Filename Value="compiler\Compile1.pas"/>
+        <Caret Line="237" Column="20" TopLine="222"/>
       </Position13>
       <Position14>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="157" Column="6" TopLine="142"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="129" Column="30" TopLine="114"/>
       </Position14>
       <Position15>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="177" Column="6" TopLine="153"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="128" Column="6" TopLine="114"/>
       </Position15>
       <Position16>
-        <Filename Value="stream.pas"/>
-        <Caret Line="104" Column="32" TopLine="73"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="37" Column="51" TopLine="23"/>
       </Position16>
       <Position17>
-        <Filename Value="stream.pas"/>
-        <Caret Line="112" Column="21" TopLine="81"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="30" Column="34" TopLine="30"/>
       </Position17>
       <Position18>
-        <Filename Value="stream.pas"/>
-        <Caret Line="107" Column="21" TopLine="84"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="8" Column="61" TopLine="1"/>
       </Position18>
       <Position19>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="152" Column="19" TopLine="142"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="61" Column="22" TopLine="36"/>
       </Position19>
       <Position20>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="154" Column="45" TopLine="138"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="77" Column="49" TopLine="55"/>
       </Position20>
       <Position21>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="143" Column="9" TopLine="128"/>
+        <Filename Value="compiler\Compile1.pas"/>
+        <Caret Line="140" Column="138" TopLine="140"/>
       </Position21>
       <Position22>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="340" Column="18" TopLine="324"/>
+        <Caret Line="1873" Column="48" TopLine="1848"/>
       </Position22>
       <Position23>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="337" Column="19" TopLine="325"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="1081" Column="44" TopLine="1072"/>
       </Position23>
       <Position24>
-        <Filename Value="stream.pas"/>
-        <Caret Line="54" Column="13" TopLine="27"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="72" Column="11" TopLine="57"/>
       </Position24>
       <Position25>
-        <Filename Value="stream.pas"/>
-        <Caret Line="60" Column="29" TopLine="45"/>
+        <Filename Value="compiler\expressioncompiler.pas"/>
+        <Caret Line="126" Column="10" TopLine="111"/>
       </Position25>
       <Position26>
-        <Filename Value="stream.pas"/>
-        <Caret Line="76" Column="26" TopLine="53"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="107" Column="49" TopLine="82"/>
       </Position26>
       <Position27>
-        <Filename Value="stream.pas"/>
-        <Caret Line="36" Column="14" TopLine="12"/>
+        <Filename Value="compiler\expression\variable_handling.pas"/>
+        <Caret Line="38" Column="30" TopLine="23"/>
       </Position27>
       <Position28>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="42" Column="20" TopLine="76"/>
+        <Filename Value="compiler\Compile1.pas"/>
+        <Caret Line="2886" Column="64" TopLine="2862"/>
       </Position28>
       <Position29>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="189" Column="6" TopLine="232"/>
+        <Filename Value="compiler\Compile1.pas"/>
+        <Caret Line="1873" Column="19" TopLine="1858"/>
       </Position29>
-      <Position30>
-        <Filename Value="compiler\ssm_parser.pas"/>
-        <Caret Line="87" Column="35" TopLine="77"/>
-      </Position30>
     </JumpHistory>
   </ProjectSession>
   <Debugging>

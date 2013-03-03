@@ -66,7 +66,7 @@ Begin
   // search for strings in opcodes
   For I := 0 To OpcodeList.Count-1 Do
    With OpcodeList[I]^ do
-    if (not isComment) and (not isLabel) and (Length(Args) > 0) Then // if opcode with even 1 argument
+    if (not isComment) and (not isLabel) and (Length(Args) > 0) Then
      For Q := Low(Args) To High(Args) Do
       With Args[Q] do
       Begin
@@ -137,21 +137,21 @@ Begin
          if (isRegisterName(Str)) Then
          Begin
           Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register type
-          Value := IntToStr(getRegister(Str).ID);
+          Value := getRegister(Str).ID;
          End;
 
          { boolean truth }
          if (Str = 'true') or (Str = 'True') Then
          Begin
           Typ   := ptBool;
-          Value := '1';
+          Value := 1;
          End;
 
          { boolean false }
          if (Str = 'false') or (Str = 'False') Then
          Begin
           Typ   := ptBool;
-          Value := '0';
+          Value := 0;
          End;
         End;
 
@@ -226,6 +226,7 @@ Begin
          Begin
           Delete(Str, 1, 1); // remove `:`
           Int := getLabelID(Str);
+
           if (Int = -1) Then
           Begin
            if (Copy(Str, 1, 11) = '__function_') Then // function label not found
@@ -240,7 +241,7 @@ Begin
               With NamespaceList[Namespace].GlobalList[FuncID].mFunction do
                CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
             End;
-           End Else // just some "random" label not found
+           End Else // just some label not found
            Begin
            LabelNotFound:
             if (Token = nil) Then
@@ -248,9 +249,12 @@ Begin
              Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
            End;
 
-          Value := 0; // otherwise compiler could crash
-           End Else
-           Value := LabelList[Int].Position - Pos; // jump have to be relative against the current opcode
+           Value := 0;
+          End Else
+          Begin
+           TVarData(Value).vtype := vtInteger; // @TODO: I have no idea why, but without this line, program crashes :|
+           Value := LabelList[Int].Position-Pos; // jump have to be relative against the current opcode
+          End;
          End;
 
          { label absolute address }
@@ -264,6 +268,7 @@ Begin
            if (Token = nil) Then
             Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
             Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
+
            Value := 0;
           End Else
            Value := LabelList[Int].Position;
@@ -299,8 +304,6 @@ End;
 Procedure TCompiler.Parse;
 Var Opcode: PMOpcode;
     Arg   : TMOpcodeArg;
-    Str   : String;
-    Ch    : Char;
 Begin
  With BytecodeStream do
  Begin
@@ -326,16 +329,18 @@ Begin
     For Arg in Args Do
      With Arg do
      Begin
-      Str := VarToStr(Value);
-
-      write_byte(ord(Typ)); // param type
-      Case Typ of // param value
-       ptBoolReg..ptReferenceReg: write_byte(StrToInt(Str));
-       ptBool: write_byte(StrToInt(Str));
-       ptChar: write_byte(StrToInt(Str));
-       ptFloat: write_extended(StrToFloat(Str));
-       ptString: write_string(Str);
-       else write_integer(StrToInt(Str));
+      Try
+       write_byte(ord(Typ)); // param type
+       Case Typ of // param value
+        ptBoolReg..ptReferenceReg: write_byte(Value);
+        ptBool: write_byte(Value);
+        ptChar: write_byte(Value);
+        ptFloat: write_extended(Value);
+        ptString: write_string(Value);
+        else write_integer(Value);
+       End;
+      Except
+       self.Compiler.CompileError(eInternalError, ['Not a numeric value: `'+VarToStr(Value)+'`']);
       End;
      End;
    End;

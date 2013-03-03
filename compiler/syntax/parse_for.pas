@@ -20,8 +20,7 @@ With TCompiler(Compiler) do
 Begin
  eat(_BRACKET1_OP); // (
 
- Str := GetMem(128);
- StrPCopy(Str, getCurrentFunction.MName+'__for_'+IntToStr(SomeCounter)+'_');
+ Str := CopyStringToPChar(getCurrentFunction.MName+'__for_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 

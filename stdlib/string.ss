@@ -1,6 +1,5 @@
 @visibility("public")
 
-}
 namespace std
 {
  function<char> chupper(char) in "string.ssm";
@@ -43,4 +42,7 @@ namespace std
  function<string> boolstrb(bool, string, string) in "string.ssm";
  function<string[]> strexplode(string, char) in "string.ssm";
  function<string> strimplode(string[], string) in "string.ssm";
+ function<string> streach(string, function<char>(char)) in "string.ssm";
+ function<string> streach_index(string, function<char>(char, int)) in "string.ssm";
+ function<string> streach_index_string(string, function<char>(char, int, string)) in "string.ssm";
 }
