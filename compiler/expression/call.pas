@@ -5,9 +5,10 @@ Var IdentID, Namespace: Integer;
 
 { CastCall }
 Procedure CastCall;
-Var TypeID    : PMType;
-    Param     : Integer;
-    fParamList: TMParamList;
+Var TypeID       : PMType;
+    Param        : Integer;
+    fParamList   : TMParamList;
+    Unspecialized: Boolean;
 Begin
  TypeID := Parse(Left, 1, 'r');
  RePop(Left, TypeID, 1);
@@ -19,24 +20,30 @@ Begin
    Exit;
   End;
 
- fParamList := TypeID^.FuncParams;
- Result     := TypeID^.FuncReturn;
+ fParamList    := TypeID^.FuncParams;
+ Result        := TypeID^.FuncReturn;
+ Unspecialized := TypeID^.isUnspecialized;
 
- // check param count
- if (Length(Expr^.ParamList) <> Length(fParamList)) Then
+ if (not Unspecialized) Then
  Begin
-  Error(eWrongParamCount, ['anonymous cast-function', Length(fParamList), Length(Expr^.ParamList)]);
-  Exit;
- End;
+  // check param count
+  if (Length(Expr^.ParamList) <> Length(fParamList)) Then
+  Begin
+   Error(eWrongParamCount, ['anonymous cast-function', Length(fParamList), Length(Expr^.ParamList)]);
+   Exit;
+  End;
+ End Else
+  SetLength(fParamList, Length(Expr^.ParamList));
 
  // push parameters onto the stack
  For Param := Low(fParamList) To High(fParamList) Do
  Begin
   TypeID := Parse(Expr^.ParamList[Param]);
 
-  With Compiler do
-   if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
-    Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
+  if (not Unspecialized) Then
+   With Compiler do
+    if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
  End;
 
  Dec(PushedValues, Length(fParamList));
@@ -47,10 +54,11 @@ End;
 
 { LocalVarCall }
 Procedure LocalVarCall;
-Var TypeID    : PMType;
-    Param     : Integer;
-    Variable  : TRVariable;
-    fParamList: TMParamList;
+Var TypeID       : PMType;
+    Param        : Integer;
+    Variable     : TRVariable;
+    fParamList   : TMParamList;
+    Unspecialized: Boolean;
 Begin
  Variable := getVariable(Expr^.Left);
 
@@ -66,24 +74,30 @@ Begin
    Exit;
   End;
 
- fParamList := TypeID^.FuncParams;
- Result     := TypeID^.FuncReturn;
+ fParamList    := TypeID^.FuncParams;
+ Result        := TypeID^.FuncReturn;
+ Unspecialized := TypeID^.isUnspecialized;
 
- // check param count
- if (Length(Expr^.ParamList) <> Length(fParamList)) Then
+ if (not Unspecialized) Then
  Begin
-  Error(eWrongParamCount, [Variable.Name, Length(fParamList), Length(Expr^.ParamList)]);
-  Exit;
- End;
+  // check param count
+  if (Length(Expr^.ParamList) <> Length(fParamList)) Then
+  Begin
+   Error(eWrongParamCount, [Variable.Name, Length(fParamList), Length(Expr^.ParamList)]);
+   Exit;
+  End;
+ End Else
+  SetLength(fParamList, Length(Expr^.ParamList));
 
  // push parameters onto the stack
  For Param := Low(fParamList) To High(fParamList) Do
  Begin
   TypeID := Parse(Expr^.ParamList[Param]);
 
-  With Compiler do
-   if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
-    Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
+  if (not Unspecialized) Then
+   With Compiler do
+    if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
  End;
 
  Dec(PushedValues, Length(fParamList));

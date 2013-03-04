@@ -218,13 +218,28 @@ Begin
 
      if (oTmp.Opcode in [o_mov, o_pop]) and (isArgumentChanging(0)) Then
      Begin
-      CanBeRemoved := True;
+      if (oTmp.Opcode = o_mov) Then
+      {
+       Special case:
+        mov(ei1, 10)
+        mov(ei1, ei1)
+
+       Would be changed to:
+        mov(ei1, ei1)
+
+       And then this `mov` would be removed, so... yeah... we don't want this to happen.
+      }
+      Begin
+       if (oTmp.Args[0] <> oTmp.Args[1]) Then
+        CanBeRemoved := True;
+      End Else
+       CanBeRemoved := True;
       Break;
      End;
 
      if (oTmp.Opcode in [o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
         (isArgumentChanging(0)) Then
-         Break; // the register's value is changing somewhere by the way
+         Break; // the register's value is changed
 
      if (oTmp.Opcode = o_arset) Then // arset(out, in, in)
       if (isArgumentChanging(0)) Then
@@ -241,8 +256,11 @@ Begin
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
       Break;
 
-     if (oTmp.Opcode = o_arget) and (oTmp.Args[1].Typ = ptInt) Then
+     if (oTmp.Opcode in [o_arset, o_arget, o_arlen]) and (oTmp.Args[1].Typ = ptInt) Then
       PushFix -= oTmp.Args[1].Value;
+
+     if (oTmp.Opcode in [o_arcrt]) and (oTmp.Args[2].Typ = ptInt) Then
+      PushFix -= oTmp.Args[2].Value;
 
      { optimize }
      For I := Low(oTmp.Args) To High(oTmp.Args) Do

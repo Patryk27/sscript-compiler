@@ -652,7 +652,7 @@ Begin
 
    if (OperatorNew) Then
    Begin
-    StackPush(mtInt, 0, Token);
+    StackPush(mtNothing, null, Token);
     OperatorNew := False;
    End;
   End Else
@@ -922,7 +922,7 @@ Begin
   Value := FinalExpr[Pos];
 
   { constant value }
-  if (Value.Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]) Then
+  if (Value.Typ in [mtNothing, mtBool, mtChar, mtInt, mtFloat, mtString]) Then
   Begin
    StackPush(Value);
   End Else

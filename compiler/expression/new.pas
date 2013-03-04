@@ -33,7 +33,7 @@ Begin
  { make an array from that base type }
  While (Right^.Typ = mtArrayElement) Do
  Begin
-  if (Right^.Left^.Right = nil) Then
+  if (Right^.Left^.Right^.Typ { it's a bit abstract even for me :P } <> mtNothing) Then
    TmpType := Parse(Right^.Left) Else
    TmpType := Parse(Right^.Right);
 

@@ -807,7 +807,7 @@ Begin
   { unspecialized function }
    Typ.RegPrefix       := 'r';
    Typ.InternalID      := TYPE_INT_id;
-   Typ.FuncReturn      := TypeInstance(TYPE_VOID);
+   Typ.FuncReturn      := TypeInstance(TYPE_ANY);
    Typ.isFunction      := True;
    Typ.isUnspecialized := True;
   End;
@@ -1526,9 +1526,6 @@ Begin
  T1 := pT1^;
  T2 := pT2^;
 
-// if (T1.isUnspecialized) Then
-//  CompileError(eInternalError, ['Invalid type comparing: CompareTypes("'+getTypeDeclaration(pT2)+'", "'+getTypeDeclaration(pT1)+'")']);
-
  { strict types }
  if (T1.isStrict) or (T2.isStrict) Then
   Exit(T1 = T2);
@@ -1582,7 +1579,7 @@ Begin
  if (isTypeArray(pT1) and (not isTypeArray(pT2))) or
     (isTypeArray(pT2) and (not isTypeArray(pT1))) Then
  Begin
-  if (isTypeChar(pT2)) and (isTypeString(pT1)) Then // char to string => true
+  if (isTypeChar(pT1)) and (isTypeString(pT2)) Then // char to string => true
    Exit(True);
 
   Exit(False);
