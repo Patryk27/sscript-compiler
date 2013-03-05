@@ -1,4 +1,4 @@
-Procedure __constant_folding;
+Procedure __constant_folding(const ErrorOnInvalidOperator: Boolean);
 
 { isKnown }
 Function isKnown(Expr: PMExpression): Boolean;
@@ -13,6 +13,7 @@ End;
 Procedure Parse(Expr: PMExpression);
 Var Left, Right: PMExpression;
     Evaluated  : Boolean;
+    I          : Integer;
 Begin
  if (Expr = nil) Then // nothing to optimize
   Exit;
@@ -26,7 +27,10 @@ Begin
  Parse(Left);
  Parse(Right);
 
- // are values known?
+ For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
+  Parse(Expr^.ParamList[I]);
+
+ { binary operators }
  if (isKnown(Left) and isKnown(Right)) Then
  Begin
   if (Left^.Typ <> Right^.Typ) Then
@@ -73,19 +77,26 @@ Begin
    Dispose(Right);
 
    Expr^.Typ := Left^.Typ;
-  End;
+  End Else
+   if (ErrorOnInvalidOperator) Then
+    Compiler.CompileError(Expr^.Token, eUnsupportedOperator, [MExpressionDisplay[Left^.Typ], MExpressionDisplay[Expr^.Typ], MExpressionDisplay[Right^.Typ]]);
  End;
 
- // unary operators
- if (Expr^.Typ = mtNeg) Then
+ { unary operators }
+ if (isKnown(Left)) Then
  Begin
-  if (Left^.Typ in [mtInt, mtFloat]) Then
+  if (Expr^.Typ = mtNeg) Then
   Begin
-   Expr^.Left  := nil;
-   Expr^.Value := -Left^.Value;
-   Expr^.Typ   := Left^.Typ;
+   if (Left^.Typ in [mtInt, mtFloat]) Then
+   Begin
+    Expr^.Left  := nil;
+    Expr^.Value := -Left^.Value;
+    Expr^.Typ   := Left^.Typ;
 
-   Dispose(Left);
+    Dispose(Left);
+   End Else
+    if (ErrorOnInvalidOperator) Then
+     Compiler.CompileError(Expr^.Token, eUnsupportedUOperator, [MExpressionDisplay[Expr^.Typ], MExpressionDisplay[Left^.Typ]]);
   End;
  End;
 End;

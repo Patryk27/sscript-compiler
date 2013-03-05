@@ -14,20 +14,14 @@ Uses Compile1, ExpressionCompiler, Tokens, MTypes, Messages, Opcodes;
 { Parse }
 Procedure Parse(Compiler: Pointer);
 Var Variable: TMVariable;
-    VTyp    : PMType;
 Begin
 With TCompiler(Compiler) do
 Begin
- Variable.RegChar    := 'i';
  Variable.isConst    := True;
  Variable.isParam    := False;
  Variable.Deep       := 0;
  Variable.mCompiler  := Compiler;
  Variable.Visibility := getVisibility;
-
- eat(_LOWER); // <
- Variable.Typ := read_type; // [type]
- eat(_GREATER); // >
 
  While (true) Do
  Begin
@@ -38,17 +32,14 @@ Begin
 
   RedeclarationCheck(Variable.Name); // redeclaration of a constant
 
-  Variable.Value   := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], [oConstantFolding]).Values[0]); // [constant value]
-  Variable.RegChar := getTypePrefix(Variable.Typ);
+  Variable.Value          := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], [oInsertConstants, oConstantFolding, oDisplayParseErrors]).Values[0]); // [constant value]
+  Variable.Value^.VarName := Variable.Name;
 
   With Variable.Value^ do
   Begin
    if (isConstantValue(Variable.Value^)) Then  // is this a constant expression?
    Begin
-    VTyp := getTypeFromExpr(Variable.Value^);
-
-    if (not CompareTypes(Variable.Typ, VTyp)) Then // type check
-     CompileError(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(VTyp), getTypeDeclaration(Variable.Typ)]);
+    Variable.Typ := getTypeFromExpr(Variable.Value^);
    End Else // if it's not - show error
     CompileError(eExpectedConstant, []);
   End;

@@ -5,10 +5,11 @@ Unit Messages;
  { errors }
  Type TCompileError =
  (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedType, eNotAllowed,
-  eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
+  eRedeclaration, eLValueRequired, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousCall, eAmbiguousVariable, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
+  eNotAConstant,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
@@ -28,7 +29,7 @@ Unit Messages;
   'Syntax error: expected type but `%s` found',
   'Syntax error: `%s` not allowed here',
   'Redeclaration of identifier: `%s`',
-  'Expected l-value but `%s` found',
+  'lvalue required',
   'Unknown type: `%s`',
   'Unknown variable: `%s`',
   'Unknown function: `%s`',
@@ -60,6 +61,7 @@ Unit Messages;
   'Identifier `%s` is ambiguous in current namespace',
   'Parameter declared as void',
   'No valid `main` function found',
+  'Not a constant-var: `%s`',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

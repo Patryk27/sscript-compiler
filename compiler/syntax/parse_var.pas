@@ -41,8 +41,7 @@ Begin
   Begin
    With Variable do
    Begin
-    RegChar := getTypePrefix(Typ);
-    RegID   := findFreeRegister(RegChar); // find free register for our variable
+    RegID := findFreeRegister(getTypePrefix(Typ)); // find free register for our variable
 
     if (RegID = -1) Then // no free register found...
      goto AllocateOntoTheStack; // ... so allocate variable on the stack
@@ -50,8 +49,6 @@ Begin
   End Else
   Begin
   AllocateOntoTheStack:
-
-   Variable.RegChar := getTypePrefix(Variable.Typ);
 
    { find a stack position, where we can allocate this variable }
    Pos := 0;

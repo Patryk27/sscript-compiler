@@ -1769,7 +1769,7 @@ Begin
  Begin
   For I := Low(VariableList) To High(VariableList) Do
    With VariableList[I] do
-    if (Deep <= CurrentDeep) and (RegChar = cRegChar) and (RegID > 0) Then // if register is already allocated, we exclude it from the `FreeRegs` list
+    if (Deep <= CurrentDeep) and (getTypePrefix(Typ) = cRegChar) and (RegID > 0) Then // if register is already allocated, we exclude it from the `FreeRegs` list
      Exclude(FreeRegs, RegID);
 
   For I in FreeRegs Do // return first free register
@@ -1824,7 +1824,7 @@ End;
 }
 Function TCompiler.getVariableRegChar(ID: Integer): Char;
 Begin
- Result := getCurrentFunction.VariableList[ID].RegChar;
+ Result := getTypePrefix(getCurrentFunction.VariableList[ID].Typ);
 End;
 
 (* TCompiler.getVariableValue *)
@@ -1895,7 +1895,6 @@ Begin
    Name    := fName;
    Typ     := fTyp;
    RegID   := fRegID;
-   RegChar := getTypePrefix(Typ);
    isParam := fIsParam;
    isConst := False;
   End;
@@ -2633,7 +2632,6 @@ Begin
     Name       := 'null';
     Typ        := TypeInstance(TYPE_NULL);
     Value      := MakeIntExpression(0);
-    RegChar    := 'r';
     isConst    := True;
     Visibility := mvPrivate;
    End;
@@ -2880,7 +2878,7 @@ Begin
        if (Visibility <> mvPublic) or (GlobalList[Item].isInternal) Then
         Continue;
 
-       Str := 'const<'+getTypeDeclaration(Typ)+'> '+Name+' = '+getValueFromExpression(self, Value, True)+';';
+       Str := 'const '+Name+' = '+getValueFromExpression(self, Value, True)+';';
       End;
 
      { function }

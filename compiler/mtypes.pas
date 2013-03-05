@@ -88,7 +88,7 @@ Unit MTypes;
 
  Const MExpressionDisplay: Array[TMExpressionType] of String =
  ('<nothing>', '<variable>', '<function call>', '<type cast>', '<tree>', '(', ')', '[', ']', '[]',
-  '<bool value>', '<char value>', '<int value>', '<float value>', '<string value>',
+  'bool', 'char', 'int', 'float', 'string',
   '+', '-', '*', '/', '%', '=', '+=', '-=', '*=', '/=', '%=',
   '<', '>', '==', '<=', '>=', '!=',
   '&&', '||', '&', '|', '^', '<<', '>>', '<<=', '>>=',
@@ -98,7 +98,7 @@ Unit MTypes;
  Type TMExprSet = Set of TMExpressionType;
 
  Const MBinaryOperators: TMExprSet  = [mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq];
- Const MUnaryOperators: TMExprSet   = [mtNeg, mtLogicalNOT, mtBitwiseNOT, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
+ Const MUnaryOperators: TMExprSet   = [mtNeg, mtLogicalNot, mtBitwiseNot, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
  Const MCompareOperators: TMExprSet = [mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent];
  Const MOperators: TMExprSet        = [mtArrayElement, mtNew, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
 
@@ -107,10 +107,11 @@ Unit MTypes;
                       Left, Right: PMExpression;
 
                       Typ      : TMExpressionType;
+                      VarName  : String;
                       Value    : Variant;
                       Token    : TToken_P;
                       Deep     : Integer;
-                      ParamList: Array of PMExpression; // for mtFunction
+                      ParamList: Array of PMExpression; // for mtFunctionCall
 
                       ResultOnStack: Boolean;
 
@@ -133,8 +134,7 @@ Unit MTypes;
  // TMVariable
  Type PMVariable = ^TMVariable;
       TMVariable = Record
-                    RegID  : Integer; // negative values and zero for stack position, positive values for register ID (1..4)
-                    RegChar: Char;
+                    RegID: Integer; // negative values and zero for stack position, positive values for register ID (1..4)
 
                     Name : String;
                     Typ  : PMType;

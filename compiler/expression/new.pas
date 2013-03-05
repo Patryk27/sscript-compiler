@@ -33,9 +33,9 @@ Begin
  { make an array from that base type }
  While (Right^.Typ = mtArrayElement) Do
  Begin
-  if (Right^.Left^.Right^.Typ { it's a bit abstract even for me :P } <> mtNothing) Then
-   TmpType := Parse(Right^.Left) Else
-   TmpType := Parse(Right^.Right);
+  if (Right^.Left^.Typ = mtNothing) Then
+   TmpType := Parse(Right^.Right) Else
+   TmpType := Parse(Right^.Left);
 
   With Compiler do // array subscript must be an integer value
    if (not isTypeInt(TmpType)) Then

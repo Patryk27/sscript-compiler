@@ -187,6 +187,8 @@ Begin
    // @TODO: mul(register, 0) -> mov(register, 0)
 
    {
+    Copy propagation
+
     mov(register, value)
     (...)
     opcode(some value or reg, register)

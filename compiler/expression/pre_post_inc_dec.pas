@@ -14,7 +14,7 @@ Begin
  // left side have to be a l-value
  if (not isLValue(Left)) Then
  Begin
-  Error(eLValueExpected, [getDisplay(Left)]);
+  Error(Left^.Token, eLValueRequired, []);
   Exit;
  End;
 

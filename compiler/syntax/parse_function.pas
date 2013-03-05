@@ -285,7 +285,6 @@ Begin
   Variable.Deep      := 0;
   Variable.Typ       := Typ;
   Variable.RegID     := 0;
-  Variable.RegChar   := getTypePrefix(Typ);
   Variable.Value     := Value;
   Variable.isConst   := True;
   Variable.mCompiler := Compiler;
@@ -413,7 +412,6 @@ Begin
    mVariable.Name    := Func.Name;
    mVariable.Typ     := NewTypeFromFunction(Func);
    mVariable.Value   := MakeIntExpression('@'+Func.MName);
-   mVariable.RegChar := 'r';
    mVariable.RegID   := 1;
    mVariable.isConst := True;
   End;
@@ -473,7 +471,7 @@ Begin
    With VariableList[I] do
     if (RegID > 0) and (not isConst) Then
     Begin
-     PutOpcode(o_push, ['e'+RegChar+IntToStr(RegID)]);
+     PutOpcode(o_push, ['e'+getTypePrefix(Typ)+IntToStr(RegID)]);
      Inc(SavedRegs);
     End;
 
@@ -507,7 +505,7 @@ Begin
   For I := High(VariableList) Downto Low(VariableList) Do
    With VariableList[I] do
     if (RegID > 0) and (not isConst) Then
-     PutOpcode(o_pop, ['e'+RegChar+IntToStr(RegID)]);
+     PutOpcode(o_pop, ['e'+getTypePrefix(Typ)+IntToStr(RegID)]);
  End;
 
  if (not Func.isNaked) Then

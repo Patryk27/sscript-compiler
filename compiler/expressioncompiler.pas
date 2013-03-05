@@ -20,7 +20,7 @@ Unit ExpressionCompiler;
 
        _UNARY_MINUS = #01;
 
- Type TOptions = Set of (oGetFromCommandLine, oConstantFolding);
+ Type TOptions = Set of (oGetFromCommandLine, oInsertConstants, oConstantFolding, oDisplayParseErrors);
 
  { TStackValue }
  Type TStackValue = Record // value on the stack
@@ -29,7 +29,7 @@ Unit ExpressionCompiler;
                      Token: TToken_P;
                      Deep : Integer;
 
-                     ParamCount : Integer; // if `Typ == stFunction`, there's hold read param count
+                     ParamCount : Integer; // if `Typ == stFunction`, here's hold read parameters count
                      NamespaceID: Integer; // function calls, variables and constants only
                     End;
 
@@ -758,7 +758,7 @@ Begin
      read;
      StackPush(mtSHREq, Token);
     End Else
-     StackPush(mtSHL, Token);
+     StackPush(mtSHR, Token);
 
     _NEW: // `new`
     Begin
@@ -890,7 +890,8 @@ Begin
  { variable or constant }
  if (Value.Typ = mtVariable) Then
  Begin
-  ID := Compiler.findLocalVariable(Result^.Value); // local things at first
+  Result^.VarName := VarToStr(Result^.Value);
+  ID              := Compiler.findLocalVariable(Result^.Value); // local things at first
 
   if (ID = -1) Then // not a local variable
   Begin
@@ -1028,10 +1029,14 @@ End;
 Function TInterpreter.Optimize(const Tree: PMExpression; Options: TOptions): PMExpression;
 
 {$I constant_folding.pas}
+{$I insert_constants.pas}
 
 Begin
+ if (oInsertConstants in Options) Then
+  __insert_constants(oDisplayParseErrors in Options);
+
  if (oConstantFolding in Options) Then
-  __constant_folding;
+  __constant_folding(oDisplayParseErrors in Options);
 
  Exit(Tree);
 End;
@@ -1048,7 +1053,7 @@ Begin
  if (oGetFromCommandLine in Options) Then
  Begin
   if (Compiler.getBoolOption(opt__constant_folding)) Then
-   Include(Options, oConstantFolding);
+   Options += [oInsertConstants, oConstantFolding];
  End;
 
  Interpreter.Parse(EndTokens);
@@ -1067,6 +1072,10 @@ Function getDisplay(Expr: PMExpression): String;
 Begin
  if (Expr^.Value = null) Then
   Result := MExpressionDisplay[Expr^.Typ] Else
+
+ if (Expr^.VarName <> '') Then
+  Result := Expr^.VarName Else
+
   Result := Expr^.Value;
 End;
 
@@ -1147,10 +1156,7 @@ Begin
   Inc(Result.getArray);
  End;
 
- if (Expr^.Value = null) Then
-  Error(eInternalError, ['Expr^.Value = null']);
-
- Result.Name := Expr^.Value;
+ Result.Name := Expr^.VarName;
  Result.ID   := Expr^.IdentID;
 
  if (Result.ID = -1) Then // variable or constant not found
@@ -1177,8 +1183,8 @@ Begin
   With Compiler.NamespaceList[Expr^.IdentNamespace].GlobalList[Result.ID], Result do
   Begin
    RegID   := mVariable.RegID;
-   RegChar := mVariable.RegChar;
    Typ     := mVariable.Typ;
+   RegChar := Compiler.getTypePrefix(Typ);
    Value   := mVariable.Value;
    isConst := mVariable.isConst;
   End;
@@ -1192,7 +1198,7 @@ Failed:
  End;
 
  if (Result.isConst) and (not AllowConstants) Then
-  Error(eLValueExpected, [Expr^.Value]);
+  Error(Expr^.Token, eLValueRequired, []);
 End;
 
 { getType }

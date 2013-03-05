@@ -114,7 +114,7 @@ Begin
        With getCurrentFunction.VariableList[I] do
         if (RegID <= 0) Then
          Token.Display := '['+IntToStr(RegID)+']' Else
-         Token.Display := 'e'+RegChar+IntToStr(RegID);
+         Token.Display := 'e'+getTypePrefix(Typ)+IntToStr(RegID);
      End;
 
      if (Token.Token = _AMPERSAND) Then // &

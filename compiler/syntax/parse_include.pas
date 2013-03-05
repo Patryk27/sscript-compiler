@@ -134,7 +134,6 @@ Begin
         mVariable.Name    := mFunction.Name;
         mVariable.Typ     := NewTypeFromFunction(mFunction);
         mVariable.Value   := MakeIntExpression('@'+mFunction.MName);
-        mVariable.RegChar := 'r';
         mVariable.RegID   := 1;
         mVariable.isConst := True;
        End;

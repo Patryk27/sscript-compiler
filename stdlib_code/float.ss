@@ -3,7 +3,7 @@
 namespace std
 {
 
-const<float> EPSILON = 0.00001;
+const EPSILON = 0.00001;
 
 function<float> fabs(float f)
 {

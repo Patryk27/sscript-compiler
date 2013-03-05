@@ -10,11 +10,11 @@ All tutorials are - as for now - written only in Polish: http://sscriptwiki.xorg
 ### Downloading
 There are 2 branches:
 
--master (this is the "live" version of code - it's untested and most likely unstable; use only if you know what are you doing)
+-master (this is the "live" version of code - it's untested and most likely unstable; use only if you know what you are doing)
 
 -stable (this is the latest stable and tested version of code; also - it has compiled binaries)
 
-Ready-to-use, stable builds are downloadable in `/build` in `stable` branch.
+Ready-to-use, stable builds are always downloadable in `/build` in `stable` branch.
 
 ### Contributing
 You want to contribute? It's great :)

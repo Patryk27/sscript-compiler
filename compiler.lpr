@@ -143,7 +143,7 @@ Begin
    Writeln('Usage:');
    Writeln('compiler.exe [input file] <options>');
    Writeln;
-   Writeln('See `command-line.txt` for more informations.');
+   Writeln('See `command-line.txt` for more information.');
   End Else
   Begin
    Input  := ExpandFileName(ParamStr(1));
@@ -152,7 +152,7 @@ Begin
    if (_logo_only) Then
     verbose_mode := True;
 
-   Log('SScript Compiler, version '+Version+' ['+{$I %DATE%}+']');
+   Log('SScript Compiler '+Version+' [compiled '+{$I %DATE%}+']');
    Log('by Patryk Wychowaniec');
 
    {$IFDEF NIGHTLY}
@@ -169,7 +169,7 @@ Begin
     raise Exception.Create('Input file does not exist.'); // error: input file not found
 
    if (Input = Output) Then
-    raise Exception.Create('Input file is the same as output file.'); // error: input is output
+    raise Exception.Create('Input file is the same as output file.'); // error: input file is the same as the output's
 
    CompileCode(Input, Output, Options);
   End;
@@ -177,8 +177,8 @@ Begin
   On E: Exception Do
    if (E.Message <> '') Then
    Begin
-    Writeln('Exception raised:');
-    Writeln(E.Message);
+    Writeln;
+    Writeln(E.ClassName, ' -> ', E.Message);
     Writeln;
     Writeln('Callstack:');
     Writeln(BackTraceStrFunc(ExceptAddr));
@@ -214,7 +214,7 @@ Begin
       End;
      End;
     End Else
-     Writeln('No additional compilation info available.');
+     Writeln('No more compilation info available.');
    End;
  End;
 
