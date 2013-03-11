@@ -52,14 +52,14 @@ Begin
 End;
 
 { LocalVarCall }
-Function LocalVarCall(const DisplayVarNotFound: Boolean=False): PMType;
+Function LocalVarCall: PMType;
 Var TypeID       : PMType;
     Param        : Integer;
     Variable     : TRVariable;
     fParamList   : TMParamList;
     Unspecialized: Boolean;
 Begin
- Variable := getVariable(Left, DisplayVarNotFound);
+ Variable := getVariable(Left);
 
  if (Variable.ID = -1) Then
   Exit;

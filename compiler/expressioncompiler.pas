@@ -552,7 +552,7 @@ Begin
    End;
   End Else
 
-  { function call }
+  { function or method call }
   if (next_t(-2) in [_IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) and (Token.Token = _BRACKET1_OP) Then
   Begin
    Inc(Bracket);
@@ -562,10 +562,9 @@ Begin
 
    if (next_t(-3) = _POINT) Then
    Begin
-    { method call }
-    StackPush(mtMethodCall, Token.Display, Token);
+    StackPush(mtMethodCall, Token.Display, Token); // method call
    End Else
-    StackPush(mtFunctionCall, Token.Display, Token); { function call}
+    StackPush(mtFunctionCall, Token.Display, Token); // function call
 
    Stack[StackPos-1].ParamCount := ReadParamCount;
 
@@ -628,7 +627,7 @@ Begin
    if (Bracket < 0) Then
     Compiler.CompileError(next, eUnexpected, [')']);
 
-   if (next_t(-2) = _BRACKET1_OP) Then // construction `() is valid only when calling a function or a method
+   if (next_t(-2) = _BRACKET1_OP) Then // construction `()` is valid only when calling a function or a method
    Begin
     if not (Stack[StackPos-2].Typ in [mtFunctionCall, mtMethodCall]) Then
      Compiler.CompileError(eExpectedValue, [')']);
