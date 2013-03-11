@@ -14,8 +14,10 @@ function<float> sqrt(float value) naked
 {
  :CODE
  {
+  sub(stp, 1)
   icall("math.sqrt")
   pop(ef1)
+  add(stp, 2)
  }
 }
 
@@ -23,8 +25,10 @@ function<float> sin(float value) naked
 {
  :CODE
  {
+  sub(stp, 1)
   icall("math.sin")
   pop(ef1)
+  add(stp, 2)
  }
 }
 
@@ -32,8 +36,10 @@ function<float> cos(float value) naked
 {
  :CODE
  {
+  sub(stp, 1)
   icall("math.cos")
   pop(ef1)
+  add(stp, 2)
  }
 }
 
@@ -41,8 +47,10 @@ function<float> log(float n, float x) naked
 {
  :CODE
  {
+  sub(stp, 1)
   icall("math.log")
   pop(ef1)
+  add(stp, 2)
  }
 }
 
@@ -50,8 +58,10 @@ function<float> ln(float x) naked
 {
  :CODE
  {
+  sub(stp, 1)
   icall("math.ln")
   pop(ef1)
+  add(stp, 2)
  }
 }
 
@@ -59,8 +69,10 @@ function<float> exp(float value) naked
 {
  :CODE
  {
+  sub(stp, 1)
   icall("math.exp")
   pop(ef1)
+  add(stp, 2)
  }
 }
 
@@ -123,15 +135,21 @@ function<bool> is_even(int n)
 
 function<int> round(float f) naked
 {
- :CODE pop(ei1)
+ :CODE
+ {
+  sub(stp, 1)
+  pop(ei1)
+  add(stp, 2)
+ }
 }
 
 function<float> fround(float f) naked
 {
  :CODE
  {
-  pop(ei1)
+  mov(ei1, [-1])
   mov(ef1, ei1)
+  add(stp, 2)
  }
 }
 
@@ -139,7 +157,7 @@ function<int> round_up(float f) naked
 {
  :CODE
  {
-  pop(ef1)
+  mov(ef1, [-1])
   add(ef1, 0.5)
   mov(ei1, ef1)
  }
@@ -149,7 +167,7 @@ function<int> round_down(float f) naked
 {
  :CODE
  {
-  pop(ef1)
+  mov(ef1, [-1])
   sub(ef1, 0.5)
   mov(ei1, ef1)
  }

@@ -5,6 +5,7 @@
 
 @("string.ss")
 @("math.ss")
+@("vm.ss")
 @visibility("public")
 
 namespace std
@@ -12,8 +13,8 @@ namespace std
 
 function<string> intsys(int num, int base)
 {
- if ((base < 2) || (base > 35)) // invalid numeric base
-  return "";
+ if ((base < 2) || (base > 35))
+  throwError("Invalid numeric base: "+intsys(base, 10));
 
  var<string> result="";
  var<bool> neg = (num<0);
@@ -40,8 +41,8 @@ function<string> intsys(int num, int base)
 
 function<int> sysint(string num, int base)
 {
- if ((base < 2) || (base > 35)) // invalid numeric base
-  return 0;
+ if ((base < 2) || (base > 35))
+  throwError("Invalid numeric base: "+intsys(base, 10));
 
  var<int> result=0, tmp=0;
  var<bool> neg = (num[1] == '-');
@@ -64,7 +65,7 @@ function<int> sysint(string num, int base)
    tmp = ch-'0';
 
   if (tmp > base) // invalid number
-   return 0;
+   throwError("Error converting number `"+num+"` to base "+intsys(base, 10));
    
   result += tmp*ipower(base, len-i);
  }
@@ -77,7 +78,7 @@ function<int> sysint(string num, int base)
 function<int> intlen(int n)
 {
  n = iabs(n);
- if (n == 0) // log10(0) is -inf
+ if (n == 0) // special case: log10(0) is -inf
   return 0;
  return round_up(log10(n));
 }

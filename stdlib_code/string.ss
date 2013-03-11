@@ -57,8 +57,10 @@ function<int> strlen(string str) naked
 {
  :CODE
  {
+  sub(stp, 1)
   icall("string.length")
   pop(ei1)
+  add(stp, 2)
  }
 }
 
@@ -416,7 +418,7 @@ function<string[]> strexplode(string text, char sep)
 function<string> strimplode(string[] arr, string separator)
 {
  var<string> result = "";
- var<int> arlen = array_length(arr);
+ var<int> arlen = arr.length();
 
  for (var<int> i=0; i<arlen; i++)
   if (i == arlen-1)

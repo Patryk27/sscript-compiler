@@ -4,14 +4,12 @@
 *)
 
 { ... and now the fun begins ;) }
-
-{.$DEFINE DISPLAY_FINALEXPR} // debugging only
-{.$DEFINE DISPLAY_TREE}      // see above
+{.$DEFINE DISPLAY_TREE}
 
 Unit ExpressionCompiler;
 
  Interface
- Uses Compile1, MTypes, Variants, Tokens;
+ Uses Compile1, MTypes, Tokens, Variants, TypInfo;
 
  Const STACK_SIZE = 5000; // internal compiler stack size (in elements)
 
@@ -20,7 +18,8 @@ Unit ExpressionCompiler;
 
        _UNARY_MINUS = #01;
 
- Type TOptions = Set of (oGetFromCommandLine, oInsertConstants, oConstantFolding, oDisplayParseErrors);
+ Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oDisplayParseErrors);
+      TOptions = Set of TOption;
 
  { TStackValue }
  Type TStackValue = Record // value on the stack
@@ -144,54 +143,44 @@ Begin
  Exit(Value);
 End;
 
-{$IFDEF DISPLAY_TREE}
 { DisplayTree }
 Procedure DisplayTree(Tree: PMExpression; Deep: Byte=0);
 
-Procedure Align;
-Var I: Integer;
-Begin
- if (Deep = 0) Then
-  Exit;
- For I := 0 To Deep-1 Do
-  Write('-');
- Write('> ');
-End;
+  // Writeln
+  Procedure Writeln(const Text: String);
+  Var I: Integer;
+  Begin
+   For I := 0 To Deep-1 Do
+    Write('-');
+   System.Writeln('> ', Text);
+  End;
 
 Var I: Integer;
 Begin
- Align;
-
  if (Tree = nil) Then
  Begin
   Writeln('nil');
   Exit;
  End;
 
- Write('Typ = ', Tree^.Typ, ' | ');
  if (Tree^.Value = null) Then
-  Writeln('Value = [null]') Else
-  Writeln('Value = ', Tree^.Value);
+  Writeln('Type = '+MExpressionDisplay[Tree^.Typ]+' | Value = [null]') Else
+  Writeln('Type = '+MExpressionDisplay[Tree^.Typ]+' | Value = '+VarToStr(Tree^.Value));
 
- Align;
  Writeln('^L:');
  DisplayTree(Tree^.Left, Deep+5);
 
- Align;
  Writeln('^R:');
  DisplayTree(Tree^.Right, Deep+5);
 
- Align;
  Writeln('^P:');
  For I := Low(Tree^.ParamList) To High(Tree^.ParamList) Do
  Begin
-  Align;
-  Writeln('[',I,']:');
+  Writeln('arg ['+IntToStr(I)+']:');
   DisplayTree(Tree^.ParamList[I], Deep+5);
-  Writeln;
+  Writeln('');
  End;
 End;
-{$ENDIF}
 
 { getOrder }
 Function getOrder(E: String): Integer;
@@ -336,6 +325,7 @@ End;
 
 { TInterpreter.CreateNode }
 Function TInterpreter.CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; Deep: Integer; NamespaceID: Integer=-1): PMExpression;
+Var I: Integer;
 Begin
  New(Result);
 
@@ -357,6 +347,15 @@ Begin
  Result^.isLocal        := False;
 
  Result^.ResultOnStack := False;
+
+ Result^.InTryCatch := False;
+ With Compiler do
+  For I := Low(Scope) To High(Scope) Do
+   if (Scope[I].Typ = sTryCatch) Then
+   Begin
+    Result^.InTryCatch := True;
+    Break;
+   End;
 End;
 
 { TInterpreter.Create }
@@ -389,10 +388,6 @@ Var Token: TToken_P;
     NamespaceID, PreviousNamespace: Integer;
 
     OperatorNew: Boolean = False;
-
-    {$IFDEF DISPLAY_FINALEXPR}
-    I: Integer;
-    {$ENDIF}
 
 { ReadParamCount }
 Function ReadParamCount: Integer;
@@ -558,18 +553,31 @@ Begin
   End Else
 
   { function call }
-  if (Token.Token = _BRACKET1_OP) and (next_t(-2) in [_IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) Then
+  if (next_t(-2) in [_IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) and (Token.Token = _BRACKET1_OP) Then
   Begin
    Inc(Bracket);
 
    if (FunctionBracket = 0) Then
     FunctionBracket := Bracket;
 
-   StackPush(mtFunctionCall, Token.Display, Token); // push it onto the stack
+   if (next_t(-3) = _POINT) Then
+   Begin
+    { method call }
+    StackPush(mtMethodCall, Token.Display, Token);
+   End Else
+    StackPush(mtFunctionCall, Token.Display, Token); { function call}
+
    Stack[StackPos-1].ParamCount := ReadParamCount;
 
    Expect := eValue;
    StackPush(mtOpeningBracket, null, Token);
+  End Else
+
+  { method call }
+  if (next_t(-2) in [_IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) and (Token.Token = _POINT) Then
+  Begin
+   // methods are parsed in `if` above
+   Expect := eValue;
   End Else
 
   { function parameters separator (comma) }
@@ -620,9 +628,9 @@ Begin
    if (Bracket < 0) Then
     Compiler.CompileError(next, eUnexpected, [')']);
 
-   if (next_t(-2) = _BRACKET1_OP) Then // construction `() is valid only when calling a function
+   if (next_t(-2) = _BRACKET1_OP) Then // construction `() is valid only when calling a function or a method
    Begin
-    if (Stack[StackPos-2].Typ <> mtFunctionCall) Then
+    if not (Stack[StackPos-2].Typ in [mtFunctionCall, mtMethodCall]) Then
      Compiler.CompileError(eExpectedValue, [')']);
    End Else
     if (Expect = eValue) Then
@@ -638,7 +646,7 @@ Begin
     FinalExprPush(Value);
    End;
    if (StackPos > 0) Then
-    if (StackPeek.Typ = mtFunctionCall) Then
+    if (StackPeek.Typ in [mtFunctionCall, mtMethodCall]) Then
      FinalExprPush(StackPop);
   End Else
 
@@ -765,7 +773,7 @@ Begin
      StackPush(mtNew, Token);
 
      TypeID := read_type(False); // read type
-     StackPush(mtInt, LongWord(TypeID), Token);
+     StackPush(mtType, LongWord(TypeID), Token);
 
      if (next_t <> _BRACKET2_OP) Then // fast syntax-check
      Begin
@@ -796,21 +804,6 @@ Begin
 
  if (FinalExprPos = 0) Then
   FinalExpr[0].Token.Token := noToken;
-
- {$IFDEF DISPLAY_FINALEXPR}
- For I := 0 To FinalExprPos-1 Do
- Begin
-  Write(FinalExpr[I].Token.Line+1, ' :: ');
-  if (FinalExpr[I].Value = null) Then
-   Writeln(MExpressionDisplay[FinalExpr[I].Typ]) Else
-
-   Case FinalExpr[I].Typ of
-    mtFunctionCall: Writeln(FinalExpr[I].Value, ' (', FinalExpr[I].ParamCount, ')');
-    else Writeln(FinalExpr[I].Value);
-   End;
- End;
- Writeln;
- {$ENDIF}
 End;
 End;
 
@@ -847,12 +840,12 @@ Begin
   Begin
    Tmp := Expr^.Left;
 
-   if (Tmp^.Typ = mtVariable) Then // calling a valid identifier
+   if (Tmp^.Typ = mtVariable) Then // calling an identifier
    Begin
     Name       := Tmp^.Value;
     Namespaces := Tmp^.Namespaces;
 
-    if (Name <> 'array_length') Then
+    if (Name <> '') Then
     Begin
      ID := Compiler.findLocalVariable(Name); // local things at first
 
@@ -923,7 +916,7 @@ Begin
   Value := FinalExpr[Pos];
 
   { constant value }
-  if (Value.Typ in [mtNothing, mtBool, mtChar, mtInt, mtFloat, mtString]) Then
+  if (Value.Typ in [mtNothing, mtType, mtBool, mtChar, mtInt, mtFloat, mtString]) Then
   Begin
    StackPush(Value);
   End Else
@@ -965,6 +958,21 @@ Begin
     Node^.ParamList[I] := CreateNodeFromStack;
 
    Node^.Left := CreateNodeFromStack;
+
+   StackPush(mtTree, LongWord(Node));
+  End Else
+
+  { method call }
+  if (Value.Typ = mtMethodCall) Then
+  Begin
+   Node := CreateNode(nil, nil, mtMethodCall, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
+
+   SetLength(Node^.ParamList, Value.ParamCount);
+   For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
+    Node^.ParamList[I] := CreateNodeFromStack;
+
+   Node^.Right := CreateNodeFromStack;
+   Node^.Left  := CreateNodeFromStack;
 
    StackPush(mtTree, LongWord(Node));
   End Else
@@ -1052,6 +1060,8 @@ Begin
 
  if (oGetFromCommandLine in Options) Then
  Begin
+  Options -= [oGetFromCommandLine];
+
   if (Compiler.getBoolOption(opt__constant_folding)) Then
    Options += [oInsertConstants, oConstantFolding];
  End;
@@ -1127,6 +1137,9 @@ Procedure RePop(Expr: PMExpression; TypeID: PMType; Reg: Byte);
 Begin
  if (Expr^.ResultOnStack) Then
  Begin
+  if not (Reg in [1..4]) Then
+   Error(eInternalError, ['RePop called with invalid register ID: '+IntToStr(Reg)]);
+
   Compiler.PutOpcode(o_pop, ['e'+Compiler.getTypePrefix(TypeID)+IntToStr(Reg)]);
   Expr^.ResultOnStack := False;
   Dec(PushedValues);
@@ -1277,7 +1290,7 @@ Begin
   For I := Low(ParamList) To High(ParamList) Do
    Result += countLeaves(ParamList[I]);
 
-  if (Typ = mtFunctionCall) Then
+  if (Typ in [mtMethodCall, mtFunctionCall]) Then
    Inc(Result);
  End;
 End;
@@ -1351,7 +1364,7 @@ End;
 {$I new.pas}
 
 { ParseTypeCast }
-// type<type>(value)
+// cast<type>(value)
 {$I typecast.pas}
 
 Var Variable: TRVariable;
@@ -1378,15 +1391,15 @@ Begin
      if (FinalRegChar = #0) Then
       FinalRegChar := 'i';
 
-     if (FinalRegID > 0) Then
+     if (FinalRegID > 0) Then // put into register?
       Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line+1]) Else
-      Begin
+      Begin // push onto stack?
        Compiler.PutOpcode(o_push, [Expr^.Token.Line+1]);
        Inc(PushedValues);
       End;
 
      Exit(TypeInstance(TYPE_INT));
-    End Else // no, it's not... so - display error
+    End Else // no, it's not a special variable... so - display error
     Begin
      Error(eUnknownVariable, [Variable.Name]);
      Exit;
@@ -1398,12 +1411,22 @@ Begin
 
    if (FinalRegID > 0) Then
     __variable_getvalue_reg(Variable, FinalRegID, FinalRegChar) Else // load a variable's value into the register
-    __variable_getvalue_stack(Variable);
+    Begin
+     __variable_getvalue_stack(Variable);
+     Expr^.ResultOnStack := True;
+    End;
 
    Result := Variable.Typ;
 
   // if (Compiler.isTypeFunctionPointer(Result)) and (not isSubCall) Then
   //  Hint(hDidntYouMean, [Variable.Name+'()']);
+  {
+   @TODO:
+   function<function<void>()> something()
+   {
+    return another_function; // hint: didn't you mean (...)
+   }
+  }
   End Else
   Begin // if const value
    Result := getTypeFromMExpr(Expr);
@@ -1415,6 +1438,7 @@ Begin
     Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), getValueFromMExpr(Expr)]) Else // load a const value into the register
     Begin
      Compiler.PutOpcode(o_push, [getValueFromMExpr(Expr)]); // otherwise push onto the stack
+     Expr^.ResultOnStack := True;
      Inc(PushedValues);
     End;
   End;
@@ -1460,16 +1484,17 @@ Begin
 
  // parse other operators
  Case Expr^.Typ of
-  mtFunctionCall: ParseCall;
+  mtFunctionCall: ParseCall(False);
+  mtMethodCall  : ParseCall(True);
   mtArrayElement: ParseArrayElement;
   mtNew         : ParseNEW;
   mtTypeCast    : ParseTypeCast;
  End;
 
 Over:
- if (FinalRegID > 0) and (FinalRegChar <> #0) Then // load just calculated value into the register
+ if (FinalRegID > 0) and (FinalRegChar <> #0) Then // load calculated value into the register?
  Begin
-  if (Push_IF_reg) Then
+  if (Push_IF_reg) Then // special case
    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'if']) Else
    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'e'+Compiler.getTypePrefix(Result)+'1']);
   Exit;

@@ -2,6 +2,6 @@
 
 namespace std
 {
- function<int> get_ticks() in "time.ssm";
+ function<int> getTicks() in "time.ssm";
  function<void> sleep(int) in "time.ssm";
 }

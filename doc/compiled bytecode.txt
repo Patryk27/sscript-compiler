@@ -5,10 +5,10 @@ Bytecode version: 0.41 (major.minor)
 	1 byte - byte - argument type
 	
 	[if `type` is a `register`:]
-		1 byte - byte - value from `1..4` indicating register's ID (eg.1 = ei1, 3 = ei3)
+		1 byte - byte - value from `1..4` indicating register's ID (eg.1 = ei1/eb1/ec1(...), 3 = ei3; register type depends of argument type)
 
 	[if `type` is a `bool`:]
-		1 byte - byte - value from `0..255` indicating boolean value. `0 = false`, anything else is `true`.
+		1 byte - byte - value indicating a boolean value. `0 = false`, anything else is `true`.
 
 	[if `type` is a `char`:]
 		1 byte - byte - ASCII char value (an unsigned number from `0..255`)

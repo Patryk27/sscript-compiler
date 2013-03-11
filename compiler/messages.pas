@@ -9,7 +9,7 @@ Unit Messages;
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousCall, eAmbiguousVariable, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
-  eNotAConstant,
+  eNotAConstant, eNonObjectMethodCall, eMethodNotFound,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
@@ -62,6 +62,8 @@ Unit Messages;
   'Parameter declared as void',
   'No valid `main` function found',
   'Not a constant-var: `%s`',
+  'Tried to call method `%s` on non-object (`%s`)',
+  'Method `%s` not found in object (`%s`)',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

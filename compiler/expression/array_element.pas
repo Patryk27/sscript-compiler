@@ -5,7 +5,11 @@ Var ArrayType, TmpType: PMType;
     TmpExpr           : PMExpression;
 Begin
  ArrayType := Parse(Left, 1);
- Typ       := ArrayType^;
+
+ if (ArrayType = nil) Then
+  Exit;
+
+ Typ := ArrayType^;
 
  {
   @Note:

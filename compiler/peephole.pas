@@ -85,7 +85,6 @@ Var Pos, Pos2            : LongWord;
      End;
     End;
 
-
 Begin
  With Compiler do
  Begin
@@ -255,10 +254,14 @@ Begin
       if (isArgumentChanging(0)) Then
        Break;
 
+     if (oTmp.Opcode = o_arlen) Then // arlen(in, in, out)
+      if (isArgumentChanging(2)) Then
+       Break;
+
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
       Break;
 
-     if (oTmp.Opcode in [o_arset, o_arget, o_arlen]) and (oTmp.Args[1].Typ = ptInt) Then
+     if (oTmp.Opcode in [o_arset, o_arget]) and (oTmp.Args[1].Typ = ptInt) Then
       PushFix -= oTmp.Args[1].Value;
 
      if (oTmp.Opcode in [o_arcrt]) and (oTmp.Args[2].Typ = ptInt) Then
@@ -282,9 +285,6 @@ Begin
     Begin
      if (not isVariableHolder(pCurrent^.Args[0])) Then
      Begin
-      if (pCurrent^.Opcode <> o_mov) Then
-       CompileError(eInternalError, ['`mov` expected, but `'+Opcodes.OpcodeList[ord(pCurrent^.Opcode)].Name+'` found']);
-
       OpcodeList.Remove(pCurrent); // and remove the first `mov`
 
       Dec(Pos);

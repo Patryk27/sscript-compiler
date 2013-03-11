@@ -1,0 +1,5 @@
+Switches can be changed in `project options -> other`: `-dswitch_name, eg.`-dNIGHTLY`, separated by space.
+
+NIGHTLY - displays a "This is a nightly version (...)" information
+
+COMPARE_ERRONEOUS_TYPE - `CompareTypes` will return `true` if any of passed types is "erroneous" (equal `nil`) }

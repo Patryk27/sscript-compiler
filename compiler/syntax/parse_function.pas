@@ -260,8 +260,8 @@ Begin
     PutLabel(Str3);
    End;
 
-(* ctDelete *)
-   ctDelete:
+(* ctDELETE *)
+   ctDELETE:
    Begin
     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
     if (not isTypeObject(EType)) Then
@@ -270,6 +270,29 @@ Begin
     PutOpcode(o_pop, ['er1']);
     PutOpcode(o_objfree, ['er1']);
    End;
+
+(* ctTRY *)
+   ctTRY:
+   Begin
+    { save current exception handler and set the new one }
+    PutOpcode(o_icall, ['"vm.save_exception_handler"']);
+    PutOpcode(o_push, ['@'+PChar(Values[0])]);
+    PutOpcode(o_icall, ['"vm.set_exception_handler"']);
+
+    { parse `try` block }
+    ParseUntil(ctCatch);
+    PutOpcode(o_jmp, [':'+PChar(Values[0])+'_end']);
+
+    { parse `catch` block }
+    PutLabel(PChar(Values[0]));
+    PutOpcode(o_icall, ['"vm.restore_exception_handler"']); // restore previous exception handler
+
+    ParseUntil(ctCATCH_END);
+    PutLabel(PChar(Values[0])+'_end');
+   End;
+
+   else
+    CompileError(eInternalError, ['Unexpected construction: '+IntToStr(ord(Typ))]);
   End;
  End;
 End;
@@ -330,12 +353,11 @@ Begin
  Func.isDeclaration := False;
  Func.Visibility    := getVisibility;
 
- Log('Parsing function: '+Func.Name);
-
  RedeclarationCheck(Func.Name); // check for redeclaration
 
- if (Func.Name = 'array_length') Then // cannot redeclare internal function
-  CompileError(eRedeclaration, [Func.Name]);
+ Case Func.Name of
+  '': CompileError(eRedeclaration, [Func.Name]); // cannot redeclare internal function
+ End;
 
  { make parameter list }
  eat(_BRACKET1_OP); // (
@@ -429,7 +451,7 @@ Begin
  { add parameters }
  With Func do
   For I := Low(ParamList) To High(ParamList) Do
-   __variable_create(ParamList[I].Name, ParamList[I].Typ, -I, True);
+   __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, True);
 
  { add special constants (if `-Sconst` enabled) }
  if (getBoolOption(opt_internal_const)) Then
@@ -445,7 +467,6 @@ Begin
 
  { parse function's code }
  ParseCodeBlock;
- Log('Function parsed; compiling it...');
 
  (* now, we have a full construction list used in this function; so - let's optimize and generate bytecode! :) *)
  CList := getCurrentFunction.ConstructionList;
@@ -460,7 +481,7 @@ Begin
     if (VariableList[I].RegID <= 0) and (not VariableList[I].isParam) and (not VariableList[I].isConst) Then
      Inc(AllocatedVars); // next variable to allocate
 
-  PutOpcode(o_add, ['stp', AllocatedVars]);
+  PutOpcode(o_add, ['stp', AllocatedVars+1]); // `+1`, because `stack[stp]` is caller-IP (instruction pointer)
  End;
 
  { if register is occupied by a variable, we need to at first save this register's value (and restore it at the end of the function) }
@@ -495,7 +516,6 @@ Begin
   ParseConstruction(c_ID);
   Inc(c_ID);
  Until (c_ID > High(CList));
- Log('... function `'+Func.Name+'` compiled.');
 
  { function end code }
  PutLabel(Func.MName+'_end');
@@ -509,7 +529,7 @@ Begin
  End;
 
  if (not Func.isNaked) Then
-  PutOpcode(o_sub, ['stp', AllocatedVars+Length(Func.ParamList)]);
+  PutOpcode(o_sub, ['stp', AllocatedVars+1]);
 
  PutOpcode(o_ret);
  // </>

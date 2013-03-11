@@ -100,7 +100,7 @@ Begin
  O := '-'+O;
  
  Result := Default;
- For I := 0 To ParamCount Do
+ For I := 1 To ParamCount Do
   if (ParamStr(I) = O+'+') or (ParamStr(I) = O) Then
    Exit(True) Else
   if (ParamStr(I) = O+'-') Then
@@ -112,17 +112,21 @@ End;
  Gets a string-typed option from a command line
 }
 Function getStringOption(O: String; Default: String): String;
-Var I: Integer;
+Var I  : Integer;
+    Str: String;
 Begin
  O := '-'+O;
 
  Result := Default;
- For I := 0 To ParamCount-1 Do
-  if (ParamStr(I) = O) Then
+ For I := 1 To ParamCount Do
+ Begin
+  Str := ParamStr(I);
+  if (Copy(Str, 1, Pos('=', Str)-1) = O) Then
   Begin
-   Result := ParamStr(I+1);
+   Result := Copy(Str, Pos('=', Str)+1, Length(Str));
    Exit;
   End;
+ End;
 End;
 
 (* getIntOption *)

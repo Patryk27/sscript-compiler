@@ -26,7 +26,11 @@ By default, all switches are disabled.
 5.Libraries only
 	-header / -h <file>	generates and saves header file
 
-6.Other options
+6.Debug options
+	--generate-debug		enables generating output debug files
+	--debug-output <directory>	changes the debug output directory
+
+7.Other options
 	-logo		displays only a logo, doesn't compile anything
 	-wait		waits for `enter` when finished
 	-verbose / -v	enables `verbose` mode

@@ -8,10 +8,10 @@ Unit Compile1;
  Uses Classes, SysUtils, Variants, FGL,
       Tokens, CompilerUnit, Scanner, Opcodes, Messages, MTypes,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include, Parse_DELETE,
-      Parse_NAMESPACE, Parse_TYPE;
+      Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH;
 
  { constants }
- Const Version  = '2.2 nightly'; // version of the compiler
+ Const Version  = '2.2'{$IFDEF NIGHTLY}+' nightly'{$ENDIF}; // version of the compiler
        iVersion = 2.2;
 
        bytecode_version_major = 0;
@@ -19,11 +19,11 @@ Unit Compile1;
 
  { types }
  // TMScope
- Type TMScopeType = (sFunction, sFOR, sIF, sWHILE);
+ Type TMScopeType = (sFunction, sFOR, sIF, sWHILE, sTryCatch);
 
  Type TMScope = Record
                  Typ               : TMScopeType;
-                 loopBegin, LoopEnd: String;
+                 LoopBegin, LoopEnd: String;
                 End;
 
  // TOpcodeVector
@@ -74,9 +74,9 @@ Unit Compile1;
                     Property getVisibility: TMVisibility read Visibility; // current visibility state
 
                { -> methods }
-                    Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean;
-                    Function getStringOption(const Name: TCommandLineOption; oDefault: String=''): String;
-                    Function getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer;
+                    Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
+                    Function getStringOption(const Name: TCommandLineOption; oDefault: String=''): String; inline;
+                    Function getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer; inline;
 
                     Function SearchFile(const FileName: String; out Found: Boolean): String;
 
@@ -968,8 +968,6 @@ Begin
    _COLON      : if (next.Display = 'CODE') Then Parse_CODE.Parse(self) Else CompileError(eUnexpected, [next.Display]);
    _FOR        : Parse_FOR.Parse(self);
    _IF         : Parse_IF.Parse(self);
-   _ELSE       : CompileError(eNotAllowed, ['else']);
-   _NAMESPACE  : CompileError(eNotAllowed, ['namespace']);
    _USE        : Parse_USE;
    _WHILE      : Parse_WHILE.Parse(self);
    _DO         : Parse_WHILE.Parse_DO_WHILE(self);
@@ -977,6 +975,9 @@ Begin
    _BREAK      : ParseBreak;
    _CONTINUE   : ParseContinue;
    _TYPE       : Parse_TYPE.Parse(self);
+   _TRY        : Parse_TRY_CATCH.Parse(self);
+
+   _ELSE, _NAMESPACE, _CATCH: CompileError(eNotAllowed, [Token.Display]);
 
    _SEMICOLON: // at pure semicolon, don't do anything
 
@@ -1521,7 +1522,11 @@ Begin
  Result := True;
 
  if (pT1 = nil) or (pT2 = nil) Then
-  Exit(False);
+  {$IFDEF COMPARE_ERRONEOUS_TYPE}
+   Exit(True);
+  {$ELSE}
+   Exit(False);
+  {$ENDIF}
 
  T1 := pT1^;
  T2 := pT2^;
@@ -1914,7 +1919,7 @@ End;
 (* TCompiler.findGlobalVariableCandidate *)
 {
  See @TCompiler.findFunctionCandidate
- This function searches also a global constants.
+ This function searches also global constants.
 }
 Procedure TCompiler.findGlobalVariableCandidate(const VarName: String; Namespaces: TMIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
 Type TCandidate = Record
@@ -2497,237 +2502,245 @@ Begin
  AnyError    := False;
  Parent      := fParent;
 
- if (isIncluded) Then
-  Log('Module: '+InputFile) Else
-  Log('Main file: '+InputFile+' :: '+OutputFile);
-
- { no parent specified }
- if (Parent = nil) Then
- Begin
-  Parent := self;
-
+ Try
   if (isIncluded) Then
-   CompileError(eInternalError, ['Parent = nil']);
- End;
+   Log('Module: '+InputFile) Else
+   Log('Main file: '+InputFile+' :: '+OutputFile);
 
- { quick compiler's type-check }
- {$IF (sizeof(Byte) <> 1) or (sizeof(Char) <> 1) or (sizeof(Integer) <> 4) or (sizeof(LongWord) <> 4) or (sizeof(Extended) <> 10)}
- {$WARNING Invalid types sizes!}
- {$WARNING You can try to compile this compiler anyway (just remove this `$FATA` below), but I'm not responsible for any damage...}
- {$FATAL :<}
- {$ENDIF}
-
- { parse `-Cm` }
- Str := getStringOption(opt_Cm, 'app');
- Case Str of
-  'app'     : CompileMode := cmApp;
-  'lib'     : CompileMode := cmLibrary;
-  'bytecode': CompileMode := cmBytecode;
-
-  else
+  { no parent specified }
+  if (Parent = nil) Then
   Begin
-   Log('Unknown compile mode (-Cm): '+Str+'; default set to `app`');
-   CompileMode := cmApp;
+   Parent := self;
+
+   if (isIncluded) Then
+    CompileError(eInternalError, ['Parent = nil']);
   End;
- End;
 
- { parse `-includepath` }
- IncludePaths               := TStringList.Create;
- IncludePaths.Delimiter     := ';';
- IncludePaths.DelimitedText := getStringOption(opt_includepath, '$file;$compiler');
+  { quick compiler type-check }
+  {$IF (sizeof(Byte) <> 1) or (sizeof(Char) <> 1) or (sizeof(Integer) <> 4) or (sizeof(LongWord) <> 4) or (sizeof(Extended) <> 10)}
+  {$WARNING Invalid types sizes!}
+  {$WARNING You can try to compile this compiler anyway (just remove this `$FATAL` below), but I'm not responsible for any damage...}
+  {$FATAL :<}
+  {$ENDIF}
 
- For I := 0 To IncludePaths.Count-1 Do
- Begin
-  Str := IncludePaths[I];
+  { parse `-Cm` }
+  Str := getStringOption(opt_Cm, 'app');
+  Case Str of
+   'app'     : CompileMode := cmApp;
+   'lib'     : CompileMode := cmLibrary;
+   'bytecode': CompileMode := cmBytecode;
 
-  Str := StringReplace(Str, '$file', ExtractFilePath(InputFile), [rfReplaceAll]);
-  Str := StringReplace(Str, '$main', ExtractFilePath(Parent.InputFile), [rfReplaceAll]);
-  Str := StringReplace(Str, '$compiler', ExtractFilePath(ParamStr(0)), [rfReplaceAll]);
-
-  IncludePaths[I] := Str;
- End;
-
- { parse `-bytecode` }
- VBytecode := getStringOption(opt_bytecode);
-
- { create classes }
- OpcodeList := TOpcodeList.Create;
-
- { allocate arrays }
- SetLength(ExportList, 0);
- SetLength(IncludeList, 0);
-
- SetLength(StringList, 0);
- SetLength(Scope, 0);
-
- SetLength(NamespaceList, 1);
-
- // init default namespace
- NamespaceList[0].Name       := '';
- NamespaceList[0].Visibility := mvPublic;
- SetLength(NamespaceList[0].GlobalList, 0);
- CurrentNamespace := 0;
-
- SetLength(SelectedNamespaces, 1);
- SelectedNamespaces[0] := 0;
-
- Interpreter := ExpressionCompiler.TInterpreter.Create(self);
-
- { When a `-Cm bytecode` is specified: }
- if (CompileMode = cmBytecode) Then
- Begin
-  CompileAsBytecode;
-  Exit; // stop compiler
- End;
-
- if (not isIncluded) Then // are we the main file?
- Begin
-  { compiling as a library }
-  if (CompileMode = cmLibrary) Then
-  Begin
-   Log('-> Compiling as a library');
-   ModuleName := '_';
-  End Else
-
-  { compiling as a program }
-  Begin
-   // the beginning of the program must be an "init" and "main" function call
-   if (getBoolOption(opt_initcode)) Then
-    PutOpcode(o_call, [':__init']);
-
-   PutOpcode(o_call, [':__function_self_main_'+ModuleName+'_int_']);
-   PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
-  End;
- End Else // if included (not the main file)
- Begin
-  ModuleName := makeModuleName(fInputFile);
- End;
-
- { preparse code (parse tokens, remove comments etc.) }
- Preparse;
-
- { create primary type-table }
- AddPrimaryType(TypeInstance(TYPE_ANY));
- AddPrimaryType(TypeInstance(TYPE_NULL));
- AddPrimaryType(TypeInstance(TYPE_VOID));
- AddPrimaryType(TypeInstance(TYPE_BOOL));
- AddPrimaryType(TypeInstance(TYPE_CHAR));
- AddPrimaryType(TypeInstance(TYPE_INT));
- AddPrimaryType(TypeInstance(TYPE_FLOAT));
- AddPrimaryType(TypeInstance(TYPE_STRING));
-
- { create global constants }
- With NamespaceList[0] do
- Begin
-  Name := 'self';
-
-  SetLength(GlobalList, Length(GlobalList)+1);
-
-  With GlobalList[High(GlobalList)] do
-  Begin
-   Typ := gdConstant;
-
-   With mVariable do
+   else
    Begin
-    Name       := 'null';
-    Typ        := TypeInstance(TYPE_NULL);
-    Value      := MakeIntExpression(0);
-    isConst    := True;
-    Visibility := mvPrivate;
+    Log('Unknown compile mode (-Cm): '+Str+'; set to `app`');
+    CompileMode := cmApp;
    End;
-
-   isInternal := True;
   End;
 
-  // @TODO: special constants
- End;
+  { parse `-includepath` }
+  IncludePaths               := TStringList.Create;
+  IncludePaths.Delimiter     := ';';
+  IncludePaths.DelimitedText := getStringOption(opt_includepath, '$file;$compiler');
 
- { clear variables }
- CurrentDeep := 0;
+  For I := 0 To IncludePaths.Count-1 Do
+  Begin
+   Str := IncludePaths[I];
 
- { compile code }
- Repeat
-  ParseToken;
- Until (TokenList[getPosition].Token = noToken);
+   Str := StringReplace(Str, '$file', ExtractFilePath(InputFile), [rfReplaceAll]);
+   Str := StringReplace(Str, '$main', ExtractFilePath(Parent.InputFile), [rfReplaceAll]);
+   Str := StringReplace(Str, '$compiler', ExtractFilePath(ParamStr(0)), [rfReplaceAll]);
 
- { create an export list }
- For NS := Low(NamespaceList) To High(NamespaceList) Do
- Begin
-  if (NamespaceList[NS].Visibility <> mvPublic) Then
-   Continue;
+   IncludePaths[I] := Str;
+  End;
 
-  With NamespaceList[NS] do
-   For I := Low(GlobalList) To High(GlobalList) Do
+  { parse `-bytecode` }
+  VBytecode := getStringOption(opt_bytecode);
+
+  { create classes }
+  OpcodeList := TOpcodeList.Create;
+
+  { allocate arrays }
+  SetLength(ExportList, 0);
+  SetLength(IncludeList, 0);
+
+  SetLength(StringList, 0);
+  SetLength(Scope, 0);
+
+  SetLength(NamespaceList, 1);
+
+  // init default namespace
+  NamespaceList[0].Name       := '';
+  NamespaceList[0].Visibility := mvPublic;
+  SetLength(NamespaceList[0].GlobalList, 0);
+  CurrentNamespace := 0;
+
+  SetLength(SelectedNamespaces, 1);
+  SelectedNamespaces[0] := 0;
+
+  Interpreter := ExpressionCompiler.TInterpreter.Create(self);
+
+  { When a `-Cm bytecode` is specified: }
+  if (CompileMode = cmBytecode) Then
+  Begin
+   CompileAsBytecode;
+   Exit; // stop compiler
+  End;
+
+  if (not isIncluded) Then // are we the main file?
+  Begin
+   { compiling as a library }
+   if (CompileMode = cmLibrary) Then
    Begin
-    if (GlobalList[I].Typ <> gdFunction) Then
-     Continue;
+    Log('-> Compiling as a library');
+    ModuleName := '_';
+   End Else
 
-    MFunc := GlobalList[I].mFunction;
+   { compiling as a program }
+   Begin
+    // the beginning of the program must be an "init" and "main" function call
+    if (getBoolOption(opt_initcode)) Then
+     PutOpcode(o_call, [':__init']);
 
-    if (MFunc.ModuleName = ModuleName) and (MFunc.Visibility = mvPublic) Then // export only public functions from the compiled module (eg.if we included `somemodule.ss`, we don't want to export functions located in it)
+    PutOpcode(o_call, [':__function_self_main_'+ModuleName+'_int_']);
+    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
+   End;
+  End Else // if included (not the main file)
+  Begin
+   ModuleName := makeModuleName(fInputFile);
+  End;
+
+  { preparse code (parse tokens, remove comments etc.) }
+  Preparse;
+
+  { create primary type-table }
+  AddPrimaryType(TypeInstance(TYPE_ANY));
+  AddPrimaryType(TypeInstance(TYPE_NULL));
+  AddPrimaryType(TypeInstance(TYPE_VOID));
+  AddPrimaryType(TypeInstance(TYPE_BOOL));
+  AddPrimaryType(TypeInstance(TYPE_CHAR));
+  AddPrimaryType(TypeInstance(TYPE_INT));
+  AddPrimaryType(TypeInstance(TYPE_FLOAT));
+  AddPrimaryType(TypeInstance(TYPE_STRING));
+
+  { create global constants }
+  With NamespaceList[0] do
+  Begin
+   Name := 'self';
+
+   SetLength(GlobalList, Length(GlobalList)+1);
+
+   With GlobalList[High(GlobalList)] do
+   Begin
+    Typ := gdConstant;
+
+    With mVariable do
     Begin
-     SetLength(ExportList, Length(ExportList)+1);
-     ExportList[High(ExportList)].Name := MFunc.MName;
-     // @Note: ExportList[...].Pos will be set in Compile2
+     Name       := 'null';
+     Typ        := TypeInstance(TYPE_NULL);
+     Value      := MakeIntExpression(0);
+     isConst    := True;
+     Visibility := mvPrivate;
     End;
+
+    isInternal := True;
    End;
- End;
 
- { compile further? }
- if (not isIncluded) and (AnyError) Then
- Begin
-  Log('-> There were errors compiling this program; stopped.');
-  Exit;
- End;
-
- if (not isIncluded) Then
- Begin
-  // make imports
-  MakeImports;
-
-  Log('-> Bytecode generated.');
-
-  if (getBoolOption(opt__bytecode_optimize)) Then
-  Begin
-   Log('-> Optimizing bytecode.');
-   Peephole.OptimizeBytecode(self);
+   // @TODO: special constants
   End;
- End;
 
- { if specified - save bytecode }
- if (VBytecode <> '') and (not isIncluded) Then
-  SaveBytecode(VBytecode);
+  { clear variables }
+  CurrentDeep := 0;
 
- { compile bytecode }
- if (not isIncluded) Then
- Begin
-  { ... but at first - check for valid "main" function declaration }
-  if (not CheckMain) Then
+  if (not isIncluded) Then
   Begin
-   CompileError(eNoValidMainFunctionFound);
+   { add internal bytecode }
+  End;
+
+  { compile code }
+  Repeat
+   ParseToken;
+  Until (TokenList[getPosition].Token = noToken);
+
+  { create an export list }
+  For NS := Low(NamespaceList) To High(NamespaceList) Do
+  Begin
+   if (NamespaceList[NS].Visibility <> mvPublic) Then
+    Continue;
+
+   With NamespaceList[NS] do
+    For I := Low(GlobalList) To High(GlobalList) Do
+    Begin
+     if (GlobalList[I].Typ <> gdFunction) Then
+      Continue;
+
+     MFunc := GlobalList[I].mFunction;
+
+     if (MFunc.ModuleName = ModuleName) and (MFunc.Visibility = mvPublic) Then // export only public functions from the compiled module (eg.if we included `somemodule.ss`, we don't want to export functions located in it)
+     Begin
+      SetLength(ExportList, Length(ExportList)+1);
+      ExportList[High(ExportList)].Name := MFunc.MName;
+      // @Note: ExportList[...].Pos will be set in Compile2
+     End;
+    End;
+  End;
+
+  { compile further? }
+  if (not isIncluded) and (AnyError) Then
+  Begin
+   Log('-> There were errors compiling this program; stopped.');
    Exit;
   End;
 
-  Compiler2 := Compile2.TCompiler.Create;
-  Compiler2.Compile(self, CompileMode = cmLibrary);
-  Compiler2.Free;
-
-  Str := getStringOption(opt_header);
-
-  { if specified - generate output header file }
-  if (Str <> '') Then
+  if (not isIncluded) Then
   Begin
-   Case CompileMode of
-    cmLibrary:
-    Begin
-     Log('-> Generating output header file to: '+Str);
-     GenerateHeaderFile(Str);
-    End;
+   // make imports
+   MakeImports;
 
-    else
-     Log('-> Cannot generate output header file, because input file is not a library.');
+   Log('-> Bytecode generated.');
+
+   if (getBoolOption(opt__bytecode_optimize)) Then
+   Begin
+    Log('-> Optimizing bytecode.');
+    Peephole.OptimizeBytecode(self);
    End;
   End;
+
+  { if specified - save bytecode }
+  if (VBytecode <> '') and (not isIncluded) Then
+   SaveBytecode(VBytecode);
+
+  { compile bytecode }
+  if (not isIncluded) Then
+  Begin
+   { ... but at first - check for valid "main" function declaration }
+   if (not CheckMain) Then
+   Begin
+    CompileError(eNoValidMainFunctionFound);
+    Exit;
+   End;
+
+   Compiler2 := Compile2.TCompiler.Create;
+   Compiler2.Compile(self, CompileMode = cmLibrary);
+   Compiler2.Free;
+
+   Str := getStringOption(opt_header);
+
+   { if specified - generate output header file }
+   if (Str <> '') Then
+   Begin
+    Case CompileMode of
+     cmLibrary:
+     Begin
+      Log('-> Generating output header file to: '+Str);
+      GenerateHeaderFile(Str);
+     End;
+
+     else
+      Log('-> Cannot generate output header file, because input file is not a library.');
+    End;
+   End;
+  End;
+ Finally
  End;
 End;
 

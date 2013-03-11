@@ -8,7 +8,7 @@
 namespace std
 {
 
-function<int> get_ticks() naked
+function<int> getTicks() naked
 {
  :CODE
  {
@@ -21,6 +21,8 @@ function<void> sleep(int milis) naked
 {
  :CODE
  {
+  sub(stp, 1)
+
   pop(ei1) // ei1 = milis
 
   icall("time.get_tick_count")
@@ -33,7 +35,9 @@ function<void> sleep(int milis) naked
   pop(ei1) // ei1 = current time
 
   if_l(ei1, ei2) // if (ei1 < ei2)
-  tjmp(:&loop)
+  tjmp(:&loop)   //  goto loop;
+
+  add(stp, 2)
  }
 }
 

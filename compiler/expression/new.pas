@@ -33,7 +33,7 @@ Begin
  { make an array from that base type }
  While (Right^.Typ = mtArrayElement) Do
  Begin
-  if (Right^.Left^.Typ = mtNothing) Then
+  if (Right^.Right^.Value <> null) Then
    TmpType := Parse(Right^.Right) Else
    TmpType := Parse(Right^.Left);
 

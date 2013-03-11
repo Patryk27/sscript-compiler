@@ -58,6 +58,11 @@
       <OtherUnitFiles Value="compiler;compiler\syntax"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
+    <Parsing>
+      <SyntaxOptions>
+        <CStyleMacros Value="True"/>
+      </SyntaxOptions>
+    </Parsing>
     <CodeGeneration>
       <Optimizations>
         <OptimizationLevel Value="0"/>
@@ -67,11 +72,15 @@
       <CompilerMessages>
         <MsgFileName Value=""/>
       </CompilerMessages>
+      <ConfigFile>
+        <ConfigFilePath Value=""/>
+      </ConfigFile>
+      <CustomOptions Value="-dNIGHTLY -dCOMPARE_ERRONEOUS_TYPE"/>
       <CompilerPath Value="$(CompPath)"/>
     </Other>
   </CompilerOptions>
   <Debugging>
-    <Exceptions Count="4">
+    <Exceptions Count="6">
       <Item1>
         <Name Value="EAbort"/>
       </Item1>
@@ -84,6 +93,12 @@
       <Item4>
         <Name Value="Exception"/>
       </Item4>
+      <Item5>
+        <Name Value="EVariantError"/>
+      </Item5>
+      <Item6>
+        <Name Value="EConvertError"/>
+      </Item6>
     </Exceptions>
   </Debugging>
 </CONFIG>

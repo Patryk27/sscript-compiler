@@ -187,7 +187,7 @@ Unit Opcodes;
   (* ===== ARCRT (refreg, primary type id, array dim count) ===== *)
   (Name: 'arcrt'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptInt)),
 
-  (* ===== ARLEN (refreg, indexes count, out intreg) ===== *)
+  (* ===== ARLEN (refreg, dimension) ===== *)
   (Name: 'arlen'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptIntReg)),
 
   (* ===== OBJFREE (refreg) ===== *)

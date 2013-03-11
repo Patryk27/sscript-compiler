@@ -78,7 +78,7 @@ Unit MTypes;
                End;
 
  // TMExpression
- Type TMExpressionType = (mtNothing, mtVariable, mtFunctionCall, mtTypeCast, mtTree, mtOpeningBracket, mtClosingBracket, mtOpeningBracket2, mtClosingBracket2, mtArrayElement,
+ Type TMExpressionType = (mtNothing, mtVariable, mtFunctionCall, mtMethodCall, mtTypeCast, mtTree, mtType, mtOpeningBracket, mtClosingBracket, mtOpeningBracket2, mtClosingBracket2, mtArrayElement,
                           mtBool, mtChar, mtInt, mtFloat, mtString,
                           mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq,
                           mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent,
@@ -87,7 +87,7 @@ Unit MTypes;
                           mtNew);
 
  Const MExpressionDisplay: Array[TMExpressionType] of String =
- ('<nothing>', '<variable>', '<function call>', '<type cast>', '<tree>', '(', ')', '[', ']', '[]',
+ ('<nothing>', '<variable>', '<function call>', '<method call>', '<type cast>', '<tree>', '<type>', '(', ')', '[', ']', '[]',
   'bool', 'char', 'int', 'float', 'string',
   '+', '-', '*', '/', '%', '=', '+=', '-=', '*=', '/=', '%=',
   '<', '>', '==', '<=', '>=', '!=',
@@ -119,11 +119,13 @@ Unit MTypes;
 
                       IdentID, IdentNamespace: Integer;
                       isLocal                : Boolean;
+
+                      InTryCatch: Boolean;
                      End;
  Type TMExpressionList = Array of TMExpression;
 
  // TMConstruction
- Type TMConstructionType = (ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end, ctDelete);
+ Type TMConstructionType = (ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end, ctDELETE, ctTRY, ctCATCH, ctCATCH_end);
  Type PMConstruction = ^TMConstruction;
       TMConstruction = Record
                         Typ   : TMConstructionType;

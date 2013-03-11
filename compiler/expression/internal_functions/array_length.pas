@@ -1,56 +1,35 @@
- { array_length (array type) }
- Procedure __array_length;
- Var Variable: TRVariable;
-     TmpType : PMType;
-     TmpExpr : PMExpression;
-     Typ     : TMType;
-     Ch      : Char;
+Procedure __array_length;
+Begin
+ if (not Compiler.isTypeArray(method, False)) Then // only `array.length()` is allowed
  Begin
-  // parameter check
-  if (Length(Expr^.ParamList) <> 1) Then
-  Begin
-   Error(eWrongParamCount, ['array_length', Length(Expr^.ParamList), 1]);
-   Exit;
-  End;
-
-  // parse parameter and check type
-  if not (Expr^.ParamList[0]^.Typ in [mtVariable, mtArrayElement]) Then
-  Begin
-   Error(eInvalidExpression, []);
-   Exit;
-  End;
-
-  Variable := getVariable(Expr^.ParamList[0]);
-  TmpExpr  := Expr^.ParamList[0];
-  Typ      := Variable.Typ^;
-
-  if (TmpExpr^.Right <> nil) Then
-  Begin
-   Repeat
-    TmpType := Parse(TmpExpr^.Right);
-    With Compiler do // array subscript must be an integer value
-     if (not isTypeInt(TmpType)) or (Typ.ArrayDimCount = 0) Then
-     Begin
-      Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [getTypeDeclaration(Typ), getTypeDeclaration(TmpType)]);
-      Exit;
-     End;
-
-    TmpExpr := TmpExpr^.Left;
-
-    Dec(Typ.ArrayDimCount);
-   Until not (TmpExpr^.Typ in [mtArrayElement]);
-  End;
-
-  if (Typ.ArrayDimCount = 0) Then
-  Begin
-   Error(eWrongTypeInCall, ['array_length', 1, Compiler.getTypeDeclaration(Typ), 'array']);
-   Exit;
-  End;
-
-  // put opcode
-  Ch := Compiler.getTypePrefix(Variable.Typ);
-  Compiler.PutOpcode(o_arlen, ['e'+Ch+'1', Variable.getArray, 'ei1']);
-
-  Result := TypeInstance(TYPE_INT);
+  Error(eMethodNotFound, [name, Compiler.getTypeDeclaration(method)]);
   Exit;
  End;
+
+ {
+  `array.length` can be called in 3 ways:
+    1) .length()
+    2) .length(int dimension)
+    3) the wrong way (:D)
+ }
+ if (Length(Expr^.ParamList) = 0) Then // no params passed, case #1
+ Begin
+  Compiler.PutOpcode(o_arlen, ['er1', 1, 'ei1']);
+ End Else
+
+ if (Length(Expr^.ParamList) = 1) Then // 1 param passed, case #2
+ Begin
+  param := Parse(Expr^.ParamList[0]);
+  RePop(Expr^.ParamList[0], param, 1);
+
+  if (not Compiler.isTypeInt(param)) Then // have to be `int`
+  Begin
+   Error(eWrongTypeInCall, ['length', Compiler.getTypeDeclaration(param), 'int']);
+   Exit;
+  End;
+
+  Compiler.PutOpcode(o_arlen, ['er1', 'e'+Compiler.getTypePrefix(param)+'1', 'ei1']);
+ End Else
+
+  Error(eWrongParamCount, ['length', Length(Expr^.ParamList), '1']); // wrong syntax
+End;

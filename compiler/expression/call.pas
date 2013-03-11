@@ -1,10 +1,8 @@
-Procedure ParseCall;
+Procedure ParseCall(const isMethodCall: Boolean);
 Var IdentID, Namespace: Integer;
 
-{$I array_length.pas}
-
 { CastCall }
-Procedure CastCall;
+Function CastCall: PMType;
 Var TypeID       : PMType;
     Param        : Integer;
     fParamList   : TMParamList;
@@ -50,17 +48,18 @@ Begin
 
  // call function-pointer
  Compiler.PutOpcode(o_acall, ['er1']);
+ Compiler.PutOpcode(o_sub, ['stp', Length(fParamList)]);
 End;
 
 { LocalVarCall }
-Procedure LocalVarCall;
+Function LocalVarCall(const DisplayVarNotFound: Boolean=False): PMType;
 Var TypeID       : PMType;
     Param        : Integer;
     Variable     : TRVariable;
     fParamList   : TMParamList;
     Unspecialized: Boolean;
 Begin
- Variable := getVariable(Expr^.Left);
+ Variable := getVariable(Left, DisplayVarNotFound);
 
  if (Variable.ID = -1) Then
   Exit;
@@ -104,6 +103,7 @@ Begin
 
  // call function-pointer
  Compiler.PutOpcode(o_acall, ['er1']);
+ Compiler.PutOpcode(o_sub, ['stp', Length(fParamList)]);
 End;
 
 { GlobalFuncCall }
@@ -134,41 +134,87 @@ Begin
 
   // call function
   Compiler.PutOpcode(o_call, [':'+MName]);
+  Compiler.PutOpcode(o_sub, ['stp', Length(ParamList)]);
 
   Result := Return;
  End;
+End;
+
+{ MethodCall }
+Procedure MethodCall; // pseudo-OOP for arrays :P
+
+ // magic
+ Function magic(Expr: PMExpression): PMType;
+ Var method, param: PMType;
+     name         : String;
+
+ {$I array_length.pas}
+
+ Begin
+  Result := nil;
+  method := Parse(Expr^.Left);
+  name   := VarToStr(Expr^.Right^.Value);
+
+  RePop(Expr^.Left, method, 1);
+
+  if (not Compiler.isTypeObject(method)) Then // is it an object?
+  Begin
+   Error(eNonObjectMethodCall, [name, Compiler.getTypeDeclaration(method)]);
+   Exit;
+  End;
+
+  if (Compiler.isTypeArray(method)) and (Name = 'length') Then
+  Begin
+   __array_length;
+  End Else
+  Begin
+   Error(eMethodNotFound, [name, Compiler.getTypeDeclaration(method)]);
+   Exit;
+  End;
+
+  Result := TypeInstance(TYPE_INT);
+ End;
+
+Begin
+ Result := magic(Expr);
 End;
 
 Begin
  IdentID    := Expr^.IdentID;
  Namespace  := Expr^.IdentNamespace;
 
+ // calling a method?
+ if (isMethodCall) Then
+ Begin
+  MethodCall;
+  Exit;
+ End;
+
  if (Expr^.IdentID = -1) Then // function not found or cast-call
  Begin
   if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call
   Begin
-   CastCall;
+   Result := CastCall;
    Exit;
   End;
 
   // is it any of internal functions?
   Case VarToStr(Left^.Value) of
-   { @Note: when changing internal functions, modify also @TInterpreter.MakeTree.CreateNodeFromStack }
-
-   'array_length': __array_length;
+   { @Note: when changing internal functions, modify also TInterpreter.MakeTree->CreateNodeFromStack and Parse_FUNCTION }
+   '':
   End;
 
-  Exit; // error message has been shown when building the expression tree
+  Exit; // error message has been already shown when building the expression tree
  End;
 
  { local variable call }
  if (Expr^.isLocal) Then
-  LocalVarCall Else
+  Result := LocalVarCall Else
 
  { global function call }
  if (Compiler.NamespaceList[Namespace].GlobalList[IdentID].Typ = gdFunction) Then
   GlobalFuncCall Else
 
- { global variable call }
+ { global variable call (and, as there's no global variables for now, there's no glob-var-call) }
   Error(eInternalError, ['@TODO']);
 End;

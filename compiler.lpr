@@ -17,9 +17,6 @@
  along with SScript Compiler; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 *)
-
-{$DEFINE NIGHTLY}
-
 Program compiler;
 Uses Windows, SysUtils, TypInfo, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
 Var Input, Output: String;
@@ -102,6 +99,12 @@ Begin
    Tmp   := Length(Current);
    Value := not (Current[Tmp] = '-');
 
+   if (System.Pos('=', Current) > 0) Then
+   Begin
+    Value := Copy(Current, System.Pos('=', Current)+1, Length(Current));
+    Delete(Current, System.Pos('=', Current), Length(Current));
+   End;
+
    // find this option
    OptID := -1;
    For Option := Low(CommandLineNames) To High(CommandLineNames) Do
@@ -111,15 +114,7 @@ Begin
 
    if (ord(Option) = -1) Then
     Writeln('Unknown command-line option: ', Current) Else
-    Begin
-     if (CommandLineNames[Option].Typ <> pBool) Then
-     Begin
-      Inc(Pos);
-      Value := ParamStr(Pos);
-     End;
-
-     AddOption(Option, Value);
-    End;
+    AddOption(Option, Value);
   End Else
 
   { unexpected }
@@ -164,6 +159,9 @@ Begin
     raise Exception.Create('');
 
    Log; // newline
+   Log('Input: '+Input);
+   Log('Output: '+Output);
+   Log;
 
    if (not FileExists(Input)) Then
     raise Exception.Create('Input file does not exist.'); // error: input file not found
@@ -178,7 +176,7 @@ Begin
    if (E.Message <> '') Then
    Begin
     Writeln;
-    Writeln(E.ClassName, ' -> ', E.Message);
+    Writeln(E.Message);
     Writeln;
     Writeln('Callstack:');
     Writeln(BackTraceStrFunc(ExceptAddr));
@@ -214,7 +212,7 @@ Begin
       End;
      End;
     End Else
-     Writeln('No more compilation info available.');
+     Writeln('No more info available.');
    End;
  End;
 
