@@ -15,7 +15,7 @@ Uses Compile1, MTypes, ExpressionCompiler, Tokens;
 Procedure Parse(Compiler: Pointer);
 Var Expr, C: TMConstruction;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  While (true) Do
  Begin
@@ -26,7 +26,7 @@ Begin
   C.Values[0] := Expr.Values[0];
   AddConstruction(C);
 
-  setPosition(getPosition-1);
+  Dec(TokenPos);
   if (next_t = _SEMICOLON) Then
    Break Else
    eat(_COMMA);

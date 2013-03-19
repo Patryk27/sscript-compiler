@@ -258,6 +258,9 @@ Begin
       if (isArgumentChanging(2)) Then
        Break;
 
+     if (oTmp.Opcode in [o_call, o_acall]) Then // copy propagation can be applied for these two calls
+      __optimize1(0);
+
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
       Break;
 

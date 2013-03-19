@@ -1,13 +1,13 @@
 Procedure ParsePIncDec;
 Var Variable: TRVariable;
     RegChar : Char;
-    TypeID  : PMType;
+    TypeID  : TType;
 
  Procedure Fail;
  Begin
   if (Expr^.Typ in [mtPreInc, mtPreDec]) Then
-   Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeDeclaration(Variable.Typ)]) Else
-   Error(eUnsupportedUOperator, [Compiler.getTypeDeclaration(Variable.Typ), getDisplay(Expr)]);
+   Error(eUnsupportedUOperator, [getDisplay(Expr), Variable.Typ.asString]) Else
+   Error(eUnsupportedUOperator, [Variable.Typ.asString, getDisplay(Expr)]);
  End;
 
 Begin
@@ -22,7 +22,7 @@ Begin
  if (Variable.ID = -1) Then // variable not found
   Exit;
 
- if (not Compiler.isTypeNumerical(Variable.Typ)) Then
+ if (not Variable.Typ.isNumerical) Then
   Fail;
 
  { not array }
@@ -45,10 +45,10 @@ Begin
  { array }
  Begin
   // Step 1: load a current array's element's value into second register
-  RegChar := Compiler.getTypePrefix(Compiler.getArrayBaseType(Variable.Typ));
+  RegChar := Variable.Typ.ArrayBase.RegPrefix;
   TypeID  := __variable_getvalue_array_reg(Variable, 2, RegChar, Left);
 
-  if (Compiler.isTypeArray(TypeID)) Then
+  if (TypeID.isArray) Then
   Begin
    Fail;
    Exit;

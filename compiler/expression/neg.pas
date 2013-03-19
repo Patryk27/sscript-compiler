@@ -4,11 +4,11 @@ Begin
  Result := Parse(Left, 1);
  RePop(Left, Result, 1);
 
- if (not Compiler.isTypeNumerical(Result)) Then // numerical types only
+ if (not Result.isNumerical) Then // numerical types only
  Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeDeclaration(Result)]);
+  Error(eUnsupportedUOperator, [getDisplay(Expr), Result.asString]);
   Exit;
  End;
 
- Compiler.PutOpcode(o_neg, ['e'+Compiler.getTypePrefix(Result)+'1']);
+ Compiler.PutOpcode(o_neg, ['e'+Result.RegPrefix+'1']);
 End;

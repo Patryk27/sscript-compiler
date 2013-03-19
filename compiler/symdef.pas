@@ -1,0 +1,893 @@
+(*
+ Copyright © by Patryk Wychowaniec, 2013
+ All rights reserved.
+*)
+Unit symdef;
+
+ Interface
+ Uses MTypes, Tokens;
+
+ Type TVisibility = (mvPublic, mvPrivate);
+
+ Type TTypeAttributes = Set of (taStrict, taFunction, taUnspecialized);
+ Type TVariableAttributes = Set of (vaConst, vaFuncParam, vaDontAllocate);
+ Type TFunctionAttributes = Set of (faNaked);
+
+ (* Symbol *)
+ Type TSymbol = Class
+                 Public
+                 // public fields
+                  Name: String;
+
+                  Visibility: TVisibility; // symbol visibiility
+                  mCompiler : Pointer; // compiler in which symbol has been declared
+                  DeclToken : PToken_P; // declaration token pointer
+
+                 // public methods
+                  Constructor Create;
+
+                  Function asString(const AddNamespace: Boolean=False): String; virtual; abstract;
+                 End;
+
+ (* Type *)
+ Type TType = class;
+
+ Type TParam = Record
+                Name: String;
+                Typ : TType;
+               End;
+      TParamList = Array of TParam;
+
+   // TType
+ Type TType = Class (TSymbol)
+               Public
+               // public fields
+                RegPrefix : Char;
+                InternalID: Byte;
+
+                ArrayBase    : TType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
+                ArrayDimCount: Byte; // array dimension count
+
+                FuncReturn: TType;
+                FuncParams : TParamList;
+
+                Attributes: TTypeAttributes;
+
+               // public methods
+                Constructor Create;
+
+                Function isUnspecialized: Boolean;
+                Function isStrict: Boolean;
+
+                Function getBytecodeType: String;
+
+                Function isVoid: Boolean;
+                Function isBool: Boolean;
+                Function isChar: Boolean;
+                Function isInt: Boolean;
+                Function isFloat: Boolean;
+                Function isString: Boolean;
+                Function isNumerical: Boolean;
+                Function isArray(const RegardStringAsArray: Boolean=True): Boolean;
+                Function isObject: Boolean;
+                Function isFunctionPointer: Boolean;
+
+                Function CanBeAssignedTo(T2: TType): Boolean;
+
+                Function Clone: TType;
+                Function asString(const AddNamespace: Boolean=False): String; override;
+               End;
+
+ (* Variable *)
+ Type TVariable = Class (TSymbol)
+                   Public
+                   // public fields
+                    MemPos: Integer; // negative values and zero for stack position, positive values for register ID (1..4)
+
+                    Typ  : TType;
+                    Value: PMExpression;
+                    Deep : Integer;
+
+                    Attributes: TVariableAttributes;
+
+                   // public methods
+                    Constructor Create;
+
+                    Function isConst: Boolean;
+                    Function isFuncParam: Boolean;
+                    Function DontAllocate: Boolean;
+
+                    Function asString(const AddNamespace: Boolean=False): String; override;
+                   End;
+ Type TMVariableList = Array of TVariable;
+
+ (* Function *)
+ Type TFunction = Class (TSymbol)
+                   Public
+                   // public fields
+                    ModuleName   : String; // module name in which function has been declared
+                    MangledName  : String; // function mangled (label) name
+                    NamespaceName: String; // namespace name in which function has been declared
+                    LibraryFile  : String; // only for library-imported functions - library file name
+
+                    Return: TType; // return type
+
+                    ParamList       : TParamList; // parameter list
+                    VariableList    : TMVariableList; // variable list
+                    ConstructionList: TMConstructionList; // construction list
+
+                    Attributes: TFunctionAttributes;
+
+                   // public methods
+                    Constructor Create;
+
+                    Function isNaked: Boolean;
+
+                    Function asString(const AddNamespace: Boolean=False): String; override;
+                   End;
+
+ (* Global symbol *)
+ Type TGlobalSymbolType = (gsConstant, gsVariable, gsFunction, gsType);
+ Type TGlobalSymbol = Class
+                       Public
+                       // methods
+                        Constructor Create;
+
+                       // fields
+                       Var
+                        Typ: TGlobalSymbolType;
+
+                        mVariable: TVariable; // gdConstant, gdVariable
+                        mFunction: TFunction; // gtFunction
+                        mType    : TType;
+
+                        isInternal: Boolean; // eg.`null` is internal
+                       End;
+
+ (* Namespace *)
+ Type TNamespace = Class (TSymbol)
+                    Public
+                    // methods
+                     Constructor Create;
+
+                    // fields
+                    Var
+                     SymbolList: Array of TGlobalSymbol; // symbol list
+                    End;
+
+ Type TNamespaceList = Array of TNamespace;
+
+ // operators
+ Function type_equal(A, B: TType): Boolean;
+
+ // functions
+ Function CreateFunctionMangledName(Func: TFunction; SimplifiedName: Boolean): String;
+
+ Function TYPE_ANY: TType;
+ Function TYPE_NULL: TType;
+ Function TYPE_VOID: TType;
+ Function TYPE_BOOL: TType;
+ Function TYPE_CHAR: TType;
+ Function TYPE_INT: TType;
+ Function TYPE_FLOAT: TType;
+ Function TYPE_STRING: TType;
+
+ Implementation
+Uses CompilerUnit;
+
+(* CreateFunctionMangledName *)
+{
+ Creates a mangled name of function passed in parameter.
+}
+Function CreateFunctionMangledName(Func: TFunction; SimplifiedName: Boolean): String;
+Var P: TParam;
+Begin
+ With Func do
+ Begin
+  if (MangledName = '') Then
+   MangledName := Name;
+
+  if (SimplifiedName) Then
+   Exit('__function_'+NamespaceName+'_'+MangledName);
+
+  Result := '__function_'+NamespaceName+'_'+MangledName+'_'+ModuleName+'_'+Return.getBytecodeType;
+  For P in ParamList Do
+   Result += P.Typ.getBytecodeType+'_';
+ End;
+End;
+
+(* type_equal *)
+{
+ Compares two TTypes (except their eg.names)
+}
+Function type_equal(A, B: TType): Boolean;
+Begin
+ if (A = nil) or (B = nil) Then
+  Exit(False);
+
+ Result :=
+ (A.ArrayDimCount = B.ArrayDimCount) and
+ (A.InternalID    = B.InternalID) and
+ (A.Attributes    = B.Attributes) and
+ (A.RegPrefix     = B.RegPrefix);
+
+ if (not Result) Then
+  Exit(False);
+
+ if (A.ArrayBase <> nil) and (B.ArrayBase <> nil) Then
+  Result := Result and type_equal(A.ArrayBase, B.ArrayBase);
+
+ if (A.FuncReturn <> nil) and (B.FuncReturn <> nil) Then
+  Result := Result and type_equal(A.FuncReturn, B.FuncReturn);
+
+ Result := Result and (Length(A.FuncParams) = Length(B.FuncParams));
+End;
+
+(* TYPE_ANY *)
+Function TYPE_ANY: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'any';
+  RegPrefix  := 'i';
+  InternalID := TYPE_ANY_id;
+ End;
+End;
+
+(* TYPE_NULL *)
+Function TYPE_NULL: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'null';
+  RegPrefix  := 'r';
+  InternalID := TYPE_NULL_id;
+ End;
+End;
+
+(* TYPE_VOID *)
+Function TYPE_VOID: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'void';
+  RegPrefix  := 'i';
+  InternalID := TYPE_VOID_id;
+ End;
+End;
+
+(* TYPE_BOOL *)
+Function TYPE_BOOL: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'bool';
+  RegPrefix  := 'b';
+  InternalID := TYPE_BOOL_id;
+ End;
+End;
+
+(* TYPE_CHAR *)
+Function TYPE_CHAR: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'char';
+  RegPrefix  := 'c';
+  InternalID := TYPE_CHAR_id;
+ End;
+End;
+
+(* TYPE_INT *)
+Function TYPE_INT: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'int';
+  RegPrefix  := 'i';
+  InternalID := TYPE_INT_id;
+ End;
+End;
+
+(* TYPE_FLOAT *)
+Function TYPE_FLOAT: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'float';
+  RegPrefix  := 'f';
+  InternalID := TYPE_FLOAT_id;
+ End;
+End;
+
+(* TYPE_STRING *)
+Function TYPE_STRING: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  Name       := 'string';
+  RegPrefix  := 's';
+  InternalID := TYPE_STRING_id;
+
+  ArrayBase     := TYPE_CHAR;
+  ArrayDimCount := 1;
+ End;
+End;
+
+(* ---------- TSymbol ---------- *)
+
+{ TSymbol.Create }
+Constructor TSymbol.Create;
+Begin
+ Name := '';
+
+ Visibility := mvPublic;
+ mCompiler  := nil;
+ DeclToken  := nil;
+End;
+
+(* ---------- TType ---------- *)
+
+(* TType.Create *)
+{
+ Constructor for TType
+}
+Constructor TType.Create;
+Begin
+ RegPrefix     := #0;
+ ArrayDimCount := 0;
+ ArrayBase     := nil;
+ InternalID    := 0;
+ FuncReturn    := nil;
+ Attributes    := [];
+
+ SetLength(FuncParams, 0);
+End;
+
+(* TType.isUnspecialized *)
+{
+ Returns `true`, when type is marked as `unspecialized`
+}
+Function TType.isUnspecialized: Boolean;
+Begin
+ Result := (taUnspecialized in Attributes);
+End;
+
+(* TType.isStrict *)
+{
+ Returns `true`, when type is marked as `strict`
+}
+Function TType.isStrict: Boolean;
+Begin
+ Result := (taStrict in Attributes);
+End;
+
+(* TType.getBytecodeType *)
+{
+ Returns type declaration, that can be used as a label's name.
+ Eg.instead of "int[]" returns "int_arraytype".
+}
+Function TType.getBytecodeType: String;
+Var I: Integer;
+Begin
+ Result := '';
+
+ { is function? }
+ if (taFunction in Attributes) Then
+ Begin
+  if (taUnspecialized in Attributes) Then
+   Result := 'unspecialized_function' Else
+  Begin
+   Result := 'function_'+FuncReturn.getBytecodeType+'_';
+
+   For I := Low(FuncParams) To High(FuncParams) Do
+    Result += FuncParams[I].Typ.getBytecodeType+'_';
+  End;
+
+  For I := 1 To ArrayDimCount Do
+   Result += '_arraytype_';
+
+  Exit;
+ End;
+
+ { is primary? }
+ if (ArrayDimCount = 0) or ((ArrayDimCount = 1) and (InternalID = TYPE_STRING_id)) Then
+ Begin
+  Result += PrimaryTypeNames[InternalID]+'_';
+ End Else
+ Begin
+  { is array? }
+  Result += ArrayBase.getBytecodeType;
+
+  For I := 1 To ArrayDimCount Do
+   Result += '_arraytype_';
+ End;
+End;
+
+(* TType.isVoid *)
+{
+ Returns `true`, when type passed in parameter is `void`-derived; in other case, returns `false`.
+}
+Function TType.isVoid: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(InternalID in [TYPE_NULL_id, TYPE_VOID_id]);
+End;
+
+(* TType.isBool *)
+{
+ Returns `true`, when type passed in parameter is `bool`-derived; in other case, returns `false`.
+}
+Function TType.isBool: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(InternalID in [TYPE_BOOL_id, TYPE_INT_id]);
+End;
+
+(* TType.isChar *)
+{
+ Returns `true`, when type passed in parameter is `char`-derived; in other case, returns `false`.
+ @Note: Also returns `false` when passed type is `int`!
+}
+Function TType.isChar: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(InternalID in [TYPE_CHAR_id]);
+End;
+
+(* TType.isInt *)
+{
+ Returns `true`, when type passed in parameter is `int`-derived or is a pointer; in other case, returns `false`.
+}
+Function TType.isInt: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit((InternalID in [TYPE_INT_id]) or (taFunction in Attributes));
+End;
+
+(* TType.isFloat *)
+{
+ Returns `true`, when type passed in parameter is `float`-derived; in other case, returns `false`.
+ @Note: Also returns `false` when passed type is `int` or pointer!
+}
+Function TType.isFloat: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(InternalID in [TYPE_FLOAT_id]);
+End;
+
+(* TType.isString *)
+{
+ Returns `true`, when type passed in parameter is `string`-derived; in other case, returns `false`.
+}
+Function TType.isString: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(InternalID in [TYPE_STRING_id]);
+End;
+
+(* TType.isNumerical *)
+{
+ Returns `true`, when type passed in parameter is a numerical type (int, float, char and pointers) or numerical-derived; in other case, returns `false`.
+}
+Function TType.isNumerical: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(isInt or isFloat or isChar or isFunctionPointer);
+End;
+
+(* TType.isArray *)
+{
+ Returns `true`, when type passed in parameter is an array; in other case, returns `false`.
+}
+Function TType.isArray(const RegardStringAsArray: Boolean=True): Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ if ((isString) and (ArrayDimCount = 1)) Then
+  Exit(RegardStringAsArray);
+
+ Exit(ArrayDimCount > 0);
+End;
+
+(* TType.isObject *)
+{
+ Returns `true`, when type passed in parameter is an object.
+}
+Function TType.isObject: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Result := isArray; // for now, only arrays are some-kind-of-objects
+
+ if (isString) and (ArrayDimCount = 1) Then // ... excepts strings - despite the fact, that strings are arrays, they're not objects
+  Exit(False);
+End;
+
+(* TType.isFunctionPointer *)
+{
+ Returns `true`, when type passed in parameter is a function pointer.
+}
+Function TType.isFunctionPointer: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(taFunction in Attributes);
+End;
+
+(* TType.Clone *)
+{
+ Returns clone of self.
+}
+Function TType.Clone: TType;
+Var I: Integer;
+Begin
+ Result := TType.Create;
+
+ if (self = nil) Then
+ Begin
+  DevLog('Warning: TType.Clone() called with `self = nil`; returned an empty type');
+  Exit;
+ End;
+
+ Result.Name       := Name;
+ Result.Visibility := Visibility;
+ Result.mCompiler  := mCompiler;
+
+ Result.RegPrefix  := RegPrefix;
+ Result.InternalID := InternalID;
+
+ Result.ArrayDimCount := ArrayDimCount;
+
+ Result.FuncReturn := FuncReturn.Clone;
+ SetLength(Result.FuncParams, Length(FuncParams));
+ For I := Low(FuncParams) To High(FuncParams) Do
+  Result.FuncParams[I].Typ := FuncParams[I].Typ.Clone;
+
+ Result.Attributes := Attributes;
+
+ if (ArrayBase = self) Then
+ Begin
+  DevLog('Error: TType.Clone() -> ArrayBase = self; cannot do an entire type cloning');
+  Result.ArrayBase := ArrayBase;
+  Exit;
+ End;
+
+ Result.ArrayBase := ArrayBase.Clone;
+End;
+
+(* TType.asString *)
+{
+ Returns type declaration.
+ Eg.`int[]` or `function<void>(string)`.
+}
+Function TType.asString(const AddNamespace: Boolean=False): String;
+Var I: Integer;
+Begin
+ if (self = nil) Then
+  Exit('erroneous type');
+
+ Result := '';
+
+ if (AddNamespace) Then
+  DevLog('Unimplemented: TType.asString() called with `AddNamespace = true`');
+
+ { is function? }
+ if (taFunction in Attributes) Then
+ Begin
+  if (taUnspecialized in Attributes) Then
+   Result := 'unspecialized function' Else
+  Begin
+   Result := 'function<'+FuncReturn.asString+'>(';
+
+   For I := Low(FuncParams) To High(FuncParams) Do
+   Begin
+    Result += FuncParams[I].Typ.asString;
+    if (I <> High(FuncParams)) Then
+     Result += ', ';
+   End;
+
+   Result += ')';
+  End;
+
+  For I := 1 To ArrayDimCount Do
+   Result += '[]';
+
+  Exit;
+ End;
+
+ { is primary? }
+ if (ArrayDimCount = 0) Then
+ Begin
+  if (isString) Then
+   Exit('char');
+
+  Exit(PrimaryTypeNames[InternalID]);
+ End Else
+ Begin
+  { is array? }
+  if (isString) or (ArrayBase.isString) Then
+  Begin
+   I      := ArrayDimCount-1;
+   Result := 'string';
+  End Else
+  Begin
+   I      := ArrayDimCount;
+   Result := ArrayBase.asString;
+  End;
+
+  For I := 1 To I Do
+   Result += '[]';
+ End;
+End;
+
+(* TType.CanBeAssignedTo *)
+{
+ Returns `true` if this type can be assigned to type passed in parameter
+}
+Function TType.CanBeAssignedTo(T2: TType): Boolean;
+Var I: Integer;
+Begin
+ Result := True;
+
+ if (self = nil) or (T2 = nil) Then
+ Begin
+  {$IFDEF COMPARE_ERRONEOUS_TYPE}
+   DevLog('Comparing erroneous types; returned `true`');
+   Exit(True);
+  {$ELSE}
+   DevLog('Comparing erroneous types; returned `false`');
+   Exit(False);
+  {$ENDIF}
+ End;
+
+ { strict types }
+ if (self.isStrict) or (T2.isStrict) Then
+  Exit(type_equal(self, T2));
+
+ { 'any' types }
+ if (self.InternalID = TYPE_ANY_id) or (T2.InternalID = TYPE_ANY_id) Then // any or any => true
+  Exit(True);
+
+ { comparing null-type }
+ if (self = TYPE_NULL) Then
+ Begin
+  Exit(T2.isFunctionPointer or T2.isObject); // `null` can be assigned only into a pointer or object
+ End Else
+
+ { compare function-pointers }
+ if (self.isFunctionPointer and T2.isFunctionPointer) Then
+ Begin
+  if (self.isUnspecialized) or (T2.isUnspecialized) Then
+   Exit(True);
+
+  Result := type_equal(self.FuncReturn, T2.FuncReturn) and
+            (Length(self.FuncParams) = Length(T2.FuncParams));
+
+  if (not Result) Then
+   Exit(False);
+
+  For I := Low(self.FuncParams) To High(T2.FuncParams) Do
+   if (not type_equal(self.FuncParams[I].Typ, T2.FuncParams[I].Typ)) Then
+    Exit(False);
+
+  Exit(True);
+ End Else
+
+ { comparing function-pnt with non-func-pnt }
+ if (self.isFunctionPointer and (not T2.isFunctionPointer)) Then
+ Begin
+  Exit(T2.isInt);
+ End Else
+
+ { comparing strings }
+ if (self.isString and T2.isString) Then
+ Begin
+  Exit(self.ArrayDimCount = T2.ArrayDimCount); // string to string => true
+ End Else
+
+ { comparing string with non-string (except `char` to `string`) always returns false }
+ if (self.isString and (not T2.isString)) or
+    ((not self.isString) and (T2.isString)) Then
+ Begin
+  if (self.isChar and (self.ArrayDimCount = 0)) and (T2.isString) Then
+   Exit(True);
+
+  Exit(False);
+ End Else
+
+ { comparing arrays }
+ if (self.isArray and T2.isArray) Then
+ Begin
+  Exit(
+       (self.ArrayBase.InternalID = T2.ArrayBase.InternalID) and // arrays' base types must be correct
+       (self.ArrayDimCount = T2.ArrayDimCount) // and also their dimensions amount must be the same
+      );
+ End Else
+
+ { comparing array with non-array always returns false }
+ if (self.isArray and (not T2.isArray)) or
+    (T2.isArray and (not self.isArray)) Then
+ Begin
+  Exit(False);
+ End Else
+
+ { compare-table for simple (primary) types }
+ Begin
+  if (self.isVoid) and (not T2.isVoid) Then // void to non void => false
+   Exit(False);
+
+  if (self.isInt) and (T2.isFloat) Then // int to float => true
+   Exit(True);
+
+  if (self.isInt) and (T2.isChar) Then // int to char => true
+   Exit(True);
+
+  if (self.isChar) and (T2.isInt) Then // char to int => true
+   Exit(True);
+
+  if (self.isInt) and (T2.isBool) Then // int to bool => true (as it's supported by the VM)
+   Exit(True);
+ End;
+
+ { compare types }
+ Exit(type_equal(self, T2));
+End;
+
+(* ---------- TVariable ---------- *)
+
+(* TVariable.Create *)
+Constructor TVariable.Create;
+Begin
+ MemPos := 0;
+
+ Typ   := nil;
+ Value := nil;
+ Deep  := 0;
+
+ Attributes := [];
+End;
+
+(* TVariable.isConst *)
+Function TVariable.isConst: Boolean;
+Begin
+ Result := vaConst in Attributes;
+End;
+
+(* TVariable.isFuncParam *)
+Function TVariable.isFuncParam: Boolean;
+Begin
+ Result := vaFuncParam in Attributes;
+End;
+
+(* TVariable.DontAllocate *)
+Function TVariable.DontAllocate: Boolean;
+Begin
+ Result := vaDontAllocate in Attributes;
+End;
+
+(* TVariable.asString *)
+{
+ Returns global variable's or constant's definition.
+ Eg.:
+ "var<int[]> somearray;"
+ or
+ "const<string> something = "asdf";"
+}
+Function TVariable.asString(const AddNamespace: Boolean=False): String;
+Begin
+ DevLog('Unimplemented: TVariable.asString()');
+End;
+
+(* ---------- TFunction ---------- *)
+
+(* TFunction.Create *)
+Constructor TFunction.Create;
+Begin
+ ModuleName    := '';
+ NamespaceName := '';
+
+ Return := nil;
+
+ SetLength(ParamList, 0);
+ SetLength(VariableList, 0);
+ SetLength(ConstructionList, 0);
+
+ Attributes := [];
+End;
+
+(* TFunction.isNaked *)
+{
+ Returns true if function has attribute `faNaked`
+}
+Function TFunction.isNaked: Boolean;
+Begin
+ Result := (faNaked in Attributes);
+End;
+
+(* TFunction.asString *)
+Function TFunction.asString(const AddNamespace: Boolean=False): String;
+Begin
+ DevLog('Unimplemented: TFunction.asString()');
+{
+Var Func: TMFunction;
+    I   : Integer;
+Begin
+ Func := NamespaceList[Namespace].SymbolList[ID].mFunction;
+
+ Result := '';
+
+ if (AddNamespace) Then
+  if (NamespaceList[Namespace].Name = '') Then
+   Result += 'default namespace :: ' Else
+   Result += NamespaceList[Namespace].Name+ ' :: ';
+
+ Result += 'function<'+getTypeDeclaration(Func.Return)+'> '+Func.Name+'(';
+
+ For I := Low(Func.ParamList) To High(Func.ParamList) Do
+ Begin
+  Result += getTypeDeclaration(Func.ParamList[I].Typ);
+
+  if (I <> High(Func.ParamList)) Then
+   Result += ', ';
+ End;
+
+ Result += ')';
+}
+End;
+
+(* ---------- TGlobalSymbol ---------- *)
+
+(* TGlobalSymbol.Create *)
+Constructor TGlobalSymbol.Create;
+Begin
+ Typ := TGlobalSymbolType(0);
+
+ mVariable := nil;
+ mFunction := nil;
+ mType     := nil;
+
+ isInternal := False;
+End;
+
+(* ---------- TNamespace ---------- *)
+
+(* TNamespace.Create *)
+Constructor TNamespace.Create;
+Begin
+ SetLength(SymbolList, 0);
+End;
+End.

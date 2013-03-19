@@ -7,6 +7,7 @@ Unit Scanner;
  Interface
  Uses Tokens, SysUtils, Classes;
 
+ { TScanner }
  Type TScanner = Class
                   Private
                    Code      : String;
@@ -23,6 +24,7 @@ Unit Scanner;
 
                    Procedure IncPosition;
                    Procedure DecPosition;
+
                   Public
                    Constructor Create(Lines: TStringList);
                    Destructor Destroy; override;
@@ -42,20 +44,6 @@ Unit Scanner;
 Constructor TScanner.Create(Lines: TStringList);
 Var I: Integer;
 Begin
-{
- For I := 0 To Code_.Count-1 Do
-  Code_[I] := Code_[I]+#0;
-
- Code := Code_.Text;
-
- I := 1;
- if (Length(Code) > 0) Then
-  Repeat
-   if (Code[I] = #9) Then
-    Delete(Code, I, 1) Else
-    Inc(I);
-  Until (I >= Length(Code));
- }
  For I := 0 To Lines.Count-1 Do
   Lines[I] := Lines[I] + #0;
 

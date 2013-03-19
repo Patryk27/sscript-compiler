@@ -15,7 +15,7 @@ Uses Compile1, ExpressionCompiler, MTypes, Tokens;
 Procedure Parse(Compiler: Pointer);
 Var C: TMConstruction;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  if (next_t = _SEMICOLON) Then // `return;`
  Begin

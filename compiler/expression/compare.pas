@@ -1,5 +1,5 @@
 Procedure ParseCompare;
-Var TypeLeft, TypeRight: PMType;
+Var TypeLeft, TypeRight: TType;
     Opcode             : TOpcode_E;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
@@ -13,8 +13,8 @@ Begin
   mtDifferent   : Opcode := o_if_ne;
  End;
 
- Compiler.PutOpcode(Opcode, ['e'+Compiler.getTypePrefix(TypeLeft)+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
+ Compiler.PutOpcode(Opcode, ['e'+TypeLeft.RegPrefix+'1', 'e'+TypeRight.RegPrefix+'2']);
 
- Result      := TypeInstance(TYPE_BOOL);
+ Result      := TYPE_BOOL;
  Push_IF_reg := True;
 End;

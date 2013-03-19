@@ -1,4 +1,4 @@
-Compiled bytecode file (`ssc` file) is a ZIP archive with following files:
+Compiled bytecode file (the `ssc` file) is a ZIP archive with following files:
 	.header
 	.bytecode
 

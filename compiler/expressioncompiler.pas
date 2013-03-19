@@ -3,13 +3,12 @@
  All rights reserved.
 *)
 
-{ ... and now the fun begins ;) }
 {.$DEFINE DISPLAY_TREE}
 
 Unit ExpressionCompiler;
 
  Interface
- Uses Compile1, MTypes, Tokens, Variants, TypInfo;
+ Uses Compile1, MTypes, symdef, Tokens, Variants, TypInfo;
 
  Const STACK_SIZE = 5000; // internal compiler stack size (in elements)
 
@@ -68,10 +67,10 @@ Unit ExpressionCompiler;
  Function MakeIntExpression(const Value: Integer): PMExpression;
  Function MakeIntExpression(const Value: String): PMExpression;
  Function MakeFloatExpression(const Value: Extended): PMExpression;
- Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
+ Function getValueFromExpression(const Expr: PMExpression; Beautify: Boolean=False): String;
 
  Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): TMConstruction;
- Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): PMType;
+ Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TType;
 
  Implementation
 Uses SysUtils,
@@ -122,7 +121,7 @@ Begin
 End;
 
 { getValueFromExpression }
-Function getValueFromExpression(const Compiler: Pointer; Expr: PMExpression; Beautify: Boolean=False): String;
+Function getValueFromExpression(const Expr: PMExpression; Beautify: Boolean=False): String;
 Var Value: String;
 Begin
  Value := VarToStr(Expr^.Value);
@@ -137,7 +136,7 @@ Begin
 
  Case Expr^.Typ of
   mtChar  : Exit('#'+IntToStr(ord(Value[1])));
-  mtString: Exit(TCompiler(Compiler).AddString(Value));
+  mtString: Exit('"'+Value+'"');
  End;
 
  Exit(Value);
@@ -259,7 +258,7 @@ Begin
  Begin
   Typ   := fTyp;
   Value := fValue;
-  Deep  := Compiler.CurrentDeep;
+  Deep  := Compiler.Parser.CurrentDeep;
  End;
  Inc(StackPos);
 End;
@@ -301,7 +300,7 @@ Begin
  Val.Typ         := Typ;
  Val.Value       := Value;
  Val.Token       := Token;
- Val.Deep        := Compiler.CurrentDeep;
+ Val.Deep        := Compiler.Parser.CurrentDeep;
  Val.NamespaceID := NamespaceID;
  FinalExprPush(Val);
 End;
@@ -376,7 +375,7 @@ Var Token: TToken_P;
 
     Str   : String;
     Value : TStackValue;
-    TypeID: PMType;
+    TypeID: TType;
 
     Bracket        : Integer=0;
     Bracket2       : Integer=0;
@@ -395,18 +394,18 @@ Var TmpPos, Bracket: Integer;
     Token          : TToken_P;
 Begin
  Result  := 1;
- TmpPos  := Compiler.getPosition;
+ TmpPos  := Compiler.Parser.getPosition;
  Bracket := 0; { bracket level/deep }
 
- if (Compiler.next_t(0) = _BRACKET1_CL) Then { func() }
+ if (Compiler.Parser.next_t(0) = _BRACKET1_CL) Then { func() }
   Exit(0);
 
- With Compiler do
-  setPosition(getPosition-1);
+ With Compiler.Parser do
+  Dec(TokenPos);
 
  While (true) Do
  Begin
-  Token := Compiler.read;
+  Token := Compiler.Parser.read;
   Case Token.Token of
    _BRACKET1_OP: Inc(Bracket);
    _BRACKET1_CL: Begin
@@ -421,7 +420,7 @@ Begin
   End;
  End;
 
- Compiler.setPosition(TmpPos);
+ Compiler.Parser.TokenPos := TmpPos;
 End;
 
 { is_a_post_operator }
@@ -431,7 +430,7 @@ Begin
  Result := False;
  Pos    := -2;
 
- With Compiler do
+ With Compiler.Parser do
   Case next_t(Pos) of
    _IDENTIFIER : Exit(True);
    _BRACKET2_CL:
@@ -456,7 +455,7 @@ End;
 
 { function's body }
 Begin
-With Compiler do
+With Compiler, Parser do
 Begin
  StackPos          := 0;
  FinalExprPos      := 0;
@@ -473,8 +472,7 @@ Begin
   if (Token.Token in EndTokens) and (Bracket = 0) Then
   Begin
    Case Expect of
-    eValue   : Compiler.CompileError(eExpectedValue, [Token.Display]);
-   // eOperator: Compiler.CompileError(eExpectedOperator, [Token.Display]);
+    eValue: CompileError(eExpectedValue, [Token.Display]);
    End;
 
    Break;
@@ -1092,9 +1090,9 @@ End;
 Type TRVariable = Record
                    Name   : String;
                    ID     : Integer;
-                   RegID  : Integer;
+                   MemPos : Integer;
                    RegChar: Char;
-                   Typ    : PMType;
+                   Typ    : TType;
                    PosStr : String;
                    Value  : PMExpression;
 
@@ -1104,12 +1102,12 @@ Type TRVariable = Record
                   End;
 
 { CompileConstruction }
-Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): PMType;
+Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TType;
 Var Compiler    : TCompiler;
     PushedValues: Integer=0;
 
 { Parse }
-Function Parse(Expr: PMExpression; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): PMType;
+Function Parse(Expr: PMExpression; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): TType;
 Var Right, Left: PMExpression;
     Push_IF_reg: Boolean=False;
 
@@ -1132,14 +1130,14 @@ Begin
 End;
 
 { RePop }
-Procedure RePop(Expr: PMExpression; TypeID: PMType; Reg: Byte);
+Procedure RePop(Expr: PMExpression; TypeID: TType; Reg: Byte);
 Begin
  if (Expr^.ResultOnStack) Then
  Begin
   if not (Reg in [1..4]) Then
    Error(eInternalError, ['RePop called with invalid register ID: '+IntToStr(Reg)]);
 
-  Compiler.PutOpcode(o_pop, ['e'+Compiler.getTypePrefix(TypeID)+IntToStr(Reg)]);
+  Compiler.PutOpcode(o_pop, ['e'+TypeID.RegPrefix+IntToStr(Reg)]);
   Expr^.ResultOnStack := False;
   Dec(PushedValues);
  End;
@@ -1152,7 +1150,7 @@ Begin
  { set default values }
  With Result do
  Begin
-  RegID   := 0;
+  MemPos  := 0;
   RegChar := #0;
   Typ     := nil;
   isConst := False;
@@ -1177,61 +1175,61 @@ Begin
  if (Expr^.isLocal) Then
  Begin
   { local variable or constant }
-  With Result do
+  With Compiler.getCurrentFunction, Result do
   Begin
-   RegID   := Compiler.getVariableRegID(ID);
-   RegChar := Compiler.getVariableRegChar(ID);
-   Typ     := Compiler.getVariableType(ID);
-   Value   := Compiler.getVariableValue(ID);
-   isConst := Compiler.isVariableConstant(ID);
+   MemPos  := VariableList[ID].MemPos;
+   RegChar := VariableList[ID].Typ.RegPrefix;
+   Typ     := VariableList[ID].Typ;
+   Value   := VariableList[ID].Value;
+   isConst := VariableList[ID].isConst;
 
-   if (RegID > 0) Then
-    PosStr := 'e'+RegChar+IntToStr(RegID) Else
-    PosStr := '['+IntToStr(RegID-PushedValues)+']';
+   if (MemPos > 0) Then
+    PosStr := 'e'+RegChar+IntToStr(MemPos) Else
+    PosStr := '['+IntToStr(MemPos-PushedValues)+']';
   End;
  End Else
  Begin
   { global variable or constant }
-  With Compiler.NamespaceList[Expr^.IdentNamespace].GlobalList[Result.ID], Result do
+  With Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Result.ID], Result do
   Begin
-   RegID   := mVariable.RegID;
+   MemPos  := mVariable.MemPos;
    Typ     := mVariable.Typ;
-   RegChar := Compiler.getTypePrefix(Typ);
+   RegChar := Typ.RegPrefix;
    Value   := mVariable.Value;
    isConst := mVariable.isConst;
   End;
  End;
 
 Failed:
- if (Result.ID = -1) and (FailWhenNotFound) Then
+ if (Result.ID = -1) and (FailWhenNotFound) Then // var not found
  Begin
   Error(eUnknownVariable, [Result.Name]);
   Exit;
  End;
 
- if (Result.isConst) and (not AllowConstants) Then
+ if (Result.isConst) and (not AllowConstants) Then // not a constant
   Error(Expr^.Token, eLValueRequired, []);
 End;
 
 { getType }
-Function getType(Value: Variant): PMType;
+Function getType(Value: Variant): TType;
 Begin
  if (Value = null) Then
   Exit(nil);
 
- Result := PMType(LongWord(Value));
+ Result := TType(LongWord(Value));
 End;
 
 { getTypeFromMExpr }
-Function getTypeFromMExpr(Expr: PMExpression): PMType;
+Function getTypeFromMExpr(Expr: PMExpression): TType;
 Begin
- Result := TypeInstance(TYPE_ANY);
+ Result := TYPE_ANY;
  Case Expr^.Typ of
-  mtBool    : Result := TypeInstance(TYPE_BOOL);
-  mtChar    : Result := TypeInstance(TYPE_CHAR);
-  mtInt     : Result := TypeInstance(TYPE_INT);
-  mtFloat   : Result := TypeInstance(TYPE_FLOAT);
-  mtString  : Result := TypeInstance(TYPE_STRING);
+  mtBool    : Result := TYPE_BOOL;
+  mtChar    : Result := TYPE_CHAR;
+  mtInt     : Result := TYPE_INT;
+  mtFloat   : Result := TYPE_FLOAT;
+  mtString  : Result := TYPE_STRING;
   mtVariable: Result := getVariable(Expr).Typ;
  End;
 End;
@@ -1242,7 +1240,7 @@ Begin
  if (Expr^.Value = null) Then
   Error(eInternalError, ['Expr^.Value = null']);
 
- Result := getValueFromExpression(Compiler, Expr);
+ Result := getValueFromExpression(Expr);
 End;
 
 { isLValue }
@@ -1261,7 +1259,7 @@ Begin
 
    if (ID > -1) Then
     With Compiler do
-     if (NamespaceList[Namespace].GlobalList[ID].mVariable.isConst) Then // global constant
+     if (NamespaceList[Namespace].SymbolList[ID].mVariable.isConst) Then // global constant
       Exit(False);
   End Else
    With Compiler do
@@ -1370,7 +1368,7 @@ Var Variable: TRVariable;
 Label Over;
 Begin
  if (Expr = nil) Then
-  Exit(TypeInstance(TYPE_VOID));
+  Exit(TYPE_VOID);
 
  Result := nil; // assuming no type
  Left   := Expr^.Left;
@@ -1385,7 +1383,8 @@ Begin
 
    if (Variable.ID = -1) Then // variable not found
    Begin
-    if (Variable.Name = '__line') and (Compiler.getBoolOption(opt_internal_const)) Then // is it a special variable?
+    { special variable: `__line` }
+    if (Variable.Name = '__line') and (Compiler.getBoolOption(opt_internal_const)) Then
     Begin
      if (FinalRegChar = #0) Then
       FinalRegChar := 'i';
@@ -1397,8 +1396,26 @@ Begin
        Inc(PushedValues);
       End;
 
-     Exit(TypeInstance(TYPE_INT));
-    End Else // no, it's not a special variable... so - display error
+     Exit(TYPE_INT);
+    End Else
+
+    { special variable: `__linestr` }
+    if (Variable.Name = '__linestr') and (Compiler.getBoolOption(opt_internal_const)) Then
+    Begin
+     if (FinalRegChar = #0) Then
+      FinalRegChar := 's';
+
+     if (FinalRegID > 0) Then // put into register?
+      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), '"'+IntToStr(Expr^.Token.Line+1)+'"']) Else
+      Begin // push onto stack?
+       Compiler.PutOpcode(o_push, ['"'+IntToStr(Expr^.Token.Line+1)+'"']);
+       Inc(PushedValues);
+      End;
+
+     Exit(TYPE_STRING);
+    End Else
+
+    { not a special variable - so var not found }
     Begin
      Error(eUnknownVariable, [Variable.Name]);
      Exit;
@@ -1431,7 +1448,7 @@ Begin
    Result := getTypeFromMExpr(Expr);
 
    if (FinalRegChar = #0) Then
-    FinalRegChar := Compiler.getTypePrefix(Result);
+    FinalRegChar := Result.RegPrefix;
 
    if (FinalRegID > 0) Then
     Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), getValueFromMExpr(Expr)]) Else // load a const value into the register
@@ -1495,12 +1512,18 @@ Over:
  Begin
   if (Push_IF_reg) Then // special case
    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'if']) Else
-   Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'e'+Compiler.getTypePrefix(Result)+'1']);
+   Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'e'+Result.RegPrefix+'1']);
   Exit;
  End;
 
+ if (Result = nil) Then
+ Begin
+  DevLog('Info: ExpressionCompiler :: Result = nil; assuming TYPE_ANY');
+  Exit(TYPE_ANY);
+ End;
+
  if (FinalRegChar = #0) Then
-  FinalRegChar := Compiler.getTypePrefix(Result);
+  FinalRegChar := Result.RegPrefix;
 
  if (FinalRegChar <> #0) Then
  Begin

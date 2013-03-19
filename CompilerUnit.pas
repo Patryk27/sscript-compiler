@@ -55,6 +55,9 @@ Unit CompilerUnit;
  Procedure Log(const Text: String);
  Procedure Log;
 
+ Procedure DevLog(const Text: String);
+ Procedure DevLog;
+
  Function getCompiler: Pointer;
 
  Function getBoolOption(O: String; Default: Boolean): Boolean;
@@ -64,6 +67,8 @@ Unit CompilerUnit;
  Procedure CompileCode(Input, Output: String; Options: TCompileOptions);
 
  Var verbose_mode: Boolean = False;
+     show_devlog : Boolean = False;
+
  Implementation
 Uses Compile1, SysUtils;
 Var Compiler: TCompiler = nil;
@@ -79,6 +84,19 @@ End;
 Procedure Log;
 Begin
  Log('');
+End;
+
+{ DevLog }
+Procedure DevLog(const Text: String);
+Begin
+ if (show_devlog) Then
+  Writeln(Text);
+End;
+
+{ DevLog }
+Procedure DevLog;
+Begin
+ DevLog('');
 End;
 
 (* getCompiler *)

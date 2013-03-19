@@ -12,6 +12,8 @@ Unit Compile2;
  Type TLabel = Record
                 Name    : String;
                 Position: LongWord;
+
+                isFunction: Boolean;
                End;
 
  // TCompiler
@@ -25,13 +27,11 @@ Unit Compile2;
 
                     LabelList: Array of TLabel;
 
+                   Private
                     Function getLabelID(Name: String): Integer;
 
-                   Private
                     Procedure Preparse;
-                    Procedure Preparse2;
-
-                    Procedure Parse;
+                    Procedure Parse(const ResolveReferences: Boolean);
 
                    Public
                     Procedure Compile(fCompiler: Compile1.TCompiler; SaveAs_SSM: Boolean);
@@ -72,7 +72,7 @@ Begin
       Begin
        Str := VarToStr(Value);
 
-       { inline string }
+       { string }
        if (Copy(Str, 1, 1) = '"') Then
        Begin
         Typ := ptString;
@@ -80,116 +80,10 @@ Begin
         Delete(Str, 1, 1);
         Delete(Str, Length(Str), 1);
        End;
-
-       { string reference }
-       if (Copy(Str, 1, 8) = 'string__') Then
-       Begin
-        Typ := ptString;
-        Int := self.Compiler.findStringByName(Str);
-        if (Int = -1) Then
-        Begin
-         Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_StringNotFound, [Str]);
-         Value := '';
-        End Else
-         Value := self.Compiler.StringList[Int].Value;
-       End;
       End;
 
   // parse opcodes and labels
   SetLength(LabelList, 0);
-
-  OpcodeLen := 0;
-
-  For I := 0 To OpcodeList.Count-1 Do
-   With OpcodeList[I]^ do
-    if (not isComment) and (not isLabel) Then // if opcode
-    Begin
-     Pos := OpcodeLen;
-
-     if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then
-     Begin
-      Case Opcode of
-       o_byte: Inc(OpcodeLen, sizeof(Byte));
-       o_word: Inc(OpcodeLen, sizeof(Word));
-       o_integer: Inc(OpcodeLen, sizeof(Integer));
-       o_extended: Inc(OpcodeLen, sizeof(Extended));
-      End;
-
-      Continue;
-     End;
-
-     Inc(OpcodeLen, sizeof(Byte)); // opcode type
-     if (Length(Args) > 0) Then // are there any arguments?
-      For Q := Low(Args) To High(Args) Do // for each parameter
-       With Args[Q] do
-       Begin
-        Inc(OpcodeLen, sizeof(Byte)); // parameter type
-
-        Str := VarToStr(Value);
-
-        if (Typ <> ptString) Then
-        Begin
-         { label address }
-         if ((Copy(Str, 1, 1) = ':') or (Copy(Str, 1, 1) = '@')) Then
-          Typ := ptInt;
-
-         { register }
-         if (isRegisterName(Str)) Then
-         Begin
-          Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register type
-          Value := getRegister(Str).ID;
-         End;
-
-         { boolean truth }
-         if (Str = 'true') or (Str = 'True') Then
-         Begin
-          Typ   := ptBool;
-          Value := 1;
-         End;
-
-         { boolean false }
-         if (Str = 'false') or (Str = 'False') Then
-         Begin
-          Typ   := ptBool;
-          Value := 0;
-         End;
-        End;
-
-        Case Typ of
-         ptBoolReg..ptReferenceReg: Inc(OpcodeLen, sizeof(Byte));
-         ptBool: Inc(OpcodeLen, sizeof(Byte));
-         ptChar: Inc(OpcodeLen, sizeof(Byte));
-         ptFloat: Inc(OpcodeLen, sizeof(Extended));
-         ptString: Inc(OpcodeLen, Length(Str)+sizeof(Byte));
-         else Inc(OpcodeLen, sizeof(Integer));
-        End;
-       End;
-    End Else // if label
-    if (isLabel) Then
-    Begin
-     SetLength(LabelList, Length(LabelList)+1);
-     LabelList[High(LabelList)].Name     := Name;
-     LabelList[High(LabelList)].Position := OpcodeLen;
-    End;
- End;
-End;
-
-{ TCompiler.Preparse2 }
-Procedure TCompiler.Preparse2;
-Var I, Q: LongWord;
-    Int : Integer;
-    Str : String;
-
-    OpcodeLen: Longword;
-
-    FuncID, Namespace: Integer;
-
-Label LabelNotFound;
-Begin
- { from here, we have already parsed each label }
-
- With Compiler do
- Begin
   OpcodeLen := 0;
 
   For I := 0 To OpcodeList.Count-1 Do
@@ -223,55 +117,13 @@ Begin
         Begin
          { label relative address }
          if (Copy(Str, 1, 1) = ':') Then
-         Begin
-          Delete(Str, 1, 1); // remove `:`
-          Int := getLabelID(Str);
-
-          if (Int = -1) Then
-          Begin
-           if (Copy(Str, 1, 11) = '__function_') Then // function label not found
-           Begin
-            With Compile1.TCompiler(Compiler) do
-            Begin
-             findFunctionByLabel(Str, FuncID, Namespace);
-             if (FuncID = -1) Then
-              goto LabelNotFound;
-
-             With Compile1.TCompiler(Compiler) do
-              With NamespaceList[Namespace].GlobalList[FuncID].mFunction do
-               CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
-            End;
-           End Else // just some label not found
-           Begin
-           LabelNotFound:
-            if (Token = nil) Then
-             Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
-             Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
-           End;
-
-           Value := 0;
-          End Else
-          Begin
-           TVarData(Value).vtype := vtInteger; // @TODO: I have no idea why, but without this line, program crashes :|
-           Value := LabelList[Int].Position-Pos; // jump have to be relative against the current opcode
-          End;
-         End;
+          Typ := ptInt;
 
          { label absolute address }
          if (Copy(Str, 1, 1) = '@') Then
          Begin
-          Delete(Str, 1, 1); // remove `@`
-          Int := getLabelID(Str);
-
-          if (Int = -1) Then
-          Begin
-           if (Token = nil) Then
-            Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
-            Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
-
-           Value := 0;
-          End Else
-           Value := LabelList[Int].Position;
+          Typ   := ptLabelAbsoluteReference;
+          Value := Copy(Str, 2, Length(Str)); // remove beginning `@` char
          End;
 
          { char }
@@ -285,41 +137,84 @@ Begin
            Value := Int Else
            Value := 0;
          End;
+
+         { register }
+         if (isRegisterName(Str)) Then
+         Begin
+          Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register type
+          Value := getRegister(Str).ID;
+         End;
+
+         { boolean truth }
+         if (Str = 'true') or (Str = 'True') Then
+         Begin
+          Typ   := ptBool;
+          Value := 1;
+         End;
+
+         { boolean false }
+         if (Str = 'false') or (Str = 'False') Then
+         Begin
+          Typ   := ptBool;
+          Value := 0;
+         End;
         End;
 
         Case Typ of
          ptBoolReg..ptReferenceReg: Inc(OpcodeLen, sizeof(Byte));
-         ptBool: Inc(OpcodeLen, sizeof(Byte));
-         ptChar: Inc(OpcodeLen, sizeof(Byte));
+         ptBool, ptChar: Inc(OpcodeLen, sizeof(Byte));
          ptFloat: Inc(OpcodeLen, sizeof(Extended));
-         ptString: Inc(OpcodeLen, Length(Str)+sizeof(Byte)); // string + terminator char (0x00)
+         ptString: Inc(OpcodeLen, Length(VarToStr(Value))+sizeof(Byte)); // string + terminator char (0x00)
          else Inc(OpcodeLen, sizeof(Integer));
         End;
+
+        {if (EmitSSMLabelOpcode) Then
+         if (Typ = ptLabelAbsoluteReference) Then
+          Inc(OpcodeLen, Length(VarToStr(Value))+sizeof(Byte)) Else
+          Inc(OpcodeLen, sizeof(Integer));}
        End;
+    End Else // if label
+    if (isLabel) Then
+    Begin
+     SetLength(LabelList, Length(LabelList)+1);
+     LabelList[High(LabelList)].Name       := Name;
+     LabelList[High(LabelList)].Position   := OpcodeLen;
+     LabelList[High(LabelList)].isFunction := isFunctionBeginLabel;
     End;
  End;
 End;
 
 { TCompiler.Parse }
-Procedure TCompiler.Parse;
-Var Opcode: PMOpcode;
-    Arg   : TMOpcodeArg;
+Procedure TCompiler.Parse(const ResolveReferences: Boolean);
+Var OpcodeBegin: LongWord;
+    Opcode     : PMOpcode;
+    Arg        : TMOpcodeArg;
+    Tmp        : Integer;
+
+    Str: String;
+    Int: Integer;
+
+    FuncID, Namespace: Integer;
+
+Label LabelNotFound;
 Begin
  With BytecodeStream do
  Begin
   For Opcode in Compiler.OpcodeList Do
    With Opcode^ do
    Begin
-    if (isComment) or (isLabel) Then // we care neither about comments nor labels
+    OpcodeBegin := BytecodeStream.Position;
+
+    if (isLabel) or (isComment) Then // skip comments
      Continue;
 
-    if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then
+    if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then // special opcodes
     Begin
      Case Opcode of
       o_byte: write_byte(Args[0].Value);
       o_word: write_word(Args[0].Value);
       o_integer: write_integer(Args[0].Value);
-      o_extended: write_extended(Args[0].Value);
+      o_extended: write_float(Args[0].Value);
      End;
 
      Continue;
@@ -329,18 +224,72 @@ Begin
     For Arg in Args Do
      With Arg do
      Begin
+      if (Typ = ptLabelAbsoluteReference) and (ResolveReferences) Then // resolve reference?
+      Begin
+       Tmp := getLabelID(VarToStr(Value)); // find reference
+       if (Tmp = -1) Then // not found!
+       Begin
+        if (Token = nil) Then
+         self.Compiler.CompileError(eLinker_UnknownReference, [VarToStr(Value)]) Else
+         self.Compiler.CompileError(Token, eLinker_UnknownReference, [VarToStr(Value)]);
+        Exit;
+       End;
+
+       // found!
+       Case Typ of
+        ptLabelAbsoluteReference: Value := LabelList[Tmp].Position;
+        else
+         raise Exception.Create('This shouldn''t happen! Contact your doctor and check your toaster''s firmware...');
+       End;
+
+       Typ := ptInt;
+      End;
+
+      if (Typ = ptInt) and (Copy(Value, 1, 1) = ':') Then // resolve label relative address (it's not a label reference!)
+      Begin
+       Str := VarToStr(Value);
+
+       Delete(Str, 1, 1); // remove `:`
+       Int := getLabelID(Str);
+
+       if (Int = -1) Then // label not found
+       Begin
+        if (Copy(Str, 1, 11) = '__function_') Then // function label not found
+        Begin
+         With Compile1.TCompiler(Compiler) do
+         Begin
+          findFunctionByLabel(Str, FuncID, Namespace);
+          if (FuncID = -1) Then
+           goto LabelNotFound;
+
+          With Compile1.TCompiler(Compiler) do
+           With NamespaceList[Namespace].SymbolList[FuncID].mFunction do
+            CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
+         End;
+        End Else // just some label not found
+        Begin
+        LabelNotFound:
+         if (Token = nil) Then
+          Compile1.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
+          Compile1.TCompiler(Compiler).CompileError(Token^, eBytecode_LabelNotFound, [Str]);
+        End;
+
+        Value := 0;
+       End Else // label found
+        Value := Int64(LabelList[Int].Position)-OpcodeBegin; // jump have to be relative against the current opcode
+      End;
+
       Try
        write_byte(ord(Typ)); // param type
        Case Typ of // param value
         ptBoolReg..ptReferenceReg: write_byte(Value);
-        ptBool: write_byte(Value);
-        ptChar: write_byte(Value);
-        ptFloat: write_extended(Value);
-        ptString: write_string(Value);
+        ptBool, ptChar: write_byte(Value);
+        ptFloat: write_float(Value);
+        ptString, ptLabelAbsoluteReference: write_string(Value);
         else write_integer(Value);
        End;
       Except
-       self.Compiler.CompileError(eInternalError, ['Not a numeric value: `'+VarToStr(Value)+'`']);
+       self.Compiler.CompileError(eInternalError, ['Cannot compile opcode; not a numeric value: `'+VarToStr(Value)+'`']);
       End;
      End;
    End;
@@ -363,7 +312,6 @@ Begin
  Compiler := fCompiler;
 
  Preparse;
- Preparse2;
 
  Output := Compiler.OutputFile;
 
@@ -372,8 +320,9 @@ Begin
  Zip            := TZipper.Create;
 
  Try
-  Parse;
+  Parse(not SaveAs_SSM); // resolve references only when compiling to a program
 
+  // save header
   With HeaderStream do
   Begin
    write_longword($0DEFACED);

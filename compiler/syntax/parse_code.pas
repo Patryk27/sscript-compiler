@@ -33,7 +33,7 @@ Begin
 End;
 
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  if (not DirectlyBytecode) Then
   eat(_IDENTIFIER);
@@ -50,7 +50,7 @@ Begin
    Begin
     if (DirectlyBytecode) Then
      CompileError(eUnexpected, ['&']);
-    PutLabel(getCurrentFunction.MName + read_ident, True);
+    PutLabel(getCurrentFunction.MangledName + read_ident, True);
     eat(_COLON);
    End;
 
@@ -67,9 +67,7 @@ Begin
       if ((next.Display = '.') and (next(1).Display = 'public')) Then
       Begin
        read; read;
-
-       SetLength(ExportList, Length(ExportList)+1);
-       ExportList[High(ExportList)].Name := Token.Display;
+       CompileError(eUnimplemented, ['`.public` / `.private` directives']);
       End;
      End;
 
@@ -112,14 +110,14 @@ Begin
        CompileError(eUnknownVariable, [Token.Display]);
       End Else
        With getCurrentFunction.VariableList[I] do
-        if (RegID <= 0) Then
-         Token.Display := '['+IntToStr(RegID)+']' Else
-         Token.Display := 'e'+getTypePrefix(Typ)+IntToStr(RegID);
+        if (MemPos <= 0) Then
+         Token.Display := '['+IntToStr(MemPos)+']' Else
+         Token.Display := 'e'+Typ.RegPrefix+IntToStr(MemPos);
      End;
 
      if (Token.Token = _AMPERSAND) Then // &
      Begin
-      Token.Display := getCurrentFunction.MName;
+      Token.Display := getCurrentFunction.MangledName;
      End;
 
      if (Token.Token = _COMMA) Then // ,
@@ -140,7 +138,7 @@ Begin
     SetLength(C.Values, 3);
     C.Values[0] := Name;
     C.Values[1] := ArgList;
-    C.Values[2] := Pointer(TCompiler(Compiler).TokenPos);
+    C.Values[2] := @TokenList[TokenPos-1];
     AddConstruction(C);
    End;
   End;

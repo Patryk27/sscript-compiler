@@ -4,16 +4,17 @@ Unit Messages;
 
  { errors }
  Type TCompileError =
- (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedType, eNotAllowed,
+ (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedType, eExpectedString, eNotAllowed,
   eRedeclaration, eLValueRequired, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousCall, eAmbiguousVariable, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
-  eNotAConstant, eNonObjectMethodCall, eMethodNotFound,
-  eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound);
+  eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion,
+  eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
+  eLinker_UnknownReference);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
-                                           eExpectedDeclOrDef, eExpectedType, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
+                                           eExpectedDeclOrDef, eExpectedType, eExpectedString, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
                                            eUnknownMacro, eInvalidExpression, eUnimplemented];
 
  Const CompileError_fmt: Array[TCompileError] of String =
@@ -27,6 +28,7 @@ Unit Messages;
   'Syntax error: expected value but `%s` found',
   'Syntax error: expected declaration or definition but `%s` found',
   'Syntax error: expected type but `%s` found',
+  'Syntax error: expected string but `%s` found',
   'Syntax error: `%s` not allowed here',
   'Redeclaration of identifier: `%s`',
   'lvalue required',
@@ -64,11 +66,14 @@ Unit Messages;
   'Not a constant-var: `%s`',
   'Tried to call method `%s` on non-object (`%s`)',
   'Method `%s` not found in object (`%s`)',
+  'Invalid conversion from `%s` to `%s`',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',
   '[Bytecode] Invalid opcode',
-  '[Bytecode] String not found: `%s`'
+  '[Bytecode] String not found: `%s`',
+
+  '[Linker] Unknown reference to: `%s`'
  );
 
  { warnings }

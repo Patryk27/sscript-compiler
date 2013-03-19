@@ -40,7 +40,7 @@ Begin
     { local constant }
     With Compiler.getCurrentFunction.VariableList[VarID] do
     Begin
-     if (not isConst) Then // is it a constant?
+     if not (vaConst in Attributes) Then // is it a constant?
      Begin
       if (ShowErrors) Then
        Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.Value]);
@@ -53,9 +53,9 @@ Begin
    End Else
    Begin
     { global constant }
-    With Compiler.NamespaceList[NamespaceID].GlobalList[VarID] do
+    With Compiler.NamespaceList[NamespaceID].SymbolList[VarID] do
     Begin
-     if (Typ <> gdConstant) Then // is it a constant?
+     if (Typ <> gsConstant) Then // is it a constant?
      Begin
       if (ShowErrors) Then
        Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.Value]);

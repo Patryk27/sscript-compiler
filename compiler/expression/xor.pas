@@ -1,14 +1,14 @@
 Procedure ParseXOR;
-Var TypeLeft, TypeRight: PMType;
+Var TypeLeft, TypeRight: TType;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
 
  With Compiler do
  Begin
-  if (isTypeInt(Result)) Then
+  if (Result.isInt) Then
    PutOpcode(o_xor, ['ei1', 'ei2']) Else
-  if (isTypeBool(Result)) Then
+  if (Result.isBool) Then
    PutOpcode(o_xor, ['eb1', 'eb1']) Else
-   CompileError(eUnsupportedOperator, [getTypeDeclaration(TypeLeft), getDisplay(Expr), getTypeDeclaration(TypeRight)])
+   CompileError(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
  End;
 End;

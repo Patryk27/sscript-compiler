@@ -17,8 +17,13 @@
  along with SScript Compiler; if not, write to the Free Software
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 *)
+
+{$IFNDEF FPC}
+{$FATAL The whole compiler, virtual machine and editor have been written in Free Pascal Compiler; compiling it by eg.Delphi is unsure!}
+{$ENDIF}
+
 Program compiler;
-Uses Windows, SysUtils, TypInfo, CompilerUnit, CTypes, Scanner, Compile1, ExpressionCompiler;
+Uses Windows, SysUtils, TypInfo, CompilerUnit, Compile1;
 Var Input, Output: String;
 
     Options   : TCompileOptions;
@@ -56,10 +61,7 @@ Begin
   Current := ParamStr(Pos);
 
   if (Length(Current) = 0) Then // shouldn't happen (?)
-  Begin
-   Inc(Pos);
-   Continue;
-  End;
+   Exit;
 
   { -O1 (optimize level 1) }
   if (Current = '-O1') Then
@@ -91,6 +93,12 @@ Begin
   if (Current = '-verbose') or (Current = '-v') Then
   Begin
    verbose_mode := True;
+  End Else
+
+  { -devlog }
+  if (Current = '-devlog') Then
+  Begin
+   show_devlog := True;
   End Else
 
   { another option }
@@ -200,14 +208,14 @@ Begin
 
       Writeln;
 
-      if (getCurrentFunctionPnt = nil) Then
+      if (getCurrentFunction = nil) Then
        Writeln('Last function: <none>') Else
       Begin
        Writeln('Last function:');
        With getCurrentFunction do
        Begin
         Writeln('  -> ', Name);
-        Writeln('  -> declared at line ', DeclToken.Line+1);
+        Writeln('  -> declared at line ', DeclToken^.Line+1);
        End;
       End;
      End;

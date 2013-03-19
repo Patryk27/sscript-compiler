@@ -9,63 +9,38 @@ Unit Parse_VAR;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses CompilerUnit, Compile1, ExpressionCompiler, Tokens, MTypes, Messages, Opcodes;
+Uses CompilerUnit, Compile1, ExpressionCompiler, Tokens, MTypes, symdef, Messages, Opcodes;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Variable: TMVariable;
-    I, Pos  : Integer;
-Label AllocateOntoTheStack;
+Var Variable: TVariable;
+    VarType : TType;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
- Variable.isConst   := False;
- Variable.mCompiler := Compiler;
-
  eat(_LOWER); // <
- Variable.Typ := read_type; // [type]
+ VarType := read_type; // [type]
  eat(_GREATER); // >
 
  { read variables }
  While (true) do
  Begin
-  Variable.DeclToken := getToken;
+  Variable           := TVariable.Create;
+  Variable.mCompiler := Compiler;
+  Variable.Typ       := VarType;
+  Variable.DeclToken := next_pnt;
   Variable.Name      := read_ident; // [identifier]
 
-  if (isTypeVoid(Variable.Typ)) Then // cannot create a void-variable
+  if (Variable.Typ.isVoid) Then // cannot create a void-variable
    CompileError(eVoidVar, [Variable.Name]);
 
   RedeclarationCheck(Variable.Name); // redeclaration of a variable
 
-  if (getBoolOption(opt__register_alloc)) Then // can we allocate variables in registers?
-  Begin
-   With Variable do
-   Begin
-    RegID := findFreeRegister(getTypePrefix(Typ)); // find free register for our variable
-
-    if (RegID = -1) Then // no free register found...
-     goto AllocateOntoTheStack; // ... so allocate variable on the stack
-   End;
-  End Else
-  Begin
-  AllocateOntoTheStack:
-
-   { find a stack position, where we can allocate this variable }
-   Pos := 0;
-   With getCurrentFunction do
-    For I := Low(VariableList) To High(VariableList) Do
-     if (VariableList[I].Deep <= CurrentDeep) and (VariableList[I].RegID <= 0) and (not VariableList[I].isParam) Then
-      Inc(Pos);
-
-   { ... and place it there }
-   Variable.RegID := -Pos;
-  End;
-
-  Variable.Deep    := CurrentDeep;
-  Variable.isParam := False;
+  Variable.MemPos := __allocate_var(getBoolOption(opt__register_alloc), Variable.Typ.RegPrefix);
+  Variable.Deep   := CurrentDeep;
 
   { insert variable into the function  }
-  With getCurrentFunctionPnt^ do
+  With getCurrentFunction do
   Begin
    SetLength(VariableList, Length(VariableList)+1); // expand the array
    VariableList[High(VariableList)] := Variable;
@@ -73,9 +48,9 @@ Begin
 
   if (next_t = _EQUAL) Then // var(...) name=value;
   Begin
-   setPosition(getPosition-1);
+   Dec(TokenPos);
    AddConstruction(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA]));
-   setPosition(getPosition-1); // ExpressionCompiler 'eats' comma.
+   Dec(TokenPos); // ExpressionCompiler 'eats' comma.
   End;
 
   if (next_t = _COMMA) Then // var(...) name1, name2, name3...

@@ -7,8 +7,15 @@ Unit Opcodes;
  Interface
  Uses Tokens;
 
- Type TPrimaryType = (ptNone=-3, ptAny=-2, ptAnyReg=-1, ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg, ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal);
- Const PrimaryTypeNames: Array[TPrimaryType] of String = ('none', 'any', 'any reg', 'bool reg', 'char reg', 'int reg', 'float reg', 'string reg', 'reference reg', 'bool', 'char', 'int', 'float', 'string', 'stackval');
+ Type TPrimaryType = (ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited into bytecode (only for compiler internal usage)
+                      ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg,
+                      ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal,
+                      ptLabelAbsoluteReference);
+ Const PrimaryTypeNames: Array[TPrimaryType] of String =
+                     ('none', 'any', 'any reg',
+                      'bool reg', 'char reg', 'int reg', 'float reg', 'string reg', 'reference reg',
+                      'bool', 'char', 'int', 'float', 'string', 'stackval',
+                      'label absolute reference');
 
  Type TRegister = Record
                    Name: String;
@@ -85,12 +92,14 @@ Unit Opcodes;
  // TMOpcode
  Type PMOpcode = ^TMOpcode;
       TMOpcode = Record
+                  Name  : String;
                   Opcode: TOpcode_E;
                   Args  : Array of TMOpcodeArg;
 
                   isLabel  : Boolean;
                   isComment: Boolean;
-                  Name     : String;
+
+                  isFunctionBeginLabel: Boolean;
 
                   Pos     : LongWord; // position in `opcode` section in output file
                   Token   : PToken_P;

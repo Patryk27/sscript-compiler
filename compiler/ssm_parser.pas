@@ -8,6 +8,17 @@ Unit SSM_parser;
  Interface
  Uses Compile1, Compile2, Opcodes, MTypes, Messages, Classes, Stream, Zipper;
 
+ Const SSM_version = 1;
+
+ { TSSMData }
+ Type TSSMData = Packed Record
+                  SSM_version: Word;
+
+                  FunctionCount: Word;
+                  FunctionList : Array of TLabel;
+                 End;
+
+ { TSSM }
  Type TSSM = Class
               Private
                Zip   : TZipper;
@@ -16,23 +27,22 @@ Unit SSM_parser;
 
                C1        : Compile1.TCompiler;
                C2        : Compile2.TCompiler;
+               FileName  : String;
                ModuleName: String;
 
-               ExportsStream: TStream;
+               DataStream: TStream;
 
                ResolveLabelsNames: Boolean;
 
-               Procedure WriteExports;
-
                Procedure ReadHeader(const AStream: TStream);
-               Procedure ReadExports(const AStream: TStream);
+               Procedure ReadSSMData(const AStream: TStream);
                Procedure ReadOpcodes(const AStream: TStream);
 
                Procedure OnCreateStream(Sender: TObject; var AStream: Classes.TStream; AItem: TFullZipFileEntry);
                Procedure OnDoneStream(Sender: TObject; var AStream: Classes.TStream; AItem: TFullZipFileEntry);
 
               Public
-               mExportList: Array of TMExport;
+               Data: TSSMData;
 
                Function Save(const OutputFile: String; pC1, pC2: Pointer): TSSM;
                Function Load(const InputFile, fModuleName: String; pC1: Pointer; fResolveLabelsNames: Boolean=True): Boolean;
@@ -40,34 +50,6 @@ Unit SSM_parser;
 
  Implementation
 Uses CompilerUnit, SysUtils, Variants;
-
-(* TSSM.WriteExports *)
-{
- Writes export list into the output file
-}
-Procedure TSSM.WriteExports;
-Var Ex: TMExport;
-Begin
- With ExportsStream do
- Begin
-  write_longword(Length(C1.ExportList)); // export count
-
-  For Ex in C1.ExportList Do
-  Begin
-   { get label's ID }
-   Ex.Pos := C2.getLabelID(Ex.Name);
-   if (Ex.Pos = -1) Then
-    C1.CompileError(eBytecode_ExportNotFound, [Ex.Name]);
-
-   { get label's position }
-   Ex.Pos := C2.LabelList[Ex.Pos].Position;
-
-   { write data }
-   write_string(Ex.Name);  // function name
-   write_longword(Ex.Pos); // function position
-  End;
- End;
-End;
 
 (* TSSM.ReadHeader *)
 Procedure TSSM.ReadHeader(const AStream: TStream);
@@ -92,32 +74,101 @@ Begin
  Begin
   Log('Invalid magic number: 0x'+IntToHex(magic_number, 2*sizeof(LongWord)));
   LoadOK := False;
+  Exit;
  End;
 
  if (version_major <> bytecode_version_major) or (version_minor <> bytecode_version_minor) Then
  Begin
   Log('Invalid bytecode version: '+IntToStr(version_major)+'.'+EndingZero(IntToStr(version_minor)));
   LoadOK := False;
+  Exit;
  End;
 End;
 
-(* TSSM.ReadExports *)
-Procedure TSSM.ReadExports(const AStream: TStream);
-Var Count: LongWord;
-    Ex   : TMExport;
+(* TSSM.ReadSSMData *)
+Procedure TSSM.ReadSSMData(const AStream: TStream);
+Var I: Integer;
 Begin
- Count := AStream.read_longword;
+ Data.SSM_version := AStream.read_word;
 
- SetLength(mExportList, Count);
+ if (Data.SSM_version <> SSM_version) Then
+ Begin
+  Log('Invalid SSM file version: '+IntToStr(Data.SSM_version)+'; expected: '+IntToStr(SSM_version));
+  LoadOK := False;
+  Exit;
+ End;
 
- if (Count > 0) Then
-  For Count := 0 To Count-1 Do
+ With Data do
+ Begin
+  FunctionCount := AStream.read_word;
+
+  SetLength(FunctionList, FunctionCount);
+  For I := 0 To FunctionCount-1 Do
   Begin
-   Ex.Name := AStream.read_string;
-   Ex.Pos  := AStream.read_longword;
-
-   mExportList[Count] := Ex;
+   FunctionList[I].Name     := AStream.read_string;
+   FunctionList[I].Position := AStream.read_longword;
   End;
+ End;
+End;
+
+(* TSSM.ReadOpcodes *)
+{
+ Reads opcodes from the input file
+}
+Procedure TSSM.ReadOpcodes(const AStream: TStream);
+Var I, ParamC: Integer;
+    MOpcode  : PMOpcode;
+
+    Name: String;
+Begin
+ { put file label (it will be used to resolve absolute addresses) }
+ Name := FileName;
+
+ For I := 1 To Length(Name) do
+  if not (Name[I] in ['a'..'z', 'A'..'Z', '0'..'9', '_']) Then
+   Name[I] := '_';
+
+ { read opcodes }
+ While (AStream.Can) do
+ Begin
+  For I := 0 To High(Data.FunctionList) Do
+   if (Data.FunctionList[I].Position = AStream.Position) Then // function label declaration
+   Begin
+    C1.PutLabel(Data.FunctionList[I].Name);
+    Break;
+   End;
+
+  // read and prepare opcode
+  New(MOpcode);
+  MOpcode^.Opcode    := TOpcode_E(AStream.read_byte);
+  MOpcode^.Compiler  := C1;
+  MOpcode^.isComment := False;
+  MOpcode^.isLabel   := False;
+  MOpcode^.Pos       := 0;
+  MOpcode^.Token     := nil;
+
+  ParamC := OpcodeList[ord(MOpcode^.Opcode)].ParamC;
+  SetLength(MOpcode^.Args, ParamC);
+
+  // read opcode's parameters
+  With MOpcode^ do
+   For I := 0 To ParamC-1 Do
+    With Args[I] do
+    Begin
+     Typ := TPrimaryType(AStream.read_byte);
+
+     Case Typ of
+      ptBoolReg..ptReferenceReg: Value := AStream.read_byte;
+      ptBool, ptChar: Value := AStream.read_byte;
+      ptFloat: Value := AStream.read_float;
+      ptString, ptLabelAbsoluteReference: Value := AStream.read_string;
+      else Value := AStream.read_integer;
+     End;
+    End;
+
+  // add opcode onto the list
+  C1.OpcodeList.Add(MOpcode);
+ End;
 End;
 
 (* TSSM.OnCreateStream *)
@@ -130,45 +181,21 @@ End;
 Procedure TSSM.OnDoneStream(Sender: TObject; var AStream: Classes.TStream; AItem: TFullZipFileEntry);
 Var NStream: TStream;
 Begin
+ Log('Reading SSM archive file: '+AItem.ArchiveFileName);
+
  AStream.Position := 0;
 
  NStream := TStream(AStream);
 
  Case AItem.ArchiveFileName of
   '.header': ReadHeader(NStream);
-  '.exports': ReadExports(NStream);
   '.bytecode': ReadOpcodes(NStream);
+  '.ssm_data': ReadSSMData(NStream);
   else
    C1.CompileError(eInternalError, ['Unknown archive file name: '+AItem.ArchiveFileName]);
  End;
 
  AStream.Free;
-End;
-
-(* TSSM.ReadOpcodes *)
-{
- Reads opcodes from the input file
-}
-Procedure TSSM.ReadOpcodes(const AStream: TStream);
-Var I, Pos: Integer;
-Begin
- Pos := 0;
-
- { read opcodes }
- While (AStream.Can) do
- Begin
-  For I := Low(mExportList) To High(mExportList) Do
-   if (mExportList[I].Pos = Pos) Then
-   Begin
-    if (ResolveLabelsNames) Then
-     C1.PutLabel(StringReplace(mExportList[I].Name, '___', '_'+ModuleName+'_', [])) Else
-     C1.PutLabel(mExportList[I].Name);
-    Break;
-   End;
-
-  C1.PutOpcode(o_byte, [AStream.read_byte]);
-  Inc(Pos);
- End;
 End;
 
 (* TSSM.Create_SSM *)
@@ -186,31 +213,58 @@ Function TSSM.Save(const OutputFile: String; pC1, pC2: Pointer): TSSM;
      Zip.Entries.AddFileEntry(OutputFile+FileName, FileName);
     End;
 
+Var FunctionList: Array of TLabel;
+    I           : Integer;
 Begin
+ Log('Saving SSM file: '+OutputFile);
+
  Result := self;
 
+ // prepare variables
  Zip := TZipper.Create;
  C1  := Compile1.TCompiler(pC1);
  C2  := Compile2.TCompiler(pC2);
 
- ExportsStream := TStream.Create;
+ // create classes
+ DataStream := TStream.Create;
 
+ // write TSSMData
+ With DataStream do
+ Begin
+  SetLength(FunctionList, 0);
+  For I := Low(C2.LabelList) To High(C2.LabelList) Do
+   if (C2.LabelList[I].isFunction) Then
+   Begin
+    SetLength(FunctionList, Length(FunctionList)+1);
+    FunctionList[High(FunctionList)] := C2.LabelList[I];
+   End;
+
+  write_word(SSM_version);
+  write_word(Length(FunctionList));
+  For I := Low(FunctionList) To High(FunctionList) Do
+  Begin
+   write_string(FunctionList[I].Name);
+   write_longword(FunctionList[I].Position);
+  End;
+ End;
+
+ // save
  Try
-  WriteExports;
-
   AddFile(C2.HeaderStream, '.header');
+  AddFile(DataStream, '.ssm_data');
   AddFile(C2.BytecodeStream, '.bytecode');
-  AddFile(ExportsStream, '.exports');
 
   Zip.FileName := OutputFile;
   Zip.ZipAllFiles;
  Finally
-  ExportsStream.Free;
+  // free classes
+  DataStream.Free;
   Zip.Free;
 
+  // remove unused files
   DeleteFile(OutputFile+'.header');
+  DeleteFile(OutputFile+'.ssm_data');
   DeleteFile(OutputFile+'.bytecode');
-  DeleteFile(OutputFile+'.exports');
  End;
 End;
 
@@ -220,41 +274,52 @@ End;
 }
 Function TSSM.Load(const InputFile, fModuleName: String; pC1: Pointer; fResolveLabelsNames: Boolean=True): Boolean;
 Var FileList: TStringList;
-Begin
- Result := False;
 
- if (not FileExists(InputFile)) Then // is file found?
+  // Open
+  Function Open(const FileName: String): Boolean;
+  Begin
+   FileList.Clear;
+   FileList.Add(FileName);
+   Unzip.UnzipFiles(FileList);
+
+   Exit(LoadOK);
+  End;
+
+Begin
+ Log('Reading SSM file: '+InputFile);
+
+ Result   := False;
+ FileName := InputFile;
+
+ if (not FileExists(InputFile)) Then // does file exist?
   Exit;
 
+ // create classes
  FileList   := TStringList.Create;
  Unzip      := TUnzipper.Create;
  C1         := Compile1.TCompiler(pC1);
  ModuleName := fModuleName;
 
- LoadOK := True;
-
+ // set variables
+ LoadOK             := True;
  ResolveLabelsNames := fResolveLabelsNames;
 
+ // open and parse the SSM file
  Try
   Unzip.FileName := InputFile;
   Unzip.Examine;
   Unzip.OnCreateStream := @OnCreateStream;
   Unzip.OnDoneStream   := @OnDoneStream;
 
-  FileList.Clear;
-  FileList.Add('.header');
-  Unzip.UnzipFiles(FileList);
+  // load header
+  if (not Open('.header')) Then
+   Exit;
 
-  if (not LoadOK) Then
-   Exit(False);
+  // load SSM file data
+  if (not Open('.ssm_data')) Then
+   Exit;
 
-  FileList.Clear;
-  FileList.Add('.exports');
-  Unzip.UnzipFiles(FileList);
-
-  if (not LoadOK) Then
-   Exit(False);
-
+  // load bytecode
   FileList.Clear;
   FileList.Add('.bytecode');
   Unzip.UnzipFiles(FileList);

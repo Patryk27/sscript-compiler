@@ -9,23 +9,24 @@ Unit Parse_CONST;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, Tokens, MTypes, Messages, Opcodes;
+Uses Compile1, ExpressionCompiler, Tokens, MTypes, symdef, Messages, Opcodes;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Variable: TMVariable;
+Var Variable: TVariable;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
- Variable.isConst    := True;
- Variable.isParam    := False;
- Variable.Deep       := 0;
- Variable.mCompiler  := Compiler;
- Variable.Visibility := getVisibility;
-
  While (true) Do
  Begin
-  Variable.DeclToken := getToken;
+  Variable := TVariable.Create;
+  Variable.Attributes += [vaConst, vaDontAllocate];
+
+  Variable.Deep       := 0;
+  Variable.mCompiler  := Compiler;
+  Variable.Visibility := getVisibility;
+
+  Variable.DeclToken := next_pnt;
   Variable.Name      := read_ident; // [identifier]
 
   eat(_EQUAL); // =
@@ -37,7 +38,7 @@ Begin
 
   With Variable.Value^ do
   Begin
-   if (isConstantValue(Variable.Value^)) Then  // is this a constant expression?
+   if (isConstantValue(Variable.Value^)) Then // is this a constant expression?
    Begin
     Variable.Typ := getTypeFromExpr(Variable.Value^);
    End Else // if it's not - show error
@@ -46,25 +47,26 @@ Begin
 
   if (inFunction) Then // local constant
   Begin
-   With getCurrentFunctionPnt^ do
+   With getCurrentFunction do
    Begin
     SetLength(VariableList, Length(VariableList)+1);
     VariableList[High(VariableList)] := Variable;
    End;
   End Else // global constant
   Begin
-   With getCurrentNamespacePnt^ do
+   With getCurrentNamespace do
    Begin
-    SetLength(GlobalList, Length(GlobalList)+1);
-    With GlobalList[High(GlobalList)] do
+    SetLength(SymbolList, Length(SymbolList)+1);
+    SymbolList[High(SymbolList)] := TGlobalSymbol.Create;
+    With SymbolList[High(SymbolList)] do
     Begin
-     Typ       := gdConstant;
+     Typ       := gsConstant;
      mVariable := Variable;
     End;
    End;
   End;
 
-  setPosition(getPosition-1); // ExpressionCompiler 'eats' comma.
+  Dec(TokenPos); // ExpressionCompiler 'eats' comma.
 
   if (next_t = _COMMA) Then // const(...) name1=value1, name2=value2, name3=value3...
    read Else

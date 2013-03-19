@@ -1,23 +1,23 @@
-Bytecode version: 0.41 (major.minor)
+Bytecode version: 0.4 (major.minor)
 
 1 byte - byte - opcode type (see `\compiler\Opcodes.pas` for the opcode list)
-  [for each opcode argument (parameter):]
+  [for each opcode argument (parameter)]
 	1 byte - byte - argument type
 	
-	[if `type` is a `register`:]
-		1 byte - byte - value from `1..4` indicating register's ID (eg.1 = ei1/eb1/ec1(...), 3 = ei3; register type depends of argument type)
+	[if `type` is a `register`]
+		1 byte - byte - value from `1..4` indicating register ID (eg.1 = ei1/eb1/ec1(...), 3 = ei3; register type depends of argument type)
 
-	[if `type` is a `bool`:]
+	[if `type` is a `bool`]
 		1 byte - byte - value indicating a boolean value. `0 = false`, anything else is `true`.
 
-	[if `type` is a `char`:]
+	[if `type` is a `char`]
 		1 byte - byte - ASCII char value (an unsigned number from `0..255`)
 
-	[if `type` is a `float`:]
+	[if `type` is a `float`]
 		10 bytes - extended - floating-point value
 
-	[if `type` is a `string`:]
+	[if `type` is a `string` or `label reference`]
 		x bytes - byte/char - subsequent ASCII chars; string is null-terminated (it means, it ends when reached char `0x00`).
 
-	[if `type` is anything else:]
+	[if `type` is anything else]
 		4 bytes - integer - value

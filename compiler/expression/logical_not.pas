@@ -4,16 +4,16 @@ Begin
  Result := Parse(Left, 1);
  RePop(Left, Result, 1);
 
- if (not Compiler.isTypeInt(Result)) and (not Compiler.isTypeBool(Result)) Then
+ if (not Result.isInt) and (not Result.isBool) Then
  Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeDeclaration(Result)]);
+  Error(eUnsupportedUOperator, [getDisplay(Expr), Result.asString]);
   Exit;
  End;
 
- if (Compiler.isTypeInt(Result)) Then // implicit cast: int->bool
+ if (Result.isInt) Then // implicit cast: int->bool
   Compiler.PutOpcode(o_mov, ['eb1', 'ei1']);
 
  Compiler.PutOpcode(o_not, ['eb1']);
 
- Result := TypeInstance(TYPE_BOOL);
+ Result := TYPE_BOOL;
 End;

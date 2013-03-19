@@ -1,6 +1,6 @@
 Procedure ParseAssign;
 Var Variable       : TRVariable;
-    TypeID, TmpType: PMType;
+    TypeID, TmpType: TType;
     Index, DimCount: Byte;
     ShouldFail     : Boolean;
 Begin
@@ -16,38 +16,39 @@ Begin
  if (Variable.ID = -1) Then // variable not found
   Exit;
 
- if (Variable.isConst) Then
+ if (Variable.isConst) Then // error message had been already shown in `getVariable`
   Exit;
 
  (* ===== not arrays ===== *)
- if (not Compiler.isTypeArray(Variable.Typ)) or (Right^.Typ = mtNew) Then
+ if (not Variable.Typ.isArray{(False)}) or (Right^.Typ = mtNew) Then
  Begin
   if (Left^.Typ = mtArrayElement) Then // tried to access eg.`int`-typed variable like array
   Begin
-   Error(eInvalidArraySubscript, [Compiler.getTypeDeclaration(Variable.Typ), Compiler.getTypeDeclaration(Parse(Left^.Left))]);
+   Error(eInvalidArraySubscript, [Variable.Typ.asString, Parse(Left^.Right).asString]);
    Exit;
   End;
 
-  if (Variable.RegID > 0) Then // if variable is stored in the register, we can directly set this variable's value (without using a helper-register)
+  if (Variable.MemPos > 0) Then // if variable is stored in a register, we can directly set this variable's value (without using an helper register)
   Begin
-   TypeID := Parse(Right, Variable.RegID, Variable.RegChar);
+   TypeID := Parse(Right, Variable.MemPos, Variable.RegChar);
   End Else
   Begin
    TypeID := Parse(Right, 1); // parse expression and load it into the helper register (e_1)
    RePop(Right, TypeID, 1);
 
-   __variable_setvalue_reg(Variable, 1, Compiler.getTypePrefix(TypeID));
+   __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
   End;
 
-  Compiler.PutOpcode(o_mov, ['e'+Compiler.getTypePrefix(TypeID)+'1', Variable.PosStr]);
+  Compiler.PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', Variable.PosStr]);
 
   With Compiler do
-   if (not CompareTypes(Variable.Typ, TypeID)) Then // type check
+   if (not TypeID.CanBeAssignedTo(Variable.Typ)) Then
    Begin
-    Error(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(TypeID), getTypeDeclaration(Variable.Typ)]);
+    Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, Variable.Typ.asString]);
     Exit;
    End;
 
+  Result := Variable.Typ;
   Exit;
  End;
 
@@ -59,15 +60,14 @@ Begin
  Begin
   TypeID := Parse(Left^.Right);
   With Compiler do // array subscript must be an integer value
-   if (not isTypeInt(TypeID)) Then
-    Error(eInvalidArraySubscript, [getTypeDeclaration(Variable.Typ), getTypeDeclaration(TypeID)]);
+   if (not TypeID.isInt) Then
+    Error(eInvalidArraySubscript, [Variable.Typ.asString, TypeID.asString]);
 
   Left := Left^.Left;
   Inc(Index);
  End;
 
  { normal arrays }
-
  if (Index = 0) Then // pointer assignment (changing what our varable points at)
  Begin
   TypeID := Parse(Right, 1); // this value will be our new pointer
@@ -76,22 +76,25 @@ Begin
   { type check }
   With Compiler do
   Begin
-   if (not CompareTypes(TypeID, Variable.Typ)) Then
-    Error(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(TypeID), getTypeDeclaration(Variable.Typ)]);
+   if (not TypeID.CanBeAssignedTo(Variable.Typ)) Then
+   Begin
+    Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, Variable.Typ.asString]);
+    Exit;
+   End;
   End;
 
   { set new pointer }
-  __variable_setvalue_reg(Variable, 1, Compiler.getTypePrefix(TypeID));
+  Result := __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
 
   Exit;
  End;
 
  { value assignment }
- DimCount := Variable.Typ^.ArrayDimCount;
+ DimCount := Variable.Typ.ArrayDimCount;
  if (Index <> DimCount) Then
  Begin
   // special case: strings
-  if (Index = DimCount-1) and (Compiler.isTypeString(Variable.Typ)) Then
+  if (Index = DimCount-1) and (Variable.Typ.isString) Then
   Begin
   End Else
    Error(eInvalidArrayAssign, []);
@@ -103,20 +106,20 @@ Begin
  { type check }
  With Compiler do
  Begin
-  TmpType := getArrayBaseType(Variable.Typ);
+  TmpType := Variable.Typ.ArrayBase;
 
   ShouldFail := False;
 
-  if (isTypeString(TmpType) and (Integer(Variable.Typ^.ArrayDimCount)-Index <= 0)) Then
+  if (TmpType.isString and (Integer(Variable.Typ.ArrayDimCount)-Index <= 0)) Then
   Begin
-   ShouldFail := not isTypeChar(TypeID);
-   TmpType    := TypeInstance(TYPE_CHAR);
+   ShouldFail := not TypeID.isChar;
+   TmpType    := TYPE_CHAR;
   End;
 
   {
    @Note: I think it needs a small explanation:
 
-   Like you can see - I made a special case for strings; let's consider this code:
+   As you can see - I did a special case for strings; let's consider this code:
 
      var<string[]> tab = new string[10];
      str[1] = "Hello World!";
@@ -130,11 +133,13 @@ Begin
    That's what this `if` above does.
   }
 
-  if (not CompareTypes(TypeID, TmpType)) or (ShouldFail) Then//or (isTypeArray(TypeID) and not isTypeString(TypeID)) Then
-   Error(eWrongTypeInAssign, [Variable.Name, getTypeDeclaration(TypeID), getTypeDeclaration(TmpType)]);
+  if (not TypeID.CanBeAssignedTo(TmpType)) or (ShouldFail) Then
+   Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, TmpType.asString]);
  End;
 
  { set new array's element's value }
- Compiler.PutOpcode(o_arset, [Variable.PosStr, Index, 'e'+Compiler.getTypePrefix(TypeID)+'1']);
+ Compiler.PutOpcode(o_arset, [Variable.PosStr, Index, 'e'+TypeID.RegPrefix+'1']);
  Dec(PushedValues, Index);
+
+ Result := TypeID;
 End;

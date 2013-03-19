@@ -1,5 +1,5 @@
 Procedure ParseArithmeticOperator(const WithAssign: Boolean);
-Var TypeLeft, TypeRight: PMType;
+Var TypeLeft, TypeRight: TType;
     Opcode             : TOpcode_E;
     Variable           : TRVariable;
     RegChar            : Char;
@@ -27,16 +27,15 @@ Begin
 
  // `array <operator> array` is an invalid construction
  With Compiler do
-  if (isTypeArray(TypeLeft) and isTypeArray(TypeRight)) and
-     ((not isTypeString(TypeLeft)) or (not isTypeString(TypeRight))) Then
+  if (TypeLeft.isArray(False) and TypeRight.isArray(False)) Then
   Begin
-   Error(eUnsupportedOperator, [Compiler.getTypeDeclaration(TypeLeft), getDisplay(Expr), Compiler.getTypeDeclaration(TypeRight)]);
+   Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
    Exit;
   End;
 
  { prepare opcode }
  Case Expr^.Typ of
-  mtAdd, mtAddEq: if (Compiler.isTypeString(TypeLeft)) Then
+  mtAdd, mtAddEq: if (TypeLeft.isString) Then
                    Opcode := o_strjoin Else
                    Opcode := o_add;
   mtSub, mtSubEq: Opcode := o_sub;
@@ -48,25 +47,25 @@ Begin
  End;
 
  { not arrays }
- if (Variable.getArray = 0) or (Compiler.isTypeString(Variable.Typ) and (Variable.Typ^.ArrayDimCount = 1)) Then
+ if (Variable.getArray = 0) or (Variable.Typ.isString and (Variable.Typ.ArrayDimCount = 1)) Then
  Begin
-  if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Compiler.isTypeNumerical(Result))) or // numerical types only (except '+' and '+=' for strings)
-     ((Opcode in [o_mod, o_shl, o_shr]) and (not Compiler.isTypeInt(Result))) Then // some operators are `int-`only
+  if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Result.isNumerical)) or // numerical types only (except '+' and '+=' for strings)
+     ((Opcode in [o_mod, o_shl, o_shr]) and (not Result.isInt)) Then // some operators are `int-`only
   Begin
-   Error(eUnsupportedOperator, [Compiler.getTypeDeclaration(TypeLeft), getDisplay(Expr), Compiler.getTypeDeclaration(TypeRight)]);
+   Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
    Exit;
   End;
 
   // put opcode
   Case WithAssign of
-   True: Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
-   False: Compiler.PutOpcode(Opcode, ['e'+Compiler.getTypePrefix(TypeLeft)+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
+   True: Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+TypeRight.RegPrefix+'2']);
+   False: Compiler.PutOpcode(Opcode, ['e'+TypeLeft.RegPrefix+'1', 'e'+TypeRight.RegPrefix+'2']);
   End;
 
   // check types
   if (WithAssign) Then
-   if (not Compiler.CompareTypes(Variable.Typ, TypeRight)) Then
-    Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeDeclaration(TypeRight), Compiler.getTypeDeclaration(Variable.Typ)]);
+   if (not TypeRight.CanBeAssignedTo(Variable.Typ)) Then
+    Error(eWrongTypeInAssign, [Variable.Name, TypeRight.asString, Variable.Typ.asString]);
  End Else
 
  { arrays }
@@ -82,23 +81,23 @@ Begin
   *)
 
   // Step 1: get a current value from the array
-  RegChar  := Compiler.getTypePrefix(Compiler.getArrayBaseType(Variable.Typ));
+  RegChar  := Variable.Typ.ArrayBase.RegPrefix;
   TypeLeft := __variable_getvalue_array_reg(Variable, 1, RegChar, Left);
 
-  if (not Compiler.CompareTypes(TypeLeft, TypeRight)) Then
+  if (not TypeRight.CanBeAssignedTo(TypeLeft)) Then // @TODO: check it
   Begin
-   Error(eWrongTypeInAssign, [Variable.Name, Compiler.getTypeDeclaration(TypeRight), Compiler.getTypeDeclaration(TypeLeft)]);
+   Error(eWrongTypeInAssign, [Variable.Name, TypeRight.asString, TypeLeft.asString]);
    Exit;
   End;
 
-  // Step 1.5: cast-table
+  // Step 1.5: type-promotion
   With Compiler do
   Begin
    // @TODO ?
   End;
 
   // Step 2: change this value
-  Compiler.PutOpcode(Opcode, ['e'+RegChar+'1', 'e'+Compiler.getTypePrefix(TypeRight)+'2']);
+  Compiler.PutOpcode(Opcode, ['e'+RegChar+'1', 'e'+TypeRight.RegPrefix+'2']);
 
   // Step 3: save new value into the array
   __variable_setvalue_array_reg(Variable, 1, RegChar, Left);

@@ -30,3 +30,4 @@ By default, all switches are disabled.
 	-logo		displays only a logo, doesn't compile anything
 	-wait		waits for `enter` when finished
 	-verbose / -v	enables `verbose` mode
+	-devlog		shows devlog (more information about compilation process; use only for compiler debugging)

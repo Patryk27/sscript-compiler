@@ -9,17 +9,17 @@ Unit Parse_include;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, CompilerUnit, ExpressionCompiler, Tokens, Messages, MTypes, SysUtils;
+Uses Compile1, CompilerUnit, Tokens, Messages, MTypes, symdef, SysUtils;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
 Var FileName         : String;
     NewC             : TCompiler;
-    NS, I, Q         : LongWord;
+    NS, I            : LongWord;
     Found            : Boolean;
     TmpNamespace, Tmp: Integer;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
 
@@ -61,6 +61,7 @@ Begin
   Begin
    Log('Included namespace is new in current scope.');
    SetLength(NamespaceList, Length(NamespaceList)+1);
+   NamespaceList[High(NamespaceList)] := TNamespace.Create;
 
    CurrentNamespace := High(NamespaceList);
    With NamespaceList[CurrentNamespace] do
@@ -69,7 +70,7 @@ Begin
     Visibility := mvPrivate;
     mCompiler  := NewC;
     DeclToken  := NewC.NamespaceList[NS].DeclToken;
-    SetLength(GlobalList, 0);
+    SetLength(SymbolList, 0);
    End;
   End Else // already existing namespace
   Begin
@@ -79,14 +80,14 @@ Begin
 
   With NewC.NamespaceList[NS] do
   Begin
-   if (Length(GlobalList) = 0) Then
+   if (Length(SymbolList) = 0) Then
     Continue;
 
    { global constants }
-   For I := Low(GlobalList) To High(GlobalList) Do
-    With GlobalList[I] do
+   For I := Low(SymbolList) To High(SymbolList) Do
+    With SymbolList[I] do
     Begin
-     if (Typ <> gdConstant) Then // skip not-constants
+     if (Typ <> gsConstant) Then // skip not-constants
       Continue;
 
      With mVariable do
@@ -96,22 +97,18 @@ Begin
 
       RedeclarationCheck(Name);
 
-      With getCurrentNamespacePnt^ do
-       SetLength(GlobalList, Length(GlobalList)+1);
+      With getCurrentNamespace do
+       SetLength(SymbolList, Length(SymbolList)+1);
 
-      With getCurrentNamespacePnt^.GlobalList[High(getCurrentNamespace.GlobalList)] do
-      Begin
-       Typ       := gdConstant;
-       mVariable := GlobalList[I].mVariable;
-      End;
+      getCurrentNamespace.SymbolList[High(getCurrentNamespace.SymbolList)] := SymbolList[I];
      End;
     End;
 
    { functions }
-   For I := Low(GlobalList) To High(GlobalList) Do
-    With GlobalList[I] do
+   For I := Low(SymbolList) To High(SymbolList) Do
+    With SymbolList[I] do
     Begin
-     if (Typ <> gdFunction) Then
+     if (Typ <> gsFunction) Then
       Continue;
 
      With mFunction do
@@ -119,24 +116,14 @@ Begin
       if (Visibility <> mvPublic) Then // function must be public
        Continue;
 
-      if ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '') Then // don't copy functions imported from other modules (as they are useless for us)
+      if ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '') Then // don't copy library-imported-functions from other modules (as they are useless for us)
       Begin
        RedeclarationCheck(Name);
 
-       With getCurrentNamespacePnt^ do
-        SetLength(GlobalList, Length(GlobalList)+1);
+       With getCurrentNamespace do
+        SetLength(SymbolList, Length(SymbolList)+1);
 
-       With getCurrentNamespacePnt^.GlobalList[High(getCurrentNamespace.GlobalList)] do
-       Begin
-        Typ       := gdFunction;
-        mFunction := GlobalList[I].mFunction;
-
-        mVariable.Name    := mFunction.Name;
-        mVariable.Typ     := NewTypeFromFunction(mFunction);
-        mVariable.Value   := MakeIntExpression('@'+mFunction.MName);
-        mVariable.RegID   := 1;
-        mVariable.isConst := True;
-       End;
+       getCurrentNamespace.SymbolList[High(getCurrentNamespace.SymbolList)] := SymbolList[I];
       End;
      End;
     End;
@@ -148,17 +135,6 @@ Begin
  if (NewC.OpcodeList.Count > 0) Then
   For I := 0 To NewC.OpcodeList.Count-1 Do
    OpcodeList.Add(NewC.OpcodeList[I]);
-
- { string list }
- Q := High(StringList)+1;
- SetLength(StringList, Length(StringList)+Length(NewC.StringList));
-
- if (Length(NewC.StringList) > 0) Then
-  For I := Low(NewC.StringList) To High(NewC.StringList) Do
-  Begin
-   StringList[Q] := NewC.StringList[I];
-   Inc(Q);
-  End;
 End;
 End;
 End.

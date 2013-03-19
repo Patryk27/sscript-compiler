@@ -1,16 +1,10 @@
 Procedure __array_length;
 Begin
- if (not Compiler.isTypeArray(method, False)) Then // only `array.length()` is allowed
- Begin
-  Error(eMethodNotFound, [name, Compiler.getTypeDeclaration(method)]);
-  Exit;
- End;
-
  {
   `array.length` can be called in 3 ways:
     1) .length()
     2) .length(int dimension)
-    3) the wrong way (:D)
+    3) the wrong way ;)
  }
  if (Length(Expr^.ParamList) = 0) Then // no params passed, case #1
  Begin
@@ -22,13 +16,13 @@ Begin
   param := Parse(Expr^.ParamList[0]);
   RePop(Expr^.ParamList[0], param, 1);
 
-  if (not Compiler.isTypeInt(param)) Then // have to be `int`
+  if (not param.isInt) Then // have to be `int`
   Begin
-   Error(eWrongTypeInCall, ['length', Compiler.getTypeDeclaration(param), 'int']);
+   Error(eWrongTypeInCall, ['length', param.asString, 'int']);
    Exit;
   End;
 
-  Compiler.PutOpcode(o_arlen, ['er1', 'e'+Compiler.getTypePrefix(param)+'1', 'ei1']);
+  Compiler.PutOpcode(o_arlen, ['er1', 'e'+param.RegPrefix+'1', 'ei1']);
  End Else
 
   Error(eWrongParamCount, ['length', Length(Expr^.ParamList), '1']); // wrong syntax

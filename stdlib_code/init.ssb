@@ -6,7 +6,7 @@
  PS: as the names aren't exporeted anywhere outside this file, you can name them anyhow you like to.
 */
 {
-__init: .public
+__init: // .public
 	
 	call(:prepare_console)
 

@@ -15,17 +15,17 @@ Procedure Parse(Compiler: Pointer);
 Var Str: PChar;
     C   : TMConstruction;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
 
  C.Typ := ctIF;
  SetLength(C.Values, 2);
 
- Str := CopyStringToPChar(getCurrentFunction.MName+'__if_'+IntToStr(SomeCounter)+'_');
+ Str := CopyStringToPChar(getCurrentFunction.MangledName+'__if_'+IntToStr(SomeCounter)+'_');
  Inc(SomeCounter);
 
- C.Values[0] := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]).Values[0]; // read condition
+ C.Values[0] := MakeConstruction(Compiler, [_BRACKET1_CL]).Values[0]; // read condition
  C.Values[1] := Str;
 
  AddConstruction(C); // add construction ('if' begin)

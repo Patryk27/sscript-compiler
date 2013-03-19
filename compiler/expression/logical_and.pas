@@ -1,10 +1,10 @@
 Procedure ParseLogicalAND;
-Var TypeLeft, TypeRight: PMType;
+Var TypeLeft, TypeRight: TType;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
 
  With Compiler do
-  if (not isTypeBool(Result)) Then
-   Error(eUnsupportedOperator, [getTypeDeclaration(TypeLeft), getDisplay(Expr), getTypeDeclaration(TypeRight)]) Else
+  if (not Result.isBool) Then
+   Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]) Else
    PutOpcode(o_and, ['eb1', 'eb2']);
 End;

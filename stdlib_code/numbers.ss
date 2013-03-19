@@ -14,7 +14,7 @@ namespace std
 function<string> intsys(int num, int base)
 {
  if ((base < 2) || (base > 35))
-  throwError("Invalid numeric base: "+intsys(base, 10));
+  throw "Invalid numeric base: "+intsys(base, 10);
 
  var<string> result="";
  var<bool> neg = (num<0);
@@ -42,7 +42,10 @@ function<string> intsys(int num, int base)
 function<int> sysint(string num, int base)
 {
  if ((base < 2) || (base > 35))
-  throwError("Invalid numeric base: "+intsys(base, 10));
+  throw "Invalid numeric base: "+intsys(base, 10);
+
+ if (strlen(num) == 0)
+  return 0;
 
  var<int> result=0, tmp=0;
  var<bool> neg = (num[1] == '-');
@@ -64,8 +67,8 @@ function<int> sysint(string num, int base)
    tmp = ch-'a'+10; else
    tmp = ch-'0';
 
-  if (tmp > base) // invalid number
-   throwError("Error converting number `"+num+"` to base "+intsys(base, 10));
+  if (tmp >= base) // invalid number
+   throw "Error converting number `"+num+"` from base "+intsys(base, 10);
    
   result += tmp*ipower(base, len-i);
  }

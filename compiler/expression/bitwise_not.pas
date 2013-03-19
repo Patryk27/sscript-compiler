@@ -4,9 +4,9 @@ Begin
  Result := Parse(Left, 1);
  RePop(Left, Result, 1);
 
- if (not Compiler.isTypeInt(Result)) Then
+ if (not Result.isInt) Then
  Begin
-  Error(eUnsupportedUOperator, [getDisplay(Expr), Compiler.getTypeDeclaration(Result)]);
+  Error(eUnsupportedUOperator, [getDisplay(Expr), Result.asString]);
   Exit;
  End;
 

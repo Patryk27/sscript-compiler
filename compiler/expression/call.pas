@@ -2,25 +2,25 @@ Procedure ParseCall(const isMethodCall: Boolean);
 Var IdentID, Namespace: Integer;
 
 { CastCall }
-Function CastCall: PMType;
-Var TypeID       : PMType;
+Function CastCall: TType;
+Var TypeID       : TType;
     Param        : Integer;
-    fParamList   : TMParamList;
+    fParamList   : TParamList;
     Unspecialized: Boolean;
 Begin
  TypeID := Parse(Left, 1, 'r');
  RePop(Left, TypeID, 1);
 
  With Compiler do
-  if (not isTypeFunctionPointer(TypeID)) Then
+  if (not TypeID.isFunctionPointer) Then
   Begin
-   Error(eWrongType, [getTypeDeclaration(TypeID), 'function pointer']);
+   Error(eWrongType, [TypeID.asString, 'function pointer']);
    Exit;
   End;
 
- fParamList    := TypeID^.FuncParams;
- Result        := TypeID^.FuncReturn;
- Unspecialized := TypeID^.isUnspecialized;
+ fParamList    := TypeID.FuncParams;
+ Result        := TypeID.FuncReturn;
+ Unspecialized := TypeID.isUnspecialized;
 
  if (not Unspecialized) Then
  Begin
@@ -40,8 +40,8 @@ Begin
 
   if (not Unspecialized) Then
    With Compiler do
-    if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
+    if (not TypeID.CanBeAssignedTo(fParamList[High(fParamList)-Param].Typ)) Then
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, TypeID.asString, fParamList[High(fParamList)-Param].Typ.asString]);
  End;
 
  Dec(PushedValues, Length(fParamList));
@@ -52,11 +52,11 @@ Begin
 End;
 
 { LocalVarCall }
-Function LocalVarCall: PMType;
-Var TypeID       : PMType;
+Function LocalVarCall: TType;
+Var TypeID       : TType;
     Param        : Integer;
     Variable     : TRVariable;
-    fParamList   : TMParamList;
+    fParamList   : TParamList;
     Unspecialized: Boolean;
 Begin
  Variable := getVariable(Left);
@@ -67,15 +67,15 @@ Begin
  TypeID := __variable_getvalue_reg(Variable, 1, 'r');
 
  With Compiler do
-  if (not isTypeFunctionPointer(TypeID)) Then
+  if (not TypeID.isFunctionPointer) Then
   Begin
-   Error(eWrongType, [getTypeDeclaration(TypeID), 'function pointer']);
+   Error(eWrongType, [TypeID.asString, 'function pointer']);
    Exit;
   End;
 
- fParamList    := TypeID^.FuncParams;
- Result        := TypeID^.FuncReturn;
- Unspecialized := TypeID^.isUnspecialized;
+ fParamList    := TypeID.FuncParams;
+ Result        := TypeID.FuncReturn;
+ Unspecialized := TypeID.isUnspecialized;
 
  if (not Unspecialized) Then
  Begin
@@ -95,8 +95,8 @@ Begin
 
   if (not Unspecialized) Then
    With Compiler do
-    if (not CompareTypes(fParamList[High(fParamList)-Param].Typ, TypeID)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(fParamList[High(fParamList)-Param].Typ)]);
+    if (not TypeID.CanBeAssignedTo(fParamList[High(fParamList)-Param].Typ)) Then
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, TypeID.asString, fParamList[High(fParamList)-Param].Typ.asString]);
  End;
 
  Dec(PushedValues, Length(fParamList));
@@ -108,10 +108,10 @@ End;
 
 { GlobalFuncCall }
 Procedure GlobalFuncCall;
-Var TypeID: PMType;
+Var TypeID: TType;
     Param : Integer;
 Begin
- With Compiler.NamespaceList[Namespace].GlobalList[IdentID].mFunction do
+ With Compiler.NamespaceList[Namespace].SymbolList[IdentID].mFunction do
  Begin
   // check param count
   if (Length(Expr^.ParamList) <> Length(ParamList)) Then
@@ -126,14 +126,14 @@ Begin
    TypeID := Parse(Expr^.ParamList[Param]);
 
    With Compiler do
-    if (not CompareTypes(ParamList[High(ParamList)-Param].Typ, TypeID)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Name, High(ParamList)-Param+1, getTypeDeclaration(TypeID), getTypeDeclaration(ParamList[High(ParamList)-Param].Typ)]);
+    if (not TypeID.CanBeAssignedTo(ParamList[High(ParamList)-Param].Typ)) Then
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Name, High(ParamList)-Param+1, TypeID.asString, ParamList[High(ParamList)-Param].Typ.asString]);
   End;
 
   Dec(PushedValues, Length(ParamList));
 
   // call function
-  Compiler.PutOpcode(o_call, [':'+MName]);
+  Compiler.PutOpcode(o_call, [':'+MangledName]);
   Compiler.PutOpcode(o_sub, ['stp', Length(ParamList)]);
 
   Result := Return;
@@ -144,8 +144,8 @@ End;
 Procedure MethodCall; // pseudo-OOP for arrays :P
 
  // magic
- Function magic(Expr: PMExpression): PMType;
- Var method, param: PMType;
+ Function magic(Expr: PMExpression): TType;
+ Var method, param: TType;
      name         : String;
 
  {$I array_length.pas}
@@ -157,22 +157,22 @@ Procedure MethodCall; // pseudo-OOP for arrays :P
 
   RePop(Expr^.Left, method, 1);
 
-  if (not Compiler.isTypeObject(method)) Then // is it an object?
+  if (not method.isObject) Then // is it an object?
   Begin
-   Error(eNonObjectMethodCall, [name, Compiler.getTypeDeclaration(method)]);
+   Error(eNonObjectMethodCall, [name, method.asString]);
    Exit;
   End;
 
-  if (Compiler.isTypeArray(method)) and (Name = 'length') Then
+  if (method.isArray(False)) and (Name = 'length') Then
   Begin
    __array_length;
   End Else
   Begin
-   Error(eMethodNotFound, [name, Compiler.getTypeDeclaration(method)]);
+   Error(eMethodNotFound, [name, method.asString]);
    Exit;
   End;
 
-  Result := TypeInstance(TYPE_INT);
+  Result := TYPE_INT;
  End;
 
 Begin
@@ -212,7 +212,7 @@ Begin
   Result := LocalVarCall Else
 
  { global function call }
- if (Compiler.NamespaceList[Namespace].GlobalList[IdentID].Typ = gdFunction) Then
+ if (Compiler.NamespaceList[Namespace].SymbolList[IdentID].Typ = gsFunction) Then
   GlobalFuncCall Else
 
  { global variable call (and, as there's no global variables for now, there's no glob-var-call) }

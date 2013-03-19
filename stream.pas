@@ -6,7 +6,7 @@
 Unit Stream;
 
  Interface
- Uses Classes;
+ Uses SysUtils, Classes;
 
  Type TStream = Class (Classes.TMemoryStream)
                  Public
@@ -15,12 +15,15 @@ Unit Stream;
                   Procedure write_word(const V: Word);
                   Procedure write_integer(const V: Integer);
                   Procedure write_longword(const V: Longword);
-                  Procedure write_extended(const V: Extended);
+                  Procedure write_float(const V: Extended);
                   Procedure write_string(const V: String);
 
                   // `read` functions
                   Function read_byte: Byte;
+                  Function read_word: Word;
+                  Function read_integer: Integer;
                   Function read_longword: Longword;
+                  Function read_float: Extended;
                   Function read_string: String;
 
                   // other functions
@@ -53,8 +56,8 @@ Begin
  Write(NtoBE(V), sizeof(V));
 End;
 
-{ TStream.write_extended }
-Procedure TStream.write_extended(const V: Extended);
+{ TStream.write_float }
+Procedure TStream.write_float(const V: Extended);
 Begin
  Write(V, sizeof(V));
 End;
@@ -64,21 +67,57 @@ Procedure TStream.write_string(const V: String);
 Var Ch: Char;
 Begin
  For Ch in V Do
+ Begin
+  if (Ch = #0) Then
+   raise Exception.Create('TStream.write_string: terminator char (0x00) found in string!');
+
   write_byte(ord(Ch));
+ End;
+
  write_byte(0);
 End;
 
 { TStream.read_byte }
 Function TStream.read_byte: Byte;
 Begin
+ if (not Can) Then
+  Exit(0);
  Read(Result, sizeof(Result));
+End;
+
+{ TStream.read_word }
+Function TStream.read_word: Word;
+Begin
+ if (not Can) Then
+  Exit(0);
+ Read(Result, sizeof(Result));
+ Result := BEtoN(Result);
+End;
+
+{ TStream.read_integer }
+Function TStream.read_integer: Integer;
+Begin
+ if (not Can) Then
+  Exit(0);
+ Read(Result, sizeof(Result));
+ Result := BEtoN(Result);
 End;
 
 { TStream.read_longword }
 Function TStream.read_longword: Longword;
 Begin
+ if (not Can) Then
+  Exit(0);
  Read(Result, sizeof(Result));
  Result := BEtoN(Result);
+End;
+
+{ TStream.read_float }
+Function TStream.read_float: Extended;
+Begin
+ if (not Can) Then
+  Exit(0);
+ Read(Result, sizeof(Result));
 End;
 
 { TStream.read_string }

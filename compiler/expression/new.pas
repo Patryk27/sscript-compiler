@@ -1,7 +1,6 @@
 Procedure ParseNEW;
-Var BaseType, TmpType: PMType;
-    Typ              : TMType;
-    isStringBased    : Boolean;
+Var BaseType, TmpType, Typ: TType;
+    isStringBased         : Boolean;
 Begin
  { get the array's primary (base) type (int, char, (...) }
  BaseType := getType(Left^.Value);
@@ -9,14 +8,14 @@ Begin
  if (BaseType = nil) Then // suitable error message has been displayed when creating the tree, so we don't need to display anything else here; thus, just exit this function
   Exit;
 
- Typ           := BaseType^;
- isStringBased := (Typ = TYPE_STRING);
+ Typ           := BaseType.Clone;
+ isStringBased := type_equal(Typ, TYPE_STRING);
  Typ.ArrayBase := BaseType;
 
  With Compiler do // type-check
-  if (isTypeArray(BaseType)) and (not isTypeString(BaseType)) Then
+  if (BaseType.isArray(False)) Then
   Begin
-   Error(eWrongType, [getTypeDeclaration(BaseType), 'any not array-derived type']);
+   Error(eWrongType, [BaseType.asString, 'any not array-derived type']);
    Exit;
   End;
 
@@ -27,7 +26,7 @@ Begin
  if (Right^.Typ <> mtArrayElement) Then
   Error(eInternalError, ['`Right^.Typ` should be a `mtArrayElement`, but for some reason it''s not...']);
 
- if (BaseType^ = TYPE_ANY) Then
+ if (type_equal(BaseType, TYPE_ANY)) Then
   Error(eInternalError, ['Cannot create an `any`-typed array!']);
 
  { make an array from that base type }
@@ -37,26 +36,30 @@ Begin
    TmpType := Parse(Right^.Right) Else
    TmpType := Parse(Right^.Left);
 
+  if (TmpType = nil) Then
+  Begin
+   DevLog('Info: ParseNEW() -> TmpType = nil; leaving...');
+   Exit;
+  End;
+
   With Compiler do // array subscript must be an integer value
-   if (not isTypeInt(TmpType)) Then
-    Error(eInvalidArraySubscript, [getTypeDeclaration(BaseType), getTypeDeclaration(TmpType)]);
+   if (not TmpType.isInt) Then
+    Error(eInvalidArraySubscript, [BaseType.asString, TmpType.asString]);
 
   Right := Right^.Left;
   Inc(Typ.ArrayDimCount);
  End;
 
  { prepare type }
- Typ.Name      := Compiler.getTypeDeclaration(Typ, False);
  Typ.RegPrefix := 'r';
  Dec(PushedValues, Typ.ArrayDimCount);
 
  { put opcode }
- Compiler.PutOpcode(o_arcrt, ['er1', BaseType^.InternalID, Typ.ArrayDimCount]);
+ Compiler.PutOpcode(o_arcrt, ['er1', BaseType.InternalID, Typ.ArrayDimCount]);
 
  { return type }
  if (isStringBased) Then
   Inc(Typ.ArrayDimCount);
 
- New(Result);
- Result^ := Typ;
+ Result := Typ;
 End;

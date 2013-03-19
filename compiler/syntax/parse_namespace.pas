@@ -9,7 +9,7 @@ Unit Parse_NAMESPACE;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, MTypes, Tokens, Messages;
+Uses Compile1, MTypes, symdef, Tokens, Messages;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
@@ -17,7 +17,7 @@ Var nName     : String;
     Deep, I   : Integer;
     Namespaces: TMIntegerArray;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  // make a backup of current namespaces (as we'll restore them when we'll finish compiling this namespace)
  SetLength(Namespaces, Length(SelectedNamespaces));
@@ -32,14 +32,16 @@ Begin
  if (CurrentNamespace = -1) Then // new namespace
  Begin
   SetLength(NamespaceList, Length(NamespaceList)+1);
+  NamespaceList[High(NamespaceList)] := TNamespace.Create;
+
   CurrentNamespace := High(NamespaceList);
   With NamespaceList[CurrentNamespace] do
   Begin
    Name      := nName;
    mCompiler := Compiler;
-   DeclToken := getToken(-1);
+   DeclToken := next_pnt(-1);
 
-   SetLength(GlobalList, 0);
+   SetLength(SymbolList, 0);
   End;
  End;
 

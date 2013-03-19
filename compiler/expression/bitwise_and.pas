@@ -1,10 +1,10 @@
 Procedure ParseBitwiseAND;
-Var TypeLeft, TypeRight: PMType;
+Var TypeLeft, TypeRight: TType;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
 
  With Compiler do
-  if (not isTypeInt(Result)) Then
-   CompileError(eUnsupportedOperator, [getTypeDeclaration(TypeLeft), getDisplay(Expr), getTypeDeclaration(TypeRight)]) Else
+  if (not Result.isInt) Then
+   CompileError(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]) Else
    PutOpcode(o_and, ['ei1', 'ei2']);
 End;

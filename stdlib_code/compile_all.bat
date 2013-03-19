@@ -20,7 +20,7 @@ goto :begin
 	echo --] '%~1.ss' :: '%outputfile%'
 
 	if exist %outputfile% del /Q %outputfile% > nul
-	..\compiler %~1.ss -o=%outputfile% -h=..\stdlib\%~1.ss -Cm=lib
+	..\compiler %~1.ss -o=%outputfile% -h=..\stdlib\%~1.ss -Cm=lib -O1
 	if not exist %outputfile% goto :fail
 
 	goto :eof

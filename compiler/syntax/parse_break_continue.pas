@@ -10,7 +10,7 @@ Begin
    SetLength(C.Values, 1);
    C.Values[0] := CopyStringToPChar(':'+Scope[I].LoopEnd);
    AddConstruction(C);
-   eat(_SEMICOLON);
+   Parser.eat(_SEMICOLON);
    Exit;
   End;
 
@@ -29,7 +29,7 @@ Begin
    SetLength(C.Values, 1);
    C.Values[0] := CopyStringToPChar(':'+Scope[I].LoopEnd);
    AddConstruction(C);
-   eat(_SEMICOLON);
+   Parser.eat(_SEMICOLON);
    Exit;
   End;
 

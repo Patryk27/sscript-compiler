@@ -9,22 +9,21 @@ Unit Parse_TYPE;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, Messages, Tokens, MTypes;
+Uses Compile1, Messages, Tokens, MTypes, symdef;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Base: PMType;
-    Typ : TMType;
+Var Base, Typ: TType;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  eat(_LOWER); // `<`
  Base := read_type; // [type]
  eat(_GREATER); // `>`
 
- Typ            := Base^;
+ Typ            := Base.Clone;
  Typ.Name       := read_ident; // [identifier]
- Typ.DeclToken  := next(-1);
+ Typ.DeclToken  := next_pnt(-1);
  Typ.mCompiler  := Compiler;
  Typ.Visibility := Visibility;
 
@@ -37,11 +36,11 @@ Begin
   CompileError(eUnimplemented, ['local type declarations']);
  End Else // global type
  Begin
-  With getCurrentNamespacePnt^ do
+  With getCurrentNamespace do
   Begin
-   SetLength(GlobalList, Length(GlobalList)+1);
-   GlobalList[High(GlobalList)].Typ   := gdType;
-   GlobalList[High(GlobalList)].mType := Typ;
+   SetLength(SymbolList, Length(SymbolList)+1);
+   SymbolList[High(SymbolList)].Typ   := gsType;
+   SymbolList[High(SymbolList)].mType := Typ;
   End;
  End;
 End;

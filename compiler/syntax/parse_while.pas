@@ -17,11 +17,11 @@ Procedure Parse(Compiler: Pointer);
 Var Str         : PChar;
     Condition, C: TMConstruction;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
 
- Str := CopyStringToPChar(getCurrentFunction.MName+'__while_'+IntToStr(SomeCounter)+'_');
+ Str := CopyStringToPChar(getCurrentFunction.MangledName+'__while_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 
@@ -57,9 +57,9 @@ Procedure Parse_DO_WHILE(Compiler: Pointer);
 Var Str         : PChar;
     Condition, C: TMConstruction;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
- Str := CopyStringToPChar(getCurrentFunction.MName+'__do_while_'+IntToStr(SomeCounter)+'_');
+ Str := CopyStringToPChar(getCurrentFunction.MangledName+'__do_while_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 

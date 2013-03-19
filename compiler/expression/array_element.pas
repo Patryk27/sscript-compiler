@@ -1,21 +1,15 @@
 Procedure ParseArrayElement;
-Var ArrayType, TmpType: PMType;
-    Typ               : TMType;
-    IndexCount        : Integer;
-    TmpExpr           : PMExpression;
+Var TmpType, Typ, ArrayType: TType;
+    IndexCount             : Integer;
+    TmpExpr                : PMExpression;
 Begin
- ArrayType := Parse(Left, 1);
+ { find array origin (a variable, cast (...)) }
+ TmpExpr := Expr;
+ While (TmpExpr^.Typ = mtArrayElement) Do
+  TmpExpr := TmpExpr^.Left;
 
- if (ArrayType = nil) Then
-  Exit;
-
- Typ := ArrayType^;
-
- {
-  @Note:
-  There's no need to checking whether `TmpType` is an array or not, as if it's not, `eInvalidArraySubscript` will be shown, because
-  its `ArrayDimCount` will be equal zero and it'll fail in `repeat..until` below.
- }
+ ArrayType := Parse(TmpExpr, 1);
+ Typ       := ArrayType.Clone;
 
  { push indexes onto the stack }
  TmpExpr    := Expr;
@@ -24,9 +18,9 @@ Begin
  Repeat
   TmpType := Parse(TmpExpr^.Right);
   With Compiler do // array subscript must be an integer value
-   if (not isTypeInt(TmpType)) or (Typ.ArrayDimCount = 0) Then
+   if (not TmpType.isInt) or (Typ.ArrayDimCount = 0) Then
    Begin
-    Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [getTypeDeclaration(Typ), getTypeDeclaration(TmpType)]);
+    Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [Typ.asString, TmpType.asString]);
     Exit;
    End;
 
@@ -34,25 +28,29 @@ Begin
 
   Dec(Typ.ArrayDimCount);
   Inc(IndexCount);
- Until not (TmpExpr^.Typ in [mtArrayElement]);
+ Until not (TmpExpr^.Typ = mtArrayElement);
 
  { type change }
  if (Typ.ArrayDimCount = 0) Then
-  Typ.RegPrefix := Compiler.getTypePrefix(Typ.ArrayBase);
+  Typ.RegPrefix := Typ.ArrayBase.RegPrefix Else
+  Begin // invalid conversion (except strings)
+   if not ((Typ.isString) and (Typ.ArrayDimCount = 1)) Then
+   Begin
+    Error(eInvalidConversion, [Typ.asString, Typ.ArrayBase.asString]);
+    Exit;
+   End;
+  End;
 
- if (Compiler.isTypeString(Typ.ArrayBase) and (Typ.ArrayDimCount = 1)) Then // `string`
+ if (Typ.ArrayBase.isString and (Typ.ArrayDimCount = 1)) Then // `string`
   Typ := TYPE_STRING;
 
- if (Compiler.isTypeString(Typ.ArrayBase) and (Typ.ArrayDimCount = 0)) Then // `string`
+ if (Typ.ArrayBase.isString and (Typ.ArrayDimCount = 0)) Then // `string`
   Typ := TYPE_CHAR;
 
  { get value }
- Compiler.PutOpcode(o_arget, ['e'+Compiler.getTypePrefix(ArrayType)+'1', IndexCount, 'e'+Typ.RegPrefix+'1']);
+ Compiler.PutOpcode(o_arget, ['e'+ArrayType.RegPrefix+'1', IndexCount, 'e'+Typ.RegPrefix+'1']);
  Dec(PushedValues, IndexCount);
 
  { set result value }
- Typ.Name := Compiler.getTypeDeclaration(Typ);
-
- New(Result);
- Result^ := Typ;
+ Result := Typ;
 End;

@@ -16,11 +16,11 @@ Procedure Parse(Compiler: Pointer);
 Var Str               : PChar;
     Condition, Step, C: TMConstruction;
 Begin
-With TCompiler(Compiler) do
+With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
 
- Str := CopyStringToPChar(getCurrentFunction.MName+'__for_'+IntToStr(SomeCounter)+'_');
+ Str := CopyStringToPChar(getCurrentFunction.MangledName+'__for_'+IntToStr(SomeCounter)+'_');
 
  Inc(SomeCounter);
 
@@ -34,10 +34,10 @@ Begin
  ParseToken;
 
  // condition
- Condition := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_SEMICOLON]);
+ Condition := MakeConstruction(Compiler, [_SEMICOLON]);
 
  // step
- Step        := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]);
+ Step        := MakeConstruction(Compiler, [_BRACKET1_CL]);
  C.Values[0] := Condition.Values[0];
  C.Values[1] := Step.Values[0];
  C.Values[2] := Str;

@@ -22,32 +22,35 @@ Var Namespace: Integer;
   End;
 
 Begin
- if (next_t = _SEMICOLON) Then // `use;` sets the global (default) namespace
+ With Parser do
  Begin
-  SetLength(SelectedNamespaces, 1);
-  SelectedNamespaces[0] := 0;
-  eat(_SEMICOLON);
-  Exit;
+  if (next_t = _SEMICOLON) Then // `use;` sets the global (default) namespace
+  Begin
+   SetLength(SelectedNamespaces, 1);
+   SelectedNamespaces[0] := 0;
+   eat(_SEMICOLON);
+   Exit;
+  End;
+
+  Repeat
+   // next namespace
+   Name := read_ident;
+
+   Namespace := findNamespace(Name);
+   if (Namespace = -1) Then
+    CompileError(eUnknownNamespace, [Name]) Else
+    Begin
+     // add it into the list
+     if (notDuplicated(Namespace)) Then
+      Add(Namespace);
+    End;
+
+   // check
+   if (next_t = _SEMICOLON) Then
+    Break Else
+    eat(_COMMA);
+  Until (False);
+
+  semicolon;
  End;
-
- Repeat
-  // next namespace
-  Name := read_ident;
-
-  Namespace := findNamespace(Name);
-  if (Namespace = -1) Then
-   CompileError(eUnknownNamespace, [Name]) Else
-   Begin
-    // add it into the list
-    if (notDuplicated(Namespace)) Then
-     Add(Namespace);
-   End;
-
-  // check
-  if (next_t = _SEMICOLON) Then
-   Break Else
-   eat(_COMMA);
- Until (False);
-
- semicolon;
 End;
