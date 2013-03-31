@@ -2,5 +2,5 @@
 
 namespace std
 {
- function<void> exit(int) in "vm.ssm";
+ function<void> exit(int) [library="vm.ssm"];
 }

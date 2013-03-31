@@ -71,6 +71,20 @@ Begin
    TypeRight := TYPE_INT;
   End;
 
+  { bool, int -> int, int }
+  if (TypeLeft.isBool) and (TypeRight.isInt) Then
+  Begin
+   PutOpcode(o_mov, ['e'+TypeRight.RegPrefix+'1', 'e'+TypeLeft.RegPrefix+'1']);
+   TypeLeft := TYPE_INT;
+  End;
+
+  { int, bool -> int, int }
+  if (TypeLeft.isInt) and (TypeRight.isBool) Then
+  Begin
+   PutOpcode(o_mov, ['e'+TypeLeft.RegPrefix+'2', 'e'+TypeRight.RegPrefix+'2']);
+   TypeRight := TYPE_INT;
+  End;
+
   { string, char -> string, string }
   if (TypeLeft.isString) and (TypeRight.isChar) and (not isComparing) Then
   Begin

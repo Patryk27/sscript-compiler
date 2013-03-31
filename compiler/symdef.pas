@@ -25,8 +25,6 @@ Unit symdef;
 
                  // public methods
                   Constructor Create;
-
-                  Function asString(const AddNamespace: Boolean=False): String; virtual; abstract;
                  End;
 
  (* Type *)
@@ -49,7 +47,7 @@ Unit symdef;
                 ArrayDimCount: Byte; // array dimension count
 
                 FuncReturn: TType;
-                FuncParams : TParamList;
+                FuncParams: TParamList;
 
                 Attributes: TTypeAttributes;
 
@@ -61,6 +59,7 @@ Unit symdef;
 
                 Function getBytecodeType: String;
 
+                Function isNull: Boolean;
                 Function isVoid: Boolean;
                 Function isBool: Boolean;
                 Function isChar: Boolean;
@@ -73,9 +72,10 @@ Unit symdef;
                 Function isFunctionPointer: Boolean;
 
                 Function CanBeAssignedTo(T2: TType): Boolean;
+                Function CanBeCastedTo(T2: TType): Boolean;
 
                 Function Clone: TType;
-                Function asString(const AddNamespace: Boolean=False): String; override;
+                Function asString: String;
                End;
 
  (* Variable *)
@@ -97,7 +97,7 @@ Unit symdef;
                     Function isFuncParam: Boolean;
                     Function DontAllocate: Boolean;
 
-                    Function asString(const AddNamespace: Boolean=False): String; override;
+                    Function getBytecodePos: String;
                    End;
  Type TMVariableList = Array of TVariable;
 
@@ -113,7 +113,7 @@ Unit symdef;
                     Return: TType; // return type
 
                     ParamList       : TParamList; // parameter list
-                    VariableList    : TMVariableList; // variable list
+                    VariableList    : TMVariableList; // variable list {@TODO SymbolList}
                     ConstructionList: TMConstructionList; // construction list
 
                     Attributes: TFunctionAttributes;
@@ -122,8 +122,6 @@ Unit symdef;
                     Constructor Create;
 
                     Function isNaked: Boolean;
-
-                    Function asString(const AddNamespace: Boolean=False): String; override;
                    End;
 
  (* Global symbol *)
@@ -161,7 +159,7 @@ Unit symdef;
  Function type_equal(A, B: TType): Boolean;
 
  // functions
- Function CreateFunctionMangledName(Func: TFunction; SimplifiedName: Boolean): String;
+ Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
 
  Function TYPE_ANY: TType;
  Function TYPE_NULL: TType;
@@ -173,24 +171,21 @@ Unit symdef;
  Function TYPE_STRING: TType;
 
  Implementation
-Uses CompilerUnit;
+Uses CompilerUnit, Compile1, Messages, SysUtils;
 
 (* CreateFunctionMangledName *)
 {
  Creates a mangled name of function passed in parameter.
 }
-Function CreateFunctionMangledName(Func: TFunction; SimplifiedName: Boolean): String;
+Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
 Var P: TParam;
 Begin
  With Func do
  Begin
-  if (MangledName = '') Then
-   MangledName := Name;
-
   if (SimplifiedName) Then
-   Exit('__function_'+NamespaceName+'_'+MangledName);
+   Exit('__function_'+NamespaceName+'_'+FuncName);
 
-  Result := '__function_'+NamespaceName+'_'+MangledName+'_'+ModuleName+'_'+Return.getBytecodeType;
+  Result := '__function_'+NamespaceName+'_'+FuncName+'_'+ModuleName+'_'+Return.getBytecodeType;
   For P in ParamList Do
    Result += P.Typ.getBytecodeType+'_';
  End;
@@ -381,18 +376,24 @@ End;
 (* TType.getBytecodeType *)
 {
  Returns type declaration, that can be used as a label's name.
- Eg.instead of "int[]" returns "int_arraytype".
+ Eg.instead of "int[]" returns "2darray_int_".
 }
 Function TType.getBytecodeType: String;
 Var I: Integer;
 Begin
+ if (self = nil) Then
+ Begin
+  DevLog('Error: TType.getBytecodeType() -> self = nil; that was not supposed to happen. Returned an empty string.');
+  Exit('');
+ End;
+
  Result := '';
 
  { is function? }
  if (taFunction in Attributes) Then
  Begin
   if (taUnspecialized in Attributes) Then
-   Result := 'unspecialized_function' Else
+   Result := 'unspecialized_function_' Else
   Begin
    Result := 'function_'+FuncReturn.getBytecodeType+'_';
 
@@ -400,8 +401,8 @@ Begin
     Result += FuncParams[I].Typ.getBytecodeType+'_';
   End;
 
-  For I := 1 To ArrayDimCount Do
-   Result += '_arraytype_';
+  if (ArrayDimCount > 0) Then
+   Result += IntToStr(ArrayDimCount-Byte(isString))+'darray_'+ArrayBase.getBytecodeType+'_';
 
   Exit;
  End;
@@ -413,16 +414,26 @@ Begin
  End Else
  Begin
   { is array? }
-  Result += ArrayBase.getBytecodeType;
-
-  For I := 1 To ArrayDimCount Do
-   Result += '_arraytype_';
+  Result += IntToStr(ArrayDimCount-Byte(isString))+'darray_'+ArrayBase.getBytecodeType+'_';
+  Exit;
  End;
+End;
+
+(* TType.isNull *)
+{
+ Returns `true` when type passed in parameter is `null`; in other case, returns `false`.
+}
+Function TType.isNull: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(InternalID = TYPE_NULL_ID);
 End;
 
 (* TType.isVoid *)
 {
- Returns `true`, when type passed in parameter is `void`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `void`-derived; in other case, returns `false`.
 }
 Function TType.isVoid: Boolean;
 Begin
@@ -434,19 +445,19 @@ End;
 
 (* TType.isBool *)
 {
- Returns `true`, when type passed in parameter is `bool`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `bool`-derived; in other case, returns `false`.
 }
 Function TType.isBool: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(InternalID in [TYPE_BOOL_id, TYPE_INT_id]);
+ Exit(InternalID in [TYPE_BOOL_id{, TYPE_INT_id}]);
 End;
 
 (* TType.isChar *)
 {
- Returns `true`, when type passed in parameter is `char`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `char`-derived; in other case, returns `false`.
  @Note: Also returns `false` when passed type is `int`!
 }
 Function TType.isChar: Boolean;
@@ -459,7 +470,7 @@ End;
 
 (* TType.isInt *)
 {
- Returns `true`, when type passed in parameter is `int`-derived or is a pointer; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `int`-derived or is a pointer; in other case, returns `false`.
 }
 Function TType.isInt: Boolean;
 Begin
@@ -471,7 +482,7 @@ End;
 
 (* TType.isFloat *)
 {
- Returns `true`, when type passed in parameter is `float`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `float`-derived; in other case, returns `false`.
  @Note: Also returns `false` when passed type is `int` or pointer!
 }
 Function TType.isFloat: Boolean;
@@ -484,7 +495,7 @@ End;
 
 (* TType.isString *)
 {
- Returns `true`, when type passed in parameter is `string`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `string`-derived; in other case, returns `false`.
 }
 Function TType.isString: Boolean;
 Begin
@@ -496,7 +507,7 @@ End;
 
 (* TType.isNumerical *)
 {
- Returns `true`, when type passed in parameter is a numerical type (int, float, char and pointers) or numerical-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is a numerical type (int, float, char and pointers) or numerical-derived; in other case, returns `false`.
 }
 Function TType.isNumerical: Boolean;
 Begin
@@ -508,7 +519,7 @@ End;
 
 (* TType.isArray *)
 {
- Returns `true`, when type passed in parameter is an array; in other case, returns `false`.
+ Returns `true` when type passed in parameter is an array; in other case, returns `false`.
 }
 Function TType.isArray(const RegardStringAsArray: Boolean=True): Boolean;
 Begin
@@ -518,39 +529,36 @@ Begin
  if ((isString) and (ArrayDimCount = 1)) Then
   Exit(RegardStringAsArray);
 
- Exit(ArrayDimCount > 0);
+ Exit((ArrayDimCount > 0) or (isNull));
 End;
 
 (* TType.isObject *)
 {
- Returns `true`, when type passed in parameter is an object.
+ Returns `true` when type passed in parameter is an object.
 }
 Function TType.isObject: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Result := isArray; // for now, only arrays are some-kind-of-objects
-
- if (isString) and (ArrayDimCount = 1) Then // ... excepts strings - despite the fact, that strings are arrays, they're not objects
-  Exit(False);
+ Result := isArray(False); // for now, only arrays are some-kind-of-objects
 End;
 
 (* TType.isFunctionPointer *)
 {
- Returns `true`, when type passed in parameter is a function pointer.
+ Returns `true` when type passed in parameter is a function pointer.
 }
 Function TType.isFunctionPointer: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(taFunction in Attributes);
+ Exit((taFunction in Attributes) or (isNull));
 End;
 
 (* TType.Clone *)
 {
- Returns clone of self.
+ Returns a clone of self.
 }
 Function TType.Clone: TType;
 Var I: Integer;
@@ -559,7 +567,7 @@ Begin
 
  if (self = nil) Then
  Begin
-  DevLog('Warning: TType.Clone() called with `self = nil`; returned an empty type');
+  DevLog('Info: TType.Clone() called with `self = nil`; returned an empty type');
   Exit;
  End;
 
@@ -581,7 +589,7 @@ Begin
 
  if (ArrayBase = self) Then
  Begin
-  DevLog('Error: TType.Clone() -> ArrayBase = self; cannot do an entire type cloning');
+  DevLog('Error: TType.Clone() -> ArrayBase = self; cannot do the entire type cloning');
   Result.ArrayBase := ArrayBase;
   Exit;
  End;
@@ -594,7 +602,7 @@ End;
  Returns type declaration.
  Eg.`int[]` or `function<void>(string)`.
 }
-Function TType.asString(const AddNamespace: Boolean=False): String;
+Function TType.asString: String;
 Var I: Integer;
 Begin
  if (self = nil) Then
@@ -602,16 +610,13 @@ Begin
 
  Result := '';
 
- if (AddNamespace) Then
-  DevLog('Unimplemented: TType.asString() called with `AddNamespace = true`');
-
  { is function? }
  if (taFunction in Attributes) Then
  Begin
   if (taUnspecialized in Attributes) Then
-   Result := 'unspecialized function' Else
+   Result += 'unspecialized function' Else
   Begin
-   Result := 'function<'+FuncReturn.asString+'>(';
+   Result += 'function<'+FuncReturn.asString+'>(';
 
    For I := Low(FuncParams) To High(FuncParams) Do
    Begin
@@ -642,11 +647,14 @@ Begin
   if (isString) or (ArrayBase.isString) Then
   Begin
    I      := ArrayDimCount-1;
-   Result := 'string';
+   Result += 'string';
   End Else
   Begin
+   if (ArrayBase.isArray) Then
+    TCompiler(mCompiler).CompileError(eInternalError, ['ArrayBase.isArray() == true']);
+
    I      := ArrayDimCount;
-   Result := ArrayBase.asString;
+   Result += ArrayBase.asString;
   End;
 
   For I := 1 To I Do
@@ -683,7 +691,7 @@ Begin
   Exit(True);
 
  { comparing null-type }
- if (self = TYPE_NULL) Then
+ if (type_equal(self, TYPE_NULL)) Then
  Begin
   Exit(T2.isFunctionPointer or T2.isObject); // `null` can be assigned only into a pointer or object
  End Else
@@ -759,12 +767,51 @@ Begin
   if (self.isChar) and (T2.isInt) Then // char to int => true
    Exit(True);
 
-  if (self.isInt) and (T2.isBool) Then // int to bool => true (as it's supported by the VM)
+  if (self.isInt) and (T2.isBool) Then // int to bool => true (it's supported by the VM)
    Exit(True);
  End;
 
  { compare types }
  Exit(type_equal(self, T2));
+End;
+
+(* TType.CanBeCastedTo *)
+Function TType.CanBeCastedTo(T2: TType): Boolean;
+Begin
+ if (self = nil) Then
+ Begin
+  DevLog('Warning: TType.CanBeCastedTo() -> self = nil; returned `false`');
+  Exit(False);
+ End;
+
+ if (T2 = nil) Then
+ Begin
+  DevLog('Warning: TType.CanBeCastedTo() -> T2 = nil; returned `false`');
+  Exit(False);
+ End;
+
+ if (self.isVoid or self.isNull) or (T2.isVoid or T2.isNull) Then // void, null to anything => false
+  Exit(False);
+
+ if (type_equal(self, T2)) Then
+  Exit(True);
+
+ if (self.isBool) Then // `bool` can be casted to: char, int
+  Exit(T2.isChar or T2.isInt);
+
+ if (self.isChar) Then // `char` can be casted to: bool, int, string
+  Exit(T2.isBool or T2.isInt or T2.isString);
+
+ if (self.isInt) Then // `int` can be casted to: bool, char, float
+  Exit(T2.isBool or T2.isChar or T2.isFloat);
+
+ if (self.isFloat) Then // `float` can be casted to: bool, int
+  Exit(T2.isBool or T2.isInt);
+
+ if (self.isString) Then // `string` cannot be casted to anything
+  Exit(False);
+
+ Exit(False);
 End;
 
 (* ---------- TVariable ---------- *)
@@ -799,17 +846,15 @@ Begin
  Result := vaDontAllocate in Attributes;
 End;
 
-(* TVariable.asString *)
+(* TVariable.getBytecodePos *)
 {
- Returns global variable's or constant's definition.
- Eg.:
- "var<int[]> somearray;"
- or
- "const<string> something = "asdf";"
+ Returns variable's position on stack or register; eg.`[-1]` or `ei3`
 }
-Function TVariable.asString(const AddNamespace: Boolean=False): String;
+Function TVariable.getBytecodePos: String;
 Begin
- DevLog('Unimplemented: TVariable.asString()');
+ if (MemPos <= 0) Then
+  Result := '['+IntToStr(MemPos)+']' Else
+  Result := 'e'+Typ.RegPrefix+IntToStr(MemPos);
 End;
 
 (* ---------- TFunction ---------- *)
@@ -836,37 +881,6 @@ End;
 Function TFunction.isNaked: Boolean;
 Begin
  Result := (faNaked in Attributes);
-End;
-
-(* TFunction.asString *)
-Function TFunction.asString(const AddNamespace: Boolean=False): String;
-Begin
- DevLog('Unimplemented: TFunction.asString()');
-{
-Var Func: TMFunction;
-    I   : Integer;
-Begin
- Func := NamespaceList[Namespace].SymbolList[ID].mFunction;
-
- Result := '';
-
- if (AddNamespace) Then
-  if (NamespaceList[Namespace].Name = '') Then
-   Result += 'default namespace :: ' Else
-   Result += NamespaceList[Namespace].Name+ ' :: ';
-
- Result += 'function<'+getTypeDeclaration(Func.Return)+'> '+Func.Name+'(';
-
- For I := Low(Func.ParamList) To High(Func.ParamList) Do
- Begin
-  Result += getTypeDeclaration(Func.ParamList[I].Typ);
-
-  if (I <> High(Func.ParamList)) Then
-   Result += ', ';
- End;
-
- Result += ')';
-}
 End;
 
 (* ---------- TGlobalSymbol ---------- *)

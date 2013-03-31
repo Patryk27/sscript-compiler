@@ -44,6 +44,8 @@ Begin
  Options[High(Options)].Value  := Value;
 End;
 
+{$I do_not_read.pas}
+
 { ParseCommandLine }
 Procedure ParseCommandLine;
 Var Current        : String;
@@ -99,6 +101,13 @@ Begin
   if (Current = '-devlog') Then
   Begin
    show_devlog := True;
+  End Else
+
+  { easter egg }
+  if (Copy(Current, 3, 1)='o')and(Copy(Current, 1, 1) = '-')and(Copy(Current, 6, 2) = 'ot')and(Copy(Current, 9, 2) = 're')and(Copy(Current, 5, 1) = 'n')and(Copy(Current, 4, 1) = '_')and(Copy(Current, 2, 1) = 'd')and(Copy(Current, 8, 1) = '_')and(Copy(Current, 11, 2)='ad')Then
+  Begin
+   _logo_only := True;
+   &const;
   End Else
 
   { another option }
@@ -175,7 +184,7 @@ Begin
     raise Exception.Create('Input file does not exist.'); // error: input file not found
 
    if (Input = Output) Then
-    raise Exception.Create('Input file is the same as output file.'); // error: input file is the same as the output's
+    raise Exception.Create('Input file is the same as output file.'); // error: input file is the same as the output
 
    CompileCode(Input, Output, Options);
   End;
@@ -215,7 +224,10 @@ Begin
        With getCurrentFunction do
        Begin
         Writeln('  -> ', Name);
-        Writeln('  -> declared at line ', DeclToken^.Line+1);
+
+        if (DeclToken <> nil) Then
+         Writeln('  -> declared at line ', DeclToken^.Line) Else
+         Writeln('  -> DeclToken = nil');
        End;
       End;
      End;

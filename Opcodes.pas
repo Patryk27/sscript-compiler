@@ -81,6 +81,7 @@ Unit Opcodes;
                    o_mod,
                    o_arset, o_arget, o_arcrt, o_arlen,
                    o_objfree,
+                   o_location,
                    o_byte, o_word, o_integer, o_extended);
 
  // TMOpcodeArg
@@ -99,14 +100,13 @@ Unit Opcodes;
                   isLabel  : Boolean;
                   isComment: Boolean;
 
-                  isFunctionBeginLabel: Boolean;
+                  isPublic: Boolean;
 
-                  Pos     : LongWord; // position in `opcode` section in output file
                   Token   : PToken_P;
                   Compiler: Pointer;
                  End;
 
- Const OpcodeList: Array[0..39] of TOpcode =
+ Const OpcodeList: Array[0..40] of TOpcode =
  (
   (* ====== NOP ====== *)
   (Name: 'nop'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
@@ -120,17 +120,17 @@ Unit Opcodes;
   (* ====== POP (register) ====== *)
   (Name: 'pop'; ParamC: 1; ParamT: (ptAnyReg, ptNone, ptNone)),
 
-  (* ===== ADD () ===== *)
-  (Name: 'add'; ParamC: 2; ParamT: (ptAnyReg, ptAny, ptNone)),
+  (* ===== ADD (int/float reg, int/float value) ===== *)
+  (Name: 'add'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
-  (* ==== SUB () ===== *)
-  (Name: 'sub'; ParamC: 2; ParamT: (ptAnyReg, ptAny, ptNone)),
+  (* ==== SUB (int/float reg, int/float value) ===== *)
+  (Name: 'sub'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
-  (* ===== MUL () ===== *)
-  (Name: 'mul'; ParamC: 2; ParamT: (ptAnyReg, ptAny, ptNone)),
+  (* ===== MUL (int/float reg, int/float value) ===== *)
+  (Name: 'mul'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
-  (* ===== DIV () ===== *)
-  (Name: 'div'; ParamC: 2; ParamT: (ptAnyReg, ptAny, ptNone)),
+  (* ===== DIV (int/float reg, int/float value) ===== *)
+  (Name: 'div'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
   (* ===== NEG (value) ===== *)
   (Name: 'neg'; ParamC: 1; ParamT: (ptAnyReg, ptNone, ptNone)),
@@ -163,10 +163,10 @@ Unit Opcodes;
   (Name: 'if_ge'; ParamC: 2; ParamT: (ptAny, ptAny, ptNone)),
   (Name: 'if_le'; ParamC: 2; ParamT: (ptAny, ptAny, ptNone)),
 
-  (* ===== STRJOIN () ===== *)
+  (* ===== STRJOIN (string reg, string) ===== *)
   (Name: 'strjoin'; ParamC: 2; ParamT: (ptStringReg, ptString, ptNone)),
 
-  (* ===== NOT () ===== *)
+  (* ===== NOT (reg) ===== *)
   (Name: 'not'; ParamC: 1; ParamT: (ptAnyReg, ptNone, ptNone)),
 
   (* ===== OR (reg, val) ===== *)
@@ -201,6 +201,9 @@ Unit Opcodes;
 
   (* ===== OBJFREE (refreg) ===== *)
   (Name: 'objfree'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
+
+  (* ===== LOCATION (int line, string file) ===== *)
+  (Name: 'location'; ParamC: 2; ParamT: (ptInt, ptString, ptNone)),
 
   (* ===== ===== ===== ===== *)
   (Name: 'db'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),

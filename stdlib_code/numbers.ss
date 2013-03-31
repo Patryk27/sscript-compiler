@@ -96,6 +96,17 @@ function<int> strint(string str)
  return sysint(str, 10);
 }
 
+function<int> strintdef(string str, int default)
+{
+ try
+ {
+  return strint(str);
+ } catch(exception)
+ {
+  return default;
+ }
+}
+
 function<string> intbin(int n)
 {
  return intsys(n, 2);
@@ -155,7 +166,7 @@ function<string> fltstr(float n)
   result = '-'+result;
  
  if (strposb(".", result))
-  return strremove_end(result, '0'); /* remove ending zeroes */ else
+  return strremove_end(result, '0'); else
   return result;
 }
 
@@ -178,6 +189,17 @@ function<float> strflt(string str)
   right = strint(decimalPart)/power(10, strlen(decimalPart));
 
  return left+right;
+}
+
+function<float> strfltdef(string str, float default)
+{
+ try
+ {
+  return strflt(str);
+ } catch(exception)
+ {
+  return default;
+ }
 }
 
 }

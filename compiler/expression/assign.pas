@@ -3,6 +3,7 @@ Var Variable       : TRVariable;
     TypeID, TmpType: TType;
     Index, DimCount: Byte;
     ShouldFail     : Boolean;
+Label asArray;
 Begin
  { left side is l-value (variable), right side is the expression to parse (a value, which we'll assign into the variable) }
 
@@ -20,7 +21,7 @@ Begin
   Exit;
 
  (* ===== not arrays ===== *)
- if (not Variable.Typ.isArray{(False)}) or (Right^.Typ = mtNew) Then
+ if (not Variable.Typ.isArray) or (Right^.Typ = mtNew) Then
  Begin
   if (Left^.Typ = mtArrayElement) Then // tried to access eg.`int`-typed variable like array
   Begin
@@ -42,7 +43,7 @@ Begin
   Compiler.PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', Variable.PosStr]);
 
   With Compiler do
-   if (not TypeID.CanBeAssignedTo(Variable.Typ)) Then
+   if (not TypeID.CanBeAssignedTo(Variable.Typ)) Then // type check
    Begin
     Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, Variable.Typ.asString]);
     Exit;
@@ -53,6 +54,7 @@ Begin
  End;
 
  (* ===== arrays ===== *)
+asArray:
  Index := 0;
 
  { push indexes onto the stack }
@@ -125,10 +127,9 @@ Begin
      str[1] = "Hello World!";
      str[1][3] = '_';
 
-   Here we have an array alocation and two assignments.
-   First assignment is a simple save `"Hello World!'` into the second item of the array, so it changes the whole element's value.
-   ... but the second changes only a one char of that array's element's value.
-   Since - for some specific internal reasons - the `TMType.ArrayBase` value of `string` type is equal `TYPE_STRING` (not `TYPE_CHAR`), that code would fail to compile.
+   Here we have an array alocation and three assignments.
+   The second assignment is a simple `"Hello World!'` saving into the second item of the array, so it changes the whole element's value.
+   ... but the third changes only a one char of that array's element's value.
    So we need to detect this situation and don't display error message.
    That's what this `if` above does.
   }

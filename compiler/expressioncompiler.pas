@@ -63,6 +63,8 @@ Unit ExpressionCompiler;
                        Function Optimize(const Tree: PMExpression; Options: TOptions): PMExpression;
                       End;
 
+ Function EmptyExpression: PMExpression;
+
  Function MakeStringExpression(const Value: String): PMExpression;
  Function MakeIntExpression(const Value: Integer): PMExpression;
  Function MakeIntExpression(const Value: String): PMExpression;
@@ -76,47 +78,54 @@ Unit ExpressionCompiler;
 Uses SysUtils,
      CompilerUnit, Opcodes, Messages;
 
-{ MakeStringExpression }
-Function MakeStringExpression(const Value: String): PMExpression;
+{ EmptyExpression }
+Function EmptyExpression: PMExpression;
 Begin
  New(Result);
 
+ With Result^ do
+ Begin
+  Left  := nil;
+  Right := nil;
+
+  Typ   := mtNothing;
+  Value := 0;
+ End;
+End;
+
+{ MakeStringExpression }
+Function MakeStringExpression(const Value: String): PMExpression;
+Begin
+ Result := EmptyExpression;
+
  Result^.Typ   := mtString;
- Result^.Left  := nil;
- Result^.Right := nil;
  Result^.Value := Value;
 End;
 
 { MakeIntExpression }
 Function MakeIntExpression(const Value: Integer): PMExpression;
 Begin
- New(Result);
+ Result := EmptyExpression;
 
  Result^.Typ   := mtInt;
- Result^.Left  := nil;
- Result^.Right := nil;
  Result^.Value := Value;
 End;
 
 { MakeIntExpression }
 Function MakeIntExpression(const Value: String): PMExpression;
 Begin
- New(Result);
+ Result := EmptyExpression;
 
  Result^.Typ   := mtInt;
- Result^.Left  := nil;
- Result^.Right := nil;
  Result^.Value := Value;
 End;
 
 { MakeFloatExpression }
 Function MakeFloatExpression(const Value: Extended): PMExpression;
 Begin
- New(Result);
+ Result := EmptyExpression;
 
  Result^.Typ   := mtFloat;
- Result^.Left  := nil;
- Result^.Right := nil;
  Result^.Value := Value;
 End;
 
@@ -216,18 +225,18 @@ Begin
   Result := -1;
 End;
 
-{ isRightC }
-Function isRightC(X: String): Boolean;
+{ isRightAssoc }
+Function isRightAssoc(X: String): Boolean;
 Begin
  Result := (X[1] in ['!', '=']) or (X = '++') or (X = '--') or (X = 'new');
 End;
 
-{ isLeftC }
-Function isLeftC(X: String): Boolean;
+{ isLeftAssoc }
+Function isLeftAssoc(X: String): Boolean;
 Begin
  Result := ((X[1] in BinaryOperations) or (X = '<<') or (X = '>>') or (X = '==') or (X = '!=') or (X = '>=') or (X = '<=') or (X = '<') or (X = '>')
                                        or (X = '+=') or (X = '-=') or (X = '*=') or (X = '/=') or (X = '%=') or (X = '&&') or (X = '||')
-                                       and (not isRightC(X)));
+                                       and (not isRightAssoc(X)));
 End;
 
 // ---------- TInterpreter ---------- //
@@ -388,70 +397,70 @@ Var Token: TToken_P;
 
     OperatorNew: Boolean = False;
 
-{ ReadParamCount }
-Function ReadParamCount: Integer;
-Var TmpPos, Bracket: Integer;
-    Token          : TToken_P;
-Begin
- Result  := 1;
- TmpPos  := Compiler.Parser.getPosition;
- Bracket := 0; { bracket level/deep }
+  // ReadParamCount
+  Function ReadParamCount: Integer;
+  Var TmpPos, Bracket: Integer;
+      Token          : TToken_P;
+  Begin
+   Result  := 1;
+   TmpPos  := Compiler.Parser.getPosition;
+   Bracket := 0; { bracket level/deep }
 
- if (Compiler.Parser.next_t(0) = _BRACKET1_CL) Then { func() }
-  Exit(0);
+   if (Compiler.Parser.next_t(0) = _BRACKET1_CL) Then { func() }
+    Exit(0);
 
- With Compiler.Parser do
-  Dec(TokenPos);
+   With Compiler.Parser do
+    Dec(TokenPos);
 
- While (true) Do
- Begin
-  Token := Compiler.Parser.read;
-  Case Token.Token of
-   _BRACKET1_OP: Inc(Bracket);
-   _BRACKET1_CL: Begin
-                  Dec(Bracket);
-                  if (Bracket = 0) Then
-                   Break;
-                 End;
-   _COMMA: if (Bracket = 1) Then
-            Inc(Result);
-
-   _SEMICOLON, _BRACKET3_OP, _BRACKET3_CL: Compiler.CompileError(eExpected, [')', Token.Display]);
-  End;
- End;
-
- Compiler.Parser.TokenPos := TmpPos;
-End;
-
-{ is_a_post_operator }
-Function is_a_post_operator: Boolean;
-Var Pos, BracketDeep: Integer;
-Begin
- Result := False;
- Pos    := -2;
-
- With Compiler.Parser do
-  Case next_t(Pos) of
-   _IDENTIFIER : Exit(True);
-   _BRACKET2_CL:
+   While (true) Do
    Begin
-    BracketDeep := 0;
+    Token := Compiler.Parser.read;
+    Case Token.Token of
+     _BRACKET1_OP: Inc(Bracket);
+     _BRACKET1_CL: Begin
+                    Dec(Bracket);
+                    if (Bracket = 0) Then
+                     Break;
+                   End;
+     _COMMA: if (Bracket = 1) Then
+              Inc(Result);
 
-    Repeat
-     if (-Pos > getPosition) Then
-      Exit(False);
-
-     Case next_t(Pos) of
-      _BRACKET2_OP: Inc(BracketDeep);
-      _BRACKET2_CL: Dec(BracketDeep);
-     End;
-     Dec(Pos);
-    Until (BracketDeep = 0);
-
-    Exit(next_t(Pos) = _IDENTIFIER);
+     _SEMICOLON, _BRACKET3_OP, _BRACKET3_CL: Compiler.CompileError(eExpected, [')', Token.Display]);
+    End;
    End;
- End;
-End;
+
+   Compiler.Parser.TokenPos := TmpPos;
+  End;
+
+  // is_a_post_operator
+  Function is_a_post_operator: Boolean;
+  Var Pos, BracketDeep: Integer;
+  Begin
+   Result := False;
+   Pos    := -2;
+
+   With Compiler.Parser do
+    Case next_t(Pos) of
+     _IDENTIFIER : Exit(True);
+     _BRACKET2_CL:
+     Begin
+      BracketDeep := 0;
+
+      Repeat
+       if (-Pos > getPosition) Then
+        Exit(False);
+
+       Case next_t(Pos) of
+        _BRACKET2_OP: Inc(BracketDeep);
+        _BRACKET2_CL: Dec(BracketDeep);
+       End;
+       Dec(Pos);
+      Until (BracketDeep = 0);
+
+      Exit(next_t(Pos) = _IDENTIFIER);
+     End;
+   End;
+  End;
 
 { function's body }
 Begin
@@ -486,10 +495,10 @@ Begin
   Parsed := True;
   Case Token.Token of
    { values }
-   _INTEGER: FinalExprPush(mtInt, StrToInt(Str), Token);
-   _FLOAT  : FinalExprPush(mtFloat, StrToFloat(Str), Token);
-   _STRING : FinalExprPush(mtString, Str, Token);
-   _CHAR   : FinalExprPush(mtChar, Str[1], Token);
+   _INT   : FinalExprPush(mtInt, StrToInt(Str), Token);
+   _FLOAT : FinalExprPush(mtFloat, StrToFloat(Str), Token);
+   _STRING: FinalExprPush(mtString, Str, Token);
+   _CHAR  : FinalExprPush(mtChar, Str[1], Token);
 
    _BREAK, _CONTINUE: Compiler.CompileError(eNotAllowed, [Token.Display]);
 
@@ -497,7 +506,7 @@ Begin
   End;
 
   { constant value }
-  if (Token.Token in [_INTEGER, _FLOAT, _STRING, _CHAR]) Then
+  if (Token.Token in [_INT, _FLOAT, _STRING, _CHAR]) Then
   Begin
    if (Expect = eOperator) Then
     Compiler.CompileError(eExpectedOperator, [Token.Display]);
@@ -625,7 +634,7 @@ Begin
    if (Bracket < 0) Then
     Compiler.CompileError(next, eUnexpected, [')']);
 
-   if (next_t(-2) = _BRACKET1_OP) Then // construction `()` is valid only when calling a function or a method
+   if (next_t(-2) = _BRACKET1_OP) Then // construction `()` is valid only when calling a function or method
    Begin
     if not (Stack[StackPos-2].Typ in [mtFunctionCall, mtMethodCall]) Then
      Compiler.CompileError(eExpectedValue, [')']);
@@ -689,7 +698,7 @@ Begin
   Begin
    if (Token.Token = _MINUS) Then // is it unary or binary minus?
    Begin
-    if not (next_t(-2) in [_INTEGER, _FLOAT, _STRING, _CHAR, _IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) Then
+    if not (next_t(-2) in [_INT, _FLOAT, _STRING, _CHAR, _IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) Then
      Str := _UNARY_MINUS;
    End;
 
@@ -700,8 +709,8 @@ Begin
 
    if (StackPos > 0) Then // is there any element on the list?
    Begin
-    While (isLeftC(Str) and (getOrder(Str) <= getOrder(StackPeek))) or
-          (isRightC(Str) and (getOrder(Str) < getOrder(StackPeek))) Do
+    While (isLeftAssoc(Str) and (getOrder(Str) <= getOrder(StackPeek))) or
+          (isRightAssoc(Str) and (getOrder(Str) < getOrder(StackPeek))) Do
     Begin
      FinalExprPush(StackPop);
      if (StackPos <= 0) Then // no more elements on the list
@@ -850,7 +859,7 @@ Begin
      Begin
       Compiler.findGlobalCandidate(Name, Namespaces, ID, Namespace, @Expr^.Token);
 
-      if (ID = -1) Then // nor a global variable/function - so raise error
+      if (ID = -1) or not (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsFunction]) Then // nor a global variable/function - so raise error
        Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
       Begin // global variable
        Expr^.IdentID        := ID;
@@ -887,8 +896,8 @@ Begin
   Begin
    Compiler.findGlobalCandidate(Result^.Value, Result^.Namespaces, ID, Namespace, @Result^.Token);
 
-   if (ID <> -1) Then // nor a global variable - so raise error
-   Begin // global variable
+   if (ID <> -1) and (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsConstant, gsFunction]) Then  // global variable
+   Begin
     Result^.IdentID        := ID;
     Result^.IdentNamespace := Namespace;
     Result^.isLocal        := False;
@@ -1192,6 +1201,9 @@ Begin
   { global variable or constant }
   With Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Result.ID], Result do
   Begin
+   if (mVariable = nil) Then
+    goto Failed;
+
    MemPos  := mVariable.MemPos;
    Typ     := mVariable.Typ;
    RegChar := Typ.RegPrefix;
@@ -1215,7 +1227,10 @@ End;
 Function getType(Value: Variant): TType;
 Begin
  if (Value = null) Then
+ Begin
+  DevLog('Warning: getType() -> Value = null; returned `nil`');
   Exit(nil);
+ End;
 
  Result := TType(LongWord(Value));
 End;
@@ -1245,26 +1260,14 @@ End;
 
 { isLValue }
 Function isLValue(Expr: PMExpression): Boolean;
-Var ID, Namespace: Integer;
 Begin
  Result := (Expr^.Typ in [mtVariable, mtArrayElement]);
 
- if (Expr^.Typ = mtVariable) Then // check if passed variable identifier isn't a constant
+ if (Expr^.Typ = mtVariable) and (Expr^.IdentID <> -1) Then // check if passed variable identifier isn't a constant
  Begin
-  ID := Compiler.findLocalVariable(Expr^.Value);
-
-  if (ID = -1) Then
-  Begin
-   Compiler.findGlobalVariableCandidate(Expr^.Value, Expr^.Namespaces, ID, Namespace, @Expr^.Token);
-
-   if (ID > -1) Then
-    With Compiler do
-     if (NamespaceList[Namespace].SymbolList[ID].mVariable.isConst) Then // global constant
-      Exit(False);
-  End Else
-   With Compiler do
-    if (getCurrentFunction.VariableList[ID].isConst) Then // local constant
-     Exit(False);
+  if (Expr^.isLocal) Then
+   Exit(not Compiler.getCurrentFunction.VariableList[Expr^.IdentID].isConst) Else
+   Exit(not Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Expr^.IdentID].mVariable.isConst);
  End;
 End;
 
@@ -1370,7 +1373,7 @@ Begin
  if (Expr = nil) Then
   Exit(TYPE_VOID);
 
- Result := nil; // assuming no type
+ Result := TYPE_VOID; // assuming `void` type
  Left   := Expr^.Left;
  Right  := Expr^.Right;
 
@@ -1390,9 +1393,9 @@ Begin
       FinalRegChar := 'i';
 
      if (FinalRegID > 0) Then // put into register?
-      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line+1]) Else
+      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line]) Else
       Begin // push onto stack?
-       Compiler.PutOpcode(o_push, [Expr^.Token.Line+1]);
+       Compiler.PutOpcode(o_push, [Expr^.Token.Line]);
        Inc(PushedValues);
       End;
 
@@ -1406,9 +1409,9 @@ Begin
       FinalRegChar := 's';
 
      if (FinalRegID > 0) Then // put into register?
-      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), '"'+IntToStr(Expr^.Token.Line+1)+'"']) Else
+      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), '"'+IntToStr(Expr^.Token.Line)+'"']) Else
       Begin // push onto stack?
-       Compiler.PutOpcode(o_push, ['"'+IntToStr(Expr^.Token.Line+1)+'"']);
+       Compiler.PutOpcode(o_push, ['"'+IntToStr(Expr^.Token.Line)+'"']);
        Inc(PushedValues);
       End;
 

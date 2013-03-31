@@ -8,6 +8,7 @@ Unit Stream;
  Interface
  Uses SysUtils, Classes;
 
+ // TStream
  Type TStream = Class (Classes.TMemoryStream)
                  Public
                   // `write` functions
@@ -69,7 +70,7 @@ Begin
  For Ch in V Do
  Begin
   if (Ch = #0) Then
-   raise Exception.Create('TStream.write_string: terminator char (0x00) found in string!');
+   raise Exception.Create('TStream.write_string: terminator char (0x00) found in string content!');
 
   write_byte(ord(Ch));
  End;

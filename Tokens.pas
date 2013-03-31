@@ -8,9 +8,9 @@ Unit Tokens;
  Uses TypInfo;                                                    
 
  Const IdentAllowed = ['a'..'z', 'A'..'Z', '0'..'9', '_'];
- Const Keywords     : Array[0..25] of String = ('function', 'var', 'const', 'return', 'naked', 'for', 'if', 'else', 'while', 'break', 'continue',
+ Const Keywords     : Array[0..24] of String = ('function', 'var', 'const', 'return', 'naked', 'for', 'if', 'else', 'while', 'break', 'continue',
                                                 'in', 'do', 'public', 'private', 'type', 'new', 'delete', 'namespace', 'use', 'cast', 'strict',
-                                                'try', 'catch', 'throw', 'name');
+                                                'try', 'catch', 'throw');
 
  // IMPORTANT: do not change tokens order and do not try to remove any token, unless you change order in "Token_Display" (see below)
  Type TToken =
@@ -59,11 +59,14 @@ Unit Tokens;
   _PERCENT,       // %
   _PERCENT_EQUAL, // %=
   _EOF,           //
-  _INTEGER,       //
-  _HEX_INTEGER,   //
-  _FLOAT,         //
-  _STRING,        //
+  _NUMBER,        // int or float
+  _HEX_INTEGER,   // hexadecimal number
+  _INT,           // integer value
+  _FLOAT,         // float value
+  _STRING,        // string value
   _INVALID_STRING,//
+  _INVALID_INT,   //
+  _INVALID_FLOAT, //
   _CHAR,          //                               
   _MCHAR,         //
   _AMPERSAND,     // &
@@ -103,7 +106,6 @@ Unit Tokens;
   _TRY,           // try
   _CATCH,         // catch
   _THROW,         // throw
-  _NAME,          // name
 
   _NEWLINE
  );
@@ -163,6 +165,9 @@ Unit Tokens;
   '',
   '',
   '',
+  '',
+  '',
+  '',
   '&',
   '&&',
   '#',
@@ -199,17 +204,14 @@ Unit Tokens;
   'try',
   'catch',
   'throw',
-  'name',
   ''
  );
 
  Type PToken_P = ^TToken_P;
       TToken_P = Record
-                  Token           : TToken;
-                  TokenName       : String;
-                  Value           : String;
-                  Display         : String;
-                  Posi, Line, Char: Integer; // LongWord?
+                  Token                    : TToken;
+                  TokenName, Value, Display: String;
+                  Position, Line, Char     : LongWord;
                  End;
 
  Function getTokenName(T: TToken): String;

@@ -458,4 +458,26 @@ function<string> streach_index_string(string text, function<char>(char, int, str
  return text;
 }
 
+function<char[]> stringarray(string text)
+{
+ var<int> len = strlen(text);
+
+ var<char[]> arr = new char[len];
+
+ for (var<int> i=0; i<len; i++)
+  arr[i] = text[i+1];
+
+ return arr;
+}
+
+function<string> arraystring(char[] text)
+{
+ var<string> str = "";
+
+ for (var<int> i=0; i<text.length(); i++)
+  str += text[i];
+
+ return str;
+}
+
 }

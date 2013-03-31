@@ -42,7 +42,10 @@ Begin
    Begin
     Variable.Typ := getTypeFromExpr(Variable.Value^);
    End Else // if it's not - show error
+   Begin
     CompileError(eExpectedConstant, []);
+    Variable.Value := EmptyExpression;
+   End;
   End;
 
   if (inFunction) Then // local constant

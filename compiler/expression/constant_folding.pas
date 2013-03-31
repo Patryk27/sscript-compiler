@@ -1,7 +1,9 @@
+/// @TODO: int overflow
+
 Procedure __constant_folding(const ErrorOnInvalidOperator: Boolean);
 
-{ isKnown }
-Function isKnown(Expr: PMExpression): Boolean;
+{ isConst }
+Function isConst(Expr: PMExpression): Boolean;
 Begin
  if (Expr = nil) Then
   Exit(False);
@@ -12,7 +14,7 @@ End;
 { Parse }
 Procedure Parse(Expr: PMExpression);
 Var Left, Right: PMExpression;
-    Evaluated  : Boolean;
+    Evaluated  : Boolean = False;
     I          : Integer;
 Begin
  if (Expr = nil) Then // nothing to optimize
@@ -30,8 +32,8 @@ Begin
  For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
   Parse(Expr^.ParamList[I]);
 
- { binary operators }
- if (isKnown(Left) and isKnown(Right)) Then
+ (* binary operators *)
+ if (isConst(Left) and isConst(Right)) Then
  Begin
   if (Left^.Typ <> Right^.Typ) Then
   Begin
@@ -42,62 +44,141 @@ Begin
     Exit; // wrong types
   End;
 
-  Evaluated := False;
-
-  if (Left^.Typ in [mtInt, mtFloat]) Then // int and float
+  { bool }
+  if (Left^.Typ = mtBool) Then
   Begin
-   Evaluated := Expr^.Typ in [mtAdd, mtSub, mtMul, mtDiv];
+   Evaluated := True;
 
    Case Expr^.Typ of
-    mtAdd: Expr^.Value := Left^.Value + Right^.Value;
-    mtSub: Expr^.Value := Left^.Value - Right^.Value;
-    mtMul: Expr^.Value := Left^.Value * Right^.Value;
-    mtDiv:
-     if (Right^.Value = 0) Then
-      Compiler.CompileError(eDivByZero) Else
-      Expr^.Value := Left^.Value / Right^.Value;
+    mtXOR        { ^ } : Expr^.Value := Left^.Value xor Right^.Value;
+    mtLogicalOR  { || }: Expr^.Value := Left^.Value or Right^.Value;
+    mtLogicalAND { && }: Expr^.Value := Left^.Value and Right^.Value;
+
+    else
+     Evaluated := False;
    End;
   End;
 
-  if (Left^.Typ = mtString) Then // string
+  { int }
+  if (Left^.Typ = mtInt) Then
   Begin
-   Evaluated := Expr^.Typ in [mtAdd];
+   Evaluated := True;
 
    Case Expr^.Typ of
-    mtAdd: Expr^.Value := Left^.Value + Right^.Value;
+    mtMod { % }:
+     if (Right^.Value = 0) Then
+      Compiler.CompileError(Expr^.Token, eDivByZero, []) Else
+      Expr^.Value := Left^.Value mod Right^.Value;
+
+    mtSHL { << }: Expr^.Value := Left^.Value shl Right^.Value;
+    mtSHR { >> }: Expr^.Value := Left^.Value shr Right^.Value;
+    mtXOR { ^ } : Expr^.Value := Left^.Value xor Right^.Value;
+
+    mtBitwiseOR  { | }: Expr^.Value := Left^.Value or Right^.Value;
+    mtBitwiseAND { & }: Expr^.Value := Left^.Value and Right^.Value;
+
+    else
+     Evaluated := False;
+   End;
+  End;
+
+
+  { int, float }
+  if (Left^.Typ in [mtInt, mtFloat]) and (not Evaluated) Then
+  Begin
+   Evaluated := True;
+
+   Case Expr^.Typ of
+    mtAdd { + }: Expr^.Value := Left^.Value + Right^.Value;
+    mtSub { - }: Expr^.Value := Left^.Value - Right^.Value;
+    mtMul { * }: Expr^.Value := Left^.Value * Right^.Value;
+    mtDiv { / }:
+     if (Right^.Value = 0) Then
+      Compiler.CompileError(Expr^.Token, eDivByZero, []) Else
+      Expr^.Value := Left^.Value / Right^.Value;
+
+    else
+     Evaluated := False;
+   End;
+  End;
+
+  { string }
+  if (Left^.Typ = mtString) Then
+  Begin
+   Evaluated := True;
+
+   Case Expr^.Typ of
+    mtAdd { + }: Expr^.Value := Left^.Value + Right^.Value;
+
+    else
+     Evaluated := False;
    End;
   End;
 
   if (Evaluated) Then
   Begin
+   Expr^.Typ   := Left^.Typ;
    Expr^.Left  := nil;
    Expr^.Right := nil;
 
    Dispose(Left);
    Dispose(Right);
-
-   Expr^.Typ := Left^.Typ;
   End Else
+
    if (ErrorOnInvalidOperator) Then
     Compiler.CompileError(Expr^.Token, eUnsupportedOperator, [MExpressionDisplay[Left^.Typ], MExpressionDisplay[Expr^.Typ], MExpressionDisplay[Right^.Typ]]);
  End;
 
- { unary operators }
- if (isKnown(Left)) Then
+ (* unary operators *)
+ if (isConst(Left)) and
+    (Expr^.Typ in [mtNeg, mtLogicalNOT, mtBitwiseNOT]) Then
  Begin
-  if (Expr^.Typ = mtNeg) Then
+  if (Expr^.Typ = mtNeg) Then { - }
   Begin
-   if (Left^.Typ in [mtInt, mtFloat]) Then
+   { bool, int, float }
+   if (Left^.Typ in [mtBool, mtInt, mtFloat]) Then
    Begin
-    Expr^.Left  := nil;
+    Evaluated   := True;
     Expr^.Value := -Left^.Value;
-    Expr^.Typ   := Left^.Typ;
-
-    Dispose(Left);
-   End Else
-    if (ErrorOnInvalidOperator) Then
-     Compiler.CompileError(Expr^.Token, eUnsupportedUOperator, [MExpressionDisplay[Expr^.Typ], MExpressionDisplay[Left^.Typ]]);
+   End;
   End;
+
+  { bool }
+  if (Left^.Typ = mtBool) Then
+  Begin
+   Evaluated := True;
+
+   Case Expr^.Typ of
+    mtLogicalNOT { ! }: Expr^.Value := not Left^.Value;
+
+    else
+     Evaluated := False;
+   End;
+  End;
+
+  { int }
+  if (Left^.Typ = mtInt) Then
+  Begin
+   Evaluated := True;
+
+   Case Expr^.Typ of
+    mtBitwiseNOT { ~ }: Expr^.Value := not Left^.Value;
+
+    else
+     Evaluated := False;
+   End;
+  End;
+
+  if (Evaluated) Then
+  Begin
+   Expr^.Left := nil;
+   Expr^.Typ  := Left^.Typ;
+
+   Dispose(Left);
+  End Else
+
+   if (ErrorOnInvalidOperator) Then
+    Compiler.CompileError(Expr^.Token, eUnsupportedUOperator, [MExpressionDisplay[Expr^.Typ], MExpressionDisplay[Left^.Typ]]);
  End;
 End;
 

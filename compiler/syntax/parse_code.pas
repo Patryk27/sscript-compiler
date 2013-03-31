@@ -5,38 +5,35 @@
 Unit Parse_CODE;
 
  Interface
+ Uses SysUtils;
 
- Procedure Parse(Compiler: Pointer; const DirectlyBytecode: Boolean=False);
+ Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
 
  Implementation
-Uses Compile1, SysUtils, Messages, MTypes, Tokens, Strings;
+Uses Compile1, ExpressionCompiler, Messages, MTypes, Tokens, Opcodes;
 
 { Parse }
-Procedure Parse(Compiler: Pointer; const DirectlyBytecode: Boolean=False);
+Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
 Type TVarRecArray = Array of TVarRec;
      PVarRecArray = ^TVarRecArray;
-Var Deep, I: Integer;
-    Token  : TToken_P;
-    Name   : PChar;
-    Arg    : PChar;
+Var Opcode: PMOpcode;
+
+    Deep, IdentID, IdentNamespace: Integer;
+    Token                        : TToken_P;
+
+    isIdentLocal: Boolean;
+
+    Name: PChar;
+
+    Arg    : String;
     ArgList: PVarRecArray;
-    C      : TMConstruction;
 
-// NewArg
-Procedure NewArg;
-Const Size = 100;
-Var I: Integer;
-Begin
- Arg := GetMem(Size);
- For I := 0 To Size-1 Do
-  Arg[I] := #0;
-End;
-
+    C: TMConstruction;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- if (not DirectlyBytecode) Then
-  eat(_IDENTIFIER);
+ if (not DirectBytecode) Then
+  eat(_IDENTIFIER); // `:CODE`
 
  Deep := CurrentDeep;
  Repeat
@@ -48,9 +45,9 @@ Begin
 
    _AMPERSAND: // label
    Begin
-    if (DirectlyBytecode) Then
+    if (DirectBytecode) Then
      CompileError(eUnexpected, ['&']);
-    PutLabel(getCurrentFunction.MangledName + read_ident, True);
+    PutLabel(getCurrentFunction.MangledName + read_ident, not DirectBytecode);
     eat(_COLON);
    End;
 
@@ -59,16 +56,20 @@ Begin
     { label }
     if (next_t = _COLON) Then
     Begin
-     PutLabel(Token.Display, True);
+     Opcode := PutLabel(Token.Display, not DirectBytecode);
      eat(_COLON);
 
-     if (DirectlyBytecode) Then
+     if (DirectBytecode) and (next_t = _POINT) Then
      Begin
-      if ((next.Display = '.') and (next(1).Display = 'public')) Then
-      Begin
-       read; read;
-       CompileError(eUnimplemented, ['`.public` / `.private` directives']);
-      End;
+      eat(_POINT);
+
+      Token := read;
+
+      if (Token.Token = _PUBLIC) Then
+       Opcode^.isPublic := True Else
+      if (TOken.Token = _PRIVATE) Then
+       Opcode^.isPublic := False Else
+       CompileError(eUnknownMacro, [Token.Display]);
      End;
 
      Continue;
@@ -77,69 +78,113 @@ Begin
     { opcode }
     Name := CopyStringToPChar(Token.Display);
 
-    eat(_BRACKET1_OP);
+    eat(_BRACKET1_OP); { `(` }
+
     New(ArgList);
     SetLength(ArgList^, 0);
 
-    NewArg;
-
     While (true) do
     Begin
+     Arg   := '';
      Token := read;
 
-     if (Token.Token = _BRACKET1_CL) Then // )
-     Begin
-      if (Arg[0] <> #0) Then
+     if (Token.Token = _BRACKET1_CL) Then { `)` }
+      Break;
+
+     Case Token.Token of
+      _STRING                  : Arg := '"'+Token.Value+'"';
+      _CHAR                    : Arg := ''''+Token.Value+'''';
+      _INT, _FLOAT, _IDENTIFIER: Arg := Token.Value;
+
+      _HASH { # }: Arg += '#'+IntToStr(read_int);
+
+      _BRACKET2_OP { [ }:
       Begin
-       SetLength(ArgList^, Length(ArgList^)+1);
-       ArgList^[High(ArgList^)].VType  := vtPChar;
-       ArgList^[High(ArgList^)].VPChar := Arg;
+       Arg := '[';
+       if (next_t = _MINUS) Then // `-`
+       Begin
+        eat(_MINUS);
+        Arg += '-';
+       End;
+       Arg += IntToStr(read_int)+']';
+       eat(_BRACKET2_CL); // `]`
       End;
 
-      Break;
-     End;
-
-     if (Token.Token = _PERCENT) Then // %
-     Begin
-      Token := read;
-      I     := findLocalVariable(Token.Display);
-
-      if (I = -1) Then
+      _COLON { : }, _AT { @ }:
       Begin
-       Token.Display := '[0]';
-       CompileError(eUnknownVariable, [Token.Display]);
-      End Else
-       With getCurrentFunction.VariableList[I] do
-        if (MemPos <= 0) Then
-         Token.Display := '['+IntToStr(MemPos)+']' Else
-         Token.Display := 'e'+Typ.RegPrefix+IntToStr(MemPos);
+       Arg := Token.Display;
+       if (next_t = _AMPERSAND) and (not DirectBytecode) Then
+       Begin
+        eat(_AMPERSAND);
+        Arg += getCurrentFunction.MangledName;
+       End;
+       Arg += read_ident;
+      End;
+
+      _AMPERSAND { & }:
+      Begin
+       if (DirectBytecode) Then
+        CompileError(eUnexpected, ['&']);
+
+       Arg := getCurrentFunction.MangledName+read_ident;
+      End;
+
+      _PERCENT { % }:
+      Begin
+       Arg := read_ident;
+
+       IdentID      := findLocalVariable(Arg);
+       isIdentLocal := (IdentID <> -1);
+
+       if (IdentID = -1) Then
+        findGlobalVariableCandidate(Arg, SelectedNamespaces, IdentID, IdentNamespace);
+
+       if (IdentID = -1) Then { var not found }
+       Begin
+        CompileError(eUnknownVariable, [Arg]);
+        Arg := '[0]';
+       End Else { var found }
+       Begin
+        if (isIdentLocal) Then
+        Begin
+         With getCurrentFunction.VariableList[IdentID] do
+          if (isConst) Then
+           Arg := getValueFromExpression(Value) Else
+           Arg := getBytecodePos;
+        End Else
+         With NamespaceList[IdentNamespace].SymbolList[IdentID].mVariable Do
+          if (isConst) Then
+           Arg := getValueFromExpression(Value) Else
+           CompileError(eInternalError, ['Global variables are not implemented so far...']);
+       End;
+      End;
+
+      // @TODO: func call (maybe `$funcname`? eg.`call(:$myfunc)`)
+
+      else
+       CompileError(eUnexpected, [Token.Display]);
      End;
 
-     if (Token.Token = _AMPERSAND) Then // &
-     Begin
-      Token.Display := getCurrentFunction.MangledName;
-     End;
+     SetLength(ArgList^, Length(ArgList^)+1);
+     ArgList^[High(ArgList^)].VType  := vtPChar;
+     ArgList^[High(ArgList^)].VPChar := CopyStringToPChar(Arg);
 
-     if (Token.Token = _COMMA) Then // ,
-     Begin
-      SetLength(ArgList^, Length(ArgList^)+1);
-      ArgList^[High(ArgList^)].VType  := vtPChar;
-      ArgList^[High(ArgList^)].VPChar := Arg;
-      NewArg;
-      Continue;
-     End;
-
-     if (Token.Token = _STRING) Then
-      Token.Display := '"'+Token.Display+'"';
-     Arg := StrCat(Arg, PChar(Token.Display));
+     if (next_t <> _BRACKET1_CL) Then
+      eat(_COMMA);
     End;
 
-    C.Typ := ctInlineBytecode;
-    SetLength(C.Values, 3);
-    C.Values[0] := Name;
-    C.Values[1] := ArgList;
-    C.Values[2] := @TokenList[TokenPos-1];
-    AddConstruction(C);
+    if (DirectBytecode) Then
+    Begin
+     PutOpcode(Name, ArgList^);
+    End Else
+    Begin
+     C.Typ := ctInlineBytecode;
+     SetLength(C.Values, 3);
+     C.Values[0] := Name;
+     C.Values[1] := ArgList;
+     C.Values[2] := next_pnt(-1);
+     AddConstruction(C);
+    End;
    End;
   End;
  Until (Deep = CurrentDeep);

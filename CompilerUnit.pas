@@ -19,7 +19,7 @@ Unit CompilerUnit;
 
  Type TCommandLineName = Record
                           Names: Array[0..1] of String;
-                          Typ  : (pBool, pString, pInt);
+                          Typ  : (pBool, pInt, pString);
                          End;
 
  Const CommandLineNames: Array[TCommandLineOption] of TCommandLineName =
@@ -110,7 +110,7 @@ End;
 
 (* getBoolOption *)
 {
- Gets a boolean-typed option from a command line
+ Gets a boolean-typed option from the command line
 }
 Function getBoolOption(O: String; Default: Boolean): Boolean;
 Var I: Integer;
@@ -127,7 +127,7 @@ End;
 
 (* getStringOption *)
 {
- Gets a string-typed option from a command line
+ Gets a string-typed option from the command line
 }
 Function getStringOption(O: String; Default: String): String;
 Var I  : Integer;
@@ -149,7 +149,7 @@ End;
 
 (* getIntOption *)
 {
- Gets a integer-typed option from a command line
+ Gets an integer-typed option from the command line
 }
 Function getIntOption(O: String; Default: Integer): Integer;
 Begin

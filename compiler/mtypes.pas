@@ -9,6 +9,15 @@ Unit MTypes;
 
  Type TMIntegerArray = Array of Integer;
 
+ // TMScopeType
+ Type TMScopeType = (sFunction, sFOR, sIF, sWHILE, sTryCatch);
+
+ // TMScope
+ Type TMScope = Record
+                 Typ               : TMScopeType;
+                 LoopBegin, LoopEnd: String;
+                End;
+
  // TMExpression
  Type TMExpressionType = (mtNothing, mtVariable, mtFunctionCall, mtMethodCall, mtTypeCast, mtTree, mtType, mtOpeningBracket, mtClosingBracket, mtOpeningBracket2, mtClosingBracket2, mtArrayElement,
                           mtBool, mtChar, mtInt, mtFloat, mtString,
@@ -50,7 +59,7 @@ Unit MTypes;
 
                       Namespaces: TMIntegerArray; // function calls, variables and constants only
 
-                      IdentID, IdentNamespace: Integer;
+                      IdentNamespace, IdentID: Integer;
                       isLocal                : Boolean;
 
                       InTryCatch: Boolean;

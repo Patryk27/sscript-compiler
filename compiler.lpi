@@ -65,7 +65,6 @@
     </Parsing>
     <Other>
       <Verbosity>
-        <ShowSummary Value="True"/>
         <ShowHintsForUnusedUnitsInMainSrc Value="True"/>
       </Verbosity>
       <CompilerMessages>

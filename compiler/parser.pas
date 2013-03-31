@@ -22,7 +22,9 @@ Unit Parser;
                   Property getVisibility: TVisibility read Visibility; // current visibility state
 
                 // public methods
-                  Constructor Create(const CompilerPnt: Pointer; InputFile: String);
+                  Constructor Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
+
+                  Function getLastToken: TToken_P;
 
                   Function read: TToken_P;
                   Function read_t: TToken;
@@ -31,30 +33,30 @@ Unit Parser;
                   Function next_t(const I: Integer=0): TToken;
                   Function read_ident: String;
                   Function read_string: String;
+                  Function read_int: Integer;
                   Function read_type(const AllowArrays: Boolean=True): TType;
                   Procedure eat(Token: TToken);
                   Procedure semicolon;
-                  Function getToken(const I: Integer=0): TToken_P;
                  End;
 
  Implementation
-Uses Compile1, Messages;
+Uses CompilerUnit, Compile1, Messages, SysUtils;
 
 (* TParser.Create *)
 {
  Loads code from file and preparses it (removes comments etc.)
 }
-Constructor TParser.Create(const CompilerPnt: Pointer; InputFile: String);
+Constructor TParser.Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
 Var Scanner: TScanner; // token scanner
     Code   : TStringList; // TScanner needs a TStringList to parse code
 
     Token           : TToken_P; // current token
-    isLongComment   : Boolean=False; // are we in long comment: `/* ... */` (we need to know it, because all tokens in comments are skipped)?
-    ShortCommentLine: LongWord=0; // are we in short comment: `//` (it holds this type comment's line)
+    ShortCommentLine: LongWord=0; // short comment (`//`) line
 
     I: Integer; // temporary variable
 Begin
- Compiler := CompilerPnt;
+ Compiler      := CompilerPnt;
+ inLongComment := False;
 
  CurrentDeep := 0;
 
@@ -67,8 +69,7 @@ Begin
  TokenPos := 0;
 
  Scanner := TScanner.Create(Code);
-
- if (not Scanner.Can) Then
+ if (not Scanner.Can) Then // an empty file
  Begin
   SetLength(TokenList, 1);
   TokenList[0].Token := _EOF;
@@ -85,22 +86,34 @@ Begin
      TokenList[I].Token := noToken;
   End;
 
-  Token := Scanner.getNextToken_P;
+  Token := Scanner.getToken_P;
 
-  if (Token.Token = noToken) Then
+  if (Token.Token = noToken) Then // skip `noToken`-s
+  Begin
+   DevLog('Warning: `noToken` found at '+IntToStr(Token.Line)+','+IntToStr(Token.Char)+' :: '+Token.Display);
    Continue;
+  End;
+
+  if (Token.Token = _EOF) Then
+  Begin
+   DevLog('Info: reached `EOF');
+   Break;
+  End;
 
   Case Token.Token of
-   _DOUBLE_SLASH  { // }: if (not isLongComment) Then ShortCommentLine := Token.Line+1;
+   _DOUBLE_SLASH { // }:
+    if (not inLongComment) Then
+     ShortCommentLine := Token.Line;
+
    else
-    if (Token.Line+1 <> ShortCommentLine) Then
+    if (Token.Line <> ShortCommentLine) Then // not in short (one-line) comment
     Begin
      if (Token.Token = _LONGCMT_OPEN { /* }) Then
-      isLongComment := True Else
-     if (Token.Token = _LONGCMT_CLOSE { /* }) Then
-      isLongComment := False Else
+      inLongComment := True Else
+     if (Token.Token = _LONGCMT_CLOSE { */ }) Then
+      inLongComment := False Else
 
-     if (not isLongComment) Then
+     if (not inLongComment) Then
      Begin
       TokenList[TokenPos] := Token;
       Inc(TokenPos);
@@ -116,9 +129,21 @@ Begin
  Code.Free;
 End;
 
+(* TParser.getLastToken *)
+{
+ Return last non-`noToken` token
+}
+Function TParser.getLastToken: TToken_P;
+Var I: LongWord;
+Begin
+ For I := High(TokenList) Downto Low(TokenList) Do
+  if (TokenList[I].Token <> noToken) Then
+   Exit(TokenList[I]);
+End;
+
 (* TParser.read *)
 {
- Reads a token; skips any `noTokens` and shows an error on unfinished strings.
+ Reads a token
 }
 Function TParser.read: TToken_P;
 Begin
@@ -128,11 +153,12 @@ Begin
  Result := TokenList[TokenPos];
  Inc(TokenPos);
 
- if (Result.Token = noToken) Then // skip `noToken`-s
-  Result := read;
-
- if (Result.Token = _INVALID_STRING) Then
-  TCompiler(Compiler).CompileError(eStringExceedsLine, []);
+ With TCompiler(Compiler) do
+  Case Result.Token of
+   _INVALID_INT: CompileError(Result, eInvalidIntegerValue, [Result.Display]);
+   _INVALID_FLOAT: CompileError(Result, eInvalidFloatValue, [Result.Display]);
+   _INVALID_STRING: CompileError(Result, eStringExceedsLine, []);
+  End;
 End;
 
 (* TParser.read_t *)
@@ -155,7 +181,7 @@ End;
 
 (* TParser.next_pnt *)
 {
- Returns a next - or previous (when `I` is negative) - pointer to a token.
+ Returns a next - or previous (when `I` is negative) - token's pointer.
 }
 Function TParser.next_pnt(const I: Integer=0): PToken_P;
 Begin
@@ -164,7 +190,7 @@ End;
 
 (* TParser.next_t *)
 {
- Works just as TParser.next, but gets only a token kind.
+ Works just as TParser.next, but gets only a token's kind.
 }
 Function TParser.next_t(const I: Integer=0): TToken;
 Begin
@@ -173,7 +199,7 @@ End;
 
 (* TParser.read_ident *)
 {
- Reads an identifier; displays error `eExpectedIdentifier` when current token isn't an identifier.
+ Reads an identifier; displays error `eExpectedIdentifier` when read token isn't an identifier.
 }
 Function TParser.read_ident: String;
 Begin
@@ -184,13 +210,24 @@ End;
 
 (* TParser.read_string *)
 {
- Reads a string; displays error `eExpectedString` when current token isn't a string.
+ Reads a string; displays error `eExpectedString` when read token isn't a string.
 }
 Function TParser.read_string: String;
 Begin
  if (next_t <> _STRING) Then
   TCompiler(Compiler).CompileError(next, eExpectedString, [next.Display]);
  Result := read.Display;
+End;
+
+(* TParser.read_int *)
+{
+ Reads an integer value; displays error `eExpectedInt` when read token isn't a string.
+}
+Function TParser.read_int: Integer;
+Begin
+ if (next_t <> _INT) Then
+  TCompiler(Compiler).CompileError(next, eExpectedInt, [next.Display]);
+ Result := StrToInt(read.Value);
 End;
 
 (* TParser.read_type *)
@@ -206,6 +243,10 @@ Var Base, Typ: TType;
     FuncParams: TParamList;
 
     isArray, isStringBased, isFunction: Boolean;
+
+    NamespaceName: String;
+    NamespaceID  : Integer;
+    TypeID       : Integer;
 Begin
  With TCompiler(Compiler) do
  Begin
@@ -221,9 +262,43 @@ Begin
 
   { read current token }
   Case Token.Token of
-   _IDENTIFIER: Base := findType(Token.Display);
-   _FUNCTION  : isFunction := True;
-   else CompileError(next, eExpectedIdentifier, [Token.Display]);
+   _IDENTIFIER:
+   Begin
+    if (next_t = _DOUBLE_COLON) Then // namespacename::typename
+    Begin
+     eat(_DOUBLE_COLON);
+
+     NamespaceName := Token.Display;
+     NamespaceID   := findNamespace(NamespaceName);
+
+     if (NamespaceID = -1) Then // namespace not found
+     Begin
+      CompileError(next(-2), eUnknownNamespace, [NamespaceName]);
+      read_ident;
+      Exit;
+     End;
+
+     Token := next;
+     Base  := findGlobalType(read_ident, NamespaceID);
+    End Else // typename
+    Begin
+     findTypeCandidate(Token.Display, SelectedNamespaces, TypeID, NamespaceID);
+
+     if (TypeID = -1) Then // type not found
+     Begin
+      CompileError(next(-1), eUnknownType, [Token.Display]);
+      Exit;
+     End;
+
+     Base := NamespaceList[NamespaceID].SymbolList[TypeID].mType;
+    End;
+   End;
+
+   _FUNCTION:
+    isFunction := True;
+
+   else
+    CompileError(next, eExpectedIdentifier, [Token.Display]);
   End;
 
   { function type }
@@ -284,12 +359,11 @@ Begin
   { check for primary type existence }
   if (Base = nil) Then
   Begin
-   CompileError(next, eExpectedType, [Token.Display]);
+   CompileError(next, eUnknownType, [Token.Display]);
    Exit;
   End;
 
-  Typ           := Base.Clone;
-  isStringBased := type_equal(Typ, TYPE_STRING);
+  Typ := Base.Clone;
 
   if (next_t = _BRACKET2_OP) Then
   Begin
@@ -315,16 +389,20 @@ Begin
    Inc(Typ.ArrayDimCount);
   End;
 
-  isArray := Typ.ArrayDimCount > 0;
+  isArray       := Typ.ArrayDimCount > 0;
+  isStringBased := type_equal(Typ, TYPE_STRING); // @TODO: memleak (as `TYPE_STRING` creates a new instance of `string` type)
 
   if (isArray) Then
   Begin
    Typ.RegPrefix := 'r';
    Typ.ArrayBase := Base;
 
+   With Typ do
+    While (ArrayBase.isArray(False)) Do // :>
+     ArrayBase := ArrayBase.ArrayBase;
+
    if (isStringBased) Then
     Typ.RegPrefix := 's';
-   // Typ.ArrayBase := TYPE_STRING;
   End;
 
   { set result }
@@ -335,7 +413,7 @@ End;
 (* TParser.eat *)
 {
  'eats' a specified token.
- (i.e. if current token isn't token passed in the parameter, displays a syntax error).
+ (ie. if current token isn't token passed in the parameter, displays a syntax error).
 }
 Procedure TParser.eat(Token: TToken);
 Begin
@@ -350,14 +428,5 @@ End;
 Procedure TParser.semicolon;
 Begin
  eat(_SEMICOLON);
-End;
-
-(* TParser.getToken *)
-{
- Works the same as TParser.next
-}
-Function TParser.getToken(const I: Integer=0): TToken_P;
-Begin
- Result := TokenList[TokenPos+I];
 End;
 End.

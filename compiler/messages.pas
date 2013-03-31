@@ -4,18 +4,21 @@ Unit Messages;
 
  { errors }
  Type TCompileError =
- (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedType, eExpectedString, eNotAllowed,
+ (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedString,
+  eExpectedInt, eNotAllowed,
   eRedeclaration, eLValueRequired, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousCall, eAmbiguousVariable, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
-  eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion,
+  eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
+  eUnknownAttribute,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference);
 
- Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue,
-                                           eExpectedDeclOrDef, eExpectedType, eExpectedString, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
-                                           eUnknownMacro, eInvalidExpression, eUnimplemented];
+ Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedString,
+                                           eExpectedInt, eUnknownType, eUnknownNamespace,
+                                           eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
+                                           eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidIntegerValue, eInvalidFloatValue];
 
  Const CompileError_fmt: Array[TCompileError] of String =
  (
@@ -27,8 +30,8 @@ Unit Messages;
   'Syntax error: expected operator but `%s` found',
   'Syntax error: expected value but `%s` found',
   'Syntax error: expected declaration or definition but `%s` found',
-  'Syntax error: expected type but `%s` found',
   'Syntax error: expected string but `%s` found',
+  'Syntax error: expected int but `%s` found',
   'Syntax error: `%s` not allowed here',
   'Redeclaration of identifier: `%s`',
   'lvalue required',
@@ -67,6 +70,10 @@ Unit Messages;
   'Tried to call method `%s` on non-object (`%s`)',
   'Method `%s` not found in object (`%s`)',
   'Invalid conversion from `%s` to `%s`',
+  'Unfinished comment',
+  'Invalid integer value: `%s`',
+  'Invalid float value: `%s`',
+  'Unknown attribute: `%s`',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

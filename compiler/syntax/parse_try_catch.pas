@@ -44,6 +44,8 @@ Begin
  Variable.Deep       := CurrentDeep;
  Variable.Attributes := [vaDontAllocate];
 
+ RedeclarationCheck(Variable.Name);
+
  With getCurrentFunction do
  Begin
   SetLength(VariableList, Length(VariableList)+1);

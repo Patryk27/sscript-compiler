@@ -8,7 +8,7 @@
 namespace std
 {
 
-function<int> getTicks() naked
+function<int> get_ticks() naked
 {
  :CODE
  {
@@ -19,6 +19,12 @@ function<int> getTicks() naked
 
 function<void> sleep(int milis) naked
 {
+/*
+ finish_time = get_ticks()+milis;
+
+ while (get_ticks() < finish_time) ; // (do nothing)
+*/
+
  :CODE
  {
   sub(stp, 1)

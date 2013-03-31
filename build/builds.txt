@@ -1,1 +1,1 @@
-In 'nightly' editions, there's no prepared builds - you have to compile it by yourself.
+In 'nightly' editions there's no prepared builds - you have to compile it by yourself.

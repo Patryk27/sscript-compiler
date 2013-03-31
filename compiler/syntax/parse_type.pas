@@ -39,6 +39,7 @@ Begin
   With getCurrentNamespace do
   Begin
    SetLength(SymbolList, Length(SymbolList)+1);
+   SymbolList[High(SymbolList)]       := TGlobalSymbol.Create;
    SymbolList[High(SymbolList)].Typ   := gsType;
    SymbolList[High(SymbolList)].mType := Typ;
   End;

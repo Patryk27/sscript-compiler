@@ -88,18 +88,18 @@ function<float> log2(float n)
  return log(2, n);
 }
 
-function<float> fabs(float f)
-{
- if (f < 0)
-  return -f; else
-  return f;
-}
-
 function<int> iabs(int i)
 {
  if (i < 0)
   return -i; else
   return i;
+}
+
+function<float> fabs(float f)
+{
+ if (f < 0)
+  return -f; else
+  return f;
 }
 
 function<float> power(float base, int exp) /* fast power algorithm (non-recursive version) */
@@ -252,6 +252,11 @@ function<int> gcd(int u, int v)
  } while (v != 0);
 
  return u << shift;
+}
+
+function<bool> in_range(float num, float lower, float upper)
+{
+ return (num >= lower) && (num <= upper);
 }
 
 }

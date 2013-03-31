@@ -54,7 +54,7 @@ echo -------------------------------------------
 
 echo.
 echo -] init code
-call :compile_bytecode "init"
+call :compile "init"
 
 echo.
 echo -] STRING

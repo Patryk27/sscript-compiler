@@ -10,74 +10,39 @@ Unit Scanner;
  { TScanner }
  Type TScanner = Class
                   Private
-                   Code      : String;
-                   Position  : Integer;
-                   Line      : Integer;
-                   NLPosition: Integer;
+                   Code    : String;
+                   Position: Integer;
 
                    Function __readChar(out NewLine, Escaped: Boolean; const AllowFormatting: Boolean=False): Char;
                    Function __readCharN(out NewLine: Boolean; const AllowFormatting: Boolean=False): Char;
                    Function __readString(out OK: Boolean; const Ch: Char): String;
                    Function __readIdentifier: String;
-                   Function __readNumber(out OK: Boolean; out Dot: Boolean): Extended;
-                   Function __readHexNumber(out OK: Boolean): Int64;
+                   Function __readNumber(out OK: Boolean; out isFloat: Boolean; out Str: String): Extended;
+                   Function __readHexNumber(out OK: Boolean; out Str: String): Int64;
 
-                   Procedure IncPosition;
-                   Procedure DecPosition;
+                   Function getToken: TToken;
 
                   Public
                    Constructor Create(Lines: TStringList);
-                   Destructor Destroy; override;
 
-                   Function getNextToken: TToken;
-                   Function getNextToken_P: TToken_P;
-
-                   Function getLine: Integer;
-                   Function getChar: Integer;
+                   Function getToken_P: TToken_P;
 
                    Function Can: Boolean;
                  End;
 
  Implementation
+Const NewlineChar = #13;
 
 { TScanner.Create }
 Constructor TScanner.Create(Lines: TStringList);
 Var I: Integer;
 Begin
+ Code := '';
+
  For I := 0 To Lines.Count-1 Do
-  Lines[I] := Lines[I] + #0;
+  Code += Lines[I] + #13;
 
- Code := Lines.Text;
-
- Position   := 1;
- NLPosition := 0;
- Line       := 0;
-End;
-
-{ TScanner.Destroy }
-Destructor TScanner.Destroy;
-Begin
- inherited;
-End;
-
-{ TScanner.IncPosition }
-Procedure TScanner.IncPosition;
-Begin
- Inc(Position);
- Inc(NLPosition);
-
- if (Code[Position-1] = #0) Then
- Begin
-  NLPosition := -2;
-  Inc(Line);
- End;
-End;
-
-{ TScanner.DecPosition }
-Procedure TScanner.DecPosition;
-Begin
- Dec(Position);
- Dec(NLPosition);
+ Position := 1; // `string` is iterated from `1`
 End;
 
 { TScanner.__readChar }
@@ -91,16 +56,16 @@ Begin
 
  Result := Code[Position];
 
- IncPosition;
+ Inc(Position);
 
- if (Result = #0) Then
+ if (Result = NewlineChar) Then // newline
  Begin
   NewLine := True;
   Exit;
  End;
 
- if (Result in [#13, #10]) Then // skip newlines
-  Result := __readCharN(NewLine);
+ //if (Result = [#13]) Then // skip newlines
+ // Result := __readCharN(NewLine);
 
  if (Result = '\') and (AllowFormatting) Then // char escape
  Begin
@@ -181,7 +146,6 @@ End;
 Function TScanner.__readString(out OK: Boolean; const Ch: Char): String;
 Var C          : Char;
     NL, Escaped: Boolean;
-Label InvalidString;
 Begin
  Result := '';
  OK     := True;
@@ -197,50 +161,41 @@ Begin
  End;
 
  if (NL) Then // string hasn't been finished (terminator `"` not found)
- Begin
-  InvalidString:
   OK := False;
- End;
 End;
 
 { TScanner.__readIdentifier }
 Function TScanner.__readIdentifier: String;
-Var C : Char;
-    NL: Boolean;
+Var Ch     : Char;
+    Newline: Boolean;
 Begin
+ Dec(Position);
  Result := '';
 
- DecPosition;
+ While (true) Do
+ Begin
+  Ch := __readCharN(Newline);
 
- Repeat
-  C      := __readCharN(NL);
-  Result += C;
- Until (not (C in identAllowed)) or (NL);
+  if (not (Ch in IdentAllowed)) or (Newline) Then
+   Break;
 
- DecPosition;
+  Result += Ch;
+ End;
 
- if (not (Result[Length(Result)] in identAllowed)) Then
-  Delete(Result, Length(Result), 1);
-
- Result := Trim(Result);
-
- if (NL) Then
-  Dec(Line); 
+ Dec(Position);
 End;
 
 { TScanner.__readNumber }
-Function TScanner.__readNumber(out OK: Boolean; out Dot: Boolean): Extended;
-Var Str    : String;
-    Ch     : Char;
+Function TScanner.__readNumber(out OK: Boolean; out isFloat: Boolean; out Str: String): Extended;
+Var Ch     : Char;
     Newline: Boolean;
     ValCode: Integer;
 Begin
- Result := 0;
- Str    := '';
- OK     := True;
- Dot    := False;
-
- DecPosition;
+ Dec(Position);
+ Result  := 0;
+ Str     := '';
+ OK      := True;
+ isFloat := False;
 
  While (true) Do
  Begin
@@ -250,38 +205,30 @@ Begin
    Break;
 
   if (Ch = '.') Then
-   if (Dot) Then
-   Begin
-    OK := False;
-    Exit;
-   End Else
-    Dot := True;
+  Begin
+   if (isFloat) Then
+    Break;
+
+   isFloat := True;
+  End;
 
   Str += Ch;
  End;
 
- DecPosition;
-
  Val(Str, Result, ValCode);
  OK := (ValCode = 0);
 
- Dot := (Pos('.', Str) > 0);
+ Dec(Position);
 End;
 
 { TScanner.__readHexNumber }
-Function TScanner.__readHexNumber(out OK: Boolean): Int64;
-Var Str    : String;
-    Ch     : Char;
+Function TScanner.__readHexNumber(out OK: Boolean; out Str: String): Int64;
+Var Ch     : Char;
     Newline: Boolean;
     ValCode: Integer;
 Begin
- DecPosition;
-
- IncPosition; // 0
- IncPosition; // x
-
  Result := 0;
- Str    := '';
+ Str    := '$';
  OK     := True;
 
  While (true) Do
@@ -294,24 +241,25 @@ Begin
   Str += Ch;
  End;
 
- DecPosition;
-
- Val('$'+Str, Result, ValCode);
+ Val(Str, Result, ValCode);
  OK := (ValCode = 0);
+
+ Dec(Position);
 End;
 
-{ TScanner.getNextToken }
-Function TScanner.getNextToken: TToken;
+{ TScanner.getToken }
+Function TScanner.getToken: TToken;
 Var C1, C2, C3: Char;
     NL        : Boolean;
 
-Function Double(X: Char): Boolean;
-Begin
- Result := (C1 = X) and (C2 = X);
-End;
+  // Double
+  Function Double(X: Char): Boolean;
+  Begin
+   Exit((C1 = X) and (C2 = X));
+  End;
 
 Begin
- if (not Can) Then
+ if (not Can) Then // end of file
  Begin
   Result := _EOF;
   Exit;
@@ -319,21 +267,24 @@ Begin
 
  Result := noToken;
 
- C1 := __readCharN(NL);
+ C1 := __readCharN(NL); // first char
 
- if (not NL) Then
+ if (not NL) Then // second char (if possible)
   C2 := Code[Position] Else
   C2 := #0;
 
- if (not NL) Then
+ if (not NL) Then // third char (if possible)
   C3 := Code[Position+1] Else
   C3 := #0;
 
- if (C1 in [' ', #0]) Then                              
-  Result := getNextToken;
+ if (C1 in [' ', NewlineChar]) Then // skip spaces and newlines
+  Result := getToken();
 
  if (C1 = '0') and (C2 = 'x') Then
+ Begin
+  Inc(Position);
   Exit(_HEX_INTEGER);
+ End;
 
  Case C1 of
   '+': Result := _PLUS;
@@ -365,45 +316,46 @@ Begin
   '~': Result := _TILDE;
   '#': Result := _HASH;
 
-  '0'..'9': Result := _INTEGER;
+  '0'..'9': Result := _NUMBER;
   'a'..'z': Result := _CHAR;
   'A'..'Z': Result := _CHAR;
  End;
 
- if (C1 = '+') and (C2 = '=') Then
+ if (C1 = '+') and (C2 = '=') Then { += }
  Begin
   Result := _PLUS_EQUAL;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (C1 = '-') and (C2 = '=') Then
+ if (C1 = '-') and (C2 = '=') Then { -= }
  Begin
   Result := _MINUS_EQUAL;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (C1 = '*') and (C2 = '=') Then
+ if (C1 = '*') and (C2 = '=') Then { *= }
  Begin
   Result := _STAR_EQUAL;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (C1 = '/') and (C2 = '=') Then
+ if (C1 = '/') and (C2 = '=') Then { /= }
  Begin
   Result := _SLASH_EQUAL;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (C1 = '%') and (C2 = '=') Then
+ if (C1 = '%') and (C2 = '=') Then { %= }
  Begin
   Result := _PERCENT_EQUAL;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (C2 = '=') and (C1 <> ' ') Then
+ if (C1 in ['>', '<', '=', '!']) and (C2 = '=') Then { >=  <=  ==  != }
  Begin
   if (Result in [_GREATER, _LOWER, _EQUAL, _EXCLM_MARK]) Then
-   IncPosition;
+   Inc(Position);
+
   Case Result of
    _GREATER   : Result := _GREATER_EQUAL;
    _LOWER     : Result := _LOWER_EQUAL;
@@ -412,93 +364,126 @@ Begin
   End;
  End Else
 
- if (C1 = '.') and (C2 = '.') and (C3 = '.') Then
+ if (C1 = '.') and (C2 = '.') and (C3 = '.') Then { ... }
  Begin
   Result := _ELLIPSIS;
-  IncPosition;
-  IncPosition;
+  Inc(Position, 2);
  End Else
 
- if (C1 = '/') and (C2 = '*') Then
+ if (C1 = '/') and (C2 = '*') Then { /* }
  Begin            
   Result := _LONGCMT_OPEN;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (C1 = '*') and (C2 = '/') Then
+ if (C1 = '*') and (C2 = '/') Then { */ }
  Begin
   Result := _LONGCMT_CLOSE;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('/')) Then
+ if (Double('/')) Then { // }
  Begin
   Result := _DOUBLE_SLASH;
-  IncPosition;
+  Inc(Position);
  End Else
   
- if (Double(':')) Then
+ if (Double(':')) Then { :: }
  Begin
   Result := _DOUBLE_COLON;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('+')) Then
+ if (Double('+')) Then { ++ }
  Begin
   Result := _DOUBLE_PLUS;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('-')) Then
+ if (Double('-')) Then { -- }
  Begin
   Result := _DOUBLE_MINUS;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('*')) Then
+ if (Double('*')) Then { ** }
  Begin
   Result := _DOUBLE_STAR;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('|')) Then
+ if (Double('|')) Then { || }
  Begin
   Result := _DOUBLE_PIPE;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('&')) Then               
+ if (Double('&')) Then { && }
  Begin
   Result := _DOUBLE_AMPERSAND;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('<')) Then
+ if (Double('<')) Then { << }
  Begin
   Result := _DOUBLE_LOWER;
-  IncPosition;
+  Inc(Position);
  End Else
 
- if (Double('>')) Then
+ if (Double('>')) Then { >> }
  Begin
   Result := _DOUBLE_GREATER;
-  IncPosition;
+  Inc(Position);
  End;
 End;
 
-{ TScanner.getNextToken_P }
-Function TScanner.getNextToken_P: TToken_P;
+{ TScanner.getToken_P }
+Function TScanner.getToken_P: TToken_P;
+
+  // getLine
+  Function getLine: LongWord;
+  Var I: LongWord;
+  Begin
+   Result := 1;
+
+   For I := 1 To Position-1 Do
+    if (Code[I] = NewlineChar) Then
+     Inc(Result);
+  End;
+
+  // getChar
+  Function getChar: LongWord;
+  Var I: LongWord;
+  Begin
+   Result := 0;
+
+   For I := Position-1 Downto 1 Do
+    if (Code[I] = NewlineChar) Then
+     Exit Else
+     Inc(Result);
+  End;
+
+// ----- //
 Var Token: TToken;
-    OK   : Boolean;
-    Dot  : Boolean;
     Ch   : Char;
+
+    OK     : Boolean;
+    isFloat: Boolean;
+
+    Flt: Extended;
+    Int: Integer; // @TODO: Int64 (?)
 Begin
- Token        := getNextToken;
- Result.Token := Token;
- Result.Value := '';
- Result.Posi  := Position;
- Result.Line  := Line;
- Result.Char  := NLPosition;
+ Token           := getToken;
+ Result.Token    := Token;
+ Result.Value    := '';
+ Result.Display  := '';
+ Result.Position := Position;
+
+ Result.Line := getLine;
+ Result.Char := getChar;
+
+ if (Result.Char > 0) Then
+  Dec(Result.Char);
 
  Case Token of
   { strings }
@@ -508,72 +493,84 @@ Begin
     Ch := '"' Else
     Ch := '''';
 
-   Result.Token := _STRING;
-   Result.Value := __readString(OK, Ch);
+   Result.Token   := _STRING;
+   Result.Value   := __readString(OK, Ch);
+   Result.Display := Result.Value;
 
    if (Token = _APOSTR) Then
     Result.Token := _CHAR;
 
-    if (not OK) Then
-     Result.Token := _INVALID_STRING;
+   if (not OK) Then
+    Result.Token := _INVALID_STRING;
   End;
 
   { identifiers }
   _CHAR, _UNDERSCORE:
   Begin
-   Result.Value := __readIdentifier;
-   Result.Token := _IDENTIFIER;
+   Result.Token   := _IDENTIFIER;
+   Result.Value   := __readIdentifier;
+   Result.Display := Result.Value;
 
-   if (isKeyword(Result.Value)) Then
+   if (isKeyword(Result.Value)) Then // is keyword?
     Result.Token := KeywordToToken(Result.Value);
   End;
 
   { numbers }
-  _INTEGER, _HEX_INTEGER:
+  _NUMBER, _HEX_INTEGER:
   Begin
-   Result.Token := _INTEGER;
+   isFloat := False;
 
-   Dot := False;
+   Case Token of
+    { decimal int or float }
+    _NUMBER: Result.Value := FloatToStr(__readNumber(OK, isFloat, Result.Display));
 
-   if (Token = _INTEGER) Then
-    Result.Value := FloatToStr(__readNumber(OK, Dot)) Else
-    Result.Value := IntToStr(__readHexNumber(OK));
-
-   if (Dot) Then
-   Begin
-    Result.Token := _FLOAT;
-    if (Pos('.', Result.Value) = 0) Then
-     Result.Value := Result.Value+'.0';
+   { hexadecimal int }
+    _HEX_INTEGER: Result.Value := IntToStr(__readHexNumber(OK, Result.Display));
    End;
 
-   if (not OK) Then
-    Result.Token := noToken;
+   if (isFloat) Then // is float?
+   Begin
+    Result.Token := _FLOAT;
+
+    if (Pos('.', Result.Value) = 0) Then
+     Result.Value := Result.Value+'.0';
+   End Else // is integer?
+    Result.Token := _INT;
+
+   if (not OK) Then // not a valid number?
+    if (isFloat) Then
+     Result.Token := _INVALID_FLOAT Else
+     Result.Token := _INVALID_INT;
+
+   Case isFloat of
+    True:
+     if (not TryStrToFloat(Result.Display, Flt)) Then
+      Result.Token := _INVALID_FLOAT;
+
+    False:
+     if (not TryStrToInt(Result.Display, Int)) Then
+      Result.Token := _INVALID_INT;
+   End;
   End;
  End;
 
  Result.TokenName := getTokenName(Result.Token);
- Result.Display   := getTokenDisplay(Result.Token);
+
  if (Result.Display = '') Then
-  if (Result.Token in [_STRING, _IDENTIFIER, _INTEGER, _FLOAT{, noToken}]) Then
-   Result.Display := Result.Value Else
-   Result.Display := Code[Result.Posi];
-End;
+ Begin
+  Result.Display := getTokenDisplay(Result.Token);
 
-{ TScanner.getLine }
-Function TScanner.getLine: Integer;
-Begin
- Result := Line;
-End;
+  if (Result.Display = '') Then
+   Result.Display := Code[Result.Position];
+ End;
 
-{ TScanner.getChar }
-Function TScanner.getChar: Integer;
-Begin
- Result := NLPosition;
-End; 
+ if (not ((Result.Token in [_IDENTIFIER, _STRING, _INVALID_STRING]) or (isKeyword(Result.Value)))) Then
+  Result.Char += 1;
+End;
 
 { TScanner.Can }
 Function TScanner.Can: Boolean;
 Begin
- Result := (Position < Length(Code)-1);
+ Result := (Position < Length(Code));
 End;
 End.

@@ -10,6 +10,10 @@ Begin
   Error(eVoidCasting, []);
 
  Typ := Parse(Left, 1);
+
+ if (not Typ.CanBeCastedTo(TypeID)) Then
+  Error({Left^.Token,}eInvalidConversion, [Typ.asString, TypeID.asString]);
+
  With Compiler do
  Begin
   if (Left^.ResultOnStack) Then

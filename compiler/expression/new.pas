@@ -1,6 +1,5 @@
 Procedure ParseNEW;
 Var BaseType, TmpType, Typ: TType;
-    isStringBased         : Boolean;
 Begin
  { get the array's primary (base) type (int, char, (...) }
  BaseType := getType(Left^.Value);
@@ -8,19 +7,20 @@ Begin
  if (BaseType = nil) Then // suitable error message has been displayed when creating the tree, so we don't need to display anything else here; thus, just exit this function
   Exit;
 
- Typ           := BaseType.Clone;
- isStringBased := type_equal(Typ, TYPE_STRING);
- Typ.ArrayBase := BaseType;
+ Typ := BaseType.Clone;
+
+ While (Typ.ArrayBase.isArray(False)) Do
+  Typ.ArrayBase := Typ.ArrayBase.ArrayBase;
+
+ Typ.ArrayDimCount := 0;
+ Typ.ArrayBase     := BaseType;
 
  With Compiler do // type-check
   if (BaseType.isArray(False)) Then
   Begin
-   Error(eWrongType, [BaseType.asString, 'any not array-derived type']);
+   Error(eWrongType, [BaseType.asString, 'not array-derived type']);
    Exit;
   End;
-
- if (isStringBased) Then
-  Dec(Typ.ArrayDimCount);
 
  { just some checks... }
  if (Right^.Typ <> mtArrayElement) Then
@@ -58,7 +58,7 @@ Begin
  Compiler.PutOpcode(o_arcrt, ['er1', BaseType.InternalID, Typ.ArrayDimCount]);
 
  { return type }
- if (isStringBased) Then
+ if (Typ.isString) Then
   Inc(Typ.ArrayDimCount);
 
  Result := Typ;
