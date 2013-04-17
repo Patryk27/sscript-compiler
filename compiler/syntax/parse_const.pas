@@ -17,24 +17,33 @@ Var Variable: TVariable;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
+ if not ((CompilePass = cp1) or (inFunction)) Then // `const` is parsed in second pass or inside function
+ Begin
+  read_until_semicolon;
+  Exit;
+ End;
+
  While (true) Do
  Begin
   Variable := TVariable.Create;
   Variable.Attributes += [vaConst, vaDontAllocate];
 
-  Variable.Deep       := 0;
-  Variable.mCompiler  := Compiler;
-  Variable.Visibility := getVisibility;
+  With Variable.RefSymbol do
+  Begin
+   Range      := getCurrentRange;
+   mCompiler  := Compiler;
+   Visibility := getVisibility;
 
-  Variable.DeclToken := next_pnt;
-  Variable.Name      := read_ident; // [identifier]
+   DeclToken := next_pnt;
+   Name      := read_ident; // [identifier]
+
+   RedeclarationCheck(Name); // check for redeclaration of the constant
+  End;
 
   eat(_EQUAL); // =
 
-  RedeclarationCheck(Variable.Name); // redeclaration of a constant
-
   Variable.Value          := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], [oInsertConstants, oConstantFolding, oDisplayParseErrors]).Values[0]); // [constant value]
-  Variable.Value^.VarName := Variable.Name;
+  Variable.Value^.VarName := Variable.RefSymbol.Name;
 
   With Variable.Value^ do
   Begin
@@ -50,23 +59,10 @@ Begin
 
   if (inFunction) Then // local constant
   Begin
-   With getCurrentFunction do
-   Begin
-    SetLength(VariableList, Length(VariableList)+1);
-    VariableList[High(VariableList)] := Variable;
-   End;
+   getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsConstant, Variable));
   End Else // global constant
   Begin
-   With getCurrentNamespace do
-   Begin
-    SetLength(SymbolList, Length(SymbolList)+1);
-    SymbolList[High(SymbolList)] := TGlobalSymbol.Create;
-    With SymbolList[High(SymbolList)] do
-    Begin
-     Typ       := gsConstant;
-     mVariable := Variable;
-    End;
-   End;
+   getCurrentNamespace.SymbolList.Add(TGlobalSymbol.Create(gsConstant, Variable));
   End;
 
   Dec(TokenPos); // ExpressionCompiler 'eats' comma.

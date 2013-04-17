@@ -24,39 +24,52 @@ Begin
  For I := Low(Namespaces) To High(Namespaces) Do
   Namespaces[I] := SelectedNamespaces[I];
 
- nName := read_ident; // _IDENTIFIER
- RedeclarationCheck(nName, True); // redeclaration check
-
- CurrentNamespace := findNamespace(nName);
-
- if (CurrentNamespace = -1) Then // new namespace
- Begin
-  SetLength(NamespaceList, Length(NamespaceList)+1);
-  NamespaceList[High(NamespaceList)] := TNamespace.Create;
-
-  CurrentNamespace := High(NamespaceList);
-  With NamespaceList[CurrentNamespace] do
-  Begin
-   Name      := nName;
-   mCompiler := Compiler;
-   DeclToken := next_pnt(-1);
-
-   SetLength(SymbolList, 0);
-  End;
- End;
-
- NamespaceList[CurrentNamespace].Visibility := getVisibility;
-
  Deep := CurrentDeep;
 
- if (next_t <> _BRACKET3_OP) Then
-  CompileError(eExpected, ['{', next.Display]);
+ (* if first pass *)
+ if (CompilePass = cp1) Then
+ Begin
+  nName := read_ident; // _IDENTIFIER
+  RedeclarationCheck(nName, True); // redeclaration check
+
+  CurrentNamespace := findNamespace(nName);
+
+  if (CurrentNamespace = -1) Then // new namespace
+  Begin
+   NamespaceList.Add(TNamespace.Create);
+
+   CurrentNamespace := NamespaceList.Count-1;
+   With NamespaceList.Last do
+   Begin
+    Name       := nName;
+    mCompiler  := Compiler;
+    DeclToken  := next_pnt(-1);
+    SymbolList := TGlobalSymbolList.Create;
+   End;
+  End;
+
+  NamespaceList[CurrentNamespace].Visibility := getVisibility;
+
+  if (next_t <> _BRACKET3_OP) Then
+   CompileError(eExpected, ['{', next.Display]);
+ End Else
+
+ (* if second pass *)
+ if (CompilePass = cp2) Then
+ Begin
+  CurrentNamespace := findNamespace(read_ident);
+
+  if (CurrentNamespace = -1) Then
+   CompileError(eInternalError, ['CurrentNamespace = -1']);
+ End;
 
  { set this new namespace as first on the list }
  SetLength(SelectedNamespaces, Length(SelectedNamespaces)+1);
  For I := High(SelectedNamespaces) Downto Low(SelectedNamespaces) Do
   SelectedNamespaces[I] := SelectedNamespaces[I-1];
  SelectedNamespaces[0] := CurrentNamespace;
+
+ (* for each pass *)
 
  { compile namespace }
  Repeat

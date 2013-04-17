@@ -38,16 +38,16 @@ Begin
    if (NamespaceID = -1) Then
    Begin
     { local constant }
-    With Compiler.getCurrentFunction.VariableList[VarID] do
+    With Compiler.getCurrentFunction.SymbolList[VarID] do
     Begin
-     if not (vaConst in Attributes) Then // is it a constant?
+     if (Typ <> lsConstant) Then // is it a constant?
      Begin
       if (ShowErrors) Then
        Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.Value]);
       Exit;
      End;
 
-     Expr^ := Value^;
+     Expr^ := mVariable.Value^;
      Exit;
     End;
    End Else

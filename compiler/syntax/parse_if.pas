@@ -52,7 +52,9 @@ Begin
   C.Typ := ctIF_else;
   SetLength(C.Values, 0);
   AddConstruction(C); // new construction ('else' block)
-  ParseCodeBlock(True);
+
+  ParseCodeBlock(True); // parse code block
+
   C.Typ := ctIF_end;
   SetLength(C.Values, 0);
   AddConstruction(C); // new construction ('if' end)

@@ -24,6 +24,12 @@ Var Namespace: Integer;
 Begin
  With Parser do
  Begin
+  if not ((CompilePass = cp2) or (inFunction)) Then // `use` is parsed in second pass or inside function
+  Begin
+   read_until_semicolon;
+   Exit;
+  End;
+
   if (next_t = _SEMICOLON) Then // `use;` sets the global (default) namespace
   Begin
    SetLength(SelectedNamespaces, 1);

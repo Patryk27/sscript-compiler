@@ -5,7 +5,7 @@
 Unit symdef;
 
  Interface
- Uses MTypes, Tokens;
+ Uses MTypes, Tokens, FGL;
 
  Type TVisibility = (mvPublic, mvPrivate);
 
@@ -13,18 +13,36 @@ Unit symdef;
  Type TVariableAttributes = Set of (vaConst, vaFuncParam, vaDontAllocate);
  Type TFunctionAttributes = Set of (faNaked);
 
+ Type TRange = Record
+                PBegin, PEnd: Int64;
+               End;
+
+ (* lists *)
+ Type TNamespace     = class;
+      TNamespaceList = specialize TFPGList<TNamespace>;
+
+ Type TLocalSymbol     = class;
+      TLocalSymbolList = specialize TFPGList<TLocalSymbol>;
+
+ Type TGlobalSymbol     = class;
+      TGlobalSymbolList = specialize TFPGList<TGlobalSymbol>;
+
  (* Symbol *)
  Type TSymbol = Class
                  Public
-                 // public fields
-                  Name: String;
+                  Name : String; // symbol name
+                  Range: TRange; // accessability range
 
-                  Visibility: TVisibility; // symbol visibiility
+                  Visibility: TVisibility; // visibility
                   mCompiler : Pointer; // compiler in which symbol has been declared
                   DeclToken : PToken_P; // declaration token pointer
 
+                  isInternal: Boolean; // eg.`null` is internal
+
                  // public methods
                   Constructor Create;
+                  Function Clone: TSymbol;
+                  Procedure CopyTo(const Symbol: TSymbol);
                  End;
 
  (* Type *)
@@ -37,9 +55,11 @@ Unit symdef;
       TParamList = Array of TParam;
 
    // TType
- Type TType = Class (TSymbol)
+ Type TType = Class
                Public
                // public fields
+                RefSymbol: TSymbol;
+
                 RegPrefix : Char;
                 InternalID: Byte;
 
@@ -79,14 +99,15 @@ Unit symdef;
                End;
 
  (* Variable *)
- Type TVariable = Class (TSymbol)
+ Type TVariable = Class
                    Public
                    // public fields
+                    RefSymbol: TSymbol;
+
                     MemPos: Integer; // negative values and zero for stack position, positive values for register ID (1..4)
 
                     Typ  : TType;
                     Value: PMExpression;
-                    Deep : Integer;
 
                     Attributes: TVariableAttributes;
 
@@ -102,9 +123,11 @@ Unit symdef;
  Type TMVariableList = Array of TVariable;
 
  (* Function *)
- Type TFunction = Class (TSymbol)
+ Type TFunction = Class
                    Public
                    // public fields
+                    RefSymbol: TSymbol;
+
                     ModuleName   : String; // module name in which function has been declared
                     MangledName  : String; // function mangled (label) name
                     NamespaceName: String; // namespace name in which function has been declared
@@ -113,7 +136,7 @@ Unit symdef;
                     Return: TType; // return type
 
                     ParamList       : TParamList; // parameter list
-                    VariableList    : TMVariableList; // variable list {@TODO SymbolList}
+                    SymbolList      : TLocalSymbolList; // local symbol list
                     ConstructionList: TMConstructionList; // construction list
 
                     Attributes: TFunctionAttributes;
@@ -124,12 +147,30 @@ Unit symdef;
                     Function isNaked: Boolean;
                    End;
 
+ (* Local symbol *)
+ Type TLocalSymbolType = (lsConstant, lsVariable, lsType);
+ Type TLocalSymbol = Class (TSymbol)
+                      Public
+                      // methods
+                       Constructor Create(const SymbolType: TLocalSymbolType; const CreateInstance: Boolean=True);
+                       Constructor Create(const SymbolType: TLocalSymbolType; const Instance: Pointer);
+
+                      // fields
+                      Var
+                       Typ: TLocalSymbolType;
+
+                       mVariable: TVariable;
+                       mType    : TType;
+                      End;
+
  (* Global symbol *)
  Type TGlobalSymbolType = (gsConstant, gsVariable, gsFunction, gsType);
- Type TGlobalSymbol = Class
+ Type TGlobalSymbol = Class (TSymbol)
                        Public
                        // methods
-                        Constructor Create;
+                        Constructor Create(const SymbolType: TGlobalSymbolType; const CreateInstance: Boolean=True);
+                        Constructor Create(const SymbolType: TGlobalSymbolType; const Instance: Pointer);
+                        Constructor Create(const CloneOf: TGlobalSymbol);
 
                        // fields
                        Var
@@ -138,8 +179,6 @@ Unit symdef;
                         mVariable: TVariable; // gdConstant, gdVariable
                         mFunction: TFunction; // gtFunction
                         mType    : TType;
-
-                        isInternal: Boolean; // eg.`null` is internal
                        End;
 
  (* Namespace *)
@@ -150,10 +189,8 @@ Unit symdef;
 
                     // fields
                     Var
-                     SymbolList: Array of TGlobalSymbol; // symbol list
+                     SymbolList: TGlobalSymbolList; // global symbol list
                     End;
-
- Type TNamespaceList = Array of TNamespace;
 
  // operators
  Function type_equal(A, B: TType): Boolean;
@@ -225,9 +262,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'any';
-  RegPrefix  := 'i';
-  InternalID := TYPE_ANY_id;
+  RefSymbol.Name := 'any';
+  RegPrefix      := 'i';
+  InternalID     := TYPE_ANY_id;
  End;
 End;
 
@@ -238,9 +275,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'null';
-  RegPrefix  := 'r';
-  InternalID := TYPE_NULL_id;
+  RefSymbol.Name := 'null';
+  RegPrefix      := 'r';
+  InternalID     := TYPE_NULL_id;
  End;
 End;
 
@@ -251,9 +288,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'void';
-  RegPrefix  := 'i';
-  InternalID := TYPE_VOID_id;
+  RefSymbol.Name := 'void';
+  RegPrefix      := 'i';
+  InternalID     := TYPE_VOID_id;
  End;
 End;
 
@@ -264,9 +301,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'bool';
-  RegPrefix  := 'b';
-  InternalID := TYPE_BOOL_id;
+  RefSymbol.Name := 'bool';
+  RegPrefix      := 'b';
+  InternalID     := TYPE_BOOL_id;
  End;
 End;
 
@@ -277,9 +314,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'char';
-  RegPrefix  := 'c';
-  InternalID := TYPE_CHAR_id;
+  RefSymbol.Name := 'char';
+  RegPrefix      := 'c';
+  InternalID     := TYPE_CHAR_id;
  End;
 End;
 
@@ -290,9 +327,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'int';
-  RegPrefix  := 'i';
-  InternalID := TYPE_INT_id;
+  RefSymbol.Name := 'int';
+  RegPrefix      := 'i';
+  InternalID     := TYPE_INT_id;
  End;
 End;
 
@@ -303,9 +340,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'float';
-  RegPrefix  := 'f';
-  InternalID := TYPE_FLOAT_id;
+  RefSymbol.Name := 'float';
+  RegPrefix      := 'f';
+  InternalID     := TYPE_FLOAT_id;
  End;
 End;
 
@@ -316,9 +353,9 @@ Begin
 
  With Result do
  Begin
-  Name       := 'string';
-  RegPrefix  := 's';
-  InternalID := TYPE_STRING_id;
+  RefSymbol.Name := 'string';
+  RegPrefix      := 's';
+  InternalID     := TYPE_STRING_id;
 
   ArrayBase     := TYPE_CHAR;
   ArrayDimCount := 1;
@@ -327,14 +364,44 @@ End;
 
 (* ---------- TSymbol ---------- *)
 
-{ TSymbol.Create }
+(* TSymbol.Create *)
 Constructor TSymbol.Create;
 Begin
- Name := '';
+ Name         := '';
+ Range.PBegin := 0;
+ Range.PEnd   := 0;
 
- Visibility := mvPublic;
+ Visibility := mvPrivate;
  mCompiler  := nil;
  DeclToken  := nil;
+ isInternal := False;
+End;
+
+(* TSymbol.Clone *)
+Function TSymbol.Clone: TSymbol;
+Begin
+ Result := TSymbol.Create;
+
+ Result.Name       := Name;
+ Result.Range      := Range;
+ Result.Visibility := Visibility;
+ Result.mCompiler  := mCompiler;
+ Result.DeclToken  := DeclToken;
+ Result.isInternal := isInternal;
+End;
+
+(* TSymbol.CopyTo *)
+Procedure TSymbol.CopyTo(const Symbol: TSymbol);
+Begin
+ if (Symbol = nil) Then
+  raise Exception.Create('Invalid method call! `Symbol = nil`');
+
+ Symbol.Name       := Name;
+ Symbol.Range      := Range;
+ Symbol.Visibility := Visibility;
+ Symbol.mCompiler  := mCompiler;
+ Symbol.DeclToken  := DeclToken;
+ Symbol.isInternal := isInternal;
 End;
 
 (* ---------- TType ---------- *)
@@ -345,6 +412,8 @@ End;
 }
 Constructor TType.Create;
 Begin
+ RefSymbol := TSymbol.Create;
+
  RegPrefix     := #0;
  ArrayDimCount := 0;
  ArrayBase     := nil;
@@ -421,7 +490,7 @@ End;
 
 (* TType.isNull *)
 {
- Returns `true` when type passed in parameter is `null`; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `null`.
 }
 Function TType.isNull: Boolean;
 Begin
@@ -433,7 +502,7 @@ End;
 
 (* TType.isVoid *)
 {
- Returns `true` when type passed in parameter is `void`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `void` or `null`.
 }
 Function TType.isVoid: Boolean;
 Begin
@@ -445,64 +514,62 @@ End;
 
 (* TType.isBool *)
 {
- Returns `true` when type passed in parameter is `bool`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `bool`.
 }
 Function TType.isBool: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(InternalID in [TYPE_BOOL_id{, TYPE_INT_id}]);
+ Exit(InternalID = TYPE_BOOL_id);
 End;
 
 (* TType.isChar *)
 {
- Returns `true` when type passed in parameter is `char`-derived; in other case, returns `false`.
- @Note: Also returns `false` when passed type is `int`!
+ Returns `true` when type passed in parameter is `char`.
 }
 Function TType.isChar: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(InternalID in [TYPE_CHAR_id]);
+ Exit(InternalID = TYPE_CHAR_id);
 End;
 
 (* TType.isInt *)
 {
- Returns `true` when type passed in parameter is `int`-derived or is a pointer; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `int` or a pointer.
 }
 Function TType.isInt: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit((InternalID in [TYPE_INT_id]) or (taFunction in Attributes));
+ Exit((InternalID = TYPE_INT_id) or (taFunction in Attributes));
 End;
 
 (* TType.isFloat *)
 {
- Returns `true` when type passed in parameter is `float`-derived; in other case, returns `false`.
- @Note: Also returns `false` when passed type is `int` or pointer!
+ Returns `true` when type passed in parameter is `float`.
 }
 Function TType.isFloat: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(InternalID in [TYPE_FLOAT_id]);
+ Exit(InternalID = TYPE_FLOAT_id);
 End;
 
 (* TType.isString *)
 {
- Returns `true` when type passed in parameter is `string`-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is `string`.
 }
 Function TType.isString: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(InternalID in [TYPE_STRING_id]);
+ Exit(InternalID = TYPE_STRING_id);
 End;
 
 (* TType.isNumerical *)
@@ -567,13 +634,11 @@ Begin
 
  if (self = nil) Then
  Begin
-  DevLog('Info: TType.Clone() called with `self = nil`; returned an empty type');
+  //DevLog('Info: TType.Clone() called with `self = nil`; returned an empty type');
   Exit;
  End;
 
- Result.Name       := Name;
- Result.Visibility := Visibility;
- Result.mCompiler  := mCompiler;
+ Result.RefSymbol := RefSymbol.Clone;
 
  Result.RegPrefix  := RegPrefix;
  Result.InternalID := InternalID;
@@ -640,6 +705,12 @@ Begin
   if (isString) Then
    Exit('char');
 
+  if (InternalID > High(PrimaryTypeNames)) Then
+  Begin
+   DevLog('Error: InternalID > High(PrimaryTypeNames) ('+IntToStr(InternalID)+' > '+IntToStr(High(PrimaryTypeNames))+'); returned `erroneous type`');
+   Exit('erroneous type');
+  End;
+
   Exit(PrimaryTypeNames[InternalID]);
  End Else
  Begin
@@ -651,7 +722,7 @@ Begin
   End Else
   Begin
    if (ArrayBase.isArray) Then
-    TCompiler(mCompiler).CompileError(eInternalError, ['ArrayBase.isArray() == true']);
+    TCompiler(RefSymbol.mCompiler).CompileError(eInternalError, ['ArrayBase.isArray() == true']);
 
    I      := ArrayDimCount;
    Result += ArrayBase.asString;
@@ -790,11 +861,14 @@ Begin
   Exit(False);
  End;
 
- if (self.isVoid or self.isNull) or (T2.isVoid or T2.isNull) Then // void, null to anything => false
-  Exit(False);
-
  if (type_equal(self, T2)) Then
   Exit(True);
+
+ if (self.isNull) Then // `null` can be casted to: function pointer
+  Exit(T2.isFunctionPointer);
+
+ if (self.isFunctionPointer) Then // `function pointer` can be casted to: int
+  Exit(T2.isInt);
 
  if (self.isBool) Then // `bool` can be casted to: char, int
   Exit(T2.isChar or T2.isInt);
@@ -811,6 +885,9 @@ Begin
  if (self.isString) Then // `string` cannot be casted to anything
   Exit(False);
 
+ if (self.isVoid) or (T2.isVoid) Then // void to anything => false
+  Exit(False);
+
  Exit(False);
 End;
 
@@ -819,11 +896,11 @@ End;
 (* TVariable.Create *)
 Constructor TVariable.Create;
 Begin
- MemPos := 0;
+ RefSymbol := TSymbol.Create;
 
- Typ   := nil;
- Value := nil;
- Deep  := 0;
+ MemPos := 0;
+ Typ    := nil;
+ Value  := nil;
 
  Attributes := [];
 End;
@@ -862,14 +939,17 @@ End;
 (* TFunction.Create *)
 Constructor TFunction.Create;
 Begin
+ RefSymbol := TSymbol.Create;
+
  ModuleName    := '';
  NamespaceName := '';
 
  Return := nil;
 
  SetLength(ParamList, 0);
- SetLength(VariableList, 0);
  SetLength(ConstructionList, 0);
+
+ SymbolList := TLocalSymbolList.Create;
 
  Attributes := [];
 End;
@@ -883,18 +963,129 @@ Begin
  Result := (faNaked in Attributes);
 End;
 
+(* ---------- TLocalSymbol ---------- *)
+
+(* TLocalSymbol.Create *)
+Constructor TLocalSymbol.Create(const SymbolType: TLocalSymbolType; const CreateInstance: Boolean=True);
+Begin
+ Typ := SymbolType;
+
+ mVariable := nil;
+ mType     := nil;
+
+ if (CreateInstance) Then
+  Case Typ of
+   lsConstant, lsVariable:
+   Begin
+    mVariable           := TVariable.Create;
+    mVariable.RefSymbol := self;
+   End;
+
+   lsType:
+   Begin
+    mType           := TType.Create;
+    mType.RefSymbol := self;
+   End;
+  End;
+End;
+
+(* TLocalSymbol.Create *)
+Constructor TLocalSymbol.Create(const SymbolType: TLocalSymbolType; const Instance: Pointer);
+Begin
+ Create(SymbolType, False);
+
+ Case Typ of
+  lsConstant, lsVariable:
+  Begin
+   mVariable := TVariable(Instance);
+   mVariable.RefSymbol.CopyTo(self);
+  End;
+
+  lsType:
+  Begin
+   mType := TType(Instance);
+   mType.RefSymbol.CopyTo(self);
+  End;
+ End;
+End;
+
 (* ---------- TGlobalSymbol ---------- *)
 
 (* TGlobalSymbol.Create *)
-Constructor TGlobalSymbol.Create;
+Constructor TGlobalSymbol.Create(const SymbolType: TGlobalSymbolType; const CreateInstance: Boolean=True);
 Begin
- Typ := TGlobalSymbolType(0);
+ Typ := SymbolType;
 
  mVariable := nil;
  mFunction := nil;
  mType     := nil;
 
- isInternal := False;
+ if (CreateInstance) Then
+  Case Typ of
+   gsConstant, gsVariable:
+   Begin
+    mVariable           := TVariable.Create;
+    mVariable.RefSymbol := self;
+   End;
+
+   gsFunction:
+   Begin
+    mFunction           := TFunction.Create;
+    mFunction.RefSymbol := self;
+   End;
+
+   gsType:
+   Begin
+    mType           := TType.Create;
+    mType.RefSymbol := self;
+   End;
+  End;
+End;
+
+(* TGlobalSymbol.Create *)
+Constructor TGlobalSymbol.Create(const SymbolType: TGlobalSymbolType; const Instance: Pointer);
+Begin
+ Create(SymbolType, False);
+
+ Case Typ of
+  gsConstant, gsVariable:
+  Begin
+   mVariable := TVariable(Instance);
+   mVariable.RefSymbol.CopyTo(self);
+  End;
+
+  gsFunction:
+  Begin
+   mFunction := TFunction(Instance);
+   mFunction.RefSymbol.CopyTo(self);
+  End;
+
+  gsType:
+  Begin
+   mType := TType(Instance);
+   mType.RefSymbol.CopyTo(self);
+  End;
+ End;
+End;
+
+(* TGlobalSymbol.Create *)
+Constructor TGlobalSymbol.Create(const CloneOf: TGlobalSymbol);
+Begin
+ CloneOf.CopyTo(self);
+
+ Typ       := CloneOf.Typ;
+ mVariable := CloneOf.mVariable;
+ mFunction := CloneOf.mFunction;
+ mType     := CloneOf.mType;
+
+ if (mVariable <> nil) Then
+  mVariable.RefSymbol := mVariable.RefSymbol.Clone;
+
+ if (mFunction <> nil) Then
+  mFunction.RefSymbol := mFunction.RefSymbol.Clone;
+
+ if (mType <> nil) Then
+  mType.RefSymbol := mType.RefSymbol.Clone;
 End;
 
 (* ---------- TNamespace ---------- *)
@@ -902,6 +1093,6 @@ End;
 (* TNamespace.Create *)
 Constructor TNamespace.Create;
 Begin
- SetLength(SymbolList, 0);
+ SymbolList := TGlobalSymbolList.Create;
 End;
 End.

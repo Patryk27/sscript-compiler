@@ -4,6 +4,9 @@ Var TypeLeft, TypeRight: TType;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
 
+ if (Result = nil) Then
+  Exit;
+
  Case Expr^.Typ of
   mtLower       : Opcode := o_if_l;
   mtGreater     : Opcode := o_if_g;

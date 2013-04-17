@@ -25,7 +25,6 @@ Unit ExpressionCompiler;
                      Typ  : TMExpressionType;
                      Value: Variant;
                      Token: TToken_P;
-                     Deep : Integer;
 
                      ParamCount : Integer; // if `Typ == stFunction`, here's hold read parameters count
                      NamespaceID: Integer; // function calls, variables and constants only
@@ -54,7 +53,7 @@ Unit ExpressionCompiler;
                        Function FinalExprPop: TStackValue;
                        Function FinalExprPeek: TStackValue;
 
-                       Function CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; Deep: Integer; NamespaceID: Integer=-1): PMExpression;
+                       Function CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PMExpression;
                       Public
                        Constructor Create(fCompiler: TCompiler);
 
@@ -267,7 +266,6 @@ Begin
  Begin
   Typ   := fTyp;
   Value := fValue;
-  Deep  := Compiler.Parser.CurrentDeep;
  End;
  Inc(StackPos);
 End;
@@ -309,7 +307,6 @@ Begin
  Val.Typ         := Typ;
  Val.Value       := Value;
  Val.Token       := Token;
- Val.Deep        := Compiler.Parser.CurrentDeep;
  Val.NamespaceID := NamespaceID;
  FinalExprPush(Val);
 End;
@@ -332,7 +329,7 @@ Begin
 End;
 
 { TInterpreter.CreateNode }
-Function TInterpreter.CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; Deep: Integer; NamespaceID: Integer=-1): PMExpression;
+Function TInterpreter.CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PMExpression;
 Var I: Integer;
 Begin
  New(Result);
@@ -349,7 +346,6 @@ Begin
  Result^.Typ            := Typ;
  Result^.Value          := Value;
  Result^.Token          := Token;
- Result^.Deep           := Deep;
  Result^.IdentID        := -1;
  Result^.IdentNamespace := -1;
  Result^.isLocal        := False;
@@ -447,7 +443,7 @@ Var Token: TToken_P;
       BracketDeep := 0;
 
       Repeat
-       if (-Pos > getPosition) Then
+       if (-Pos > getPosition) Then // Magic. Do not touch.
         Exit(False);
 
        Case next_t(Pos) of
@@ -883,7 +879,7 @@ Begin
  End;
 
  { something else (variable, some constant value etc.) }
- Result      := CreateNode(nil, nil, mtNothing, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
+ Result      := CreateNode(nil, nil, mtNothing, Value.Value, Value.Token, Value.NamespaceID);
  Result^.Typ := Value.Typ;
 
  { variable or constant }
@@ -896,7 +892,7 @@ Begin
   Begin
    Compiler.findGlobalCandidate(Result^.Value, Result^.Namespaces, ID, Namespace, @Result^.Token);
 
-   if (ID <> -1) and (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsConstant, gsFunction]) Then  // global variable
+   if (ID <> -1) and (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsConstant, gsFunction]) Then // global variable
    Begin
     Result^.IdentID        := ID;
     Result^.IdentNamespace := Namespace;
@@ -947,7 +943,7 @@ Begin
   { type cast }
   if (Value.Typ = mtTypeCast) Then
   Begin
-   Node := CreateNode(nil, nil, mtTypeCast, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
+   Node := CreateNode(nil, nil, mtTypeCast, Value.Value, Value.Token, Value.NamespaceID);
 
    Node^.Left := CreateNodeFromStack;
 
@@ -957,7 +953,7 @@ Begin
   { function call }
   if (Value.Typ = mtFunctionCall) Then
   Begin
-   Node := CreateNode(nil, nil, mtFunctionCall, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
+   Node := CreateNode(nil, nil, mtFunctionCall, Value.Value, Value.Token, Value.NamespaceID);
 
    SetLength(Node^.ParamList, Value.ParamCount);
    For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
@@ -971,7 +967,7 @@ Begin
   { method call }
   if (Value.Typ = mtMethodCall) Then
   Begin
-   Node := CreateNode(nil, nil, mtMethodCall, Value.Value, Value.Token, Value.Deep, Value.NamespaceID);
+   Node := CreateNode(nil, nil, mtMethodCall, Value.Value, Value.Token, Value.NamespaceID);
 
    SetLength(Node^.ParamList, Value.ParamCount);
    For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
@@ -990,7 +986,7 @@ Begin
    if (Value.Typ in MBinaryOperators) Then
    Begin
     MType := Value.Typ;
-    Node  := CreateNode(nil, nil, MType, null, Value.Token, Value.Deep);
+    Node  := CreateNode(nil, nil, MType, null, Value.Token);
 
     Node^.Right := CreateNodeFromStack;
     Node^.Left  := CreateNodeFromStack;
@@ -1002,7 +998,7 @@ Begin
    if (Value.Typ in MUnaryOperators) Then
    Begin
     MType := Value.Typ;
-    Node  := CreateNode(nil, nil, MType, null, Value.Token, Value.Deep);
+    Node  := CreateNode(nil, nil, MType, null, Value.Token);
 
     Node^.Left := CreateNodeFromStack;
     StackPush(mtTree, LongWord(Node));
@@ -1011,7 +1007,7 @@ Begin
    // `new` operator
    if (Value.Typ = mtNew) Then
    Begin
-    Node := CreateNode(nil, nil, mtNew, null, Value.Token, Value.Deep);
+    Node := CreateNode(nil, nil, mtNew, null, Value.Token);
 
     Node^.Left  := CreateNodeFromStack;
     Node^.Right := CreateNodeFromStack;
@@ -1022,7 +1018,7 @@ Begin
    // array element
    if (Value.Typ = mtArrayElement) Then
    Begin
-    Node := CreateNode(nil, nil, mtArrayElement, null, Value.Token, Value.Deep);
+    Node := CreateNode(nil, nil, mtArrayElement, null, Value.Token);
 
     Node^.Right := CreateNodeFromStack;
     Node^.Left  := CreateNodeFromStack;
@@ -1079,7 +1075,7 @@ Begin
  Result.Values[0] := Interpreter.Optimize(Interpreter.MakeTree, Options);
 
  {$IFDEF DISPLAY_TREE}
- DisplayTree(Result.Values[0]);
+  DisplayTree(Result.Values[0]);
  {$ENDIF}
 End;
 
@@ -1108,6 +1104,8 @@ Type TRVariable = Record
                    getArray: Byte;
 
                    isConst: Boolean;
+
+                   mVariable: TVariable;
                   End;
 
 { CompileConstruction }
@@ -1159,11 +1157,12 @@ Begin
  { set default values }
  With Result do
  Begin
-  MemPos  := 0;
-  RegChar := #0;
-  Typ     := nil;
-  isConst := False;
-  PosStr  := '[0]';
+  MemPos    := 0;
+  RegChar   := #0;
+  Typ       := nil;
+  isConst   := False;
+  PosStr    := '[0]';
+  mVariable := nil;
  End;
 
  Result.getArray := 0;
@@ -1186,11 +1185,12 @@ Begin
   { local variable or constant }
   With Compiler.getCurrentFunction, Result do
   Begin
-   MemPos  := VariableList[ID].MemPos;
-   RegChar := VariableList[ID].Typ.RegPrefix;
-   Typ     := VariableList[ID].Typ;
-   Value   := VariableList[ID].Value;
-   isConst := VariableList[ID].isConst;
+   mVariable := SymbolList[ID].mVariable;
+   MemPos    := mVariable.MemPos;
+   Typ       := mVariable.Typ;
+   RegChar   := mVariable.Typ.RegPrefix;
+   Value     := mVariable.Value;
+   isConst   := mVariable.isConst;
 
    if (MemPos > 0) Then
     PosStr := 'e'+RegChar+IntToStr(MemPos) Else
@@ -1199,14 +1199,16 @@ Begin
  End Else
  Begin
   { global variable or constant }
-  With Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Result.ID], Result do
+  With Result do
   Begin
+   mVariable := Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Result.ID].mVariable;
+
    if (mVariable = nil) Then
     goto Failed;
 
    MemPos  := mVariable.MemPos;
    Typ     := mVariable.Typ;
-   RegChar := Typ.RegPrefix;
+   RegChar := mVariable.Typ.RegPrefix;
    Value   := mVariable.Value;
    isConst := mVariable.isConst;
   End;
@@ -1266,7 +1268,7 @@ Begin
  if (Expr^.Typ = mtVariable) and (Expr^.IdentID <> -1) Then // check if passed variable identifier isn't a constant
  Begin
   if (Expr^.isLocal) Then
-   Exit(not Compiler.getCurrentFunction.VariableList[Expr^.IdentID].isConst) Else
+   Exit(not (Compiler.getCurrentFunction.SymbolList[Expr^.IdentID].Typ = lsConstant)) Else
    Exit(not Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Expr^.IdentID].mVariable.isConst);
  End;
 End;
@@ -1373,7 +1375,7 @@ Begin
  if (Expr = nil) Then
   Exit(TYPE_VOID);
 
- Result := TYPE_VOID; // assuming `void` type
+ Result := nil; //TYPE_VOID; // assuming `void` type
  Left   := Expr^.Left;
  Right  := Expr^.Right;
 
@@ -1515,7 +1517,10 @@ Over:
  Begin
   if (Push_IF_reg) Then // special case
    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'if']) Else
-   Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'e'+Result.RegPrefix+'1']);
+   Begin
+    if (Result <> nil) Then
+     Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'e'+Result.RegPrefix+'1']);
+   End;
   Exit;
  End;
 

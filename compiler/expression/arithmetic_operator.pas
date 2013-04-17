@@ -25,6 +25,12 @@ Begin
  { compile both sides }
  Result := CompileSimple(TypeLeft, TypeRight, WithAssign);
 
+ if (Result = nil) Then
+ Begin
+  DevLog('Warning: ParseArithmeticOperator() -> CompileSimple() returned `nil`; leaving function...');
+  Exit;
+ End;
+
  // `array <operator> array` is an invalid construction
  With Compiler do
   if (TypeLeft.isArray(False) and TypeRight.isArray(False)) Then

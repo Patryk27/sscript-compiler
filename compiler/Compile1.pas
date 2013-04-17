@@ -5,21 +5,23 @@
 Unit Compile1;
 
  Interface
- Uses Classes, SysUtils, Variants, FGL,
+ Uses Classes, SysUtils, Variants, FGL, Math,
       Parser, Tokens, CompilerUnit, Opcodes, Messages, MTypes, symdef,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include, Parse_DELETE,
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
  { constants }
- Const Version  = '2.2'{$IFDEF NIGHTLY}+' nightly'{$ENDIF}; // version of the compiler
-       iVersion = 2.2;
-
-       bytecode_version_major = 0;
-       bytecode_version_minor = 4;
+ Const Version  = '2.2'{$IFDEF NIGHTLY}+' nightly'{$ENDIF}; // version of the compiler (a string)
+       iVersion = 2.2; // version of the compiler (a float number)
 
  { types }
- // TOpcodeList
+ Type TCompiler = class;
+
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
+ Type TCompilePass = (cp1, cp2); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `cp3` enum
+
+ Type TCompilerArray = Array of TCompiler;
+      PCompilerArray = ^TCompilerArray;
 
  (* TCompiler *)
  Type TCompiler = Class
@@ -35,7 +37,9 @@ Unit Compile1;
 
                    Public
                     Parent      : TCompiler;
+                    Supervisor  : TCompiler;
                     CompileMode : (cmApp, cmLibrary, cmBytecode); // compilation mode
+                    CompilePass : TCompilePass;
                     InputFile   : String; // input file name
                     OutputFile  : String; // output file name
                     ModuleName  : String; // module name
@@ -48,12 +52,16 @@ Unit Compile1;
 
                     OpcodeList: TOpcodeList; // output code opcode list
 
-                    IncludeList: Array of TCompiler; // include
+                    IncludeList: PCompilerArray; // global include list
                     Scope      : Array of TMScope; // scope list
 
                     NamespaceList: TNamespaceList; // namespace list
 
                     SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>_begin`, so they don't overwrite each other
+
+                    CurrentFunction: TFunction;
+
+                    Property getCurrentFunction: TFunction read CurrentFunction;
 
                { -> methods }
                     Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
@@ -66,6 +74,7 @@ Unit Compile1;
 
                    { parser }
                     Procedure ParseToken;
+                    Procedure SkipCodeBlock;
                     Procedure ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
 
                    { bytecode }
@@ -80,6 +89,7 @@ Unit Compile1;
                    { types }
                     Function NewTypeFromFunction(Func: TFunction): TType;
 
+                    Function findLocalType(fName: String; fTokenPos: Int64=-1): Integer;
                     Function findGlobalType(const TypeName: String; NamespaceID: Integer=-1): TType;
                     Procedure findTypeCandidate(const TypeName: String; Namespaces: TMIntegerArray; out TypeID, NamespaceID: Integer; const Token: PToken_P=nil);
 
@@ -88,21 +98,20 @@ Unit Compile1;
                    { scope }
                     Procedure NewScope(const Typ: TMScopeType; LoopBegin: String=''; LoopEnd: String='');
                     Procedure RemoveScope;
+                    Function inRange(Range: TRange; TokenPos: Int64=-1): Boolean;
 
                    { variables }
                     Function findFreeRegister(cRegChar: Char): Integer;
-                    Function findLocalVariable(fName: String; fDeep: Integer=-1): Integer;
 
                     Procedure __variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
                     Function __allocate_var(const TryRegisters: Boolean; RegPrefix: Char=#0): Integer;
 
                     Function isConstantValue(Expr: TMExpression): Boolean;
 
+                    Function findLocalVariable(fName: String; fTokenPos: Int64=-1): Integer;
                     Procedure findGlobalVariableCandidate(const VarName: String; Namespaces: TMIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
 
                    { functions }
-                    Function getCurrentFunction: TFunction;
-
                     Function findFunction(FuncName: String; NamespaceID: Integer=-1): Integer;
                     Procedure findFunctionByLabel(const LabelName: String; out FuncID, NamespaceID: Integer);
 
@@ -123,7 +132,7 @@ Unit Compile1;
                     Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 
                    { compiling }
-                    Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; fParent: TCompiler=nil);
+                    Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil);
 
                     Procedure CompileError(Token: TToken_P; Error: TCompileError; Args: Array of Const);
                     Procedure CompileError(Token: PToken_P; Error: TCompileError; Args: Array of Const);
@@ -143,11 +152,25 @@ Unit Compile1;
                     Procedure GenerateHeaderFile(const fOutputFile: String);
                    End;
 
+ Function ReplaceDirSep(FileName: String): String;
  Function makeModuleName(FileName: String): String;
  Function CopyStringToPChar(const Str: String): PChar;
 
  Implementation
 Uses Compile2, ExpressionCompiler, SSM_parser, Peephole;
+
+(* ReplaceDirSep *)
+{
+ Replaces `/` and/or `\` to appropriate directory separator
+}
+Function ReplaceDirSep(FileName: String): String;
+Const Sep = DirectorySeparator;
+Begin
+ FileName := StringReplace(FileName, '/', Sep, [rfReplaceAll]);
+ FileName := StringReplace(FileName, '\', Sep, [rfReplaceAll]);
+ FileName := StringReplace(FileName, Sep+Sep, Sep, [rfReplaceAll]);
+ Exit(FileName);
+End;
 
 (* makeModuleName *)
 {
@@ -182,10 +205,12 @@ End;
 }
 Procedure TCompiler.MakeImports;
 Var SSM          : TSSM;
-    NS, I, Q     : Integer;
+    I, Q         : Integer;
     Can, Found   : Boolean;
     FileName, Tmp: String;
     Comp         : Compile1.TCompiler;
+
+    Namespace: TNamespace;
 Begin
  if (getBoolOption(opt_initcode)) Then
  Begin
@@ -202,16 +227,15 @@ Begin
   SSM.Free;
  End;
 
- For NS := Low(NamespaceList) To High(NamespaceList) Do
- Begin
-  With NamespaceList[NS] Do
+ For Namespace in NamespaceList Do // each namespace
+  With Namespace do
   Begin
-   For I := Low(SymbolList) To High(SymbolList) Do
+   For I := 0 To SymbolList.Count-1 Do // each symbol
     if (SymbolList[I].Typ = gsFunction) and (SymbolList[I].mFunction.LibraryFile <> '') Then // is it an imported function?
     Begin
      Can := True;
 
-     For Q := Low(SymbolList) To I-1 Do // we don't want some file to be loaded eg.10 times instead of 1 time (it just skips multiple imports from same file)
+     For Q := 0 To I-1 Do // we don't want some file to be loaded eg.10 times instead of 1 time (it just skips multiple imports from same file)
       if (SymbolList[Q].Typ = gsFunction) Then
        if (SymbolList[Q].mFunction.LibraryFile = SymbolList[I].mFunction.LibraryFile) Then
         Can := False;
@@ -220,11 +244,11 @@ Begin
       Continue; // proceed to the next file
 
      FileName := SymbolList[I].mFunction.LibraryFile;
-     Comp     := TCompiler(SymbolList[I].mFunction.mCompiler);
+     Comp     := TCompiler(SymbolList[I].mCompiler);
 
-     FileName := SearchFile(FileName, Found);
+     FileName := SearchFile(FileName, Found); // search file
 
-     if (not Found) Then
+     if (not Found) Then // not found
      Begin
       Tmp := ExtractFilePath(Comp.InputFile)+FileName;
       if (FileExists(Tmp)) Then
@@ -232,12 +256,11 @@ Begin
      End;
 
      SSM := TSSM.Create;
-     if (not SSM.Load(FileName, Comp.ModuleName, self)) Then
-      Comp.CompileError(SymbolList[I].mFunction.DeclToken, eCorruptedSSMFile, [SymbolList[I].mFunction.LibraryFile]);
+     if (not SSM.Load(FileName, Comp.ModuleName, self)) Then // try to load SSM
+      Comp.CompileError(SymbolList[I].DeclToken, eCorruptedSSMFile, [SymbolList[I].mFunction.LibraryFile]);
      SSM.Free;
     End;
   End;
- End;
 End;
 
 (* TCompiler.CompileAsBytecode *)
@@ -247,7 +270,7 @@ End;
 Procedure TCompiler.CompileAsBytecode;
 Var Compiler2: Compile2.TCompiler;
 Begin
- Log('-> Compiling as a bytecode');
+ Log('-> Compiling as bytecode');
 
  Parse_CODE.Parse(self, True); // parse bytecode
 
@@ -404,11 +427,17 @@ Begin
  Result := FileName;
  Found  := False;
 
+ DevLog('Searching for file `'+FileName+'`');
+
  For I := 0 To IncludePaths.Count-1 Do
  Begin
-  Tmp := StringReplace(IncludePaths[I]+'\'+FileName, '\\', '\', [rfReplaceAll]);
+  Tmp := ReplaceDirSep(IncludePaths[I]+'\'+FileName);
+
+  DevLog('Trying: `'+Tmp+'`');
+
   if (FileExists(Tmp)) Then
   Begin
+   DevLog('Found!');
    Found := True;
    Exit(Tmp);
   End;
@@ -422,7 +451,7 @@ End;
 Procedure TCompiler.AddConstruction(C: TMConstruction);
 Begin
  if (getCurrentFunction = nil) Then
-  CompileError(eInternalError, ['No function found!']);
+  CompileError(eInternalError, ['No function being parsed/compiled!']);
 
  C.Token := Parser.next_pnt(-1);
 
@@ -451,7 +480,7 @@ Begin
  Begin
   Token := read;
 
-  if (Length(Scope) = 0) Then // outside any function
+  if (not inFunction) Then // outside any function
   Begin
    Case Token.Token of
     { public }
@@ -509,7 +538,7 @@ Begin
 
     _ELSE, _NAMESPACE, _CATCH: CompileError(eNotAllowed, [Token.Display]);
 
-    _SEMICOLON: // at pure semicolon, don't do anything
+    _SEMICOLON: ; // at semicolon, don't do anything
 
     else
     Begin
@@ -518,6 +547,28 @@ Begin
     End;
    End;
   End;
+ End;
+End;
+
+(* TCompiler.SkipCodeBlock *)
+{
+ See @TCompiler.ParseCodeBlock
+}
+Procedure TCompiler.SkipCodeBlock;
+Var Deep: Integer;
+Begin
+ With Parser do
+ Begin
+  // read 'till semicolon
+
+  Deep := CurrentDeep;
+
+  Repeat
+   Case read_t of
+    _BRACKET3_OP: Inc(Deep);
+    _BRACKET3_CL: Dec(Deep);
+   End;
+  Until (Deep = CurrentDeep);
  End;
 End;
 
@@ -542,6 +593,18 @@ Begin
   if (next_t <> _BRACKET3_OP) Then
    if (AllowOneTokenOnly) Then
    Begin
+    if (next_t in [_VAR, _CONST]) Then
+    Begin
+     {
+      eg.if (true)
+       var<int> a; else
+       var<int> b;
+
+      is invalid...
+     }
+     CompileError(next, eUnexpected, ['var']);
+    End;
+
     ParseToken;
     Exit;
    End Else
@@ -568,6 +631,9 @@ Var I, T: Integer;
 
     DoCheck: Boolean;
 Begin
+ if (fOpcode = o_location) and (getBoolOption(opt__strip_debug)) Then
+  Exit;
+
  DoCheck := (fToken <> nil); // check only bytecode written by user
 
  if (fToken = nil) Then
@@ -831,29 +897,52 @@ Begin
  Result.InternalID := TYPE_INT_id;
  Result.FuncParams := Func.ParamList;
  Result.FuncReturn := Func.Return;
- Result.DeclToken  := Func.DeclToken;
- Result.mCompiler  := Func.mCompiler;
+ //Result.DeclToken  := Func.DeclToken;
+ //Result.mCompiler  := Func.mCompiler;
  Result.Attributes := [taFunction];
+End;
+
+(* TCompiler.findLocalType *)
+{
+ Searches for a local type with specified name and deep.
+}
+Function TCompiler.findLocalType(fName: String; fTokenPos: Int64=-1): Integer;
+Var I: Integer;
+Begin
+ Result := -1;
+
+ if (not inFunction) Then
+ Begin
+  DevLog('Info: findLocalType() called outside function');
+  Exit;
+ End;
+
+ With getCurrentFunction do // in current function
+  For I := 0 To SymbolList.Count-1 Do // each symbol
+   With SymbolList[I] do
+    if (Typ = lsType) Then // if type
+     With mType do
+      if (inRange(Range, fTokenPos) and (Name = fName)) Then
+       Exit(I);
 End;
 
 (* TCompiler.findGlobalType *)
 {
- Searches the type table for type named `Name` in global (main) and currently parsed namespace.
+ Searches the symbol table for type named `Name` in the global (`self`) and currently parsed namespace.
  If found, returns its ID; if not found, returns -1
 }
 Function TCompiler.findGlobalType(const TypeName: String; NamespaceID: Integer=-1): TType;
 
   // Search
   Procedure Search(const NamespaceID: Integer);
-  Var I: Integer;
+  Var Symbol: TGlobalSymbol;
   Begin
-   With NamespaceList[NamespaceID] do
-    For I := Low(SymbolList) To High(SymbolList) Do
-     if (SymbolList[I].Typ = gsType) and (SymbolList[I].mType.Name = TypeName) Then
-     Begin
-      Result := SymbolList[I].mType;
-      Exit;
-     End;
+   For Symbol in NamespaceList[NamespaceID].SymbolList Do
+    if (Symbol.Typ = gsType) and (Symbol.Name = TypeName) Then
+    Begin
+     Result := Symbol.mType;
+     Exit;
+    End;
   End;
 
 Begin
@@ -894,14 +983,16 @@ Begin
   mtInt   : Exit(TYPE_INT);
   mtFloat : Exit(TYPE_FLOAT);
   mtString: Exit(TYPE_STRING);
-  else CompileError(eInternalError, ['Invalid expression type']);
+
+  else
+   CompileError(eInternalError, ['Invalid expression type']);
  End;
 End;
 
 (* TCompiler.NewScope *)
 {
- Makes a new scope typed `Typ`; when scope is a loop (supporting `continue` and `break`), there are needed also
- `LoopBegin` and `LoopEnd`, which are labels' names (without preceding `:`) for - respectively - `continue` and `break`
+ Makes a new scope typed `Typ`; when scope is a loop (supporting `continue` and `break`), there are required also
+ `LoopBegin` and `LoopEnd`, which are labels' names (without preceding `:`) for - respectively - `continue` and `break` instructions
 }
 Procedure TCompiler.NewScope(const Typ: TMScopeType; LoopBegin: String=''; LoopEnd: String='');
 Begin
@@ -918,56 +1009,50 @@ End;
 Procedure TCompiler.RemoveScope;
 Begin
  if (Length(Scope) = 0) Then
-  CompileError(eInternalError, ['Length(Scope) = 0']);
+  CompileError(eInternalError, ['Cannot remove scope - no scope was set.']);
+
  SetLength(Scope, High(Scope));
+End;
+
+(* TCompiler.inRange *)
+Function TCompiler.inRange(Range: TRange; TokenPos: Int64): Boolean;
+Begin
+ if (TokenPos < 0) Then
+  TokenPos := Parser.TokenPos;
+
+ Exit(Math.inRange(TokenPos, Range.PBegin, Range.PEnd));
 End;
 
 (* TCompiler.findFreeRegister *)
 {
- Searches for a free register (third or fourth) of type `cRegChar`.
+ Searches for a free register (e_3 / e_4) of type `cRegChar`.
  Should be called only for local (or temporary) variable allocation.
- When any free register is found, returns its ID; in other case, returns -1.
+ When a free register is found, returned is its ID; in other case, returned is `-1`.
 }
 Function TCompiler.findFreeRegister(cRegChar: Char): Integer;
 Var I       : Integer;
     FreeRegs: Set of 1..4 = [];
+    Symbol  : TLocalSymbol;
 Begin
  For I := 3 To 4 Do // first 2 registers (ei1/ei2, ef1/ef2 ...) of each type are used for calculations, so we cannot use them as a variable holders
   Include(FreeRegs, I);
 
+ if not (cRegChar in ['b', 'c', 'i', 'f', 's', 'r']) Then
+  CompileError(eInternalError, ['TCompiler.findFreeRegister() called with invalid register prefix: #'+IntToStr(ord(cRegChar))]);
+
  With getCurrentFunction do // search in current function
  Begin
-  For I := Low(VariableList) To High(VariableList) Do
-   With VariableList[I] do
-    if (Deep <= Parser.CurrentDeep) and (Typ.RegPrefix = cRegChar) and (MemPos > 0) Then // if register is already allocated, we exclude it from the `FreeRegs` list
-     Exclude(FreeRegs, MemPos);
+  For Symbol in SymbolList Do
+   if (Symbol.Typ = lsVariable) Then
+    With Symbol, mVariable do
+     if (inRange(Range)) and (Typ.RegPrefix = cRegChar) and (MemPos > 0) Then // if register is already allocated, we exclude it from the `FreeRegs` list
+      Exclude(FreeRegs, MemPos);
 
   For I in FreeRegs Do // return first free register
    Exit(I);
  End;
 
  Result := -1; // no free register found! :<
-End;
-
-(* TCompiler.findLocalVariable *)
-{
- Finds a local variable or constant with specified name (`fName`) in specified scope (`fDeep`).
- When `fDeep` equals `-1`, it's set to current scope.
-}
-Function TCompiler.findLocalVariable(fName: String; fDeep: Integer=-1): Integer;
-Var I: Integer;
-Begin
- Result := -1;
-
- if (fDeep = -1) Then
-  fDeep := Parser.CurrentDeep;
-
- With getCurrentFunction do
- Begin
-  For I := Low(VariableList) To High(VariableList) Do
-   if (VariableList[I].Deep <= fDeep) and (VariableList[I].Name = fName) Then
-    Exit(I);
- End;
 End;
 
 (* TCompiler.__variable_create *)
@@ -978,14 +1063,19 @@ Procedure TCompiler.__variable_create(fName: String; fTyp: TType; fMemPos: Integ
 Begin
  With getCurrentFunction do
  Begin
-  SetLength(VariableList, Length(VariableList)+1);
-  VariableList[High(VariableList)] := TVariable.Create;
-  With VariableList[High(VariableList)] do
+  SymbolList.Add(TLocalSymbol.Create(lsVariable));
+
+  With SymbolList.Last do
   Begin
-   Name       := fName;
-   Typ        := fTyp;
-   MemPos     := fMemPos;
-   Attributes := fAttributes;
+   Name := fName;
+
+   With mVariable do
+   Begin
+    Typ        := fTyp;
+    Range      := Parser.getCurrentRange;
+    MemPos     := fMemPos;
+    Attributes := fAttributes;
+   End;
   End;
  End;
 End;
@@ -995,7 +1085,7 @@ End;
  Tries to allocate a variable; returns `TVariable.MemPos`
 }
 Function TCompiler.__allocate_var(const TryRegisters: Boolean; RegPrefix: Char=#0): Integer;
-Var I: Integer;
+Var Symbol: TLocalSymbol;
 Begin
  Result := -1;
 
@@ -1008,9 +1098,11 @@ Begin
  Begin
   Result := 0;
   With getCurrentFunction do
-   For I := Low(VariableList) To High(VariableList) Do
-    if (VariableList[I].Deep <= Parser.CurrentDeep) and (VariableList[I].MemPos <= 0) and (not VariableList[I].DontAllocate) Then
-     Dec(Result);
+   For Symbol in SymbolList Do // each symbol
+    if (Symbol.Typ = lsVariable) Then // if vasriable
+     With Symbol, mVariable do
+      if (inRange(Range)) and (MemPos <= 0) and (not DontAllocate) Then
+       Dec(Result);
  End;
 End;
 
@@ -1024,10 +1116,30 @@ Begin
  Result := (Expr.Left = nil) and (Expr.Right = nil) and (Expr.Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]);
 End;
 
+(* TCompiler.findLocalVariable *)
+{
+ Finds a local variable or constant with specified name (`fName`) in specified scope (`fDeep`).
+ When `fDeep` equals `-1`, it's set to current scope.
+}
+Function TCompiler.findLocalVariable(fName: String; fTokenPos: Int64=-1): Integer;
+Var I: Integer;
+Begin
+ Result := -1;
+
+ With getCurrentFunction do
+ Begin
+  For I := 0 To SymbolList.Count-1 Do
+   if (SymbolList[I].Typ in [lsVariable, lsConstant]) Then
+    With SymbolList[I], mVariable do
+     if (inRange(Range, fTokenPos) and (Name = fName)) Then
+      Exit(I);
+ End;
+End;
+
 (* TCompiler.findGlobalVariableCandidate *)
 {
- See @TCompiler.findFunctionCandidate
- This function searches also global constants.
+ See @TCompiler.findGlobalCandidate
+ This function searches global constants and variables.
 }
 Procedure TCompiler.findGlobalVariableCandidate(const VarName: String; Namespaces: TMIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
 Begin
@@ -1041,25 +1153,10 @@ Begin
   End;
 End;
 
-(* TCompiler.getCurrentFunction *)
-{
- Returns currently parsed function
-}
-Function TCompiler.getCurrentFunction: TFunction;
-Var I: Integer;
-Begin
- Result := nil;
-
- With getCurrentNamespace do
-  For I := High(SymbolList) Downto Low(SymbolList) Do
-   if (SymbolList[I].Typ = gsFunction) Then
-    Exit(SymbolList[I].mFunction);
-End;
-
 (* TCompiler.findFunction *)
 {
  Searches for a function named `Name` in namespace `NamespaceID` and returns its ID (when found), or `-1` (when not found).
- When `NamespaceID` equals `-1`, it's set ti currently parsed namespace.
+ When `NamespaceID` equals `-1`, it's set to currently parsed namespace.
 }
 Function TCompiler.findFunction(FuncName: String; NamespaceID: Integer=-1): Integer;
 Var I: Integer;
@@ -1070,9 +1167,9 @@ Begin
   NamespaceID := CurrentNamespace;
 
  With NamespaceList[NamespaceID] do
-  For I := Low(SymbolList) To High(SymbolList) Do
+  For I := 0 To SymbolList.Count-1 Do
    With SymbolList[I] do
-    if (Typ = gsFunction) and (mFunction.Name = FuncName) Then
+    if (Typ = gsFunction) and (Name = FuncName) Then
      Exit(I);
 End;
 
@@ -1086,9 +1183,9 @@ Begin
  FuncID      := -1;
  NamespaceID := -1;
 
- For NS := Low(NamespaceList) To High(NamespaceList) Do
+ For NS := 0 To NamespaceList.Count-1 Do // each namespace
   With NamespaceList[NS] do
-   For Func := Low(SymbolList) To High(SymbolList) Do
+   For Func := 0 To SymbolList.Count-1 Do // each symbol in namespace
     With SymbolList[Func] do
      if (Typ = gsFunction) and (mFunction.MangledName = LabelName) Then
      Begin
@@ -1122,7 +1219,7 @@ End;
 
 (* TCompiler.getCurrentNamespace *)
 {
- Returns current namespace (ie. - namespace which is currently parsed).
+ Returns current namespace (ie. - namespace which currently being compiled).
 }
 Function TCompiler.getCurrentNamespace: TNamespace;
 Begin
@@ -1131,7 +1228,7 @@ End;
 
 (* TCompiler.getDefaultNamespace *)
 {
- Returns default ("global") namespace.
+ Returns the default ("self") namespace.
 }
 Function TCompiler.getDefaultNamespace: TNamespace;
 Begin
@@ -1148,7 +1245,7 @@ Var I: Integer;
 Begin
  Result := -1;
 
- For I := Low(NamespaceList) To High(NamespaceList) Do
+ For I := 0 To NamespaceList.Count-1 Do
   if (NamespaceList[I].Name = Name) Then
    Exit(I);
 End;
@@ -1177,9 +1274,9 @@ Begin
   NamespaceID := CurrentNamespace;
 
  With NamespaceList[NamespaceID] do
-  For I := Low(SymbolList) To High(SymbolList) Do
+  For I := 0 To SymbolList.Count-1 Do
    With SymbolList[I] do
-    if (Typ in [gsConstant, gsVariable]) and (mVariable.Name = VarName) Then
+    if (Typ in [gsConstant, gsVariable]) and (Name = VarName) Then
      Exit(I);
 End;
 
@@ -1190,7 +1287,6 @@ End;
 Procedure TCompiler.findGlobalCandidate(const IdentName: String; Namespaces: TMIntegerArray; out IdentID, NamespaceID: Integer; const Token: PToken_P=nil);
 Type TCandidate = Record
                    ID, Namespace: Integer;
-                   Typ          : (tVar, tFunc, tType);
                    Symbol       : TSymbol;
                   End;
 Var List  : Array of TCandidate;
@@ -1208,19 +1304,11 @@ Begin
   Tmp := -1;
 
   With NamespaceList[NamespaceID] do
-   For I := Low(SymbolList) To High(SymbolList) Do
-    Case SymbolList[I].Typ of
-     gsVariable, gsConstant:
-      if (SymbolList[I].mVariable.Name = IdentName) Then
-       Tmp := I;
-
-     gsFunction:
-      if (SymbolList[I].mFunction.Name = IdentName) Then
-       Tmp := I;
-
-     gsType:
-      if (SymbolList[I].mType.Name = IdentName) Then
-       Tmp := I;
+   For I := 0 To SymbolList.Count-1 Do
+    if (SymbolList[I].Name = IdentName) Then
+    Begin
+     Tmp := I;
+     Break;
     End;
 
   // found?
@@ -1233,25 +1321,7 @@ Begin
     Namespace := NamespaceID;
 
     With NamespaceList[NamespaceID] do
-     Case SymbolList[Tmp].Typ of
-      gsVariable, gsConstant:
-      Begin
-       Typ    := tVar;
-       Symbol := SymbolList[Tmp].mVariable;
-      End;
-
-      gsFunction:
-      Begin
-       Typ    := tFunc;
-       Symbol := SymbolList[Tmp].mFunction;
-      End;
-
-      gsType:
-      Begin
-       Typ    := tType;
-       Symbol := SymbolList[Tmp].mType;
-      End;
-     End;
+     Symbol := SymbolList[Tmp];
    End;
   End;
  End;
@@ -1301,31 +1371,32 @@ Begin
  if (ID <> -1) Then
  Begin
   CompileError(eRedeclaration, [Name]);
-  With getCurrentNamespace.SymbolList[ID].mFunction do
+  With getCurrentNamespace.SymbolList[ID] do
    TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
   Exit;
  End;
 
- if (Name = 'any') or (Name = 'null') or (Name = 'void') or (Name = 'bool') or
-    (Name = 'int') or (Name = 'float') or (Name = 'string') Then
-     Begin
-      CompileError(eRedeclaration, [Name]);
-      Exit;
-     End;
-
  if (inFunction) Then
  Begin
+  // @TODO: DRY (!)
+
   // local variable or constant
   ID := findLocalVariable(Name);
   if (ID <> -1) Then
   Begin
    CompileError(eRedeclaration, [Name]);
-   CompileError(getCurrentFunction.VariableList[ID].DeclToken, ePrevDeclared, []);
+   CompileError(getCurrentFunction.SymbolList[ID].DeclToken, ePrevDeclared, []);
    Exit;
   End;
 
   // local type
-  // @TODO
+  ID := findLocalType(Name);
+  if (ID <> -1) Then
+  Begin
+   CompileError(eRedeclaration, [Name]);
+   CompileError(getCurrentFunction.SymbolList[ID].DeclToken, ePrevDeclared, []);
+   Exit;
+  End;
  End Else
  Begin
   // global variable or constant
@@ -1333,7 +1404,7 @@ Begin
   if (ID <> -1) Then
   Begin
    CompileError(eRedeclaration, [Name]);
-   With getCurrentNamespace.SymbolList[ID].mVariable do
+   With getCurrentNamespace.SymbolList[ID] do
     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
    Exit;
   End;
@@ -1343,9 +1414,13 @@ Begin
   if (Typ <> nil) Then
   Begin
    CompileError(eRedeclaration, [Name]);
-   With Typ do
-    if (mCompiler <> nil) Then // `mCompiler = nil` should be true only for internal types (like `bool`, `string` (...))
-     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
+   With Typ.RefSymbol do
+    Case mCompiler = nil of
+     True: DevLog('Warning: TCompiler.RedeclarationCheck() -> mCompiler = nil; not raising `ePrevDeclared`'); // note, that `mCompiler = nil` should be true only for internal types (like `bool`, `string` (...))
+     else
+      TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
+    End;
+
    Exit;
   End;
 
@@ -1367,44 +1442,38 @@ End;
 {
  Compiles code.
 
-Needed parameters:
- fInputFile  -> input *.ss file
- fOutputFile -> output compiled file
- fOptions    -> compiler options
+ Required parameters:
+   fInputFile  -> input *.ss file
+   fOutputFile -> output compiled file
+   fOptions    -> compiler options
 
-Parameters set automatically (leave them alone):
- isIncluded -> when `true`, no output code is saved into any file; instead, generated bytecode is sent into the parent compiler.
- fParent    -> parent compiler
+ Parameters set automatically (leave them alone):
+   isIncluded  -> when `true`, no output code is saved into any file
+   Pass1Only   -> pretty self-explanatory
+   fParent     -> parent compiler
+   fSupervisor -> see @Parse_include
 }
-Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; fParent: TCompiler=nil);
-Var Compiler2     : Compile2.TCompiler;
-    VBytecode, Str: String;
+Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil);
+Var Compiler2: Compile2.TCompiler;
 
-    I: Integer;
-
+    VBytecode        : String = '';
     UnfinishedComment: Boolean = False;
 
-    // AddPrimaryType
+   // AddPrimaryType
     Procedure AddPrimaryType(Typ: TType);
     Begin
-     With NamespaceList[0] do
-     Begin
-      SetLength(SymbolList, Length(SymbolList)+1);
-      SymbolList[High(SymbolList)]            := TGlobalSymbol.Create;
-      SymbolList[High(SymbolList)].Typ        := gsType;
-      SymbolList[High(SymbolList)].mType      := Typ;
-      SymbolList[High(SymbolList)].isInternal := True;
-     End;
+     Typ.RefSymbol.isInternal := True;
+     NamespaceList[0].SymbolList.Add(TGlobalSymbol.Create(gsType, Typ));
     End;
 
-    // CheckMain
+   // CheckMain
     Function CheckMain: Boolean;
     Var FuncID: Integer;
     Begin
      if (CompileMode <> cmApp) Then
       Exit(True);
 
-     FuncID := findFunction('main', 0); // search for `main` function in the main namespace
+     FuncID := findFunction('main', 0); // search for `main` function in the `self` namespace
 
      if (FuncID = -1) Then // not found!
       Exit(False);
@@ -1413,12 +1482,145 @@ Var Compiler2     : Compile2.TCompiler;
      Begin
       Result :=
       (Length(ParamList) = 0) and
-      (Return.isInt) and
-      (not Return.isObject);
+      (type_equal(Return, TYPE_INT));
      End;
     End;
 
+   // ParseCommandLine
+    Procedure ParseCommandLine;
+    Var I  : Integer;
+        Str: String;
+    Begin
+     { parse `-Cm` }
+     Str := getStringOption(opt_Cm, 'app');
+     Case Str of
+      'app'     : CompileMode := cmApp;
+      'lib'     : CompileMode := cmLibrary;
+      'bytecode': CompileMode := cmBytecode;
+
+      else
+      Begin
+       Writeln('Unknown compile mode (-Cm): `', Str, '`; default set to `app`');
+       CompileMode := cmApp;
+      End;
+     End;
+
+     { parse `-includepath` }
+     IncludePaths               := TStringList.Create;
+     IncludePaths.Delimiter     := ';';
+     IncludePaths.DelimitedText := getStringOption(opt_includepath, '$file;$compiler');
+
+     For I := 0 To IncludePaths.Count-1 Do
+     Begin
+      Str := IncludePaths[I];
+
+      Str := StringReplace(Str, '$file', ExtractFilePath(InputFile), [rfReplaceAll]);
+      Str := StringReplace(Str, '$main', ExtractFilePath(Parent.InputFile), [rfReplaceAll]);
+      Str := StringReplace(Str, '$compiler', ExtractFilePath(ParamStr(0)), [rfReplaceAll]);
+
+      IncludePaths[I] := Str;
+     End;
+
+     { parse `-bytecode` }
+     VBytecode := getStringOption(opt_bytecode);
+    End;
+
+   // CreateSymbols
+    Procedure CreateSymbols;
+    Begin
+     { init default namespace }
+     NamespaceList := TNamespaceList.Create;
+     NamespaceList.Add(TNamespace.Create);
+
+     With NamespaceList.Last do
+     Begin
+      Name       := '';
+      Visibility := mvPublic;
+      SymbolList := TGlobalSymbolList.Create;
+     End;
+
+     CurrentNamespace := 0;
+
+     SetLength(SelectedNamespaces, 1);
+     SelectedNamespaces[0] := 0;
+
+     { create primary type-table }
+     AddPrimaryType(TYPE_ANY);
+     AddPrimaryType(TYPE_NULL);
+     AddPrimaryType(TYPE_VOID);
+     AddPrimaryType(TYPE_BOOL);
+     AddPrimaryType(TYPE_CHAR);
+     AddPrimaryType(TYPE_INT);
+     AddPrimaryType(TYPE_FLOAT);
+     AddPrimaryType(TYPE_STRING);
+
+     { create global constants }
+     With NamespaceList.Last do
+     Begin
+      Name := 'self';
+
+      // `null` global constant
+      SymbolList.Add(TGlobalSymbol.Create(gsConstant));
+      With SymbolList.Last do
+      Begin
+       Name       := 'null';
+       isInternal := True;
+
+       With mVariable do
+       Begin
+        Typ        := TYPE_NULL;
+        Value      := MakeIntExpression(0);
+        Visibility := mvPrivate;
+
+        Include(Attributes, vaConst);
+       End;
+      End;
+
+      // @TODO: special constants (__file etc.)
+     End;
+    End;
+
+   // ResetParser
+    Procedure ResetParser;
+    Begin
+     With Parser do
+     Begin
+      TokenPos   := 0;
+      Visibility := mvPrivate;
+     End;
+    End;
+
+   // Pass1
+    Procedure Pass1;
+    Begin
+     Log('Compilation pass 1');
+     ResetParser;
+     CompilePass := cp1;
+
+     With Parser do
+      Repeat
+       ParseToken;
+      Until (TokenPos > High(TokenList)) or (TokenList[TokenPos].Token = noToken);
+    End;
+
+   // Pass2
+    Procedure Pass2;
+    Begin
+     Log('Compilation pass 2');
+     ResetParser;
+     CompilePass := cp2;
+
+     With Parser do
+      Repeat
+       ParseToken;
+      Until (TokenPos > High(TokenList)) or (TokenList[TokenPos].Token = noToken);
+    End;
+
+Var Str: String;
 Begin
+ fInputFile  := ReplaceDirSep(fInputFile);
+ fOutputFile := ReplaceDirSep(fOutputFile);
+
  InputFile   := fInputFile;
  OutputFile  := fOutputFile;
  Options     := fOptions;
@@ -1426,13 +1628,16 @@ Begin
  ModuleName  := '';
  AnyError    := False;
  Parent      := fParent;
+ Supervisor  := fSupervisor;
+
+ CurrentFunction := nil;
 
  if (isIncluded) Then
   Log('Module: '+InputFile) Else
-  Log('Main file: '+InputFile+' :: '+OutputFile);
+  Log('Main file: '+InputFile+' => '+OutputFile);
 
- Parser            := TParser.Create(self, InputFile, UnfinishedComment);
- Parser.Visibility := mvPrivate;
+ Parser := TParser.Create(self, InputFile, UnfinishedComment);
+ ResetParser;
 
  if (UnfinishedComment) Then
  Begin
@@ -1454,65 +1659,20 @@ Begin
    End;
   End;
 
-  { quick compiler type-check }
-  {$IF (sizeof(Byte) <> 1) or (sizeof(Char) <> 1) or (sizeof(Integer) <> 4) or (sizeof(LongWord) <> 4) or (sizeof(Extended) <> 10)}
-  {$WARNING Invalid type sizes!}
-  {$WARNING You can try to compile this anyway (just remove this `$FATAL` below), but I'm not responsible for any damage...}
-  {$FATAL :<}
-  {$ENDIF}
-
-  { parse `-Cm` }
-  Str := getStringOption(opt_Cm, 'app');
-  Case Str of
-   'app'     : CompileMode := cmApp;
-   'lib'     : CompileMode := cmLibrary;
-   'bytecode': CompileMode := cmBytecode;
-
-   else
-   Begin
-    Writeln('Unknown compile mode (-Cm): `', Str, '`; default set to `app`');
-    CompileMode := cmApp;
-   End;
-  End;
-
-  { parse `-includepath` }
-  IncludePaths               := TStringList.Create;
-  IncludePaths.Delimiter     := ';';
-  IncludePaths.DelimitedText := getStringOption(opt_includepath, '$file;$compiler');
-
-  For I := 0 To IncludePaths.Count-1 Do
-  Begin
-   Str := IncludePaths[I];
-
-   Str := StringReplace(Str, '$file', ExtractFilePath(InputFile), [rfReplaceAll]);
-   Str := StringReplace(Str, '$main', ExtractFilePath(Parent.InputFile), [rfReplaceAll]);
-   Str := StringReplace(Str, '$compiler', ExtractFilePath(ParamStr(0)), [rfReplaceAll]);
-
-   IncludePaths[I] := Str;
-  End;
-
-  { parse `-bytecode` }
-  VBytecode := getStringOption(opt_bytecode);
+  ParseCommandLine;
 
   { create classes }
   OpcodeList := TOpcodeList.Create;
 
   { allocate arrays }
-  SetLength(IncludeList, 0);
+  if (Parent = self) Then
+  Begin
+   New(IncludeList);
+   SetLength(IncludeList^, 0);
+  End Else
+   IncludeList := Parent.IncludeList;
 
   SetLength(Scope, 0);
-
-  SetLength(NamespaceList, 1);
-
-  // init default namespace
-  NamespaceList[0]            := TNamespace.Create;
-  NamespaceList[0].Name       := '';
-  NamespaceList[0].Visibility := mvPublic;
-  SetLength(NamespaceList[0].SymbolList, 0);
-  CurrentNamespace := 0;
-
-  SetLength(SelectedNamespaces, 1);
-  SelectedNamespaces[0] := 0;
 
   Interpreter := ExpressionCompiler.TInterpreter.Create(self);
 
@@ -1534,7 +1694,7 @@ Begin
 
    { compiling as a program }
    Begin
-    // the beginning of the program must be an "init" and "main" function call
+    // the beginning of the program must be the "init" and "main" call
     PutOpcode(o_location, [0, '"'+ExtractRelativePath(ExtractFilePath(Parent.InputFile), InputFile)+'"']); // write location
     if (getBoolOption(opt_initcode)) Then
      PutOpcode(o_call, [':__init']);
@@ -1547,52 +1707,20 @@ Begin
    ModuleName := makeModuleName(fInputFile);
   End;
 
-  { create primary type-table }
-  AddPrimaryType(TYPE_ANY);
-  AddPrimaryType(TYPE_NULL);
-  AddPrimaryType(TYPE_VOID);
-  AddPrimaryType(TYPE_BOOL);
-  AddPrimaryType(TYPE_CHAR);
-  AddPrimaryType(TYPE_INT);
-  AddPrimaryType(TYPE_FLOAT);
-  AddPrimaryType(TYPE_STRING);
-
-  { create global constants }
-  With NamespaceList[0] do
-  Begin
-   Name := 'self';
-
-   SetLength(SymbolList, Length(SymbolList)+1);
-   SymbolList[High(SymbolList)] := TGlobalSymbol.Create;
-
-   With SymbolList[High(SymbolList)] do
-   Begin
-    Typ       := gsConstant;
-    mVariable := TVariable.Create;
-
-    With mVariable do
-    Begin
-     Name       := 'null';
-     Typ        := TYPE_NULL;
-     Value      := MakeIntExpression(0);
-     Visibility := mvPrivate;
-
-     Include(Attributes, vaConst);
-    End;
-
-    isInternal := True;
-   End;
-
-   // @TODO: special constants
-  End;
+  { create symbol list }
+  CreateSymbols;
 
   { clear parser variables }
   Parser.CurrentDeep := 0;
 
   { compile code }
-  Repeat
-   ParseToken;
-  Until (Parser.TokenList[Parser.getPosition].Token = noToken);
+  Pass1;
+
+  if (not Pass1Only) Then
+  Begin
+   if (not AnyError) Then
+    Pass2;
+  End;
 
   { go next? }
   if (not isIncluded) and (AnyError) Then
@@ -1646,7 +1774,7 @@ Begin
      End;
 
      else
-      Writeln('Cannot generate an output header file, because input file is not a library!');
+      Writeln('Cannot generate the output header file, because input file is not a library!');
     End;
    End;
   End;
@@ -1781,13 +1909,17 @@ End;
  Generates a header file (based on current functions list) and saves it into file `fOutputFile.`
 }
 Procedure TCompiler.GenerateHeaderFile(const fOutputFile: String);
-Var Output     : TStringList;
-    mFunc      : TFunction;
-    mCnst      : TVariable;
-    mType      : TType;
-    Typ        : TGlobalSymbolType;
-    NS, Item, I: Integer;
-    Str        : String;
+Var Output: TStringList;
+    Str   : String;
+
+    Item, I: Integer;
+
+    Typ  : TGlobalSymbolType;
+    mFunc: TFunction;
+    mCnst: TVariable;
+    mType: TType;
+
+    Namespace: TNamespace;
 Begin
  Output := TStringList.Create;
 
@@ -1796,9 +1928,9 @@ Begin
   Add('@visibility("public")');
   Add('');
 
-  For NS := Low(NamespaceList) To High(NamespaceList) Do
+  For Namespace in NamespaceList Do
   Begin
-   With NamespaceList[NS] do
+   With Namespace do
    Begin
     if (Visibility <> mvPublic) Then
      Continue;
@@ -1809,8 +1941,11 @@ Begin
      Add('{');
     End;
 
-    For Item := Low(SymbolList) To High(SymbolList) Do
+    For Item := 0 To SymbolList.Count-1 Do
     Begin
+     if (SymbolList[Item].Visibility <> mvPublic) or (SymbolList[Item].isInternal) Then
+      Continue;
+
      Typ := SymbolList[Item].Typ;
      Case Typ of
       gsType    : mType := SymbolList[Item].mType;
@@ -1821,32 +1956,23 @@ Begin
      { global type }
      if (Typ = gsType) Then
       With mType do
-      Begin
-       if (Visibility <> mvPublic) or (SymbolList[Item].isInternal) Then
-        Continue;
-
-       Str := 'type<'+mType.asString+'> '+Name+';';
-      End;
+       Str := 'type<'+mType.asString+'> '+RefSymbol.Name+';';
 
      { global constant }
      if (Typ = gsConstant) Then
       With mCnst do
-      Begin
-       if (Visibility <> mvPublic) or (SymbolList[Item].isInternal) Then
-        Continue;
-
-       Str := 'const '+Name+' = '+getValueFromExpression(Value, True)+';';
-      End;
+       Str := 'const '+RefSymbol.Name+' = '+getValueFromExpression(Value, True)+';';
 
      { function }
      if (Typ = gsFunction) Then
       With mFunc do
       Begin
-       if (ModuleName <> self.ModuleName) or (Visibility <> mvPublic) {or (SymbolList[Item].isInternal)} Then
+       if (ModuleName <> self.ModuleName) Then
         Continue;
 
-       Str := 'function<'+Return.asString+'> '+Name+'(';
+       Str := 'function<'+Return.asString+'> '+RefSymbol.Name+'(';
 
+       // parameter list
        For I := Low(ParamList) To High(ParamList) Do
        Begin
         Str += ParamList[I].Typ.asString;

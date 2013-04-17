@@ -65,11 +65,12 @@ Begin
 
       Token := read;
 
-      if (Token.Token = _PUBLIC) Then
-       Opcode^.isPublic := True Else
-      if (TOken.Token = _PRIVATE) Then
-       Opcode^.isPublic := False Else
-       CompileError(eUnknownMacro, [Token.Display]);
+      Case Token.Token of
+       _PUBLIC : Opcode^.isPublic := True;
+       _PRIVATE: Opcode^.isPublic := False;
+       else
+        CompileError(eUnknownMacro, [Token.Display]);
+      End;
      End;
 
      Continue;
@@ -147,15 +148,15 @@ Begin
        Begin
         if (isIdentLocal) Then
         Begin
-         With getCurrentFunction.VariableList[IdentID] do
+         With getCurrentFunction.SymbolList[IdentID].mVariable do
           if (isConst) Then
            Arg := getValueFromExpression(Value) Else
            Arg := getBytecodePos;
         End Else
-         With NamespaceList[IdentNamespace].SymbolList[IdentID].mVariable Do
+         With NamespaceList[IdentNamespace].SymbolList[IdentID].mVariable do
           if (isConst) Then
            Arg := getValueFromExpression(Value) Else
-           CompileError(eInternalError, ['Global variables are not implemented so far...']);
+           CompileError(eInternalError, ['Global variables have not been implemented yet.']);
        End;
       End;
 

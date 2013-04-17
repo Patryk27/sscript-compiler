@@ -1,13 +1,13 @@
 Unit Parser;
 
  Interface
- Uses Classes,
-      Scanner, Tokens, MTypes, symdef;
+ Uses Classes, symdef,
+      Scanner, Tokens, MTypes;
 
  { TParser }
  Type TParser = Class
                  Private
-               // private fields
+                // private fields
                   Compiler: Pointer;
 
                  Public
@@ -25,6 +25,7 @@ Unit Parser;
                   Constructor Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
 
                   Function getLastToken: TToken_P;
+                  Function getCurrentRange: TRange;
 
                   Function read: TToken_P;
                   Function read_t: TToken;
@@ -37,6 +38,9 @@ Unit Parser;
                   Function read_type(const AllowArrays: Boolean=True): TType;
                   Procedure eat(Token: TToken);
                   Procedure semicolon;
+
+                  Procedure skip_parenthesis;
+                  Procedure read_until_semicolon;
                  End;
 
  Implementation
@@ -96,7 +100,7 @@ Begin
 
   if (Token.Token = _EOF) Then
   Begin
-   DevLog('Info: reached `EOF');
+   DevLog('Info: reached `EOF` - finishing code parsing.');
    Break;
   End;
 
@@ -131,7 +135,7 @@ End;
 
 (* TParser.getLastToken *)
 {
- Return last non-`noToken` token
+ Returns last non-`noToken` token
 }
 Function TParser.getLastToken: TToken_P;
 Var I: LongWord;
@@ -139,6 +143,36 @@ Begin
  For I := High(TokenList) Downto Low(TokenList) Do
   if (TokenList[I].Token <> noToken) Then
    Exit(TokenList[I]);
+End;
+
+(* TParser.getCurrentRange *)
+{
+ Returns current scope's range.
+}
+Function TParser.getCurrentRange: TRange;
+Var Deep: Integer = 1;
+Begin
+ Result.PBegin := TokenPos;
+ Result.PEnd   := Result.PBegin;
+
+ While (true) Do
+ Begin
+  if (Result.PEnd >= High(TokenList)) Then // ending `}` not found
+  Begin
+   DevLog('Syntax error: ending `}` not found');
+   Exit;
+  End;
+
+  Case TokenList[Result.PEnd].Token of
+   _BRACKET3_OP: Inc(Deep);
+   _BRACKET3_CL: Dec(Deep);
+  End;
+
+  if (Deep = 0) Then
+   Break;
+
+  Inc(Result.PEnd);
+ End;
 End;
 
 (* TParser.read *)
@@ -264,7 +298,7 @@ Begin
   Case Token.Token of
    _IDENTIFIER:
    Begin
-    if (next_t = _DOUBLE_COLON) Then // namespacename::typename
+    if (next_t = _DOUBLE_COLON) Then // `namespace name::type name`
     Begin
      eat(_DOUBLE_COLON);
 
@@ -280,20 +314,29 @@ Begin
 
      Token := next;
      Base  := findGlobalType(read_ident, NamespaceID);
-    End Else // typename
+    End Else // `type name`
     Begin
-     findTypeCandidate(Token.Display, SelectedNamespaces, TypeID, NamespaceID);
+     if (inFunction) Then
+      TypeID := findLocalType(Token.Display) Else
+      TypeID := -1;
 
-     if (TypeID = -1) Then // type not found
+     if (TypeID = -1) Then // not a local type
      Begin
-      CompileError(next(-1), eUnknownType, [Token.Display]);
-      Exit;
-     End;
+      findTypeCandidate(Token.Display, SelectedNamespaces, TypeID, NamespaceID);
 
-     Base := NamespaceList[NamespaceID].SymbolList[TypeID].mType;
+      if (TypeID = -1) Then // type not found
+      Begin
+       CompileError(next(-1), eUnknownType, [Token.Display]);
+       Exit;
+      End;
+
+      Base := NamespaceList[NamespaceID].SymbolList[TypeID].mType;
+     End Else // local type
+      Base := getCurrentFunction.SymbolList[TypeID].mType;
     End;
    End;
 
+   { function-type declaration }
    _FUNCTION:
     isFunction := True;
 
@@ -428,5 +471,40 @@ End;
 Procedure TParser.semicolon;
 Begin
  eat(_SEMICOLON);
+End;
+
+(* TParser.skip_parenthesis *)
+{
+ Skips parenthesises
+}
+Procedure TParser.skip_parenthesis;
+Var Deep: Integer = 0;
+Begin
+ Repeat
+  Case read_t of
+   _BRACKET1_OP, _BRACKET2_OP, _BRACKET3_OP, _LOWER: Inc(Deep);
+   _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL, _GREATER: Dec(Deep);
+  End;
+ Until (Deep = 0);
+End;
+
+(* TParser.read_until_semicolon *)
+{
+ Reads tokens until semicolon
+}
+Procedure TParser.read_until_semicolon;
+Var Deep: Integer = 0;
+Begin
+ While (true) do
+ Begin
+  Case read_t of
+   _SEMICOLON:
+    if (Deep = 0) Then
+     Break;
+
+   _BRACKET1_OP, _BRACKET2_OP, _BRACKET3_OP, _LOWER: Inc(Deep);
+   _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL, _GREATER: Dec(Deep);
+  End;
+ End;
 End;
 End.

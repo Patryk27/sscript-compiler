@@ -15,7 +15,7 @@ Uses Compile1, MTypes, symdef, Opcodes, Tokens;
 { Parse }
 Procedure Parse(Compiler: Pointer);
 Var m_try, m_catch, m_catch_end: TMConstruction;
-    Variable                   : TVariable;
+    Symbol                     : TLocalSymbol;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
@@ -36,21 +36,21 @@ Begin
  eat(_CATCH);
  eat(_BRACKET1_OP);
 
- Variable            := TVariable.Create;
- Variable.Name       := read_ident;
- Variable.Typ        := TYPE_STRING;
- Variable.MemPos     := 0;
- Variable.DeclToken  := next_pnt;
- Variable.Deep       := CurrentDeep;
- Variable.Attributes := [vaDontAllocate];
+ Symbol           := TLocalSymbol.Create(lsVariable); // create new local symbol
+ Symbol.Name      := read_ident; // [var name]
+ Symbol.DeclToken := next_pnt;
+ Symbol.Range     := Parser.getCurrentRange;
 
- RedeclarationCheck(Variable.Name);
+ RedeclarationCheck(Symbol.Name); // redeclaration check
 
- With getCurrentFunction do
+ With Symbol.mVariable Do
  Begin
-  SetLength(VariableList, Length(VariableList)+1);
-  VariableList[High(VariableList)] := Variable;
+  Typ        := TYPE_STRING;
+  MemPos     := 0;
+  Attributes := [vaDontAllocate];
  End;
+
+ getCurrentFunction.SymbolList.Add(Symbol); // insert symbol
 
  eat(_BRACKET1_CL);
 

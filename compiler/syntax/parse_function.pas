@@ -30,28 +30,30 @@ Var Func : TFunction; // our new function
   {$I gen_bytecode.pas}
 
   // NewConst (used to create internal constants, if enabled)
-  Procedure NewConst(const Name: String; Typ: TType; Value: PMExpression);
+  Procedure NewConst(const cName: String; cTyp: TType; cValue: PMExpression);
   Var Variable: TVariable;
   Begin
    With TCompiler(Compiler) do
    Begin
-    Variable           := TVariable.Create;
-    Variable.Name      := Name;
-    Variable.Typ       := Typ;
-    Variable.Value     := Value;
-    Variable.mCompiler := Compiler;
-    Variable.DeclToken := Parser.next_pnt;
+    Variable       := TVariable.Create;
+    Variable.Typ   := cTyp;
+    Variable.Value := cValue;
+
+    With Variable.RefSymbol do
+    Begin
+     Name      := cName;
+     mCompiler := Compiler;
+     DeclToken := Parser.next_pnt;
+    End;
 
     Variable.Attributes += [vaConst, vaDontAllocate];
 
-    if (findLocalVariable(Name) = -1) Then // don't duplicate
-    Begin
+    if (findLocalVariable(cName) = -1) Then // don't duplicate
      With getCurrentFunction do
      Begin
-      SetLength(VariableList, Length(VariableList)+1);
-      VariableList[High(VariableList)] := Variable;
+      SymbolList.Add(TLocalSymbol.Create(lsConstant, False));
+      SymbolList.Last.mVariable := Variable;
      End;
-    End;
    End;
   End;
 
@@ -159,12 +161,10 @@ Var I, SavedRegs: Integer;
     VarsOnStack : LongWord = 0;
 
     FuncID, NamespaceID: Integer;
+    Symbol             : TLocalSymbol;
 
     Namespaces: Array of Integer;
 Begin
- Func           := TFunction.Create;
- Func.mCompiler := Compiler;
-
 With TCompiler(Compiler), Parser do
 Begin
  // make a backup of current namespaces (we'll restore them when finish compiling this namespace)
@@ -172,168 +172,196 @@ Begin
  For I := Low(Namespaces) To High(Namespaces) Do
   Namespaces[I] := SelectedNamespaces[I];
 
- Func.DeclToken     := next_pnt(-1); // _FUNCTION
- Func.NamespaceName := getCurrentNamespace.Name;
-
- { read function return type }
- eat(_LOWER); // <
- Func.Return := read_type; // [type]
- eat(_GREATER); // >
-
- { read function name and check for duplicates (redeclaration) }
- Func.Name       := read_ident; // [identifier]
- Func.ModuleName := ModuleName;
- Func.Visibility := getVisibility;
-
- FuncNameLabel := Func.Name;
-
- RedeclarationCheck(Func.Name); // check for redeclaration
-
- {Case Func.Name of
-  '': CompileError(eRedeclaration, [Func.Name]); // cannot redeclare internal function
- End;}
-
- { read parameter list }
- ReadParamList;
-
- { read special function attributes }
- ReadAttributes;
-
- { generate label name }
- if (Func.MangledName = '') Then
+ (* if first pass *)
+ if (CompilePass = cp1) Then
  Begin
-  if (Func.LibraryFile <> '') or ((TCompiler(Compiler).Parent.CompileMode = cmLibrary) and (Pointer(TCompiler(Compiler).Parent) = Compiler)) Then
-   Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, True) Else
-   Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, False); // create function mangled name
- End Else
- Begin // redeclaration by label name
+  Func                     := TFunction.Create;
+  CurrentFunction          := Func;
+  Func.RefSymbol.mCompiler := Compiler;
+  Func.RefSymbol.DeclToken := next_pnt(-1); // _FUNCTION
+  Func.NamespaceName       := getCurrentNamespace.Name;
+
+  { read function return type }
+  eat(_LOWER); // <
+  Func.Return := read_type; // [type]
+  eat(_GREATER); // >
+
+  { read function name }
+  Func.RefSymbol.Name       := read_ident; // [identifier]
+  Func.RefSymbol.Visibility := getVisibility;
+  Func.ModuleName           := ModuleName;
+
+  FuncNameLabel := Func.RefSymbol.Name;
+
+  RedeclarationCheck(Func.RefSymbol.Name); // check for redeclaration
+
+  { read parameter list }
+  ReadParamList;
+
+  { read special attributes }
+  ReadAttributes;
+
+  { generate label name }
+  if (Func.MangledName = '') Then
+  Begin
+   if (Func.LibraryFile <> '') or ((TCompiler(Compiler).Parent.CompileMode = cmLibrary) and (Pointer(TCompiler(Compiler).Parent) = Compiler)) Then
+    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, True) Else
+    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, False); // create function mangled name
+  End;
+
+  // check for redeclaration by label name
   findFunctionByLabel(Func.MangledName, FuncID, NamespaceID);
 
   if (FuncID <> -1) Then
   Begin
    CompileError(eRedeclaration, [Func.MangledName]);
 
-   With NamespaceList[NamespaceID].SymbolList[FuncID].mFunction do
+   With NamespaceList[NamespaceID].SymbolList[FuncID] do
     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
   End;
- End;
 
- { add this function into the list }
- With getCurrentNamespace do
- Begin
-  SetLength(SymbolList, Length(SymbolList)+1);
-  SymbolList[High(SymbolList)] := TGlobalSymbol.Create;
-
-  With SymbolList[High(SymbolList)] do
+  { add this function into the symbol list }
+  With getCurrentNamespace do
   Begin
-   Typ       := gsFunction;
-   mFunction := Func;
+   SymbolList.Add(TGlobalSymbol.Create(gsFunction, Func));
 
-   mVariable       := TVariable.Create;
-   mVariable.Name  := Func.Name;
-   mVariable.Typ   := NewTypeFromFunction(Func);
-   mVariable.Value := MakeIntExpression('@'+Func.MangledName);
+   With SymbolList.Last do
+   Begin
+    mVariable                := TVariable.Create;
+    mVariable.RefSymbol.Name := Func.RefSymbol.Name;
+    mVariable.Typ            := NewTypeFromFunction(Func);
+    mVariable.Value          := MakeIntExpression('@'+Func.MangledName);
 
-   mVariable.Attributes += [vaConst, vaDontAllocate];
+    mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
+   End;
   End;
- End;
 
- if (Func.LibraryFile <> '') Then // if function is external, don't create any bytecode
- Begin
-  semicolon;
+  if (Func.LibraryFile <> '') Then // if function is external, don't create any bytecode
+  Begin
+   semicolon;
+   Exit;
+  End;
+
+  if (NamedParams = npNo) and (next_t <> _SEMICOLON) Then
+   CompileError(next, eExpected, [';', next.Display]);
+
+  { add parameters }
+  With Func do
+   For I := Low(ParamList) To High(ParamList) Do
+    __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, [vaFuncParam, vaDontAllocate]);
+
+  { add special constants (if `--internal-const` enabled) }
+  if (getBoolOption(opt_internal_const)) Then
+  Begin
+   NewConst('__self', TYPE_STRING, MakeStringExpression(Func.RefSymbol.Name));
+  End;
+
+  SkipCodeBlock;
   Exit;
- End;
+ End Else
 
- if (NamedParams = npNo) and (next_t <> _SEMICOLON) Then
-  CompileError(next, eExpected, [';', next.Display]);
-
- { add parameters }
- With Func do
-  For I := Low(ParamList) To High(ParamList) Do
-   __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, [vaFuncParam, vaDontAllocate]);
-
- { add special constants (if `-Cconst` enabled) }
- if (getBoolOption(opt_internal_const)) Then
+ (* if second pass *)
+ if (CompilePass = cp2) Then
  Begin
-  NewConst('__self', TYPE_STRING, MakeStringExpression(Func.Name));
- End;
+  skip_parenthesis; // return type
+  Func := getCurrentNamespace.SymbolList[findFunction(read_ident)].mFunction;
+  skip_parenthesis; // param list
+  While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
+   read;
 
- { new label (function's begin) }
- PutLabel(Func.MangledName)^.isPublic := True;
+  CurrentFunction := Func;
 
- { new scope (because we're in function now) }
- NewScope(sFunction);
+  if (Func.LibraryFile <> '') Then { if is an imported function }
+  Begin
+   semicolon;
+   Exit;
+  End;
 
- { ====== parse function's body ====== }
- ParseCodeBlock;
+  { new label (function begin) }
+  PutLabel(Func.MangledName)^.isPublic := True;
 
- (* now, we have a full construction list used in this function; so - let's generate bytecode! :) *)
- CList := getCurrentFunction.ConstructionList;
+  { new scope (because we're in function now) }
+  NewScope(sFunction);
 
- { allocate local stack variables }
- VarsOnStack := 0;
+  { ====== parse function's body ====== }
+  ParseCodeBlock;
 
- if (not Func.isNaked) Then
- Begin
+  (* now, we have a full construction list used in this function; so - let's generate bytecode! :) *)
+  CList := getCurrentFunction.ConstructionList;
+
+  { allocate local stack variables }
+  VarsOnStack := 0;
+
+  if (not Func.isNaked) Then
+  Begin
+   With getCurrentFunction do
+    For Symbol in SymbolList Do // each symbol
+     if (Symbol.Typ = lsVariable) Then // if variable
+      With Symbol.mVariable do
+       if (MemPos <= 0) and (not DontAllocate) Then
+        Inc(VarsOnStack); // next variable to allocate
+
+   PutOpcode(o_add, ['stp', VarsOnStack+1]); // `+1`, because `stack[stp]` is the caller's IP (instruction pointer)
+  End;
+
+  { if register is occupied by variable, we need to at first save this register's value (and restore it at the end of the function) }
+  SavedRegs := 0;
   With getCurrentFunction do
-   For I := Low(VariableList) To High(VariableList) Do
-    if (VariableList[I].MemPos <= 0) and (not VariableList[I].DontAllocate) and (not VariableList[I].isConst) Then
-     Inc(VarsOnStack); // next variable to allocate
+  Begin
+   For Symbol in SymbolList Do // each symbol
+    if (Symbol.Typ = lsVariable) Then // if variable
+     With Symbol.mVariable do
+      if (MemPos > 0) Then // if allocated in register
+      Begin
+       PutOpcode(o_push, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
+       Inc(SavedRegs);
+      End;
 
-  PutOpcode(o_add, ['stp', VarsOnStack+1]); // `+1`, because `stack[stp]` is the caller's IP (instruction pointer)
+   For Symbol in SymbolList Do // each symbol
+    if (Symbol.Typ = lsVariable) Then // if variable
+     With Symbol.mVariable do
+      if (MemPos <= 0) Then // if allocated on the stack
+      Begin
+       MemPos -= SavedRegs;
+
+       if (isFuncParam) Then
+        MemPos -= VarsOnStack;
+      End;
+  End;
+
+  { new label (main function's body; nothing should jump here, it's just facilitation for optimizer) }
+  PutLabel(Func.MangledName+'_body');
+
+  { compile constructions }
+  c_ID := 0;
+  Repeat
+   ParseConstruction(c_ID);
+   Inc(c_ID);
+  Until (c_ID > High(CList));
+
+  { function end code }
+  PutLabel(Func.MangledName+'_end');
+
+  With getCurrentFunction do
+  Begin
+   For I := SymbolList.Count-1 Downto 0 Do
+   Begin
+    Symbol := SymbolList[I];
+    if (Symbol.Typ = lsVariable) Then // if variable
+     With Symbol.mVariable do
+      if (MemPos > 0) Then // if allocated in register
+       PutOpcode(o_pop, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
+   End;
+  End;
+
+  if (not Func.isNaked) Then
+   PutOpcode(o_sub, ['stp', VarsOnStack+1]);
+
+  PutOpcode(o_ret);
+  // </>
+
+  RemoveScope; // ... and - as we finished compiling this function - remove scope
  End;
-
- { if register is occupied by a variable, we need to at first save this register's value (and restore it at the end of the function) }
- SavedRegs := 0;
- With getCurrentFunction do
- Begin
-  For I := Low(VariableList) To High(VariableList) Do
-   With VariableList[I] do
-    if (MemPos > 0) and (not isConst) Then
-    Begin
-     PutOpcode(o_push, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
-     Inc(SavedRegs);
-    End;
-
-  For I := Low(VariableList) To High(VariableList) Do // move "back" variables
-   With VariableList[I] do
-    if (MemPos <= 0) and (not isConst) Then
-    Begin
-     MemPos -= SavedRegs;
-
-     if (isFuncParam) Then
-      MemPos -= VarsOnStack;
-    End;
- End;
-
- { new label (main function's body; nothing should jump here, it's just facilitation for optimizer) }
- PutLabel(Func.MangledName+'_body');
-
- { compile constructions }
- c_ID := 0;
- Repeat
-  ParseConstruction(c_ID);
-  Inc(c_ID);
- Until (c_ID > High(CList));
-
- { function end code }
- PutLabel(Func.MangledName+'_end');
-
- With getCurrentFunction do
- Begin
-  For I := High(VariableList) Downto Low(VariableList) Do
-   With VariableList[I] do
-    if (MemPos > 0) and (not isConst) Then
-     PutOpcode(o_pop, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
- End;
-
- if (not Func.isNaked) Then
-  PutOpcode(o_sub, ['stp', VarsOnStack+1]);
-
- PutOpcode(o_ret);
- // </>
-
- RemoveScope; // ... and - as we finished compiling this function - remove scope
 
  SetLength(SelectedNamespaces, Length(Namespaces));
  For I := Low(Namespaces) To High(Namespaces) Do

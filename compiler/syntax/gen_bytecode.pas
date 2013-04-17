@@ -31,7 +31,10 @@ Begin
  With TCompiler(Compiler) do
  Begin
   if (ID > High(CList)) Then
+  Begin
+   DevLog('Info: ParseConstruction() -> (ID > High(CList)); leaving function...');
    Exit;
+  End;
 
   if (CList[ID].Token <> nil) Then
    With CList[ID].Token^ do
@@ -93,7 +96,7 @@ Begin
  (* ctVoidReturn *)
     ctVoidReturn:
     Begin
-     if (ret_stp_sub > 0) Then // there are some unused data on the stack, that we need to remove
+     if (ret_stp_sub > 0) Then // there is unused data on the stack, that we need to remove
      Begin
       PutOpcode(o_sub, ['stp', ret_stp_sub]);
       ret_stp_sub := 0;

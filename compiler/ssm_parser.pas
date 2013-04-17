@@ -52,7 +52,7 @@ Unit SSM_parser;
               End;
 
  Implementation
-Uses CompilerUnit, symdef, SysUtils, Variants;
+Uses CompilerUnit, SysUtils, Variants;
 
 (* TSSM.ReadHeader *)
 {
@@ -150,7 +150,7 @@ Begin
   // read and prepare opcode
   New(MOpcode);
   MOpcode^.Opcode    := TOpcode_E(AStream.read_byte);
-  MOpcode^.Compiler  := C1;
+  MOpcode^.Compiler  := nil; //C1;
   MOpcode^.isComment := False;
   MOpcode^.isLabel   := False;
   MOpcode^.Token     := nil;
@@ -226,44 +226,6 @@ Function TSSM.Save(const OutputFile: String; pC1, pC2: Pointer): TSSM;
      Zip.Entries.AddFileEntry(OutputFile+FileName, FileName);
     End;
 
-    // isReferenced
-    {
-     This function is used to optimize code by saving space (names of unused labels are not saved into the final bytecode)
-
-     @Note:
-      A label is "referenced" when:
-       1.It is not a function label.
-       2.or it's a public function label
-       3.or some opcode references to it by the `@` operator
-    }
-    Function isReferenced(const LName: String): Boolean;
-    Var FuncID, NamespaceID: Integer;
-        Opcode             : PMOpcode;
-        Arg                : TMOpcodeArg;
-    Begin
-     Exit(True); // @TODO
-
-     Result := False;
-
-     C1.findFunctionByLabel(LName, FuncID, NamespaceID);
-
-     if (FuncID = -1) Then // 1
-      Exit(True);
-
-     if (C1.NamespaceList[NamespaceID].SymbolList[FuncID].mFunction.Visibility = mvPublic) Then // 2
-      Exit(True);
-
-     For Opcode in C1.OpcodeList Do // 3
-      With Opcode^ Do
-       if (isComment) or (isLabel) Then
-        Continue Else
-        Begin
-         For Arg in Args Do
-          if (Arg.Typ = ptLabelAbsoluteReference) and (Arg.Value = LName) Then
-           Exit(True);
-        End;
-    End;
-
 Var FunctionList: Array of TLabel;
     I           : Integer;
 Begin
@@ -284,7 +246,7 @@ Begin
  Begin
   SetLength(FunctionList, 0);
   For I := Low(C2.LabelList) To High(C2.LabelList) Do
-   if (C2.LabelList[I].isPublic) and (isReferenced(C2.LabelList[I].Name)) Then
+   if (C2.LabelList[I].isPublic) Then
    Begin
     SetLength(FunctionList, Length(FunctionList)+1);
     FunctionList[High(FunctionList)] := C2.LabelList[I];

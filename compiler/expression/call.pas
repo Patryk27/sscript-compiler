@@ -111,7 +111,7 @@ Procedure GlobalFuncCall;
 Var TypeID: TType;
     Param : Integer;
 Begin
- With Compiler.NamespaceList[Namespace].SymbolList[IdentID].mFunction do
+ With Compiler.NamespaceList[Namespace].SymbolList[IdentID], mFunction do
  Begin
   // check param count
   if (Length(Expr^.ParamList) <> Length(ParamList)) Then
@@ -204,7 +204,7 @@ Begin
    '':
   End;
 
-  Exit; // error message has been already shown when building the expression tree
+  Exit; // error message had been already shown when building the expression tree
  End;
 
  { local variable call }

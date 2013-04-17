@@ -11,7 +11,7 @@ Unit Peephole;
  Procedure OptimizeBytecode(Compiler: TCompiler);
 
  Implementation
-Uses Opcodes, SysUtils, Messages;
+Uses CompilerUnit, Opcodes, SysUtils, Messages;
 
 (* isRegister *)
 {
@@ -35,7 +35,7 @@ End;
 {
  Returns `true` when passed opcode argument is a variable-holder.
 
- @Note: 'variable-holders' are registers `e_3` and `e_4`, and also a stackvals - as only there a variable
+ @Note: 'variable-holders' are registers `e_3` and `e_4`, and also stackvals - as only there a variable
         can be allocated.
 }
 Function isVariableHolder(T: TMOpcodeArg): Boolean;
@@ -43,7 +43,7 @@ Begin
  Result := isRegister(T.Typ);
 
  if (Result) Then
-  Exit(StrToInt(VarToStr(T.Value)) > 2) Else
+  Exit({StrToInt(VarToStr(}T.Value{))} > 2) Else
   Exit(T.Typ = ptStackVal);
 End;
 
@@ -85,10 +85,20 @@ Var Pos, Pos2            : LongWord;
      End;
     End;
 
+Var OpcodeCount: Int64;
 Begin
  With Compiler do
  Begin
-  Pos := 0;
+  Log('-> Peephole bytecode optimizer');
+
+  if (OpcodeList.Count = 0) Then
+  Begin
+   DevLog('Info: OpcodeList.Count = 0 -> no optimizations to do!');
+   Exit;
+  End;
+
+  Pos         := 0;
+  OpcodeCount := OpcodeList.Count;
 
   While (Pos < OpcodeList.Count-2) Do
   Begin
@@ -99,6 +109,12 @@ Begin
    oNext    := pNext^;
 
    if (oCurrent.isLabel) or (oCurrent.isComment) or (oCurrent.Opcode in [o_byte, o_word, o_integer, o_extended]) Then
+   Begin
+    Inc(Pos);
+    Continue;
+   End;
+
+   if (oCurrent.Compiler = nil) or (oNext.Compiler = nil) Then // skip non-our bytecode (ie. - don't optimize imported bytecode, so we don't change any later opcodes' addresses)
    Begin
     Inc(Pos);
     Continue;
@@ -217,26 +233,11 @@ Begin
       Continue;
      End;
 
-     if (oTmp.Opcode in [o_mov, o_pop]) and (isArgumentChanging(0)) Then
-     Begin
-      if (oTmp.Opcode = o_mov) Then
-      {
-       Special case:
-        mov(ei1, 10)
-        mov(ei1, ei1)
-
-       Would be changed to:
-        mov(ei1, ei1)
-
-       And then this `mov` would be removed, so... yeah... we don't want this to happen.
-      }
-      Begin
-       if (oTmp.Args[0] <> oTmp.Args[1]) Then
-        CanBeRemoved := True;
-      End Else
-       CanBeRemoved := True;
+     if (oTmp.Compiler = nil) Then // stop on non-our bytecode (ie. - don't optimize imported bytecode)
       Break;
-     End;
+
+     if (oTmp.Opcode in [o_mov, o_pop]) and (isArgumentChanging(0)) Then
+      Break;
 
      if (oTmp.Opcode in [o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
         (isArgumentChanging(0)) Then
@@ -304,6 +305,7 @@ Begin
      }
      Begin
       OpcodeList.Remove(pCurrent);
+
       Dec(Pos);
       Continue;
      End;
@@ -312,6 +314,9 @@ Begin
 
    Inc(Pos);
   End;
+
+  OpcodeCount -= OpcodeList.Count;
+  Log('Peephole results: removed `'+IntToStr(abs(OpcodeCount))+'` opcodes');
  End;
 End;
 End.

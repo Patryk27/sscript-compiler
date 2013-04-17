@@ -18,6 +18,12 @@ Var Variable: TVariable;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
+ if not ((CompilePass = cp1) or (inFunction)) Then
+ Begin
+  read_until_semicolon;
+  Exit;
+ End;
+
  eat(_LOWER); // <
  VarType := read_type; // [type]
  eat(_GREATER); // >
@@ -25,26 +31,26 @@ Begin
  { read variables }
  While (true) do
  Begin
-  Variable           := TVariable.Create;
-  Variable.mCompiler := Compiler;
-  Variable.Typ       := VarType;
-  Variable.DeclToken := next_pnt;
-  Variable.Name      := read_ident; // [identifier]
+  Variable     := TVariable.Create;
+  Variable.Typ := VarType;
+
+  With Variable.RefSymbol do
+  Begin
+   DeclToken := next_pnt;
+   mCompiler := Compiler;
+   Range     := getCurrentRange;
+   Name      := read_ident; // [identifier]
+
+   RedeclarationCheck(Name); // redeclaration of the variable
+  End;
 
   if (Variable.Typ.isVoid) Then // cannot create a void-variable
-   CompileError(eVoidVar, [Variable.Name]);
-
-  RedeclarationCheck(Variable.Name); // redeclaration of a variable
+   CompileError(eVoidVar, [Variable.RefSymbol.Name]);
 
   Variable.MemPos := __allocate_var(getBoolOption(opt__register_alloc), Variable.Typ.RegPrefix);
-  Variable.Deep   := CurrentDeep;
 
-  { insert variable into the function  }
-  With getCurrentFunction do
-  Begin
-   SetLength(VariableList, Length(VariableList)+1); // expand the array
-   VariableList[High(VariableList)] := Variable;
-  End;
+  { add variable into the function }
+  getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsVariable, Variable));
 
   if (next_t = _EQUAL) Then // var(...) name=value;
   Begin

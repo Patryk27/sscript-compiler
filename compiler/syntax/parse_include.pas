@@ -18,15 +18,22 @@ Var FileName         : String;
     NS, I            : LongWord;
     Found            : Boolean;
     TmpNamespace, Tmp: Integer;
+
+    Symbol, Copy: TGlobalSymbol;
+    AddSymbol   : Boolean;
+
+    CircRef: Boolean;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
-
- FileName := read.Display;
- Log('Including file: '+FileName);
-
+ FileName := ReplaceDirSep(read.Display); // [string]
  eat(_BRACKET1_CL); // )
+
+ if (CompilePass <> cp2) {cp1} Then
+  Exit;
+
+ Log('Including file: '+FileName);
 
  { search file }
  FileName := SearchFile(FileName, Found);
@@ -38,18 +45,41 @@ Begin
 
  Log('Found file: '+FileName);
 
- { compile that file }
- NewC := TCompiler.Create;
+ CircRef := (FileName = InputFile) or ((Supervisor <> nil) and (Supervisor.InputFile = FileName)); // is a circular reference?
 
- SetLength(IncludeList, Length(IncludeList)+1);
- IncludeList[High(IncludeList)] := NewC;
+ Found := False;
+ if (Length(IncludeList^) > 0) Then
+  For I := 0 To High(IncludeList^) Do
+  Begin
+   if (IncludeList^[I].InputFile = FileName) Then
+   Begin
+    Found := True;
+    Break;
+   End;
+  End;
 
- NewC.CompileCode(FileName, FileName+'.ssc', Options, True, Parent);
+ if (not Found) Then
+ Begin
+  { compile file }
+  NewC := TCompiler.Create;
+
+  NewC.CompileCode(FileName, FileName+'.ssc', Options, True, CircRef, Parent, TCompiler(Compiler));
+
+  if (not CircRef) Then
+  Begin
+   SetLength(IncludeList^, Length(IncludeList^)+1);
+   IncludeList^[High(IncludeList^)] := NewC;
+  End;
+ End Else
+ Begin
+  Log('File had been compiled before - using the compiled version...');
+  NewC := IncludeList^[I];
+ End;
 
  { for each namespace }
  Log('Including...');
  TmpNamespace := CurrentNamespace;
- For NS := Low(NewC.NamespaceList) To High(NewC.NamespaceList) Do
+ For NS := 0 To NewC.NamespaceList.Count-1 Do
  Begin
   if (NewC.NamespaceList[NS].Visibility <> mvPublic) Then
    Continue;
@@ -60,17 +90,16 @@ Begin
   if (Tmp = -1) Then // new namespace
   Begin
    Log('Included namespace is new in current scope.');
-   SetLength(NamespaceList, Length(NamespaceList)+1);
-   NamespaceList[High(NamespaceList)] := TNamespace.Create;
+   NamespaceList.Add(TNamespace.Create);
 
-   CurrentNamespace := High(NamespaceList);
-   With NamespaceList[CurrentNamespace] do
+   CurrentNamespace := NamespaceList.Count-1;
+   With NamespaceList.Last do
    Begin
     Name       := NewC.NamespaceList[NS].Name;
     Visibility := mvPrivate;
     mCompiler  := NewC;
     DeclToken  := NewC.NamespaceList[NS].DeclToken;
-    SetLength(SymbolList, 0);
+    SymbolList := TGlobalSymbolList.Create;
    End;
   End Else // already existing namespace
   Begin
@@ -80,52 +109,32 @@ Begin
 
   With NewC.NamespaceList[NS] do
   Begin
-   if (Length(SymbolList) = 0) Then
-    Continue;
-
-   { global constants }
-   For I := Low(SymbolList) To High(SymbolList) Do
-    With SymbolList[I] do
+   For Symbol in SymbolList Do // each symbol
+    With Symbol do
     Begin
-     if (Typ <> gsConstant) Then // skip not-constants
+     if (Visibility = mvPrivate) or (isInternal) Then // skip `private` entries
       Continue;
 
-     With mVariable do
-     Begin
-      if (Visibility <> mvPublic) Then // constant must be public
-       Continue;
+     RedeclarationCheck(Name);
 
-      RedeclarationCheck(Name);
+     AddSymbol := False;
 
-      With getCurrentNamespace do
-       SetLength(SymbolList, Length(SymbolList)+1);
+     Case Typ of
+      { constant, variable, type }
+      gsConstant, gsVariable, gsType:
+       AddSymbol := True;
 
-      getCurrentNamespace.SymbolList[High(getCurrentNamespace.SymbolList)] := SymbolList[I];
+      { function }
+      gsFunction:
+       With mFunction do
+        AddSymbol := ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '');
      End;
-    End;
 
-   { functions }
-   For I := Low(SymbolList) To High(SymbolList) Do
-    With SymbolList[I] do
-    Begin
-     if (Typ <> gsFunction) Then
-      Continue;
+     Copy            := TGlobalSymbol.Create(Symbol);
+     Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't modify the original symbol).
 
-     With mFunction do
-     Begin
-      if (Visibility <> mvPublic) Then // function must be public
-       Continue;
-
-      if ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '') Then // don't copy library-imported-functions from other modules (as they are useless for us)
-      Begin
-       RedeclarationCheck(Name);
-
-       With getCurrentNamespace do
-        SetLength(SymbolList, Length(SymbolList)+1);
-
-       getCurrentNamespace.SymbolList[High(getCurrentNamespace.SymbolList)] := SymbolList[I];
-      End;
-     End;
+     if (AddSymbol) Then
+      getCurrentNamespace.SymbolList.Add(Copy);
     End;
   End;
  End;

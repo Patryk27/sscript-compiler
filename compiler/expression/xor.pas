@@ -3,6 +3,9 @@ Var TypeLeft, TypeRight: TType;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
 
+ if (Result = nil) Then
+  Exit;
+
  With Compiler do
  Begin
   if (Result.isInt) Then
