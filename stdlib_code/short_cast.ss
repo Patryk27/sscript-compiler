@@ -3,7 +3,7 @@
  short_cast.ss
 */
 
-@("stdlib\\numbers.ss")
+@("numbers.ss")
 @visibility("public")
 
 /*

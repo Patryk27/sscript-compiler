@@ -19,22 +19,21 @@
 *)
 
 {$IFNDEF FPC}
-{$FATAL The whole compiler, virtual machine and editor have been written in Free Pascal Compiler; compiling it by eg.Delphi is unsure!}
+ {$FATAL The whole compiler, virtual machine and editor have been written in Free Pascal Compiler; compiling it by eg.Delphi will most likely fail!}
 {$ENDIF}
 
 Program compiler;
-Uses Windows, SysUtils, TypInfo, CompilerUnit, Compile1;
+Uses SysUtils, TypInfo,
+     CompilerUnit, Compile1;
 Var Input, Output: String;
 
-    Options   : TCompileOptions;
-    _logo_only: Boolean=False;
-    _wait     : Boolean=False;
-    _time     : Boolean=False;
+    Options : TCompileOptions;
+    _logo   : Boolean=False;
+    _wait   : Boolean=False;
+    _version: Boolean=False;
 
     Frame : Integer;
     Frames: PPointer;
-
-    Time: Cardinal;
 
 { AddOption }
 Procedure AddOption(const Option: TCommandLineOption; Value: Variant);
@@ -62,9 +61,6 @@ Begin
  Repeat
   Current := ParamStr(Pos);
 
-  if (Length(Current) = 0) Then // shouldn't happen (?)
-   Exit;
-
   { -O1 (optimize level 1) }
   if (Current = '-O1') Then
   Begin
@@ -76,13 +72,13 @@ Begin
   { -logo }
   if (Current = '-logo') Then
   Begin
-   _logo_only := True;
+   _logo := True;
   End Else
 
-  { -time }
-  if (Current = '-time') Then
+  { -version }
+  if (Current = '-version') Then
   Begin
-   _time := True;
+   _version := True;
   End Else
 
   { -wait }
@@ -97,8 +93,8 @@ Begin
    verbose_mode := True;
   End Else
 
-  { -devlog }
-  if (Current = '-devlog') Then
+  { -devlog / -vv }
+  if (Current = '-devlog') or (Current = '-vv') Then
   Begin
    show_devlog := True;
   End Else
@@ -106,21 +102,15 @@ Begin
   { easter egg }
   if (Copy(Current, 3, 1)='o')and(Copy(Current, 1, 1) = '-')and(Copy(Current, 6, 2) = 'ot')and(Copy(Current, 9, 2) = 're')and(Copy(Current, 5, 1) = 'n')and(Copy(Current, 4, 1) = '_')and(Copy(Current, 2, 1) = 'd')and(Copy(Current, 8, 1) = '_')and(Copy(Current, 11, 2)='ad')Then
   Begin
-   _logo_only := True;
+   _logo := True;
    &const;
   End Else
 
   { another option }
-  if (Current[1] = '-') Then
+  if (Copy(Current, 1, 1) = '-') Then
   Begin
    Tmp   := Length(Current);
    Value := not (Current[Tmp] = '-');
-
-   if (System.Pos('=', Current) > 0) Then
-   Begin
-    Value := Copy(Current, System.Pos('=', Current)+1, Length(Current));
-    Delete(Current, System.Pos('=', Current), Length(Current));
-   End;
 
    // find this option
    OptID := -1;
@@ -128,6 +118,12 @@ Begin
     if (CommandLineNames[Option].Names[0] = Current) or (CommandLineNames[Option].Names[1] = Current) Then
      OptID := ord(Option);
    Option := TCommandLineOption(OptID);
+
+   if (CommandLineNames[Option].Typ in [pInt, pString]) Then
+   Begin
+    Inc(Pos);
+    Value := ParamStr(Pos);
+   End;
 
    if (ord(Option) = -1) Then
     Writeln('Unknown command-line option: ', Current) Else
@@ -143,8 +139,6 @@ End;
 
 { program's body }
 Begin
- Time := GetTickCount;
-
  DefaultFormatSettings.DecimalSeparator := '.';
 
  ParseCommandLine;
@@ -161,7 +155,15 @@ Begin
    Input  := ExpandFileName(ParamStr(1));
    Output := ExpandFileName(getStringOption('o', 'output.ssc'));
 
-   if (_logo_only) Then
+    // -version
+   if (_version) Then
+   Begin
+    Writeln(Version);
+    raise Exception.Create('');
+   End;
+
+    // -logo
+   if (_logo) Then
     verbose_mode := True;
 
    Log('SScript Compiler '+Version+' [compiled '+{$I %DATE%}+']');
@@ -172,7 +174,7 @@ Begin
     Log('Warning: This is a nightly, untested and most likely unstable version - not intended for daily use!');
    {$ENDIF}
 
-   if (_logo_only) Then
+   if (_logo) Then
     raise Exception.Create('');
 
    Log; // newline
@@ -201,46 +203,20 @@ Begin
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
 
-    Writeln;
     if (getCompiler <> nil) Then
     Begin
+     Writeln('-------------------------');
+     Writeln('Compile info:');
+     Writeln;
+
      With TCompiler(getCompiler) do
      Begin
-      Writeln('Additional compilation info:');
-
-      Writeln;
-
-      Writeln('Last namespace: ');
-      if (getCurrentNamespace.Name <> 'self') Then
-       Writeln('  -> ', getCurrentNamespace.Name) Else
-       Writeln('  -> (default namespace: `self`)');
-
-      Writeln;
-
-      if (getCurrentFunction = nil) Then
-       Writeln('Last function: <none>') Else
-      Begin
-       Writeln('Last function:');
-       With getCurrentFunction do
-       Begin
-        Writeln('  -> ', Name);
-
-        if (DeclToken <> nil) Then
-         Writeln('  -> declared at line ', DeclToken^.Line) Else
-         Writeln('  -> DeclToken = nil');
-       End;
-      End;
+      if (CurrentFunction = nil) Then
+       Writeln('CurrentFunction = nil') Else
+       Writeln('CurrentFunction = `', CurrentFunction.RefSymbol.Name, '` declared at line ', CurrentFunction.RefSymbol.DeclToken^.Line);
      End;
-    End Else
-     Writeln('No more info available.');
+    End;
    End;
- End;
-
- { -time }
- if (_time) Then
- Begin
-  Time := GetTickCount-Time;
-  Writeln('Total time: ', Time, ' ms');
  End;
 
  { -wait }
@@ -250,3 +226,9 @@ Begin
   Readln;
  End;
 End.
+
+{$IF (sizeof(Byte) <> 1) or (sizeof(Char) <> 1) or (sizeof(Integer) <> 4) or (sizeof(LongWord) <> 4) or (sizeof(Extended) <> 10)}
+ {$WARNING Invalid type sizes!}
+ {$WARNING You can try to compile this anyway (just remove this `$FATAL` below), but I'm not responsible for any damage...}
+ {$FATAL :<}
+{$ENDIF}

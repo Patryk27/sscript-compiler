@@ -13,8 +13,9 @@ Unit CompilerUnit;
   opt_bytecode, opt_output, opt_initcode, opt_includepath,
   opt_Cm, opt_internal_const,
   opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt_O1,
+  opt__strip_debug, opt__strip_debug_all,
   opt_header,
-  opt_logo, opt_wait, opt_verbose
+  opt_logo, opt_version, opt_wait, opt_verbose
  );
 
  Type TCommandLineName = Record
@@ -37,9 +38,13 @@ Unit CompilerUnit;
   (Names: ('--bytecode-optimize', '-Op'); Typ: pBool),
   (Names: ('-O1', '');                    Typ: pBool),
 
+  (Names: ('--strip-debug', '-Sd'); Typ: pBool),
+  (Names: ('--strip-debug-all', ''); Typ: pBool),
+
   (Names: ('-header', '-h'); Typ: pString),
 
   (Names: ('-logo', '');      Typ: pBool),
+  (Names: ('-version', '');   Typ: pBool),
   (Names: ('-wait', '');      Typ: pBool),
   (Names: ('-verbose', '-v'); Typ: pBool)
  );
@@ -136,12 +141,12 @@ Begin
  O := '-'+O;
 
  Result := Default;
- For I := 1 To ParamCount Do
+ For I := 1 To ParamCount-1 Do
  Begin
   Str := ParamStr(I);
-  if (Copy(Str, 1, Pos('=', Str)-1) = O) Then
+  if (Str = O) Then
   Begin
-   Result := Copy(Str, Pos('=', Str)+1, Length(Str));
+   Result := ParamStr(I+1);
    Exit;
   End;
  End;

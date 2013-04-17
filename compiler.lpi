@@ -31,7 +31,8 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-logo -wait"/>
+        <CommandLineParams Value="-logo"/>
+        <LaunchingApplication Use="True" PathPlusParams="\usr\bin\xterm -fa monco -fs 10 -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
       </local>
     </RunParams>
     <Units Count="2">
@@ -51,7 +52,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="compiler"/>
+      <Filename Value="compiler.o"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir);compiler\expression;compiler\expression\internal_functions;compiler\syntax"/>
@@ -63,6 +64,9 @@
         <CStyleMacros Value="True"/>
       </SyntaxOptions>
     </Parsing>
+    <CodeGeneration>
+      <TargetCPU Value="i386"/>
+    </CodeGeneration>
     <Other>
       <Verbosity>
         <ShowHintsForUnusedUnitsInMainSrc Value="True"/>

@@ -8,6 +8,9 @@ Unit Compile2;
  Interface
  Uses CompilerUnit, Compile1, Classes, SysUtils, Variants, MTypes, Opcodes, Tokens, Messages, Zipper, Stream;
 
+ Const bytecode_version_major = 0;
+       bytecode_version_minor = 4;
+
  // TLabel
  Type TLabel = Record
                 Name    : String;
@@ -275,8 +278,8 @@ Begin
 
          if (FuncID <> -1) Then
          Begin
-          With NamespaceList[Namespace].SymbolList[FuncID].mFunction do
-           CompileError(DeclToken, eFunctionNotFound, [Name, LibraryFile]);
+          With NamespaceList[Namespace].SymbolList[FuncID] do
+           CompileError(DeclToken, eFunctionNotFound, [Name, mFunction.LibraryFile]);
          End Else
          Begin
           if (Token = nil) Then
@@ -320,6 +323,18 @@ Var Zip   : TZipper;
      Zip.Entries.AddFileEntry(Output+FileName, FileName);
     End;
 
+    // StripDebugSymbols
+    Procedure StripDebugSymbols;
+    Var Opcode: PMOpcode;
+    Begin
+     With fCompiler do
+     Begin
+      For Opcode in OpcodeList Do
+       if (Opcode^.Opcode = o_location) Then
+        OpcodeList.Remove(Opcode);
+     End;
+    End;
+
 Begin
  Compiler := fCompiler;
 
@@ -329,6 +344,9 @@ Begin
  ReferenceStream := TStream.Create;
  BytecodeStream  := TStream.Create;
  Zip             := TZipper.Create;
+
+ if (fCompiler.getBoolOption(opt__strip_debug_all)) Then
+  StripDebugSymbols;
 
  Preparse;
 
@@ -348,15 +366,18 @@ Begin
    write_byte(bytecode_version_minor);
   End;
 
-  Log('Header size: '+IntToStr(HeaderStream.Position)+' bytes');
-  Log('References data size: '+IntToStr(ReferenceStream.Position)+' bytes');
-  Log('Bytecode size: '+IntToStr(BytecodeStream.Position)+' bytes');
+  Log('Header size: '+IntToStr(HeaderStream.Size)+' bytes');
+  Log('References data size: '+IntToStr(ReferenceStream.Size)+' bytes');
+  Log('Bytecode size: '+IntToStr(BytecodeStream.Size)+' bytes');
 
   if (SaveAs_SSM) Then // save as a library?
   Begin
    TSSM.Create.Save(Compiler.OutputFile, fCompiler, self).Free;
    Exit;
   End;
+
+ // if (ReferenceStream.Size <> 0) Then
+ //  Compiler.CompileError(eInternalError, ['Output program file contains external references, that was really NOT supposed to happen!']);
 
   { make zip archive }
   AddFile(HeaderStream, '.header');

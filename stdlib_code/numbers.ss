@@ -5,7 +5,6 @@
 
 @("string.ss")
 @("math.ss")
-@("vm.ss")
 @visibility("public")
 
 namespace std
@@ -35,8 +34,8 @@ function<string> intsys(int num, int base)
  
  if (neg)
   result += "-";
- 
- return strreverse(result); 
+
+ return strreverse(result);
 }
 
 function<int> sysint(string num, int base)
@@ -81,7 +80,7 @@ function<int> sysint(string num, int base)
 function<int> intlen(int n)
 {
  n = iabs(n);
- if (n == 0) // special case: log10(0) is -inf
+ if (n == 0) // special case, because log10(0) is -inf
   return 0;
  return round_up(log10(n));
 }
@@ -172,7 +171,7 @@ function<string> fltstr(float n)
 
 function<float> strflt(string str)
 {
- var<string> wholePart="", decimalPart=" ";
+ var<string> wholePart="", decimalPart="";
  var<float> left=0, right=0;
  var<int> dot = strpos(".", str);
 
@@ -183,9 +182,10 @@ function<float> strflt(string str)
  } else
   wholePart = str;
 
- left = strint(wholePart);
+ if (wholePart != "") // `wholePart == ""` shouldn't happen, but 'just-in-case' :P
+  left = strint(wholePart);
  
- if (decimalPart != " ")
+ if (decimalPart != "")
   right = strint(decimalPart)/power(10, strlen(decimalPart));
 
  return left+right;
