@@ -61,6 +61,9 @@ Begin
  Repeat
   Current := ParamStr(Pos);
 
+  if (Length(Current) = 0) Then
+   Continue;
+
   { -O1 (optimize level 1) }
   if (Current = '-O1') Then
   Begin

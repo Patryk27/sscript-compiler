@@ -11,12 +11,12 @@ Unit Messages;
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousCall, eAmbiguousVariable, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
-  eUnknownAttribute,
+  eUnknownAttribute, eFileNotFound,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedString,
-                                           eExpectedInt, eUnknownType, eUnknownNamespace,
+                                           eExpectedInt, eUnknownType, eUnknownNamespace, eFileNotFound,
                                            eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
                                            eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidIntegerValue, eInvalidFloatValue];
 
@@ -74,6 +74,7 @@ Unit Messages;
   'Invalid integer value: `%s`',
   'Invalid float value: `%s`',
   'Unknown attribute: `%s`',
+  'File not found: %s',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

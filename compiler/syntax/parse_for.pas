@@ -21,7 +21,6 @@ Begin
  eat(_BRACKET1_OP); // (
 
  Str := CopyStringToPChar(getCurrentFunction.MangledName+'__for_'+IntToStr(SomeCounter)+'_');
-
  Inc(SomeCounter);
 
  C.Typ := ctFOR;
@@ -30,16 +29,39 @@ Begin
  NewScope(sFOR, Str+'condition', Str+'end');
  Inc(CurrentDeep);
 
+ ParsingFORInitInstruction := True;
+
  // init instruction
- ParseToken;
+ if (next_t in [_VAR, _SEMICOLON]) Then
+  ParseToken Else
+  AddConstruction(ExpressionCompiler.MakeConstruction(Compiler));
+
+ ParsingFORInitInstruction := False;
 
  // condition
- Condition := MakeConstruction(Compiler, [_SEMICOLON]);
+ if (next_t = _SEMICOLON) Then
+ Begin
+  read;
+  Condition.Typ := ctNone;
+ End Else
+  Condition := MakeConstruction(Compiler, [_SEMICOLON]);
 
  // step
- Step        := MakeConstruction(Compiler, [_BRACKET1_CL]);
- C.Values[0] := Condition.Values[0];
- C.Values[1] := Step.Values[0];
+ if (next_t = _BRACKET1_CL) Then
+ Begin
+  read;
+  Step.Typ := ctNone;
+ End Else
+  Step := MakeConstruction(Compiler, [_BRACKET1_CL]);
+
+ if (Condition.Typ <> ctNone) Then
+  C.Values[0] := Condition.Values[0] Else
+  C.Values[0] := nil;
+
+ if (Step.Typ <> ctNone) Then
+  C.Values[1] := Step.Values[0] Else
+  C.Values[1] := nil;
+
  C.Values[2] := Str;
  AddConstruction(C);
 

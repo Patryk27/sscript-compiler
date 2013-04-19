@@ -26,7 +26,7 @@ Begin
  Begin
   if not ((CompilePass = cp2) or (inFunction)) Then // `use` is parsed in second pass or inside function
   Begin
-   read_until_semicolon;
+   read_until(_SEMICOLON);
    Exit;
   End;
 

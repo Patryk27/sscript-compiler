@@ -273,6 +273,6 @@ Begin
    Q := I;
 
  if (Q <> -1) Then
-  Result := TToken(ord(_TT)+1+Q);   
+  Result := TToken(ord(_TT)+Q+1);
 End;
 End.

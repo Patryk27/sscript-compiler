@@ -47,19 +47,18 @@ Unit Compile1;
                     Interpreter : Pointer; // pointer to an expression's interpreter class (ExpressionCompiler.pas)
                     IncludePaths: TStringList; // list of include paths
 
+                    CurrentFunction   : TFunction; // currently parsed (or compiled) function
                     CurrentNamespace  : Integer; // namespace in which we are (`namespace namespace_ame;`)
                     SelectedNamespaces: Array of Integer; // selected namespaces (`use namespace1, namespace2 (...);`)
 
-                    OpcodeList: TOpcodeList; // output code opcode list
-
-                    IncludeList: PCompilerArray; // global include list
-                    Scope      : Array of TMScope; // scope list
-
+                    OpcodeList   : TOpcodeList; // output code opcode list
+                    IncludeList  : PCompilerArray; // global include list
                     NamespaceList: TNamespaceList; // namespace list
+                    Scope        : Array of TMScope; // current function scopes
 
                     SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>_begin`, so they don't overwrite each other
 
-                    CurrentFunction: TFunction;
+                    ParsingFORInitInstruction: Boolean; // don't even ask...
 
                     Property getCurrentFunction: TFunction read CurrentFunction;
 
@@ -221,9 +220,12 @@ Begin
   if (not Found) Then
    FileName := SearchFile('stdlib\init.ssm', Found);
 
-  if (not SSM.Load(FileName, FileName, self, False)) Then
-   CompileError(eCorruptedSSMFile, ['init.ssm']);
-
+  if (not Found) Then
+   CompileError(eFileNotFound, ['init.ssm']) Else
+   Begin
+    if (not SSM.Load(FileName, FileName, self, False)) Then
+     CompileError(eCorruptedSSMFile, ['init.ssm']);
+   End;
   SSM.Free;
  End;
 
@@ -555,20 +557,16 @@ End;
  See @TCompiler.ParseCodeBlock
 }
 Procedure TCompiler.SkipCodeBlock;
-Var Deep: Integer;
+Var Deep: Integer = 0;
 Begin
  With Parser do
  Begin
-  // read 'till semicolon
-
-  Deep := CurrentDeep;
-
   Repeat
    Case read_t of
     _BRACKET3_OP: Inc(Deep);
     _BRACKET3_CL: Dec(Deep);
    End;
-  Until (Deep = CurrentDeep);
+  Until (Deep = 0);
  End;
 End;
 
@@ -600,9 +598,9 @@ Begin
        var<int> a; else
        var<int> b;
 
-      is invalid...
+      is an invalid construction
      }
-     CompileError(next, eUnexpected, ['var']);
+     CompileError(next, eUnexpected, [next.Display]);
     End;
 
     ParseToken;
@@ -897,8 +895,6 @@ Begin
  Result.InternalID := TYPE_INT_id;
  Result.FuncParams := Func.ParamList;
  Result.FuncReturn := Func.Return;
- //Result.DeclToken  := Func.DeclToken;
- //Result.mCompiler  := Func.mCompiler;
  Result.Attributes := [taFunction];
 End;
 
@@ -1009,7 +1005,7 @@ End;
 Procedure TCompiler.RemoveScope;
 Begin
  if (Length(Scope) = 0) Then
-  CompileError(eInternalError, ['Cannot remove scope - no scope was set.']);
+  CompileError(eInternalError, ['Cannot remove scope - no scope has been set.']);
 
  SetLength(Scope, High(Scope));
 End;
@@ -1125,6 +1121,9 @@ Function TCompiler.findLocalVariable(fName: String; fTokenPos: Int64=-1): Intege
 Var I: Integer;
 Begin
  Result := -1;
+
+ if (getCurrentFunction = nil) Then
+  Exit;
 
  With getCurrentFunction do
  Begin
@@ -1306,10 +1305,7 @@ Begin
   With NamespaceList[NamespaceID] do
    For I := 0 To SymbolList.Count-1 Do
     if (SymbolList[I].Name = IdentName) Then
-    Begin
      Tmp := I;
-     Break;
-    End;
 
   // found?
   if (Tmp <> -1) Then
@@ -1534,7 +1530,7 @@ Var Compiler2: Compile2.TCompiler;
 
      With NamespaceList.Last do
      Begin
-      Name       := '';
+      Name       := 'self';
       Visibility := mvPublic;
       SymbolList := TGlobalSymbolList.Create;
      End;
@@ -1546,7 +1542,6 @@ Var Compiler2: Compile2.TCompiler;
 
      { create primary type-table }
      AddPrimaryType(TYPE_ANY);
-     AddPrimaryType(TYPE_NULL);
      AddPrimaryType(TYPE_VOID);
      AddPrimaryType(TYPE_BOOL);
      AddPrimaryType(TYPE_CHAR);
@@ -1557,8 +1552,6 @@ Var Compiler2: Compile2.TCompiler;
      { create global constants }
      With NamespaceList.Last do
      Begin
-      Name := 'self';
-
       // `null` global constant
       SymbolList.Add(TGlobalSymbol.Create(gsConstant));
       With SymbolList.Last do
@@ -1568,7 +1561,7 @@ Var Compiler2: Compile2.TCompiler;
 
        With mVariable do
        Begin
-        Typ        := TYPE_NULL;
+        Typ        := TYPE_INT;
         Value      := MakeIntExpression(0);
         Visibility := mvPrivate;
 
@@ -1631,6 +1624,8 @@ Begin
  Supervisor  := fSupervisor;
 
  CurrentFunction := nil;
+
+ ParsingFORInitInstruction := False;
 
  if (isIncluded) Then
   Log('Module: '+InputFile) Else

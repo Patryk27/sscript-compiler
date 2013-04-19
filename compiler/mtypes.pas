@@ -67,7 +67,7 @@ Unit MTypes;
  Type TMExpressionList = Array of TMExpression;
 
  // TMConstruction
- Type TMConstructionType = (ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end, ctDELETE, ctTHROW, ctTRY, ctCATCH, ctCATCH_end);
+ Type TMConstructionType = (ctNone, ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end, ctDELETE, ctTHROW, ctTRY, ctCATCH, ctCATCH_end);
  Type PMConstruction = ^TMConstruction;
       TMConstruction = Record
                         Typ   : TMConstructionType;
@@ -76,10 +76,10 @@ Unit MTypes;
                        End;
  Type TMConstructionList = Array of TMConstruction;
 
- // primary types; order (those numbers) is important, as it is the same in the virtual machine!
+ // primary types; order (those numbers) is important, as they are the same in the virtual machine!
  Const PrimaryTypeNames: Array[0..7] of String = ('any', 'null', 'void', 'bool', 'char', 'int', 'float', 'string');
  Const TYPE_ANY_id    = 0;
-       TYPE_NULL_id   = 1;
+       unused_0       = 1;
        TYPE_VOID_id   = 2;
        TYPE_BOOL_id   = 3;
        TYPE_CHAR_id   = 4;

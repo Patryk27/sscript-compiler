@@ -49,8 +49,9 @@ Unit symdef;
  Type TType = class;
 
  Type TParam = Record
-                Name: String;
-                Typ : TType;
+                Name      : String;
+                Typ       : TType;
+                Attributes: TVariableAttributes;
                End;
       TParamList = Array of TParam;
 
@@ -79,7 +80,6 @@ Unit symdef;
 
                 Function getBytecodeType: String;
 
-                Function isNull: Boolean;
                 Function isVoid: Boolean;
                 Function isBool: Boolean;
                 Function isChar: Boolean;
@@ -199,7 +199,6 @@ Unit symdef;
  Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
 
  Function TYPE_ANY: TType;
- Function TYPE_NULL: TType;
  Function TYPE_VOID: TType;
  Function TYPE_BOOL: TType;
  Function TYPE_CHAR: TType;
@@ -230,7 +229,7 @@ End;
 
 (* type_equal *)
 {
- Compares two TTypes (except their eg.names)
+ Compares two TTypes (except their names)
 }
 Function type_equal(A, B: TType): Boolean;
 Begin
@@ -265,19 +264,6 @@ Begin
   RefSymbol.Name := 'any';
   RegPrefix      := 'i';
   InternalID     := TYPE_ANY_id;
- End;
-End;
-
-(* TYPE_NULL *)
-Function TYPE_NULL: TType;
-Begin
- Result := TType.Create;
-
- With Result do
- Begin
-  RefSymbol.Name := 'null';
-  RegPrefix      := 'r';
-  InternalID     := TYPE_NULL_id;
  End;
 End;
 
@@ -488,28 +474,16 @@ Begin
  End;
 End;
 
-(* TType.isNull *)
-{
- Returns `true` when type passed in parameter is `null`.
-}
-Function TType.isNull: Boolean;
-Begin
- if (self = nil) Then
-  Exit(False);
-
- Exit(InternalID = TYPE_NULL_ID);
-End;
-
 (* TType.isVoid *)
 {
- Returns `true` when type passed in parameter is `void` or `null`.
+ Returns `true` when type passed in parameter is `void`.
 }
 Function TType.isVoid: Boolean;
 Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(InternalID in [TYPE_NULL_id, TYPE_VOID_id]);
+ Exit(InternalID in [TYPE_VOID_id]);
 End;
 
 (* TType.isBool *)
@@ -596,7 +570,7 @@ Begin
  if ((isString) and (ArrayDimCount = 1)) Then
   Exit(RegardStringAsArray);
 
- Exit((ArrayDimCount > 0) or (isNull));
+ Exit(ArrayDimCount > 0);
 End;
 
 (* TType.isObject *)
@@ -620,7 +594,7 @@ Begin
  if (self = nil) Then
   Exit(False);
 
- Exit((taFunction in Attributes) or (isNull));
+ Exit(taFunction in Attributes);
 End;
 
 (* TType.Clone *)
@@ -659,7 +633,9 @@ Begin
   Exit;
  End;
 
- Result.ArrayBase := ArrayBase.Clone;
+ if (ArrayBase = nil) Then
+  Result.ArrayBase := nil Else
+  Result.ArrayBase := ArrayBase.Clone;
 End;
 
 (* TType.asString *)
@@ -761,12 +737,6 @@ Begin
  if (self.InternalID = TYPE_ANY_id) or (T2.InternalID = TYPE_ANY_id) Then // any or any => true
   Exit(True);
 
- { comparing null-type }
- if (type_equal(self, TYPE_NULL)) Then
- Begin
-  Exit(T2.isFunctionPointer or T2.isObject); // `null` can be assigned only into a pointer or object
- End Else
-
  { compare function-pointers }
  if (self.isFunctionPointer and T2.isFunctionPointer) Then
  Begin
@@ -840,6 +810,9 @@ Begin
 
   if (self.isInt) and (T2.isBool) Then // int to bool => true (it's supported by the VM)
    Exit(True);
+
+  if (self.isInt) and (T2.isFunctionPointer or T2.isObject) Then // int to pointer/object => true
+   Exit(True);
  End;
 
  { compare types }
@@ -864,9 +837,6 @@ Begin
  if (type_equal(self, T2)) Then
   Exit(True);
 
- if (self.isNull) Then // `null` can be casted to: function pointer
-  Exit(T2.isFunctionPointer);
-
  if (self.isFunctionPointer) Then // `function pointer` can be casted to: int
   Exit(T2.isInt);
 
@@ -876,8 +846,8 @@ Begin
  if (self.isChar) Then // `char` can be casted to: bool, int, string
   Exit(T2.isBool or T2.isInt or T2.isString);
 
- if (self.isInt) Then // `int` can be casted to: bool, char, float
-  Exit(T2.isBool or T2.isChar or T2.isFloat);
+ if (self.isInt) Then // `int` can be casted to: bool, char, float, pointer, object
+  Exit(T2.isBool or T2.isChar or T2.isFloat or T2.isFunctionPointer or T2.isObject);
 
  if (self.isFloat) Then // `float` can be casted to: bool, int
   Exit(T2.isBool or T2.isInt);

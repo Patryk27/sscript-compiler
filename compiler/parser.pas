@@ -21,6 +21,7 @@ Unit Parser;
                   Property getPosition: LongWord read TokenPos; // current token position
                   Property getVisibility: TVisibility read Visibility; // current visibility state
 
+
                 // public methods
                   Constructor Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
 
@@ -40,7 +41,7 @@ Unit Parser;
                   Procedure semicolon;
 
                   Procedure skip_parenthesis;
-                  Procedure read_until_semicolon;
+                  Procedure read_until(const Token: TToken);
                  End;
 
  Implementation
@@ -62,15 +63,15 @@ Begin
  Compiler      := CompilerPnt;
  inLongComment := False;
 
+ TokenPos    := 0;
  CurrentDeep := 0;
 
- // load code from file
+ { load code from file }
  Code := TStringList.Create;
  Code.LoadFromFile(InputFile); // `InputFile` is already set in the `CompileCode`
 
- // parse it into the token table
+ { parse it }
  SetLength(TokenList, 0);
- TokenPos := 0;
 
  Scanner := TScanner.Create(Code);
  if (not Scanner.Can) Then // an empty file
@@ -81,7 +82,7 @@ Begin
 
  While (Scanner.Can) do
  Begin
-  if (TokenPos > High(TokenList)) Then // we run out of the array, so we need to expand it
+  if (TokenPos > High(TokenList)) Then // we ran out of the array, so we need to expand it
   Begin
    SetLength(TokenList, Length(TokenList)+100);
    // @TODO: use a generic list instead of an array
@@ -93,10 +94,7 @@ Begin
   Token := Scanner.getToken_P;
 
   if (Token.Token = noToken) Then // skip `noToken`-s
-  Begin
-   DevLog('Warning: `noToken` found at '+IntToStr(Token.Line)+','+IntToStr(Token.Char)+' :: '+Token.Display);
    Continue;
-  End;
 
   if (Token.Token = _EOF) Then
   Begin
@@ -126,9 +124,10 @@ Begin
   End;
  End;
 
- TokenPos := 0;
+ TokenPos    := 0;
+ CurrentDeep := 0;
 
- // free objects
+ { destroy objects }
  Scanner.Free;
  Code.Free;
 End;
@@ -151,9 +150,33 @@ End;
 }
 Function TParser.getCurrentRange: TRange;
 Var Deep: Integer = 1;
+    TPos: LongWord;
 Begin
+ TPos := TokenPos;
+
  Result.PBegin := TokenPos;
- Result.PEnd   := Result.PBegin;
+
+ With TCompiler(Compiler) do
+  if (ParsingFORInitInstruction) Then
+  Begin
+   read_until(_BRACKET1_CL);
+   Deep := 0;
+
+   if (next_t <> _BRACKET3_OP) Then // @TODO: what the fuck?
+   Begin
+    read_until(_SEMICOLON);
+    if (next_t = _ELSE) Then
+    Begin
+     read;
+     read_until(_SEMICOLON);
+    End;
+    Result.PEnd := TokenPos;
+    TokenPos    := TPos;
+    Exit;
+   End;
+  End;
+
+ Result.PEnd := TokenPos;
 
  While (true) Do
  Begin
@@ -168,11 +191,13 @@ Begin
    _BRACKET3_CL: Dec(Deep);
   End;
 
+  Inc(Result.PEnd);
+
   if (Deep = 0) Then
    Break;
-
-  Inc(Result.PEnd);
  End;
+
+ TokenPos := TPos;
 End;
 
 (* TParser.read *)
@@ -488,22 +513,21 @@ Begin
  Until (Deep = 0);
 End;
 
-(* TParser.read_until_semicolon *)
-{
- Reads tokens until semicolon
-}
-Procedure TParser.read_until_semicolon;
+(* TParser.read_until *)
+Procedure TParser.read_until(const Token: TToken);
 Var Deep: Integer = 0;
+    Tok : TToken;
 Begin
  While (true) do
  Begin
-  Case read_t of
-   _SEMICOLON:
-    if (Deep = 0) Then
-     Break;
+  Tok := read_t;
 
-   _BRACKET1_OP, _BRACKET2_OP, _BRACKET3_OP, _LOWER: Inc(Deep);
-   _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL, _GREATER: Dec(Deep);
+  if (Tok = Token) and (Deep = 0) Then
+   Break;
+
+  Case Tok of
+   _BRACKET1_OP, _BRACKET2_OP, _BRACKET3_OP: Inc(Deep);
+   _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL: Dec(Deep);
   End;
  End;
 End;

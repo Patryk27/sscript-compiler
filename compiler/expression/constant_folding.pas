@@ -82,8 +82,7 @@ Begin
    End;
   End;
 
-
-  { int, float }
+  { int or float }
   if (Left^.Typ in [mtInt, mtFloat]) and (not Evaluated) Then
   Begin
    Evaluated := True;

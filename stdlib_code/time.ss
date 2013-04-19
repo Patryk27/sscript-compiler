@@ -8,11 +8,20 @@
 namespace std
 {
 
-function<int> get_ticks() naked
+function<int> get_milliseconds() naked
 {
  :CODE
  {
-  icall("time.get_tick_count")
+  icall("time.get_milliseconds")
+  pop(ei1)
+ }
+}
+
+function<int> get_millis() naked
+{
+ :CODE
+ {
+  icall("time.get_milliseconds")
   pop(ei1)
  }
 }
@@ -20,9 +29,9 @@ function<int> get_ticks() naked
 function<void> sleep(int milis) naked
 {
 /*
- finish_time = get_ticks()+milis;
+ finish_time = get_millis()+milis;
 
- while (get_ticks() < finish_time) ; // (do nothing)
+ while (get_millis() < finish_time); // (do nothing)
 */
 
  :CODE
@@ -31,13 +40,13 @@ function<void> sleep(int milis) naked
 
   pop(ei1) // ei1 = milis
 
-  icall("time.get_tick_count")
+  icall("time.get_milliseconds")
   pop(ei2) // ei2 = current time
 
   add(ei2, ei1) // ei2 = finish time
 
  &loop:
-  icall("time.get_tick_count")
+  icall("time.get_milliseconds")
   pop(ei1) // ei1 = current time
 
   if_l(ei1, ei2) // if (ei1 < ei2)

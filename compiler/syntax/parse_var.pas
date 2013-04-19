@@ -20,7 +20,7 @@ With TCompiler(Compiler), Parser do
 Begin
  if not ((CompilePass = cp1) or (inFunction)) Then
  Begin
-  read_until_semicolon;
+  read_until(_SEMICOLON);
   Exit;
  End;
 
@@ -32,7 +32,7 @@ Begin
  While (true) do
  Begin
   Variable     := TVariable.Create;
-  Variable.Typ := VarType;
+  Variable.Typ := VarType.Clone;
 
   With Variable.RefSymbol do
   Begin

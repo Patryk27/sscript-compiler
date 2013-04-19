@@ -25,7 +25,7 @@ Begin
 
    if (VarID = -1) Then // local variable not found
    Begin
-    Compiler.findGlobalVariableCandidate(Expr^.Value, Expr^.Namespaces, VarID, NamespaceID, @Expr^.Token); // so - is it a global variable?
+    Compiler.findGlobalVariableCandidate(Expr^.Value, Expr^.Namespaces, VarID, NamespaceID, @Expr^.Token); // so - maybe it's a global variable?
 
     if (VarID = -1) Then
     Begin

@@ -74,6 +74,15 @@ Var Func : TFunction; // our new function
       SetLength(ParamList, Length(ParamList)+1); // resize the param array
       With ParamList[High(ParamList)] do // read parameter
       Begin
+       if (next_t = _CONST) Then // is a const-param?
+       Begin
+        read;
+        Attributes += [vaConst];
+       End;
+
+       if (next_t = _VAR) Then // is a var-param?
+        CompileError(eUnimplemented, ['var-params']);
+
        Typ := read_type; // [param type]
 
        if (Typ.isVoid) Then // error: void-typed param
@@ -248,7 +257,7 @@ Begin
   { add parameters }
   With Func do
    For I := Low(ParamList) To High(ParamList) Do
-    __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, [vaFuncParam, vaDontAllocate]);
+    __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
 
   { add special constants (if `--internal-const` enabled) }
   if (getBoolOption(opt_internal_const)) Then

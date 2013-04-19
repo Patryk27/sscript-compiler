@@ -43,6 +43,9 @@ Begin
   With CList[ID] do
   Begin
    Case Typ of
+ (* ctNone *)
+    ctNone: ;
+
  (* ctJump *)
     ctJump:
     Begin
@@ -119,9 +122,13 @@ Begin
 
      { condition }
      PutLabel(Str2);
-     EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
-     if (not (EType.isBool or EType.isInt)) Then
-      CompileError(PMExpression(Values[0])^.Token, eWrongType, [EType.asString, 'bool']);
+     if (Values[0] <> nil) Then
+     Begin
+      EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
+      if (not (EType.isBool or EType.isInt)) Then
+       CompileError(PMExpression(Values[0])^.Token, eWrongType, [EType.asString, 'bool']);
+     End Else
+      PutOpcode(o_push, ['true']);
 
      { condition check }
      PutOpcode(o_pop, ['if']);
@@ -130,8 +137,11 @@ Begin
      ParseUntil(ctFOR_end);
 
      { step }
-     ExpressionCompiler.CompileConstruction(Compiler, Values[1]);
-     RemoveRedundantPush;
+     if (Values[1] <> nil) Then
+     Begin
+      ExpressionCompiler.CompileConstruction(Compiler, Values[1]);
+      RemoveRedundantPush;
+     End;
 
      PutOpcode(o_jmp, [':'+Str2]);
 

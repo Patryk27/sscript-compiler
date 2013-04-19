@@ -6,7 +6,6 @@ Var Variable       : TRVariable;
 Label asArray;
 Begin
  { left side is l-value (variable), right side is the expression to parse (a value, which we'll assign into the variable) }
-
  if (not isLValue(Left)) Then
  Begin
   Error(Left^.Token, eLValueRequired, []);

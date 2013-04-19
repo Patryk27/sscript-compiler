@@ -63,7 +63,6 @@ End;
 Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PMExpression): TType;
 Var RegStr: String;
 Begin
- Result := _var.Typ;
  RegStr := 'e'+RegChar+IntToStr(RegID);
 
  With Compiler do
@@ -80,7 +79,10 @@ Begin
   Result := Parse(ArrayElements);
 
   if (ArrayElements^.ResultOnStack) Then
-   PutOpcode(o_pop, [RegStr]) Else
+  Begin
+   PutOpcode(o_pop, [RegStr]);
+   Dec(PushedValues);
+  End Else
    PutOpcode(o_mov, [RegStr, 'e'+Result.RegPrefix+'1']);
  End;
 
@@ -131,7 +133,9 @@ Begin
    Inc(IndexCount);
   Until (ArrayElements^.Typ = mtVariable);
 
+  Dec(PushedValues, IndexCount);
+
   { set new value }
-  PutOpcode(o_arset, ['e'+Variable.Typ.RegPrefix+'1', IndexCount, RegStr]);
+  PutOpcode(o_arset, [Variable.PosStr, IndexCount, RegStr]);
  End;
 End;

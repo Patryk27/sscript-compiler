@@ -1038,8 +1038,8 @@ End;
 { TInterpreter.Optimize }
 Function TInterpreter.Optimize(const Tree: PMExpression; Options: TOptions): PMExpression;
 
-{$I constant_folding.pas}
 {$I insert_constants.pas}
+{$I constant_folding.pas}
 
 Begin
  if (oInsertConstants in Options) Then
@@ -1268,7 +1268,7 @@ Begin
  if (Expr^.Typ = mtVariable) and (Expr^.IdentID <> -1) Then // check if passed variable identifier isn't a constant
  Begin
   if (Expr^.isLocal) Then
-   Exit(not (Compiler.getCurrentFunction.SymbolList[Expr^.IdentID].Typ = lsConstant)) Else
+   Exit(not Compiler.getCurrentFunction.SymbolList[Expr^.IdentID].mVariable.isConst) Else
    Exit(not Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Expr^.IdentID].mVariable.isConst);
  End;
 End;

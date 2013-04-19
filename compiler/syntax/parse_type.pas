@@ -19,7 +19,7 @@ With TCompiler(Compiler), Parser do
 Begin
  if not ((CompilePass = cp1) or (inFunction)) Then // `type` is parsed in second pass or inside function
  Begin
-  read_until_semicolon;
+  read_until(_SEMICOLON);
   Exit;
  End;
 
