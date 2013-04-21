@@ -18,7 +18,7 @@ namespace std
  function<string> strdelete_end(string, int) [library="string.ssm"];
  function<int> strpos_ex(string, string, int) [library="string.ssm"];
  function<int> strpos(string, string) [library="string.ssm"];
- function<bool> strposb(string, string) [library="string.ssm"];
+ function<bool> strfind(string, string) [library="string.ssm"];
  function<string> strtrim_l(string) [library="string.ssm"];
  function<string> strtrim_r(string) [library="string.ssm"];
  function<string> strtrim(string) [library="string.ssm"];
@@ -27,7 +27,6 @@ namespace std
  function<string> strupper(string) [library="string.ssm"];
  function<string> strlower(string) [library="string.ssm"];
  function<string> strdup(string, int) [library="string.ssm"];
- function<string> strrot(string, int) [library="string.ssm"];
  function<bool> strstarts(string, string) [library="string.ssm"];
  function<bool> strends(string, string) [library="string.ssm"];
  function<string> strinsert(string, string, int) [library="string.ssm"];

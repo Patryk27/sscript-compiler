@@ -24,6 +24,6 @@ namespace std
  function<void> set_buffered(bool) [library="stdio.ssm"];
  function<void> flush() [library="stdio.ssm"];
  function<void> clear() [library="stdio.ssm"];
- function<void> hide_cursor() [library="stdio.ssm"];
  function<void> show_cursor() [library="stdio.ssm"];
+ function<void> hide_cursor() [library="stdio.ssm"];
 }

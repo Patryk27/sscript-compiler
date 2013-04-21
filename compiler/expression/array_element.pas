@@ -41,10 +41,10 @@ Begin
    End;
   End;
 
- if (Typ.ArrayBase.isString and (Typ.ArrayDimCount = 1)) Then // `string`
+ if (Typ{.ArrayBase}.isString and (Typ.ArrayDimCount = 1)) Then // `string`
   Typ := TYPE_STRING;
 
- if (Typ.ArrayBase.isString and (Typ.ArrayDimCount = 0)) Then // `string`
+ if (Typ{.ArrayBase}.isString and (Typ.ArrayDimCount = 0)) Then // `string`
   Typ := TYPE_CHAR;
 
  { get value }

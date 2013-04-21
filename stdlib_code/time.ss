@@ -8,7 +8,7 @@
 namespace std
 {
 
-type<float> Time;
+type<int> Time;
 
 function<int> get_milliseconds() naked
 {
@@ -35,6 +35,11 @@ function<Time> get_time() naked
   icall("time.get_time")
   pop(ef1)
  }
+}
+
+function<int> get_seconds(Time time)
+{
+ // @TODO
 }
 
 function<void> sleep(int milis) naked

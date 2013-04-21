@@ -87,15 +87,18 @@ function<string> strreverse(string text)
 
 function<string> strcopy(string text, int begin, int length)
 {
- var<int> end = begin+length-1;
- var<string> result = "";
+ if (begin < 0) // negative `begin`
+  begin = strlen(text)+begin+1;
 
- if (length < 0) // invalid length
-  return result;
+ if ((begin < 0) || (length < 0)) // invalid length
+  return "";
+
+ var<int> end = begin+length-1;
 
  if (end > strlen(text)) // too long
   end = strlen(text);
 
+ var<string> result = "";
  for (var<int> i=begin; i<=end; i++) // copy string char-by-char
   result += text[i];
 
@@ -104,7 +107,9 @@ function<string> strcopy(string text, int begin, int length)
 
 function<string> strdelete(string text, int begin, int length)
 {
- // copy text from beginning to the `begin`, and then copy text from `begin+length` to the end
+ if (begin < 0)
+  return strdelete(text, strlen(text)+begin+1, length);
+
  return strcopy(text, 1, begin-1)+
         strcopy(text, begin+length, strlen(text));
 }
@@ -158,7 +163,7 @@ function<int> strpos(string search, string text)
  return strpos_ex(search, text, 1);
 }
 
-function<bool> strposb(string search, string text)
+function<bool> strfind(string search, string text)
 {
  return (strpos(search, text) > 0);
 }
@@ -238,13 +243,6 @@ function<string> strdup(string text, int amount)
   result += text;
   
  return result;
-}
-
-function<string> strrot(string text, int key)
-{
- for (var<int> i=1; i<=strlen(text); i++)
-  text[i] = cast<char>(text[i]+key);
- return text;
 }
 
 function<bool> strstarts(string text, string str)

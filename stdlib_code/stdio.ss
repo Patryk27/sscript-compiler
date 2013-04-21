@@ -32,7 +32,7 @@ function<void> print(any text) naked
 function<void> println(any text) naked
 {
  /*
-  Almost the same as in 'println'; here we just need to do `icall` with param: `#10` (newline char)
+  Almost the same as in 'println'; here we just need to do 2 `icall`s putting newline and caret return char.
  */
  :CODE
  {
@@ -161,7 +161,7 @@ function<string> read_until_t(string text, char terminator)
 
 function<void> wait_for(char ch)
 {
- if (ch == 0) // wait for any key
+ if (ch == null) // wait for any key
  {
   while (!key_pressed()) ;
  } else // wait for specified key
@@ -213,14 +213,14 @@ function<void> clear() naked
  :CODE icall("output.clear")
 }
 
-function<void> hide_cursor() naked
-{
- :CODE icall("output.cursor.hide")
-}
-
 function<void> show_cursor() naked
 {
  :CODE icall("output.cursor.show")
+}
+
+function<void> hide_cursor() naked
+{
+ :CODE icall("output.cursor.hide")
 }
 
 }
