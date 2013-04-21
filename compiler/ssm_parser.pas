@@ -168,9 +168,10 @@ Begin
      Case Typ of
       ptBoolReg..ptReferenceReg: Value := AStream.read_byte;
       ptBool, ptChar: Value := AStream.read_byte;
+      ptInt: Value := AStream.read_int64;
       ptFloat: Value := AStream.read_float;
       ptString: Value := AStream.read_string;
-      ptLabelAbsoluteReference: Value := String(PChar(@References[AStream.read_longword+1]));
+      ptLabelAbsoluteReference: Value := String(PChar(@References[AStream.read_int64+1]));
 
       else
        Value := AStream.read_integer;

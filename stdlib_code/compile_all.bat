@@ -68,10 +68,6 @@ echo -] VM
 call :compile "vm"
 
 echo.
-echo -] other units
-call :compile "short_cast"
-
-echo.
 echo --------------------------------------------------
 echo - SScript Standard Library has been compiled! :) -
 echo - Headers and compiled files are in `..\stdlib\` -

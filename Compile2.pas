@@ -175,11 +175,13 @@ Begin
         Case Typ of
          ptBoolReg..ptReferenceReg: Inc(OpcodeLen, sizeof(Byte));
          ptBool, ptChar: Inc(OpcodeLen, sizeof(Byte));
+         ptInt: Inc(OpcodeLen, sizeof(Int64));
          ptFloat: Inc(OpcodeLen, sizeof(Extended));
          ptString: Inc(OpcodeLen, Length(VarToStr(Value))+sizeof(Byte)); // string + terminator char (0x00)
-         ptLabelAbsoluteReference: Inc(OpcodeLen, sizeof(LongWord));
+         ptLabelAbsoluteReference: Inc(OpcodeLen, sizeof(Int64));
 
-         else Inc(OpcodeLen, sizeof(Integer));
+         else
+          Inc(OpcodeLen, sizeof(Integer));
         End;
        End;
     End Else // if label
@@ -235,7 +237,7 @@ Begin
       Begin
        if (ResolveReferences) Then // should be resolved?
        Begin
-        if ((VarType(Value) and VarTypeMask) in [varInteger, varLongword]) Then
+        if ((VarType(Value) and VarTypeMask) in [varInteger, varLongword, varInt64]) Then
         Begin
          ReferenceStream.Position := Value;
          Value                    := ReferenceStream.read_string;
@@ -297,11 +299,13 @@ Begin
        Case Typ of // param value
         ptBoolReg..ptReferenceReg: write_byte(Value);
         ptBool, ptChar: write_byte(Value);
+        ptInt: write_int64(Value);
         ptFloat: write_float(Value);
         ptString: write_string(Value);
-        ptLabelAbsoluteReference: write_longword(Value);
+        ptLabelAbsoluteReference: write_int64(Value);
 
-        else write_integer(Value);
+        else
+         write_integer(Value);
        End;
       Except
        self.Compiler.CompileError(eInternalError, ['Cannot compile opcode; not a numeric parameter value: `'+VarToStr(Value)+'`']);

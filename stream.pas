@@ -16,6 +16,7 @@ Unit Stream;
                   Procedure write_word(const V: Word);
                   Procedure write_integer(const V: Integer);
                   Procedure write_longword(const V: Longword);
+                  Procedure write_int64(const V: Int64);
                   Procedure write_float(const V: Extended);
                   Procedure write_string(const V: String);
 
@@ -24,6 +25,7 @@ Unit Stream;
                   Function read_word: Word;
                   Function read_integer: Integer;
                   Function read_longword: Longword;
+                  Function read_int64: Int64;
                   Function read_float: Extended;
                   Function read_string: String;
 
@@ -53,6 +55,12 @@ End;
 
 { TStream.write_longword }
 Procedure TStream.write_longword(const V: Longword);
+Begin
+ Write(NtoBE(V), sizeof(V));
+End;
+
+{ TStream.write_int64 }
+Procedure TStream.write_int64(const V: Int64);
 Begin
  Write(NtoBE(V), sizeof(V));
 End;
@@ -106,6 +114,15 @@ End;
 
 { TStream.read_longword }
 Function TStream.read_longword: Longword;
+Begin
+ if (not Can) Then
+  Exit(0);
+ Read(Result, sizeof(Result));
+ Result := BEtoN(Result);
+End;
+
+{ TStream.read_int64 }
+Function TStream.read_int64: Int64;
 Begin
  if (not Can) Then
   Exit(0);
