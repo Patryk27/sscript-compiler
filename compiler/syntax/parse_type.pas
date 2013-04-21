@@ -42,21 +42,9 @@ Begin
 
  semicolon;
 
- if (inFunction) Then // local type
- Begin
-  With getCurrentFunction do
-  Begin
-   SymbolList.Add(TLocalSymbol.Create(lsType, False));
-   SymbolList.Last.mType := Typ;
-  End;
- End Else // global type
- Begin
-  With getCurrentNamespace do
-  Begin
-   SymbolList.Add(TGlobalSymbol.Create(gsType, False));
-   SymbolList.Last.mType := Typ;
-  End;
- End;
+ if (inFunction) Then
+  getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsType, Typ)) { local type } Else
+  getCurrentNamespace.SymbolList.Add(TGlobalSymbol.Create(gsType, Typ)); { global type }
 End;
 End;
 End.

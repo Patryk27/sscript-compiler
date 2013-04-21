@@ -57,13 +57,9 @@ Begin
    End;
   End;
 
-  if (inFunction) Then // local constant
-  Begin
-   getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsConstant, Variable));
-  End Else // global constant
-  Begin
-   getCurrentNamespace.SymbolList.Add(TGlobalSymbol.Create(gsConstant, Variable));
-  End;
+  if (inFunction) Then
+   getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsConstant, Variable)) { local constant } Else
+   getCurrentNamespace.SymbolList.Add(TGlobalSymbol.Create(gsConstant, Variable)); { global constant }
 
   Dec(TokenPos); // ExpressionCompiler 'eats' comma.
 

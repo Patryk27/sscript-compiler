@@ -13,7 +13,7 @@
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
+        <CursorPos X="45" Y="28"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -302,9 +302,9 @@
         <Filename Value="compiler\ssm_parser.pas"/>
         <UnitName Value="SSM_parser"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="150"/>
-        <CursorPos X="32" Y="153"/>
-        <UsageCount Value="99"/>
+        <TopLine Value="16"/>
+        <CursorPos X="54" Y="37"/>
+        <UsageCount Value="100"/>
       </Unit36>
       <Unit37>
         <Filename Value="stream.pas"/>
@@ -318,8 +318,8 @@
         <Filename Value="compiler\Compile1.pas"/>
         <UnitName Value="Compile1"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="37"/>
-        <CursorPos X="72" Y="64"/>
+        <TopLine Value="1"/>
+        <CursorPos X="27" Y="14"/>
         <UsageCount Value="106"/>
       </Unit38>
       <Unit39>
@@ -334,8 +334,8 @@
         <Filename Value="compiler\expressioncompiler.pas"/>
         <UnitName Value="ExpressionCompiler"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="865"/>
-        <CursorPos X="35" Y="905"/>
+        <TopLine Value="979"/>
+        <CursorPos X="77" Y="1010"/>
         <UsageCount Value="99"/>
       </Unit40>
       <Unit41>
@@ -391,8 +391,8 @@
         <Filename Value="compiler\syntax\parse_var.pas"/>
         <UnitName Value="Parse_VAR"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="21"/>
-        <CursorPos X="62" Y="21"/>
+        <TopLine Value="20"/>
+        <CursorPos X="1" Y="1"/>
         <UsageCount Value="89"/>
       </Unit47>
       <Unit48>
@@ -415,8 +415,8 @@
         <Filename Value="compiler\syntax\parse_const.pas"/>
         <UnitName Value="Parse_CONST"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="25" Y="22"/>
+        <TopLine Value="24"/>
+        <CursorPos X="42" Y="46"/>
         <UsageCount Value="22"/>
       </Unit50>
       <Unit51>
@@ -480,7 +480,7 @@
         <UnitName Value="Parse_TRY_CATCH"/>
         <WindowIndex Value="0"/>
         <TopLine Value="22"/>
-        <CursorPos X="15" Y="42"/>
+        <CursorPos X="43" Y="60"/>
         <UsageCount Value="116"/>
       </Unit58>
       <Unit59>
@@ -488,15 +488,15 @@
         <UnitName Value="Parse_DELETE"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
-        <CursorPos X="17" Y="29"/>
-        <UsageCount Value="4"/>
+        <CursorPos X="1" Y="1"/>
+        <UsageCount Value="10"/>
       </Unit59>
       <Unit60>
         <Filename Value="compiler\syntax\parse_type.pas"/>
         <UnitName Value="Parse_TYPE"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
-        <CursorPos X="25" Y="22"/>
+        <CursorPos X="1" Y="1"/>
         <UsageCount Value="32"/>
       </Unit60>
       <Unit61>
@@ -511,16 +511,16 @@
         <Filename Value="compiler\symdef.pas"/>
         <UnitName Value="symdef"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="591"/>
-        <CursorPos X="2" Y="638"/>
+        <TopLine Value="162"/>
+        <CursorPos X="37" Y="173"/>
         <UsageCount Value="105"/>
       </Unit62>
       <Unit63>
         <Filename Value="compiler\parser.pas"/>
         <UnitName Value="Parser"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="423"/>
-        <CursorPos X="37" Y="431"/>
+        <TopLine Value="179"/>
+        <CursorPos X="7" Y="8"/>
         <UsageCount Value="50"/>
       </Unit63>
       <Unit64>
@@ -744,7 +744,12 @@
     <General>
       <ActiveWindowIndexAtStart Value="0"/>
     </General>
-    <JumpHistory Count="0" HistoryIndex="-1"/>
+    <JumpHistory Count="1" HistoryIndex="0">
+      <Position1>
+        <Filename Value="compiler.lpr"/>
+        <Caret Line="28" Column="45" TopLine="1"/>
+      </Position1>
+    </JumpHistory>
   </ProjectSession>
   <Debugging>
     <Watches Count="2">

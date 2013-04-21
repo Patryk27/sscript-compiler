@@ -39,7 +39,6 @@ Begin
  Symbol           := TLocalSymbol.Create(lsVariable); // create new local symbol
  Symbol.Name      := read_ident; // [var name]
  Symbol.DeclToken := next_pnt;
- Symbol.Range     := Parser.getCurrentRange;
 
  RedeclarationCheck(Symbol.Name); // redeclaration check
 
@@ -58,6 +57,7 @@ Begin
  SetLength(m_catch.Values, 0);
  AddConstruction(m_catch);
 
+ Symbol.Range := Parser.getCurrentRange(0);
  ParseCodeBlock(False);
 
  { `catch` end }

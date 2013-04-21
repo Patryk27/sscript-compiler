@@ -26,7 +26,7 @@ Unit Parser;
                   Constructor Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
 
                   Function getLastToken: TToken_P;
-                  Function getCurrentRange: TRange;
+                  Function getCurrentRange(Deep: Integer=1): TRange;
 
                   Function read: TToken_P;
                   Function read_t: TToken;
@@ -148,9 +148,8 @@ End;
 {
  Returns current scope's range.
 }
-Function TParser.getCurrentRange: TRange;
-Var Deep: Integer = 1;
-    TPos: LongWord;
+Function TParser.getCurrentRange(Deep: Integer=1): TRange;
+Var TPos: LongWord;
 Begin
  TPos := TokenPos;
 

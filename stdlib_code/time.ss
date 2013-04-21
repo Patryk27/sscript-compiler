@@ -8,6 +8,8 @@
 namespace std
 {
 
+type<float> Time;
+
 function<int> get_milliseconds() naked
 {
  :CODE
@@ -23,6 +25,15 @@ function<int> get_millis() naked
  {
   icall("time.get_milliseconds")
   pop(ei1)
+ }
+}
+
+function<Time> get_time() naked
+{
+ :CODE
+ {
+  icall("time.get_time")
+  pop(ef1)
  }
 }
 
