@@ -491,7 +491,7 @@ Begin
   Parsed := True;
   Case Token.Token of
    { values }
-   _INT   : FinalExprPush(mtInt, StrToInt(Str), Token);
+   _INT   : FinalExprPush(mtInt, StrToInt64(Str), Token);
    _FLOAT : FinalExprPush(mtFloat, StrToFloat(Str), Token);
    _STRING: FinalExprPush(mtString, Str, Token);
    _CHAR  : FinalExprPush(mtChar, Str[1], Token);

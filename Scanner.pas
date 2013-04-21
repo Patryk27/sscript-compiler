@@ -11,7 +11,7 @@ Unit Scanner;
  Type TScanner = Class
                   Private
                    Code    : String;
-                   Position: Integer;
+                   Position: Int64;
 
                    Function __readChar(out NewLine, Escaped: Boolean; const AllowFormatting: Boolean=False): Char;
                    Function __readCharN(out NewLine: Boolean; const AllowFormatting: Boolean=False): Char;
@@ -471,7 +471,7 @@ Var Token: TToken;
     isFloat: Boolean;
 
     Flt: Extended;
-    Int: Integer; // @TODO: Int64 (?)
+    Int: Int64;
 Begin
  Token           := getToken;
  Result.Token    := Token;
@@ -548,7 +548,7 @@ Begin
       Result.Token := _INVALID_FLOAT;
 
     False:
-     if (not TryStrToInt(Result.Display, Int)) Then
+     if (not TryStrToInt64(Result.Display, Int)) Then
       Result.Token := _INVALID_INT;
    End;
   End;

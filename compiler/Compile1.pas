@@ -623,7 +623,7 @@ End;
 Function TCompiler.PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
 Var I, T: Integer;
     Str : String;
-    iTmp: Integer;
+    iTmp: Int64;
     fTmp: Extended;
     Item: PMOpcode;
 
@@ -739,7 +739,7 @@ Begin
       Delete(Str, 1, 1);
       Typ := ptChar;
 
-      if (TryStrToInt(Str, iTmp)) Then
+      if (TryStrToInt64(Str, iTmp)) Then
        Value := iTmp Else
        CompileError(Token^, eBytecode_InvalidOpcode, []);
      End Else
@@ -751,7 +751,7 @@ Begin
      Begin
       Value := Str;
 
-      if (TryStrToInt(Value, iTmp)) Then
+      if (TryStrToInt64(Value, iTmp)) Then
        Typ := ptInt Else
       if (TryStrToFloat(Value, fTmp)) Then
        Typ := ptFloat;
