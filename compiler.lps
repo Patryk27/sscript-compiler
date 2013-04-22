@@ -9,10 +9,11 @@
         <Filename Value="compiler.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="compiler"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
+        <TopLine Value="190"/>
+        <CursorPos X="42" Y="225"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -44,12 +45,10 @@
       <Unit4>
         <Filename Value="Compile2.pas"/>
         <UnitName Value="Compile2"/>
-        <EditorIndex Value="3"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="103"/>
+        <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
         <UsageCount Value="104"/>
-        <Loaded Value="True"/>
       </Unit4>
       <Unit5>
         <Filename Value="..\Tokens.pas"/>
@@ -320,8 +319,8 @@
         <UnitName Value="Compile1"/>
         <EditorIndex Value="1"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="717"/>
-        <CursorPos X="24" Y="742"/>
+        <TopLine Value="1073"/>
+        <CursorPos X="45" Y="1042"/>
         <UsageCount Value="106"/>
         <Loaded Value="True"/>
       </Unit38>
@@ -505,20 +504,17 @@
       <Unit61>
         <Filename Value="compiler\syntax\parse_throw.pas"/>
         <UnitName Value="Parse_THROW"/>
-        <IsVisibleTab Value="True"/>
-        <EditorIndex Value="2"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
+        <CursorPos X="43" Y="6"/>
         <UsageCount Value="84"/>
-        <Loaded Value="True"/>
       </Unit61>
       <Unit62>
         <Filename Value="compiler\symdef.pas"/>
         <UnitName Value="symdef"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="505"/>
-        <CursorPos X="39" Y="543"/>
+        <TopLine Value="158"/>
+        <CursorPos X="41" Y="176"/>
         <UsageCount Value="105"/>
       </Unit62>
       <Unit63>
@@ -750,7 +746,7 @@
     <General>
       <ActiveWindowIndexAtStart Value="0"/>
     </General>
-    <JumpHistory Count="25" HistoryIndex="24">
+    <JumpHistory Count="10" HistoryIndex="9">
       <Position1>
         <Filename Value="compiler.lpr"/>
         <Caret Line="28" Column="45" TopLine="1"/>
@@ -765,92 +761,32 @@
       </Position3>
       <Position4>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="17" Column="45" TopLine="1"/>
+        <Caret Line="1" Column="1" TopLine="1"/>
       </Position4>
       <Position5>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="158" Column="31" TopLine="115"/>
+        <Caret Line="637" Column="1" TopLine="613"/>
       </Position5>
       <Position6>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="8" Column="57" TopLine="1"/>
+        <Caret Line="1997" Column="1" TopLine="1950"/>
       </Position6>
       <Position7>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="159" Column="9" TopLine="115"/>
+        <Caret Line="939" Column="1" TopLine="911"/>
       </Position7>
       <Position8>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="159" Column="9" TopLine="115"/>
+        <Caret Line="941" Column="9" TopLine="914"/>
       </Position8>
       <Position9>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="273" Column="24" TopLine="229"/>
+        <Caret Line="936" Column="27" TopLine="919"/>
       </Position9>
       <Position10>
         <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="279" Column="23" TopLine="235"/>
+        <Caret Line="937" Column="81" TopLine="923"/>
       </Position10>
-      <Position11>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="1445" Column="56" TopLine="1409"/>
-      </Position11>
-      <Position12>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="159" Column="6" TopLine="159"/>
-      </Position12>
-      <Position13>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="6" Column="80" TopLine="1"/>
-      </Position13>
-      <Position14>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="9" Column="10" TopLine="1"/>
-      </Position14>
-      <Position15>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="12" Column="85" TopLine="130"/>
-      </Position15>
-      <Position16>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="28" Column="69" TopLine="1"/>
-      </Position16>
-      <Position17>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="159" Column="12" TopLine="115"/>
-      </Position17>
-      <Position18>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="124" Column="88" TopLine="117"/>
-      </Position18>
-      <Position19>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="7" Column="129" TopLine="1"/>
-      </Position19>
-      <Position20>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="415" Column="23" TopLine="371"/>
-      </Position20>
-      <Position21>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="735" Column="24" TopLine="692"/>
-      </Position21>
-      <Position22>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="744" Column="23" TopLine="699"/>
-      </Position22>
-      <Position23>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="754" Column="33" TopLine="729"/>
-      </Position23>
-      <Position24>
-        <Filename Value="compiler\Compile1.pas"/>
-        <Caret Line="626" Column="16" TopLine="626"/>
-      </Position24>
-      <Position25>
-        <Filename Value="compiler\syntax\parse_throw.pas"/>
-        <Caret Line="1" Column="1" TopLine="1"/>
-      </Position25>
     </JumpHistory>
   </ProjectSession>
   <Debugging>

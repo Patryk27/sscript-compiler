@@ -930,11 +930,11 @@ End;
 Function TCompiler.findGlobalType(const TypeName: String; NamespaceID: Integer=-1): TType;
 
   // Search
-  Procedure Search(const NamespaceID: Integer);
+  Procedure Search(const Namespace: TNamespace);
   Var Symbol: TGlobalSymbol;
   Begin
-   For Symbol in NamespaceList[NamespaceID].SymbolList Do
-    if (Symbol.Typ = gsType) and (Symbol.Name = TypeName) Then
+   For Symbol in Namespace.SymbolList Do
+    if (Symbol.Typ = gsType) and (AnsiCompareStr(Symbol.Name, TypeName) = 0) Then
     Begin
      Result := Symbol.mType;
      Exit;
@@ -944,11 +944,11 @@ Function TCompiler.findGlobalType(const TypeName: String; NamespaceID: Integer=-
 Begin
  Result := nil;
 
- Search(0);
+ Search(NamespaceList[0]);
 
- if (Result = nil) Then
+ if (Result = nil) Then // if no symbol found so far
   if (NamespaceID <> -1) Then
-   Search(NamespaceID);
+   Search(NamespaceList[NamespaceID]);
 End;
 
 (* TCompiler.findTypeCandidate *)
@@ -1030,7 +1030,7 @@ Var I       : Integer;
     FreeRegs: Set of 1..4 = [];
     Symbol  : TLocalSymbol;
 Begin
- For I := 3 To 4 Do // first 2 registers (ei1/ei2, ef1/ef2 ...) of each type are used for calculations, so we cannot use them as a variable holders
+ For I := 3 To 4 Do // first 2 registers (ei1/ei2, ef1/ef2 ...) of each type are used in temporary calculations, so we cannot use them as variable holders
   Include(FreeRegs, I);
 
  if not (cRegChar in ['b', 'c', 'i', 'f', 's', 'r']) Then
@@ -1038,8 +1038,8 @@ Begin
 
  With getCurrentFunction do // search in current function
  Begin
-  For Symbol in SymbolList Do
-   if (Symbol.Typ = lsVariable) Then
+  For Symbol in SymbolList Do // each symbol
+   if (Symbol.Typ = lsVariable) Then // if variable
     With Symbol, mVariable do
      if (inRange(Range)) and (Typ.RegPrefix = cRegChar) and (MemPos > 0) Then // if register is already allocated, we exclude it from the `FreeRegs` list
       Exclude(FreeRegs, MemPos);

@@ -66,6 +66,9 @@
     </Parsing>
     <CodeGeneration>
       <TargetCPU Value="i386"/>
+      <Optimizations>
+        <OptimizationLevel Value="3"/>
+      </Optimizations>
     </CodeGeneration>
     <Other>
       <Verbosity>
