@@ -31,8 +31,8 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-logo"/>
-        <LaunchingApplication Use="True" PathPlusParams="\usr\bin\xterm -fa monco -fs 10 -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
+        <CommandLineParams Value="input.ss -wait"/>
+        <LaunchingApplication PathPlusParams="\usr\bin\xterm -fa monco -fs 10 -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
       </local>
     </RunParams>
     <Units Count="2">
@@ -52,7 +52,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="compiler.o"/>
+      <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir);compiler\expression;compiler\expression\internal_functions;compiler\syntax"/>
@@ -80,7 +80,7 @@
       <ConfigFile>
         <ConfigFilePath Value=""/>
       </ConfigFile>
-      <CustomOptions Value="-dNIGHTLY -dCOMPARE_ERRONEOUS_TYPE"/>
+      <CustomOptions Value="-dCOMPARE_ERRONEOUS_TYPE"/>
       <CompilerPath Value="$(CompPath)"/>
     </Other>
   </CompilerOptions>

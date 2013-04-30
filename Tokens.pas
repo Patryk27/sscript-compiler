@@ -8,8 +8,8 @@ Unit Tokens;
  Uses TypInfo;                                                    
 
  Const IdentAllowed = ['a'..'z', 'A'..'Z', '0'..'9', '_'];
- Const Keywords     : Array[0..24] of String = ('function', 'var', 'const', 'return', 'naked', 'for', 'if', 'else', 'while', 'break', 'continue',
-                                                'in', 'do', 'public', 'private', 'type', 'new', 'delete', 'namespace', 'use', 'cast', 'strict',
+ Const Keywords     : Array[0..23] of String = ('function', 'var', 'const', 'return', 'naked', 'for', 'if', 'else', 'while', 'break', 'continue',
+                                                'in', 'do', 'public', 'private', 'type', 'new', 'namespace', 'use', 'cast', 'strict',
                                                 'try', 'catch', 'throw');
 
  // IMPORTANT: do not change tokens order and do not try to remove any token, unless you change order in "Token_Display" (see below)
@@ -98,7 +98,6 @@ Unit Tokens;
   _PRIVATE,       // private
   _TYPE,          // type
   _NEW,           // new
-  _DELETE,        // delete
   _NAMESPACE,     // namespace
   _USE,           // use
   _CAST,          // cast
@@ -196,7 +195,6 @@ Unit Tokens;
   'private',
   'type',
   'new',
-  'delete',
   'namespace',
   'use',
   'cast',

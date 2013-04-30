@@ -30,7 +30,7 @@ Begin
  FileName := ReplaceDirSep(read.Display); // [string]
  eat(_BRACKET1_CL); // )
 
- if (CompilePass <> cp2) {cp1} Then
+ if (CompilePass <> cp2) Then
   Exit;
 
  Log('Including file: '+FileName);

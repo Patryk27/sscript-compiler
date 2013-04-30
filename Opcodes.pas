@@ -80,7 +80,7 @@ Unit Opcodes;
                    o_not, o_or, o_xor, o_and, o_shl, o_shr,
                    o_mod,
                    o_arset, o_arget, o_arcrt, o_arlen,
-                   o_objfree,
+                   o_objfree, o_objinc, o_objdec,
                    o_location,
                    o_byte, o_word, o_integer, o_extended);
 
@@ -106,7 +106,7 @@ Unit Opcodes;
                   Compiler: Pointer;
                  End;
 
- Const OpcodeList: Array[0..40] of TOpcode =
+ Const OpcodeList: Array[0..ord(High(TOpcode_E))] of TOpcode =
  (
   (* ====== NOP ====== *)
   (Name: 'nop'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
@@ -201,6 +201,12 @@ Unit Opcodes;
 
   (* ===== OBJFREE (refreg) ===== *)
   (Name: 'objfree'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
+
+  (* ===== OBJINC (regreg) ===== *)
+  (Name: 'objinc'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
+
+  (* ===== OBJDEC (regref) ===== *)
+  (Name: 'objdec'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
 
   (* ===== LOCATION (int line, string file) ===== *)
   (Name: 'location'; ParamC: 2; ParamT: (ptInt, ptString, ptNone)),

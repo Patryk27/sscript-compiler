@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<CONFIG>
+  <Compiler Value="/usr/bin/fpc" Date="1363527598"/>
+  <Params Value=" -MObjFPC -Scghim -O3 -Pi386 -g -gl -vewnhi -Fi/home/patryk/SScript-Compiler/lib/i386-linux -Fi/home/patryk/SScript-Compiler/compiler/expression -Fi/home/patryk/SScript-Compiler/compiler/expression/internal_functions -Fi/home/patryk/SScript-Compiler/compiler/syntax -Fu/home/patryk/SScript-Compiler/compiler -Fu/home/patryk/SScript-Compiler/compiler/syntax -Fu/home/patryk/SScript-Compiler/ -FU/home/patryk/SScript-Compiler/lib/i386-linux/ -l -ocompiler.o -dCOMPARE_ERRONEOUS_TYPE compiler.lpr"/>
+</CONFIG>
