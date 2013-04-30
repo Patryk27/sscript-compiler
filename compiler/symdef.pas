@@ -109,6 +109,8 @@ Unit symdef;
                     Typ  : TType;
                     Value: PMExpression;
 
+                    isFreed: Boolean; // used for reference-counted variables; by default equal `false`
+
                     Attributes: TVariableAttributes;
 
                    // public methods
@@ -720,13 +722,8 @@ Begin
 
  if (self = nil) or (T2 = nil) Then
  Begin
-  {$IFDEF COMPARE_ERRONEOUS_TYPE}
-   DevLog('Comparing erroneous types; returned `true`');
-   Exit(True);
-  {$ELSE}
-   DevLog('Comparing erroneous types; returned `false`');
-   Exit(False);
-  {$ENDIF}
+  DevLog('Comparing erroneous types; returned `true`');
+  Exit(True);
  End;
 
  { strict types }
@@ -871,6 +868,8 @@ Begin
  MemPos := 0;
  Typ    := nil;
  Value  := nil;
+
+ isFreed := False;
 
  Attributes := [];
 End;
