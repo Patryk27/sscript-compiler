@@ -54,6 +54,7 @@ Unit ExpressionCompiler;
                        Function FinalExprPeek: TStackValue;
 
                        Function CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PMExpression;
+
                       Public
                        Constructor Create(fCompiler: TCompiler);
 
@@ -280,7 +281,8 @@ End;
 Function TInterpreter.StackPop: TStackValue;
 Begin
  if (StackPos <= 0) Then
-  Compiler.CompileError(eInternalError, ['StackPos <= 0']);
+  Compiler.CompileError(eInvalidExpression, []);
+
  Dec(StackPos);
  Result := Stack[StackPos];
 End;
@@ -289,7 +291,8 @@ End;
 Function TInterpreter.StackPeek: TStackValue;
 Begin
  if (StackPos <= 0) Then
-  Compiler.CompileError(eInternalError, ['StackPos <= 0']);
+  Compiler.CompileError(eInvalidExpression, []);
+
  Result := Stack[StackPos-1];
 End;
 
@@ -315,7 +318,8 @@ End;
 Function TInterpreter.FinalExprPop: TStackValue;
 Begin
  if (FinalExprPos <= 0) Then
-  Compiler.CompileError(eInternalError, ['FinalExprPos <= 0']);
+  Compiler.CompileError(eInvalidExpression, []);
+
  Dec(FinalExprPos);
  Result := FinalExpr[FinalExprPos];
 End;
@@ -324,7 +328,8 @@ End;
 Function TInterpreter.FinalExprPeek: TStackValue;
 Begin
  if (FinalExprPos <= 0) Then
-  Compiler.CompileError(eInternalError, ['FinalExprPos <= 0']);
+  Compiler.CompileError(eInvalidExpression, []);
+
  Result := FinalExpr[FinalExprPos-1];
 End;
 
@@ -351,15 +356,6 @@ Begin
  Result^.isLocal        := False;
 
  Result^.ResultOnStack := False;
-
- Result^.InTryCatch := False;
- With Compiler do
-  For I := Low(Scope) To High(Scope) Do
-   if (Scope[I].Typ = sTryCatch) Then
-   Begin
-    Result^.InTryCatch := True;
-    Break;
-   End;
 End;
 
 { TInterpreter.Create }

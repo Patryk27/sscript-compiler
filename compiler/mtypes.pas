@@ -61,13 +61,11 @@ Unit MTypes;
 
                       IdentNamespace, IdentID: Integer;
                       isLocal                : Boolean;
-
-                      InTryCatch: Boolean;
                      End;
  Type TMExpressionList = Array of TMExpression;
 
  // TMConstruction
- Type TMConstructionType = (ctNone, ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end, ctDELETE, ctTHROW, ctTRY, ctCATCH, ctCATCH_end);
+ Type TMConstructionType = (ctNone, ctJump, ctLabel, ctExpression, ctReturn, ctVoidReturn, ctInlineBytecode, ctFOR, ctFOR_end, ctIF, ctIF_end, ctIF_else, ctWHILE, ctWHILE_end, ct_DO_WHILE, ct_DO_WHILE_end, ctDELETE, ctTHROW, ctTRY, ctCATCH, ctCATCH_end, ctVariableDecRefcount);
  Type PMConstruction = ^TMConstruction;
       TMConstruction = Record
                         Typ   : TMConstructionType;
