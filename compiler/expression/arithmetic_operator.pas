@@ -90,6 +90,12 @@ Begin
   RegChar  := Variable.Typ.ArrayBase.RegPrefix;
   TypeLeft := __variable_getvalue_array_reg(Variable, 1, RegChar, Left);
 
+  if (not (Expr^.Typ in [mtAdd, mtAddEq])) Then // operators other than `+` and `+=` for string arrays are unsupported
+  Begin
+   Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
+   Exit;
+  End;
+
   if (TypeLeft.isArray(False)) Then
   Begin
    Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
