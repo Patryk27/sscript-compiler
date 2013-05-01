@@ -13,7 +13,7 @@ Unit CompilerUnit;
   opt_bytecode, opt_output, opt_initcode, opt_includepath,
   opt_Cm, opt_internal_const,
   opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt_O1,
-  opt__strip_debug, opt__strip_debug_all,
+  opt__strip_debug,
   opt_header,
   opt_logo, opt_version, opt_wait, opt_verbose
  );
@@ -39,7 +39,6 @@ Unit CompilerUnit;
   (Names: ('-O1', '');                    Typ: pBool),
 
   (Names: ('--strip-debug', '-Sd'); Typ: pBool),
-  (Names: ('--strip-debug-all', ''); Typ: pBool),
 
   (Names: ('-header', '-h'); Typ: pString),
 

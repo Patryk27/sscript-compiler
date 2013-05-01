@@ -38,7 +38,7 @@ Begin
 
   if (CList[ID].Token <> nil) Then
    With CList[ID].Token^ do
-    PutOpcode(o_location, [Line, '"'+ExtractRelativePath(ExtractFilePath(Parent.InputFile), InputFile)+'"']); // put location
+    PutOpcode(o_loc_line, [Line]); // write line location
 
   With CList[ID] do
   Begin

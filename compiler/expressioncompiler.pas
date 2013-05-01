@@ -66,7 +66,7 @@ Unit ExpressionCompiler;
  Function EmptyExpression: PMExpression;
 
  Function MakeStringExpression(const Value: String): PMExpression;
- Function MakeIntExpression(const Value: Integer): PMExpression;
+ Function MakeIntExpression(const Value: Int64): PMExpression;
  Function MakeIntExpression(const Value: String): PMExpression;
  Function MakeFloatExpression(const Value: Extended): PMExpression;
  Function getValueFromExpression(const Expr: PMExpression; Beautify: Boolean=False): String;
@@ -103,7 +103,7 @@ Begin
 End;
 
 { MakeIntExpression }
-Function MakeIntExpression(const Value: Integer): PMExpression;
+Function MakeIntExpression(const Value: Int64): PMExpression;
 Begin
  Result := EmptyExpression;
 

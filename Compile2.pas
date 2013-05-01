@@ -327,18 +327,6 @@ Var Zip   : TZipper;
      Zip.Entries.AddFileEntry(Output+FileName, FileName);
     End;
 
-    // StripDebugSymbols
-    Procedure StripDebugSymbols;
-    Var Opcode: PMOpcode;
-    Begin
-     With fCompiler do
-     Begin
-      For Opcode in OpcodeList Do
-       if (Opcode^.Opcode = o_location) Then
-        OpcodeList.Remove(Opcode);
-     End;
-    End;
-
 Begin
  Compiler := fCompiler;
 
@@ -348,9 +336,6 @@ Begin
  ReferenceStream := TStream.Create;
  BytecodeStream  := TStream.Create;
  Zip             := TZipper.Create;
-
- if (fCompiler.getBoolOption(opt__strip_debug_all)) Then
-  StripDebugSymbols;
 
  Preparse;
 

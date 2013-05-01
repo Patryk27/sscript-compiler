@@ -11,8 +11,9 @@ Unit Compile1;
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
  { constants }
- Const Version  = '2.2'{$IFDEF NIGHTLY}+' nightly'{$ENDIF}; // version of the compiler (a string)
-       iVersion = 2.2; // version of the compiler (a float number)
+ Const Version = '2.2.1';
+       fMajor  = 2.2;
+       fMinor  = 1;
 
  { types }
  Type TCompiler = class;
@@ -629,7 +630,7 @@ Var I, T: Integer;
 
     DoCheck: Boolean;
 Begin
- if (fOpcode = o_location) and (getBoolOption(opt__strip_debug)) Then
+ if (fOpcode in [o_loc_file, o_loc_func, o_loc_line]) and (getBoolOption(opt__strip_debug)) Then
   Exit;
 
  DoCheck := (fToken <> nil); // check only bytecode written by user
@@ -1521,6 +1522,29 @@ Var Compiler2: Compile2.TCompiler;
      VBytecode := getStringOption(opt_bytecode);
     End;
 
+   // CreateGlobalConstant
+    Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PMExpression);
+    Begin
+     With NamespaceList.Last do
+     Begin
+      SymbolList.Add(TGlobalSymbol.Create(gsConstant));
+      With SymbolList.Last do
+      Begin
+       Name       := cName;
+       isInternal := True;
+
+       With mVariable do
+       Begin
+        Typ        := cType;
+        Value      := cExpr;
+        Visibility := mvPrivate;
+
+        Include(Attributes, vaConst);
+       End;
+      End;
+     End;
+    End;
+
    // CreateSymbols
     Procedure CreateSymbols;
     Begin
@@ -1552,24 +1576,16 @@ Var Compiler2: Compile2.TCompiler;
      { create global constants }
      With NamespaceList.Last do
      Begin
-      // `null` global constant
-      SymbolList.Add(TGlobalSymbol.Create(gsConstant));
-      With SymbolList.Last do
-      Begin
-       Name       := 'null';
-       isInternal := True;
+      CreateGlobalConstant('null', TYPE_INT, MakeIntExpression(0));
 
-       With mVariable do
-       Begin
-        Typ        := TYPE_INT;
-        Value      := MakeIntExpression(0);
-        Visibility := mvPrivate;
+      CreateGlobalConstant('__file', TYPE_STRING, MakeStringExpression(InputFile));
 
-        Include(Attributes, vaConst);
-       End;
-      End;
-
-      // @TODO: special constants (__file etc.)
+      CreateGlobalConstant('BYTE_MAX', TYPE_INT, MakeIntExpression(High(Byte)));
+      CreateGlobalConstant('BYTE_LOW', TYPE_INT, MakeIntExpression(Low(Byte)));
+      CreateGlobalConstant('INT_MAX', TYPE_INT, MakeIntExpression(High(Int64)));
+      CreateGlobalConstant('INT_MIN', TYPE_INT, MakeIntExpression(Low(Int64)));
+      CreateGlobalConstant('FLOAT_MAX', TYPE_FLOAT, MakeFloatExpression(Infinity));
+      CreateGlobalConstant('FLOAT_MIN', TYPE_FLOAT, MakeFloatExpression(-Infinity));
      End;
     End;
 
@@ -1678,6 +1694,8 @@ Begin
    Exit; // stop compiler
   End;
 
+  PutOpcode(o_loc_file, ['"'+ExtractRelativePath(ExtractFilePath(Parent.InputFile), InputFile)+'"']); // write file location
+
   if (not isIncluded) Then // are we the main file?
   Begin
    { compiling as a library }
@@ -1690,7 +1708,6 @@ Begin
    { compiling as a program }
    Begin
     // the beginning of the program must be the "init" and "main" call
-    PutOpcode(o_location, [0, '"'+ExtractRelativePath(ExtractFilePath(Parent.InputFile), InputFile)+'"']); // write location
     if (getBoolOption(opt_initcode)) Then
      PutOpcode(o_call, [':__init']);
 
@@ -1769,7 +1786,7 @@ Begin
      End;
 
      else
-      Writeln('Cannot generate the output header file, because input file is not a library!');
+      Writeln('Cannot generate the output header file, because input file is not a library.');
     End;
    End;
   End;

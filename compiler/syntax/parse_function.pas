@@ -295,6 +295,8 @@ Begin
   { ====== parse function's body ====== }
   ParseCodeBlock;
 
+  PutOpcode(o_loc_func, ['"'+Func.RefSymbol.Name+'"']);
+
   (* now, we have a full construction list used in this function; so - let's generate bytecode! :) *)
   CList := getCurrentFunction.ConstructionList;
 

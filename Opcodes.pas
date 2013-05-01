@@ -81,7 +81,7 @@ Unit Opcodes;
                    o_mod,
                    o_arset, o_arget, o_arcrt, o_arlen,
                    o_objfree,
-                   o_location,
+                   o_loc_file, o_loc_func, o_loc_line,
                    o_byte, o_word, o_integer, o_extended);
 
  // TMOpcodeArg
@@ -106,7 +106,7 @@ Unit Opcodes;
                   Compiler: Pointer;
                  End;
 
- Const OpcodeList: Array[0..40] of TOpcode =
+ Const OpcodeList: Array[0..ord(High(TOpcode_E))] of TOpcode =
  (
   (* ====== NOP ====== *)
   (Name: 'nop'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
@@ -202,8 +202,14 @@ Unit Opcodes;
   (* ===== OBJFREE (refreg) ===== *)
   (Name: 'objfree'; ParamC: 1; ParamT: (ptReferenceReg, ptNone, ptNone)),
 
-  (* ===== LOCATION (int line, string file) ===== *)
-  (Name: 'location'; ParamC: 2; ParamT: (ptInt, ptString, ptNone)),
+  (* ===== LOC_FILE (string) ===== *)
+  (Name: 'loc_file'; ParamC: 1; ParamT: (ptString, ptNone, ptNone)),
+
+  (* ===== LOC_FUNC (string) ===== *)
+  (Name: 'loc_func'; ParamC: 1; ParamT: (ptString, ptNone, ptNone)),
+
+  (* ===== LOC_LINE (int) ===== *)
+  (Name: 'loc_line'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),
 
   (* ===== ===== ===== ===== *)
   (Name: 'db'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),
