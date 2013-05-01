@@ -288,12 +288,6 @@ Begin
      PutLabel(PChar(Values[0])+'_end');
     End;
 
- (* ctVariableDecRefcount *)
-    ctVariableDecRefcount:
-    Begin
-     PutOpcode(o_objdec, [TVariable(Values[0]).getBytecodePos]);
-    End;
-
     else
      CompileError(Token, eInternalError, ['Unexpected construction: `'+GetEnumName(TypeInfo(TMConstructionType), ord(Typ))+'`']);
    End;

@@ -7,14 +7,12 @@ Unit Compile1;
  Interface
  Uses Classes, SysUtils, Variants, FGL, Math,
       Parser, Tokens, CompilerUnit, Opcodes, Messages, MTypes, symdef,
-      Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include,
+      Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include, Parse_DELETE,
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
  { constants }
- Const isNightly = True;
-
- Const Version  = '2.2 RC1'; // version of the compiler (string)
-       iVersion = 2.2; // version of the compiler (float number)
+ Const Version  = '2.2'{$IFDEF NIGHTLY}+' nightly'{$ENDIF}; // version of the compiler (a string)
+       iVersion = 2.2; // version of the compiler (a float number)
 
  { types }
  Type TCompiler = class;
@@ -476,25 +474,6 @@ Procedure TCompiler.ParseToken;
 {$I parse_macro.pas}
 {$I parse_use.pas}
 
-Procedure ReleaseVariables { ReleaseTheKraken };
-Var Symbol: TLocalSymbol;
-    M     : TMConstruction;
-Begin
- For Symbol in getCurrentFunction.SymbolList Do // each symbol
-  if (Symbol.Typ = lsVariable) Then // if variable
-   if (Symbol.mVariable.Typ.RegPrefix = 'r') Then // if reference counted
-    if (not Symbol.mVariable.isFreed) Then // if not already freed
-     if (Parser.TokenPos >= Symbol.mVariable.RefSymbol.Range.PEnd) Then // to be freed
-     Begin
-      Symbol.mVariable.isFreed := True;
-
-      M.Typ := ctVariableDecRefcount;
-      SetLength(M.Values, 1);
-      M.Values[0] := Symbol.mVariable;
-      AddConstruction(M);
-     End;
-End;
-
 // main block
 Var Token : TToken_P;
     TmpVis: TVisibility;
@@ -536,19 +515,13 @@ Begin
     _AT       : ParseMacro_Outside;
     _TYPE     : Parse_TYPE.Parse(self);
 
-    else
-     CompileError(eExpectedDeclOrDef, [Token.Display]);
+    else CompileError(eExpectedDeclOrDef, [Token.Display]);
    End;
   End Else // inside some function
   Begin
    Case Token.Token of
     _BRACKET3_OP: Inc(CurrentDeep);
-    _BRACKET3_CL:
-    Begin
-     ReleaseVariables;
-     Dec(CurrentDeep);
-    End;
-
+    _BRACKET3_CL: Dec(CurrentDeep);
     _VAR        : Parse_VAR.Parse(self);
     _CONST      : Parse_CONST.Parse(self);
     _RETURN     : Parse_RETURN.Parse(self);
@@ -558,6 +531,7 @@ Begin
     _USE        : Parse_USE;
     _WHILE      : Parse_WHILE.Parse(self);
     _DO         : Parse_WHILE.Parse_DO_WHILE(self);
+    _DELETE     : Parse_DELETE.Parse(self);
     _BREAK      : ParseBreak;
     _CONTINUE   : ParseContinue;
     _TYPE       : Parse_TYPE.Parse(self);

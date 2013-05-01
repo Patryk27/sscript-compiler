@@ -348,13 +348,6 @@ Begin
    Inc(c_ID);
   Until (c_ID > High(CList));
 
-  { dec reference-counters of the remaining variables }
-  For Symbol in getCurrentFunction.SymbolList Do // each symbol
-  if (Symbol.Typ = lsVariable) Then // if variable
-   if (Symbol.mVariable.Typ.RegPrefix = 'r') Then // if reference counted
-    if (not Symbol.mVariable.isFreed) Then // if not already freed
-     PutOpcode(o_objdec, [Symbol.mVariable.getBytecodePos]);
-
   { function end code }
   PutLabel(Func.MangledName+'_end');
 

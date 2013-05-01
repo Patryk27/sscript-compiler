@@ -63,6 +63,8 @@ Unit CompilerUnit;
  Procedure DevLog(const Text: String);
  Procedure DevLog;
 
+ Function getCompiler: Pointer;
+
  Function getBoolOption(O: String; Default: Boolean): Boolean;
  Function getStringOption(O: String; Default: String): String;
  Function getIntOption(O: String; Default: Integer): Integer;
@@ -100,6 +102,15 @@ End;
 Procedure DevLog;
 Begin
  DevLog('');
+End;
+
+(* getCompiler *)
+{
+ Returns current compiler instance (Compile1.TCompiler).
+}
+Function getCompiler: Pointer;
+Begin
+ Result := Compiler;
 End;
 
 (* getBoolOption *)

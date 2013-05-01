@@ -172,11 +172,10 @@ Begin
    Log('SScript Compiler '+Version+' [compiled '+{$I %DATE%}+']');
    Log('by Patryk Wychowaniec');
 
-   if (isNightly) Then
-   Begin
+   {$IFDEF NIGHTLY}
     Log;
     Log('Warning: This is a nightly, untested and most likely unstable version - not intended for daily use!');
-   End;
+   {$ENDIF}
 
    if (_logo) Then
     raise Exception.Create('');
@@ -206,6 +205,20 @@ Begin
     Frames := ExceptFrames;
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
+
+    if (getCompiler <> nil) Then
+    Begin
+     Writeln('-------------------------');
+     Writeln('Compile info:');
+     Writeln;
+
+     With TCompiler(getCompiler) do
+     Begin
+      if (CurrentFunction = nil) Then
+       Writeln('CurrentFunction = nil') Else
+       Writeln('CurrentFunction = `', CurrentFunction.RefSymbol.Name, '` declared at line ', CurrentFunction.RefSymbol.DeclToken^.Line);
+     End;
+    End;
    End;
  End;
 

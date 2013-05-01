@@ -125,14 +125,6 @@ Begin
   Begin
    TypeID := Parse(Expr^.ParamList[Param]);
 
-   if (TypeID.RegPrefix = 'r') Then // is reference-counted?
-    With Compiler do
-    Begin
-     PutOpcode(o_pop, ['er1']);
-     PutOpcode(o_objinc, ['er1']);
-     PutOpcode(o_push, ['er1']);
-    End;
-
    With Compiler do
     if (not TypeID.CanBeAssignedTo(ParamList[High(ParamList)-Param].Typ)) Then
      Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Name, High(ParamList)-Param+1, TypeID.asString, ParamList[High(ParamList)-Param].Typ.asString]);

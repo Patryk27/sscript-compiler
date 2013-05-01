@@ -239,9 +239,6 @@ Begin
      if (oTmp.Opcode in [o_mov, o_pop]) and (isArgumentChanging(0)) Then
       Break;
 
-     if (oTmp.Opcode in [o_objinc, o_objdec]) Then // @TODO (?)
-      Break;
-
      if (oTmp.Opcode in [o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
         (isArgumentChanging(0)) Then
          Break; // the register's value is changed

@@ -28,9 +28,6 @@ Begin
    Exit;
   End;
 
-  if (Variable.Typ.isArray) Then // reference counting
-   Compiler.PutOpcode(o_objdec, [Variable.PosStr]); // decrement reference counter of the variable we're assigning to
-
   if (Variable.MemPos > 0) Then // if variable is stored in a register, we can directly set this variable's value (without using an helper register)
   Begin
    TypeID := Parse(Right, Variable.MemPos, Variable.RegChar);
@@ -41,9 +38,6 @@ Begin
 
    __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
   End;
-
-  if (TypeID.RegPrefix = 'r') { TypeID.isRefCounted } Then
-   Compiler.PutOpcode(o_objinc, ['e'+TypeID.RegPrefix+'1']); // increment reference counter of the value which is assigned
 
 //  if (Compiler.isConstantValue(Right^)) and (Compiler.getBoolOption(opt__constant_folding)) Then @TODO
 //   Variable.mVariable.Value := Right Else
@@ -93,13 +87,6 @@ asArray:
     Exit;
    End;
   End;
-
-  { reference-counting }
-  if (Variable.Typ.isArray(False)) Then
-   Compiler.PutOpcode(o_objdec, [Variable.PosStr]);
-
-  if (TypeID.RegPrefix = 'r') Then
-   Compiler.PutOpcode(o_objinc, ['e'+TypeID.RegPrefix+'1']);
 
   { set new pointer }
   Result := __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);

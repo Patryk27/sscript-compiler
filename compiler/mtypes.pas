@@ -52,6 +52,7 @@ Unit MTypes;
                       VarName  : String;
                       Value    : Variant;
                       Token    : TToken_P;
+//                      Range    : TRange;
                       ParamList: Array of PMExpression; // for mtFunctionCall
 
                       ResultOnStack: Boolean;

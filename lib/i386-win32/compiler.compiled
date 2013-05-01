@@ -1,5 +1,0 @@
-<?xml version="1.0"?>
-<CONFIG>
-  <Compiler Value="C:\lazarus\fpc\2.6.2\bin\i386-win32\fpc.exe" Date="1114730022"/>
-  <Params Value=" -MObjFPC -Scghim -O3 -Pi386 -g -gl -vewnhi -FiC:\Users\Patryk\Documents\GitHub\SScript-Compiler\lib\i386-win32 -FiC:\Users\Patryk\Documents\GitHub\SScript-Compiler\compiler\expression -FiC:\Users\Patryk\Documents\GitHub\SScript-Compiler\compiler\expression\internal_functions -FiC:\Users\Patryk\Documents\GitHub\SScript-Compiler\compiler\syntax -FuC:\Users\Patryk\Documents\GitHub\SScript-Compiler\compiler -FuC:\Users\Patryk\Documents\GitHub\SScript-Compiler\compiler\syntax -FuC:\Users\Patryk\Documents\GitHub\SScript-Compiler\ -FUC:\Users\Patryk\Documents\GitHub\SScript-Compiler\lib\i386-win32\ -l -dCOMPARE_ERRONEOUS_TYPE compiler.lpr"/>
-</CONFIG>
