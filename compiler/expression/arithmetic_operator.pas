@@ -90,7 +90,7 @@ Begin
   RegChar  := Variable.Typ.ArrayBase.RegPrefix;
   TypeLeft := __variable_getvalue_array_reg(Variable, 1, RegChar, Left);
 
-  if (TypeLeft.isArray) Then
+  if (TypeLeft.isArray(False)) Then
   Begin
    Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
    Exit;
