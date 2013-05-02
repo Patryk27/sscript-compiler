@@ -11,6 +11,7 @@ Unit Opcodes;
                       ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg,
                       ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal,
                       ptLabelAbsoluteReference);
+
  Const PrimaryTypeNames: Array[TPrimaryType] of String =
                      ('none', 'any', 'any reg',
                       'bool reg', 'char reg', 'int reg', 'float reg', 'string reg', 'reference reg',

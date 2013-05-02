@@ -70,6 +70,7 @@ Begin
    AddOption(opt__register_alloc, True);
    AddOption(opt__constant_folding, True);
    AddOption(opt__bytecode_optimize, True);
+   AddOption(opt__remove_unreachable, True);
   End Else
 
   { -logo }

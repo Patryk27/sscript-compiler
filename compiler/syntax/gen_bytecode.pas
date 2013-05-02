@@ -25,8 +25,13 @@ Procedure ParseConstruction(ID: Integer);
 
 // function body
 Var Str1, Str2, Str3, Str4: String;
+    Expr                  : PMExpression;
     EType                 : TType;
     Item                  : PMOpcode;
+
+    PrevDoNotGenerateCode: Boolean;
+
+    if_remove_true, if_remove_false: Boolean; // used for `--remove-unreachable` optimization in `if` construction
 Begin
  With TCompiler(Compiler) do
  Begin
@@ -39,6 +44,8 @@ Begin
   if (CList[ID].Token <> nil) Then
    With CList[ID].Token^ do
     PutOpcode(o_loc_line, [Line]); // write line location
+
+  PrevDoNotGenerateCode := DoNotGenerateCode;
 
   With CList[ID] do
   Begin
@@ -156,29 +163,46 @@ Begin
      Str3 := Str1+'false';
      Str4 := Str1+'end';
 
+     if_remove_false := False;
+     if_remove_true  := False;
+
      { condition }
+     Expr  := Values[0];
      EType := ExpressionCompiler.CompileConstruction(Compiler, Values[0]);
      if (not (EType.isBool or EType.isInt)) Then
       CompileError(PMExpression(Values[0])^.Token, eWrongType, [EType.asString, 'bool']);
 
+     if (getBoolOption(opt__remove_unreachable)) Then // can try to optimize?
+      if (isConstantValue(Expr^)) Then // can be optimized?
+      Begin
+       if (Expr^.Value) Then
+        if_remove_false := True { remove the `else` part } Else
+        if_remove_true := True;
+      End;
+
      { jump }
      PutOpcode(o_pop, ['if']);
-     PutOpcode(o_tjmp, [':'+Str2]);
-     PutOpcode(o_jmp, [':'+Str3]); // or 'o_fjmp' - it doesn't matter, but `o_jmp` is slightly faster (as it doesn't check the `if` register's value)
+
+     if not (if_remove_false or if_remove_true) Then
+      PutOpcode(o_fjmp, [':'+Str3]);
 
      { on true }
+     DoNotGenerateCode := if_remove_true;
      PutLabel(Str2);
      ParseUntil(ctIF_end);
-     PutOpcode(o_jmp, [':'+Str4]);
+     if (not if_remove_false) Then
+      PutOpcode(o_jmp, [':'+Str4]); // if the `else` construction is removed, there'll be no need to jump over it.
+     DoNotGenerateCode := PrevDoNotGenerateCode;
 
+     { on false (the `else` construction) }
+     DoNotGenerateCode := if_remove_false;
      PutLabel(Str3);
-
-     { on false }
      if (CList[c_ID+1].Typ = ctIF_else) Then // compile 'else'
      Begin
       Inc(c_ID); // skip `ctIF_else`
       ParseUntil(ctIF_end);
      End;
+     DoNotGenerateCode := PrevDoNotGenerateCode;
 
      PutLabel(Str4);
     End;

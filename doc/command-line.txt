@@ -18,10 +18,11 @@ By default, all switches are disabled.
 
 3.Optimizations
 	--register-alloc / -Or		allows to allocate variables in registers (when possible)
-	--constant-folding / -Of	enables constant folding
-	--bytecode-optimize / Op	optimizes bytecode
+	--constant-folding / -Of	enables constant expression folding
+	--bytecode-optimize / -Op	optimizes bytecode
+	--remove-unreachable / -Ou	removes unreachable parts of code
 
-	-O1	enables `--register-alloc`, `--constant-folding` and `--bytecode-optimize`
+	-O1	enables `--register-alloc`, `--constant-folding`, `--bytecode-optimize` and `--remove-unreachable`
 
 4.Debug
 	--strip-debug / -Sd	strips debug symbols from the file (do not removes debug symbols from eg.imported libraries)

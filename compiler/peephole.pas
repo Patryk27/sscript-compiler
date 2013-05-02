@@ -2,7 +2,9 @@
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
 *)
-{$MODE DELPHI}
+
+{$MODE DELPHI} // so we don't have to use the `^` operator all the time.
+
 Unit Peephole;
 
  Interface
@@ -35,15 +37,14 @@ End;
 {
  Returns `true` when passed opcode argument is a variable-holder.
 
- @Note: 'variable-holders' are registers `e_3` and `e_4`, and also stackvals - as only there a variable
-        can be allocated.
+ @Note: 'variable-holders' are registers `e_3` and `e_4`, and also stackvals - as only there variables can be allocated.
 }
 Function isVariableHolder(T: TMOpcodeArg): Boolean;
 Begin
  Result := isRegister(T.Typ);
 
  if (Result) Then
-  Exit({StrToInt(VarToStr(}T.Value{))} > 2) Else
+  Exit(StrToInt(VarToStr(T.Value)) in [2..4]) Else
   Exit(T.Typ = ptStackVal);
 End;
 
@@ -277,7 +278,7 @@ Begin
         mul(ef1, ef1)
         some_label:
 
-        No assignment to `ef1`, so on the third line it has unknown value!
+        No assignment to `ef1`, so in the third line it has unknown value!
 
        Output (with this line):
         mov(ef1, [-1])
@@ -285,6 +286,8 @@ Begin
         tjmp(:some_label)
         mul(ef1, ef1)
         some_label:
+
+        It's some-way-fixed, but still... this isn't an optimization.
       }
       Break;
      End;

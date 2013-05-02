@@ -59,6 +59,8 @@ Unit Compile1;
 
                     SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>_begin`, so they don't overwrite each other
 
+                    DoNotGenerateCode: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
+
                     ParsingFORInitInstruction: Boolean; // don't even ask...
 
                     Property getCurrentFunction: TFunction read CurrentFunction;
@@ -777,6 +779,9 @@ Begin
   if (not isValidOpcode(Item^)) Then
    CompileError(Item^.Token^, eBytecode_InvalidOpcode, []);
 
+ if (DoNotGenerateCode) Then
+  Exit(Item);
+
  { ...and add it into the list }
  Result := OpcodeList[OpcodeList.Add(Item)];
 End;
@@ -849,6 +854,10 @@ Begin
 
    isPublic := False;
   End;
+
+  if (DoNotGenerateCode) Then
+   Exit(Item);
+
   Exit(OpcodeList[OpcodeList.Add(Item)]);
  End;
 End;
@@ -967,7 +976,7 @@ End;
 
 (* TCompiler.getTypeFromExpr *)
 {
- Gets a type from TMExpression; works only for constant (already folded) expressions (i.e. only a parent without any childrens).
+ Gets a type from TMExpression; works only for constant (already folded) expressions (ie. only a parent without any childrens).
 }
 Function TCompiler.getTypeFromExpr(Expr: TMExpression): TType;
 Begin
@@ -1640,8 +1649,8 @@ Begin
  Parent      := fParent;
  Supervisor  := fSupervisor;
 
- CurrentFunction := nil;
-
+ CurrentFunction           := nil;
+ DoNotGenerateCode         := False;
  ParsingFORInitInstruction := False;
 
  if (isIncluded) Then
