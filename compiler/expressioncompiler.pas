@@ -335,7 +335,6 @@ End;
 
 { TInterpreter.CreateNode }
 Function TInterpreter.CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PMExpression;
-Var I: Integer;
 Begin
  New(Result);
 
