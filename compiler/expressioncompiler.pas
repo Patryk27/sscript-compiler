@@ -354,7 +354,8 @@ Begin
  Result^.IdentNamespace := -1;
  Result^.isLocal        := False;
 
- Result^.ResultOnStack := False;
+ Result^.ResultOnStack  := False;
+ Result^.AlreadyChecked := False;
 End;
 
 { TInterpreter.Create }
@@ -817,8 +818,7 @@ Var Pos, I: Integer;
 Function CreateNodeFromStack: PMExpression;
 Var Value: TStackValue;
 
-    Expr : PMExpression;
-    Tmp  : PMExpression;
+    Tmp: PMExpression;
 
     Name      : String;
     Namespaces: TMIntegerArray;
@@ -828,14 +828,17 @@ Begin
  { whole expression tree }
  if (Value.Typ = mtTree) Then
  Begin
-  if (Value.Value = null) Then
+  if (Value.Value = null) Then // shouldn't happen
    Compiler.CompileError(eInternalError, ['Value.Value = null']);
 
-  Expr := PMExpression(LongWord(Value.Value));
+  Result := PMExpression(LongWord(Value.Value)); // get pointer
 
-  if (Expr^.Typ = mtFunctionCall) Then
+  { function call }
+  if (Result^.Typ = mtFunctionCall) and (not Result^.AlreadyChecked) Then
   Begin
-   Tmp := Expr^.Left;
+   Result^.AlreadyChecked := True;
+
+   Tmp := Result^.Left;
 
    if (Tmp^.Typ = mtVariable) Then // calling an identifier
    Begin
@@ -848,29 +851,29 @@ Begin
 
      if (ID = -1) Then // not a local variable
      Begin
-      Compiler.findGlobalCandidate(Name, Namespaces, ID, Namespace, @Expr^.Token);
+      Compiler.findGlobalCandidate(Name, Namespaces, ID, Namespace, @Result^.Token);
 
       if (ID = -1) or not (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsFunction]) Then // nor a global variable/function - so raise error
        Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
       Begin // global variable
-       Expr^.IdentID        := ID;
-       Expr^.IdentNamespace := Namespace;
-       Expr^.isLocal        := False;
+       Result^.IdentID        := ID;
+       Result^.IdentNamespace := Namespace;
+       Result^.isLocal        := False;
       End;
      End Else // local variable
      Begin
-      Expr^.IdentID        := ID;
-      Expr^.IdentNamespace := Namespace;
-      Expr^.isLocal        := True;
+      Result^.IdentID        := ID;
+      Result^.IdentNamespace := Namespace;
+      Result^.isLocal        := True;
      End;
     End;
-   End Else // calling not identifier (cast-call, like: `(cast<function<void>()>(somevar))()` )
+   End Else // calling not an identifier (cast-call, like: `(cast<function<void>()>(somevar))()` )
    Begin
-    Expr^.Value := 'cast-call';
+    Result^.Value := 'cast-call';
    End;
   End;
 
-  Exit(Expr);
+  Exit(Result);
  End;
 
  { something else (variable, some constant value etc.) }
@@ -878,8 +881,10 @@ Begin
  Result^.Typ := Value.Typ;
 
  { variable or constant }
- if (Value.Typ = mtVariable) Then
+ if (Value.Typ = mtVariable) and (not Result^.AlreadyChecked) Then
  Begin
+  Result^.AlreadyChecked := True;
+
   Result^.VarName := VarToStr(Result^.Value);
   ID              := Compiler.findLocalVariable(Result^.Value); // local things at first
 
@@ -954,7 +959,8 @@ Begin
    For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
     Node^.ParamList[I] := CreateNodeFromStack;
 
-   Node^.Left := CreateNodeFromStack;
+   Node^.Left           := CreateNodeFromStack;
+   Node^.AlreadyChecked := True;
 
    StackPush(mtTree, LongWord(Node));
   End Else

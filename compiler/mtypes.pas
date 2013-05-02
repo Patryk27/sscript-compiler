@@ -55,7 +55,7 @@ Unit MTypes;
 //                      Range    : TRange;
                       ParamList: Array of PMExpression; // for mtFunctionCall
 
-                      ResultOnStack: Boolean;
+                      ResultOnStack, AlreadyChecked: Boolean;
 
                       Namespaces: TMIntegerArray; // function calls, variables and constants only
 
