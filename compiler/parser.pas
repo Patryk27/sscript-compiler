@@ -161,14 +161,22 @@ Begin
    read_until(_BRACKET1_CL);
    Deep := 0;
 
-   if (next_t <> _BRACKET3_OP) Then // @TODO: what the fuck?
+   if (next_t <> _BRACKET3_OP) Then
    Begin
+    if (next_t in [_FOR, _WHILE]) Then
+    Begin
+     read;
+     read;
+     read_until(_BRACKET1_CL);
+    End;
+
     read_until(_SEMICOLON);
     if (next_t = _ELSE) Then
     Begin
      read;
      read_until(_SEMICOLON);
     End;
+
     Result.PEnd := TokenPos;
     TokenPos    := TPos;
     Exit;
