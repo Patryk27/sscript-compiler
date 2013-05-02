@@ -174,11 +174,11 @@ Begin
 
         Case Typ of
          ptBoolReg..ptReferenceReg: Inc(OpcodeLen, sizeof(Byte));
-         ptBool, ptChar: Inc(OpcodeLen, sizeof(Byte));
-         ptInt: Inc(OpcodeLen, sizeof(Int64));
-         ptFloat: Inc(OpcodeLen, sizeof(Extended));
-         ptString: Inc(OpcodeLen, Length(VarToStr(Value))+sizeof(Byte)); // string + terminator char (0x00)
-         ptLabelAbsoluteReference: Inc(OpcodeLen, sizeof(Int64));
+         ptBool, ptChar           : Inc(OpcodeLen, sizeof(Byte));
+         ptInt                    : Inc(OpcodeLen, sizeof(Int64));
+         ptFloat                  : Inc(OpcodeLen, sizeof(Extended));
+         ptString                 : Inc(OpcodeLen, Length(VarToStr(Value))+sizeof(Byte)); // string + terminator char (0x00)
+         ptLabelAbsoluteReference : Inc(OpcodeLen, sizeof(Int64));
 
          else
           Inc(OpcodeLen, sizeof(Integer));
@@ -298,11 +298,11 @@ Begin
        write_byte(ord(Typ)); // param type
        Case Typ of // param value
         ptBoolReg..ptReferenceReg: write_byte(Value);
-        ptBool, ptChar: write_byte(Value);
-        ptInt: write_int64(Value);
-        ptFloat: write_float(Value);
-        ptString: write_string(Value);
-        ptLabelAbsoluteReference: write_int64(Value);
+        ptBool, ptChar           : write_byte(Value);
+        ptInt                    : write_int64(Value);
+        ptFloat                  : write_float(Value);
+        ptString                 : write_string(Value);
+        ptLabelAbsoluteReference : write_int64(Value);
 
         else
          write_integer(Value);
