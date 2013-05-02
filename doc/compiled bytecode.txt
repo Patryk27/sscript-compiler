@@ -20,7 +20,21 @@ Bytecode version: 0.4 (major.minor)
 		10 bytes - extended - floating-point value
 
 	[if `type` is `string` or `label reference`]
-		x bytes - byte/char - subsequent ASCII chars; string is null-terminated (it means, it ends when reached char `0x00`).
+		x bytes - byte/char - subsequent ASCII chars; string is null-terminated (it means, it ends with char `0x00`)
 
 	[if `type` is anything else]
 		4 bytes - integer - value
+
+Argument types:
+ptBoolReg=0	| boolean register
+ptCharReg=1	| char register
+ptIntReg=2	| integer register
+ptFloatReg=3	| float register
+ptStringReg=4	| string register
+ptReferenceReg=5| reference-reg register
+ptBool=6	| boolean value
+ptChar=7	| char value
+ptInt=8		| integer value
+ptFloat=9	| float value
+ptString=10	| string value
+ptStackVal=11	| stack value
