@@ -136,11 +136,7 @@ function<bool> is_even(int n)
 function<int> round(float f) naked
 {
  :CODE
- {
-  sub(stp, 1)
-  pop(ei1)
-  add(stp, 2)
- }
+  mov(ei1, [-1])
 }
 
 function<float> fround(float f) naked
@@ -149,7 +145,6 @@ function<float> fround(float f) naked
  {
   mov(ei1, [-1])
   mov(ef1, ei1)
-  add(stp, 2)
  }
 }
 
@@ -173,10 +168,14 @@ function<int> round_down(float f) naked
  }
 }
 
-function<int> round_trunc(float x)
+function<int> round_trunc(float x) naked
 {
- var<float> tmp = (x*10);
- return cast<int>(tmp)/10;
+ :CODE
+ {
+  mul([-1], 10)
+  mov(ei1, [-1])
+  div(ei1, 10)
+ }
 }
 
 function<float> round_to(float x, int digit)
