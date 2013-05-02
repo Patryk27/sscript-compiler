@@ -11,9 +11,9 @@ Unit Compile1;
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
  { constants }
- Const Version = '2.2.1';
-       fMajor  = 2.2;
-       fMinor  = 1;
+ Const Version = '2.2.1 nightly';
+       vMajor  = 2.2;
+       vMinor  = 1;
 
  { types }
  Type TCompiler = class;
@@ -1579,18 +1579,19 @@ Var Compiler2: Compile2.TCompiler;
       CreateGlobalConstant('null', TYPE_INT, MakeIntExpression(0));
 
       CreateGlobalConstant('__file', TYPE_STRING, MakeStringExpression(InputFile));
+      CreateGlobalConstant('__date', TYPE_STRING, MakeStringExpression(DateToStr(Date)));
+      CreateGlobalConstant('__time', TYPE_STRING, MakeStringExpression(TimeToStr(Time)));
+      CreateGlobalConstant('__major_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMajor)));
+      CreateGlobalConstant('__minor_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMinor)));
+      CreateGlobalConstant('__version__', TYPE_STRING, MakeStringExpression(Version));
 
-      CreateGlobalConstant('BYTE_MAX', TYPE_INT, MakeIntExpression(High(Byte)));
-      CreateGlobalConstant('BYTE_LOW', TYPE_INT, MakeIntExpression(Low(Byte)));
-      CreateGlobalConstant('INT_MAX', TYPE_INT, MakeIntExpression(High(Int64)));
-      CreateGlobalConstant('INT_MIN', TYPE_INT, MakeIntExpression(Low(Int64)));
-      CreateGlobalConstant('FLOAT_MAX', TYPE_FLOAT, MakeFloatExpression(Infinity));
-      CreateGlobalConstant('FLOAT_MIN', TYPE_FLOAT, MakeFloatExpression(-Infinity));
+      CreateGlobalConstant('__major__', TYPE_FLOAT, MakeFloatExpression(vMajor));
+      CreateGlobalConstant('__minor__', TYPE_FLOAT, MakeFloatExpression(vMinor));
      End;
     End;
 
    // ResetParser
-    Procedure ResetParser;
+    Procedure ResetParser; inline;
     Begin
      With Parser do
      Begin
