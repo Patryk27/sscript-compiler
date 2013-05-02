@@ -236,10 +236,7 @@ Begin
      if (oTmp.Compiler = nil) Then // stop on non-our bytecode (ie. - don't optimize imported bytecode)
       Break;
 
-     if (oTmp.Opcode in [o_mov, o_pop]) and (isArgumentChanging(0)) Then
-      Break;
-
-     if (oTmp.Opcode in [o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
+     if (oTmp.Opcode in [o_mov, o_pop, o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
         (isArgumentChanging(0)) Then
          Break; // the register's value is changed
 
@@ -263,7 +260,34 @@ Begin
       __optimize1(0);
 
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
+     Begin
+      Optimized := False;
+      { @TODO: this is lame solution...
+
+       Input:
+        mov(ef1, [-1])
+        if_g(ef1, 512)
+        tjmp(:some_label)
+        mul(ef1, ef1)
+        some_label:
+
+       Output (without this line above):
+        if_g([-1], 512)
+        tjmp(:some_label)
+        mul(ef1, ef1)
+        some_label:
+
+        No assignment to `ef1`, so on the third line it has unknown value!
+
+       Output (with this line):
+        mov(ef1, [-1])
+        if_g([-1], 512)
+        tjmp(:some_label)
+        mul(ef1, ef1)
+        some_label:
+      }
       Break;
+     End;
 
      if (oTmp.Opcode in [o_arset, o_arget]) and (oTmp.Args[1].Typ = ptInt) Then
       PushFix -= oTmp.Args[1].Value;
