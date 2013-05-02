@@ -187,9 +187,8 @@ End;
 
 { TScanner.__readNumber }
 Function TScanner.__readNumber(out OK: Boolean; out isFloat: Boolean; out Str: String): Extended;
-Var Ch     : Char;
-    Newline: Boolean;
-    ValCode: Integer;
+Var Ch             : Char;
+    Newline, Dot, E: Boolean;
 Begin
  Dec(Position);
  Result  := 0;
@@ -197,27 +196,47 @@ Begin
  OK      := True;
  isFloat := False;
 
+ Dot := False;
+ E   := False;
+
  While (true) Do
  Begin
   Ch := __readCharN(Newline);
 
-  if (not (Ch in ['0'..'9', '.'])) or (Newline) Then
+  if (not (Ch in ['0'..'9', '.', 'e', '+', '-'])) or (Newline) Then
    Break;
 
   if (Ch = '.') Then
   Begin
-   if (isFloat) Then
+   if (Dot) Then // more than one `.`
     Break;
 
+   Dot     := True;
    isFloat := True;
+  End;
+
+  if (Ch in ['e', 'E']) Then
+  Begin
+   if (E) Then // more than one `E`
+    Break;
+
+   E       := True;
+   isFloat := True;
+  End;
+
+  if (Ch in ['+', '-']) Then // `+` and `-` are allowed only after `e`/`E`
+  Begin
+   if (Length(Str) = 0) Then
+    Break;
+
+   if not (Str[Length(Str)] in ['e', 'E']) Then
+    Break;
   End;
 
   Str += Ch;
  End;
 
- Val(Str, Result, ValCode);
- OK := (ValCode = 0);
-
+ OK := TryStrToFloat(Str, Result);
  Dec(Position);
 End;
 
