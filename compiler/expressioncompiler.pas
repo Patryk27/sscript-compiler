@@ -354,8 +354,7 @@ Begin
  Result^.IdentNamespace := -1;
  Result^.isLocal        := False;
 
- Result^.ResultOnStack  := False;
- Result^.AlreadyChecked := False;
+ Result^.ResultOnStack := False;
 End;
 
 { TInterpreter.Create }
@@ -834,10 +833,8 @@ Begin
   Result := PMExpression(LongWord(Value.Value)); // get pointer
 
   { function call }
-  if (Result^.Typ = mtFunctionCall) and (not Result^.AlreadyChecked) Then
+  if (Result^.Typ = mtFunctionCall) Then
   Begin
-   Result^.AlreadyChecked := True;
-
    Tmp := Result^.Left;
 
    if (Tmp^.Typ = mtVariable) Then // calling an identifier
@@ -881,10 +878,8 @@ Begin
  Result^.Typ := Value.Typ;
 
  { variable or constant }
- if (Value.Typ = mtVariable) and (not Result^.AlreadyChecked) Then
+ if (Value.Typ = mtVariable) Then
  Begin
-  Result^.AlreadyChecked := True;
-
   Result^.VarName := VarToStr(Result^.Value);
   ID              := Compiler.findLocalVariable(Result^.Value); // local things at first
 
@@ -959,8 +954,7 @@ Begin
    For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
     Node^.ParamList[I] := CreateNodeFromStack;
 
-   Node^.Left           := CreateNodeFromStack;
-   Node^.AlreadyChecked := True;
+   Node^.Left := CreateNodeFromStack;
 
    StackPush(mtTree, LongWord(Node));
   End Else
