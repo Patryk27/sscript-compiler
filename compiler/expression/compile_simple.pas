@@ -109,7 +109,7 @@ Begin
   { int, char -> int, int }
   if (TypeLeft.isInt) and (TypeRight.isChar) Then
   Begin
-   PutOpcode(o_mov, ['e'+TypeLeft.RegPrefix+'1', 'e'+TypeRight.RegPrefix+'1']);
+  // PutOpcode(o_mov, ['e'+TypeLeft.RegPrefix+'1', 'e'+TypeRight.RegPrefix+'1']);
    TypeLeft := TYPE_INT;
   End;
 
