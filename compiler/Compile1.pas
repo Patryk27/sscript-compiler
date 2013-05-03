@@ -203,7 +203,7 @@ End;
 
 (* TCompiler.MakeImports *)
 {
- Creates import list (opens *.ssm files and adds them into the bytecode)
+ Creates import list (loads *.ssm files and adds them into the bytecode)
 }
 Procedure TCompiler.MakeImports;
 Var SSM          : TSSM;
@@ -214,6 +214,7 @@ Var SSM          : TSSM;
 
     Namespace: TNamespace;
 Begin
+ { if `-initcode` specified }
  if (getBoolOption(opt_initcode)) Then
  Begin
   SSM := TSSM.Create;
@@ -306,8 +307,10 @@ Begin
    { label }
    if (isLabel) Then
    Begin
-    // @TODO: `.public`
-    OutputCode.Add(Name+':');
+    Case isPublic of
+     True: OutputCode.Add(Name+': .public');
+     False: OutputCode.Add(Name+':');
+    End;
     Continue; // proceed to the next opcode
    End;
 
@@ -1384,19 +1387,13 @@ Begin
 
  if (inFunction) Then
  Begin
-  // @TODO: DRY (!)
-
   // local variable or constant
   ID := findLocalVariable(Name);
-  if (ID <> -1) Then
-  Begin
-   CompileError(eRedeclaration, [Name]);
-   CompileError(getCurrentFunction.SymbolList[ID].DeclToken, ePrevDeclared, []);
-   Exit;
-  End;
 
   // local type
-  ID := findLocalType(Name);
+  if (ID = -1) Then
+   ID := findLocalType(Name);
+
   if (ID <> -1) Then
   Begin
    CompileError(eRedeclaration, [Name]);
@@ -1411,7 +1408,8 @@ Begin
   Begin
    CompileError(eRedeclaration, [Name]);
    With getCurrentNamespace.SymbolList[ID] do
-    TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
+    if (mCompiler <> nil) Then
+     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
    Exit;
   End;
 
@@ -1421,12 +1419,8 @@ Begin
   Begin
    CompileError(eRedeclaration, [Name]);
    With Typ.RefSymbol do
-    Case mCompiler = nil of
-     True: DevLog('Warning: TCompiler.RedeclarationCheck() -> mCompiler = nil; not raising `ePrevDeclared`'); // note, that `mCompiler = nil` should be true only for internal types (like `bool`, `string` (...))
-     else
-      TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
-    End;
-
+    if (mCompiler <> nil) Then // `mCompiler = nil` should be true only for internal types (like `bool`, `string` (...))
+     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
    Exit;
   End;
 
