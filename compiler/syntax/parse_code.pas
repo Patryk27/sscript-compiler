@@ -59,7 +59,7 @@ Begin
      Opcode := PutLabel(Token.Display, not DirectBytecode);
      eat(_COLON);
 
-     if (DirectBytecode) and (next_t = _POINT) Then
+     if {(DirectBytecode) and} (next_t = _POINT) Then
      Begin
       eat(_POINT);
 
