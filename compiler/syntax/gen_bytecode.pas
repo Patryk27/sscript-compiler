@@ -125,7 +125,8 @@ Begin
     Begin
      Str1 := PChar(Values[2]);
      Str2 := Str1+'condition';
-     Str3 := Str1+'end';
+     Str3 := Str1+'step';
+     Str4 := Str1+'end';
 
      { condition }
      PutLabel(Str2);
@@ -139,11 +140,12 @@ Begin
 
      { condition check }
      PutOpcode(o_pop, ['if']);
-     PutOpcode(o_fjmp, [':'+Str3]);
+     PutOpcode(o_fjmp, [':'+Str4]);
 
      ParseUntil(ctFOR_end);
 
      { step }
+     PutLabel(Str3);
      if (Values[1] <> nil) Then
      Begin
       ExpressionCompiler.CompileConstruction(Compiler, Values[1]);
@@ -152,7 +154,7 @@ Begin
 
      PutOpcode(o_jmp, [':'+Str2]);
 
-     PutLabel(Str3); { end }
+     PutLabel(Str4); { end }
     End;
 
  (* ctIF *)

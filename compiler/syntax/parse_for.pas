@@ -26,7 +26,7 @@ Begin
  C.Typ := ctFOR;
  SetLength(C.Values, 3);
 
- NewScope(sFOR, Str+'condition', Str+'end');
+ NewScope(sFOR, Str+'step', Str+'end');
  Inc(CurrentDeep);
 
  ParsingFORInitInstruction := True;

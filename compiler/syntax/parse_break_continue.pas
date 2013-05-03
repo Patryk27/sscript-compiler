@@ -27,7 +27,7 @@ Begin
   Begin
    C.Typ := ctJump;
    SetLength(C.Values, 1);
-   C.Values[0] := CopyStringToPChar(':'+Scope[I].LoopEnd);
+   C.Values[0] := CopyStringToPChar(':'+Scope[I].LoopBegin);
    AddConstruction(C);
    Parser.eat(_SEMICOLON);
    Exit;
