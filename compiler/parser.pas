@@ -10,6 +10,8 @@ Unit Parser;
                 // private fields
                   Compiler: Pointer;
 
+                  DontFailOnEOF: Boolean;
+
                  Public
                 // public fields
                   TokenList: Array of TToken_P; // list of tokens (with stripped comments)
@@ -124,8 +126,9 @@ Begin
   End;
  End;
 
- TokenPos    := 0;
- CurrentDeep := 0;
+ TokenPos      := 0;
+ CurrentDeep   := 0;
+ DontFailOnEOF := False;
 
  { destroy objects }
  Scanner.Free;
@@ -151,60 +154,65 @@ End;
 Function TParser.getCurrentRange(Deep: Integer=1): TRange;
 Var TPos: LongWord;
 Begin
- TPos := TokenPos;
+ Try
+  DontFailOnEOF := True; // don't fail on case when brackets are unclosed (it would fail with error `unexpected eof`), as this error will be detected and raised later (eg.when parsing a construction)
 
- Result.PBegin := TokenPos;
+  TPos          := TokenPos;
+  Result.PBegin := TokenPos;
 
- With TCompiler(Compiler) do
-  if (ParsingFORInitInstruction) Then
-  Begin
-   read_until(_BRACKET1_CL);
-   Deep := 0;
-
-   if (next_t <> _BRACKET3_OP) Then
+  With TCompiler(Compiler) do
+   if (ParsingFORInitInstruction) Then
    Begin
-    if (next_t in [_FOR, _WHILE]) Then
-    Begin
-     read;
-     read;
-     read_until(_BRACKET1_CL);
-    End;
+    read_until(_BRACKET1_CL);
+    Deep := 0;
 
-    read_until(_SEMICOLON);
-    if (next_t = _ELSE) Then
+    if (next_t <> _BRACKET3_OP) Then
     Begin
-     read;
+     if (next_t in [_FOR, _WHILE]) Then
+     Begin
+      read;
+      read;
+      read_until(_BRACKET1_CL);
+     End;
+
      read_until(_SEMICOLON);
-    End;
+     if (next_t = _ELSE) Then
+     Begin
+      read;
+      read_until(_SEMICOLON);
+     End;
 
-    Result.PEnd := TokenPos;
-    TokenPos    := TPos;
+     Result.PEnd := TokenPos;
+     TokenPos    := TPos;
+     Exit;
+    End;
+   End;
+
+  Result.PEnd := TokenPos;
+
+  While (true) Do
+  Begin
+   if (Result.PEnd >= High(TokenList)) Then // ending `}` not found
+   Begin
+    DevLog('Syntax error: ending `}` not found');
     Exit;
    End;
+
+   Case TokenList[Result.PEnd].Token of
+    _BRACKET3_OP: Inc(Deep);
+    _BRACKET3_CL: Dec(Deep);
+   End;
+
+   Inc(Result.PEnd);
+
+   if (Deep = 0) Then
+    Break;
   End;
 
- Result.PEnd := TokenPos;
-
- While (true) Do
- Begin
-  if (Result.PEnd >= High(TokenList)) Then // ending `}` not found
-  Begin
-   DevLog('Syntax error: ending `}` not found');
-   Exit;
-  End;
-
-  Case TokenList[Result.PEnd].Token of
-   _BRACKET3_OP: Inc(Deep);
-   _BRACKET3_CL: Dec(Deep);
-  End;
-
-  Inc(Result.PEnd);
-
-  if (Deep = 0) Then
-   Break;
+  TokenPos := TPos;
+ Finally
+  DontFailOnEOF := False;
  End;
-
- TokenPos := TPos;
 End;
 
 (* TParser.read *)
@@ -513,6 +521,9 @@ Procedure TParser.skip_parenthesis;
 Var Deep: Integer = 0;
 Begin
  Repeat
+  if ((TokenPos >= High(TokenList)) and (DontFailOnEOF)) Then
+   Exit;
+
   Case read_t of
    _BRACKET1_OP, _BRACKET2_OP, _BRACKET3_OP, _LOWER: Inc(Deep);
    _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL, _GREATER: Dec(Deep);
@@ -527,6 +538,9 @@ Var Deep: Integer = 0;
 Begin
  While (true) do
  Begin
+  if ((TokenPos >= High(TokenList)) and (DontFailOnEOF)) Then
+   Exit;
+
   Tok := read_t;
 
   if (Tok = Token) and (Deep = 0) Then
