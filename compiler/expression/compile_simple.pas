@@ -1,11 +1,19 @@
-Function CompileSimple(out TypeLeft, TypeRight: TType; const isLeftVariable: Boolean=False): TType;
+Function CompileSimple(out TypeLeft, TypeRight: TType; const isLeftVariable: Boolean=False; const ShortCircuit: TShortCircuit=scNone; const ShortCircuitLabel: String=''): TType;
 Var Variable   : TRVariable;
     LeftFirst  : Boolean=False;
     isComparing: Boolean;
+
+    I        : Integer;
+    SCOpcodes: Array[0..3] of PMOpcode;
+    SCCannot : String;
+    SCSubSTP : Boolean = False;
 Begin
  isComparing := Expr^.Typ in [mtEqual, mtDifferent, mtGreater, mtLower, mtGreaterEqual, mtLowerEqual];
 
- if (isLeftVariable) Then
+ SCOpcodes[0] := nil;
+ SCCannot     := ShortCircuitLabel+'_cannot';
+
+ if (isLeftVariable) Then // if the left side is a variable
  Begin
   Variable := getVariable(Left, False);
 
@@ -13,15 +21,33 @@ Begin
   TypeRight := Parse(Right, 2);
  End Else
  Begin
-  if (countLeaves(Right) >= countLeaves(Left)) Then
+  if (countLeaves(Right) > countLeaves(Left)) Then
   Begin
    LeftFirst := False;
    TypeRight := Parse(Right, 2); // right to second register
-   TypeLeft  := Parse(Left, 1); // left to first register
+
+   if (ShortCircuit <> scNone) Then
+   Begin
+    For I := 0 To 3 Do // used in short-circuit evaluation
+     SCOpcodes[I] := Compiler.PutOpcode(o_nop);
+
+    Compiler.PutLabel(SCCannot);
+   End;
+
+   TypeLeft := Parse(Left, 1); // left to first register
   End Else
   Begin
    LeftFirst := True;
    TypeLeft  := Parse(Left, 1); // left to first register
+
+   if (ShortCircuit <> scNone) Then
+   Begin
+    For I := 0 To 3 Do // used in short-circuit evaluation
+     SCOpcodes[I] := Compiler.PutOpcode(o_nop);
+
+    Compiler.PutLabel(SCCannot);
+   End;
+
    TypeRight := Parse(Right, 2); // right to second register
   End;
  End;
@@ -29,12 +55,45 @@ Begin
  // we must 'pop' result back to the corresponding register
  if (LeftFirst) Then
  Begin
+  SCSubStp := Left^.ResultOnStack;
+
   RePop(Right, TypeRight, 2);
   RePop(Left, TypeLeft, 1);
  End Else
  Begin
+  SCSubStp := Right^.ResultOnStack;
+
   RePop(Left, TypeLeft, 1);
   RePop(Right, TypeRight, 2);
+ End;
+
+ { short-circuit evaluation }
+ With Compiler do
+ Begin
+  DoNotGenerateCode := True;
+
+  if (SCOpcodes[0] <> nil) Then
+  Begin
+   SCOpcodes[0]^ := PutOpcode(o_mov, ['if', 'e'+TypeLeft.RegPrefix+'1'])^;
+
+   { || }
+   if (ShortCircuit = scOR) Then // short circuit for operator `||`
+    SCOpcodes[1]^ := PutOpcode(o_fjmp, [':'+SCCannot])^;
+
+   { && }
+   if (ShortCircuit = scAND) Then // short circuit for operator `&&`
+    SCOpcodes[1]^ := PutOpcode(o_tjmp, [':'+SCCannot])^;
+
+   if (ShortCircuit <> scNone) Then
+   Begin
+    if (SCSubSTP) Then
+     SCOpcodes[2]^ := PutOpcode(o_sub, ['stp', 1])^;
+
+    SCOpcodes[3]^ := PutOpcode(o_jmp, [':'+ShortCircuitLabel])^;
+   End;
+  End;
+
+  DoNotGenerateCode := False;
  End;
 
  With Compiler do

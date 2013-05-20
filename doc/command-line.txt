@@ -21,12 +21,12 @@ By default, all switches are disabled.
 	--constant-folding / -Of	enables constant expression folding
 	--bytecode-optimize / -Op	optimizes bytecode
 	--remove-unreachable / -Ou	removes unreachable parts of code
+	--short-circuit	/ -Os		enables/disables short-circuit-evalution. It is implicitly **enabled** and most likely you don't want to turn it off!
 
 	-O1	enables `--register-alloc`, `--constant-folding`, `--bytecode-optimize` and `--remove-unreachable`
 
 4.Debug
-	--strip-debug / -Sd	strips debug symbols from the file (do not removes debug symbols from eg.imported libraries)
-	--strip-debug-all	strips ALL debug symbols (including that from imported SSM libraries etc.)
+	--strip-debug / -Sd	strips debug symbols from the file (but do not removes debug symbols from eg.linked libraries)
 
 5.Libraries only
 	-header / -h  <file>	generates and saves header file

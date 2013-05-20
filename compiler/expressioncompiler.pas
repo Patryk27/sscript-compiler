@@ -12,13 +12,15 @@ Unit ExpressionCompiler;
 
  Const STACK_SIZE = 5000; // internal compiler stack size (in elements)
 
- Const UnaryOperations  = ['!'];
-       BinaryOperations = ['+', '-', '*', '/', '%', '='];
+ Const UnaryOperations  = ['!']; // @TODO: ?
+       BinaryOperations = ['+', '-', '*', '/', '%', '=']; // @TODO: ?
 
        _UNARY_MINUS = #01;
 
  Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oDisplayParseErrors);
       TOptions = Set of TOption;
+
+      TShortCircuit = (scNone, scOR, scAND);
 
  { TStackValue }
  Type TStackValue = Record // value on the stack
@@ -1105,194 +1107,195 @@ Type TRVariable = Record
 
 { CompileConstruction }
 Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TType;
-Var Compiler    : TCompiler;
-    PushedValues: Integer=0;
+Var Compiler    : TCompiler; // caller compiler pointer
+    ExprLabel   : String; // unique name for each expression
+    PushedValues: Integer=0; // amount of values pushed onto stack; used in eg.getting value of variables lying on the stack
 
 { Parse }
 Function Parse(Expr: PMExpression; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): TType;
-Var Right, Left: PMExpression;
-    Push_IF_reg: Boolean=False;
+Var Left, Right: PMExpression; // left and right side of the `Expr`
+    Push_IF_reg: Boolean=False; // if `true`, the `if` register is pushed at the end of parsing `Expr`
 
-{ Error }
-Procedure Error(Error: TCompileError; Args: Array of Const);
-Begin
- Compiler.CompileError(Expr^.Token, Error, Args);
-End;
-
-{ Error }
-Procedure Error(Token: TToken_P; Error: TCompileError; Args: Array of Const);
-Begin
- Compiler.CompileError(Token, Error, Args);
-End;
-
-{ Hint }
-Procedure Hint(Hint: TCompileHint; Args: Array of Const);
-Begin
- Compiler.CompileHint(Expr^.Token, Hint, Args);
-End;
-
-{ RePop }
-Procedure RePop(Expr: PMExpression; TypeID: TType; Reg: Byte);
-Begin
- if (Expr^.ResultOnStack) Then
- Begin
-  if not (Reg in [1..4]) Then
-   Error(eInternalError, ['RePop called with invalid register ID: '+IntToStr(Reg)]);
-
-  Compiler.PutOpcode(o_pop, ['e'+TypeID.RegPrefix+IntToStr(Reg)]);
-  Expr^.ResultOnStack := False;
-  Dec(PushedValues);
- End;
-End;
-
-{ getVariable }
-Function getVariable(Expr: PMExpression; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
-Label Failed;
-Begin
- { set default values }
- With Result do
- Begin
-  MemPos    := 0;
-  RegChar   := #0;
-  Typ       := nil;
-  isConst   := False;
-  PosStr    := '[0]';
-  mVariable := nil;
- End;
-
- Result.getArray := 0;
-
- { is it an array element? }
- While (Expr^.Typ = mtArrayElement) do
- Begin
-  Expr := Expr^.Left;
-  Inc(Result.getArray);
- End;
-
- Result.Name := Expr^.VarName;
- Result.ID   := Expr^.IdentID;
-
- if (Result.ID = -1) Then // variable or constant not found
-  goto Failed;
-
- if (Expr^.isLocal) Then
- Begin
-  { local variable or constant }
-  With Compiler.getCurrentFunction, Result do
+  { Error }
+  Procedure Error(Error: TCompileError; Args: Array of Const);
   Begin
-   mVariable := SymbolList[ID].mVariable;
-   MemPos    := mVariable.MemPos;
-   Typ       := mVariable.Typ;
-   RegChar   := mVariable.Typ.RegPrefix;
-   Value     := mVariable.Value;
-   isConst   := mVariable.isConst;
-
-   if (MemPos > 0) Then
-    PosStr := 'e'+RegChar+IntToStr(MemPos) Else
-    PosStr := '['+IntToStr(MemPos-PushedValues)+']';
+   Compiler.CompileError(Expr^.Token, Error, Args);
   End;
- End Else
- Begin
-  { global variable or constant }
-  With Result do
-  Begin
-   mVariable := Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Result.ID].mVariable;
 
-   if (mVariable = nil) Then
+  { Error }
+  Procedure Error(Token: TToken_P; Error: TCompileError; Args: Array of Const);
+  Begin
+   Compiler.CompileError(Token, Error, Args);
+  End;
+
+  { Hint }
+  Procedure Hint(Hint: TCompileHint; Args: Array of Const);
+  Begin
+   Compiler.CompileHint(Expr^.Token, Hint, Args);
+  End;
+
+  { RePop }
+  Procedure RePop(Expr: PMExpression; TypeID: TType; Reg: Byte);
+  Begin
+   if (Expr^.ResultOnStack) Then
+   Begin
+    if not (Reg in [1..4]) Then
+     Error(eInternalError, ['RePop called with invalid register ID: '+IntToStr(Reg)]);
+
+    Compiler.PutOpcode(o_pop, ['e'+TypeID.RegPrefix+IntToStr(Reg)]);
+    Expr^.ResultOnStack := False;
+    Dec(PushedValues);
+   End;
+  End;
+
+  { getVariable }
+  Function getVariable(Expr: PMExpression; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
+  Label Failed;
+  Begin
+   { set default values }
+   With Result do
+   Begin
+    MemPos    := 0;
+    RegChar   := #0;
+    Typ       := nil;
+    isConst   := False;
+    PosStr    := '[0]';
+    mVariable := nil;
+   End;
+
+   Result.getArray := 0;
+
+   { is it an array element? }
+   While (Expr^.Typ = mtArrayElement) do
+   Begin
+    Expr := Expr^.Left;
+    Inc(Result.getArray);
+   End;
+
+   Result.Name := Expr^.VarName;
+   Result.ID   := Expr^.IdentID;
+
+   if (Result.ID = -1) Then // variable or constant not found
     goto Failed;
 
-   MemPos  := mVariable.MemPos;
-   Typ     := mVariable.Typ;
-   RegChar := mVariable.Typ.RegPrefix;
-   Value   := mVariable.Value;
-   isConst := mVariable.isConst;
+   if (Expr^.isLocal) Then
+   Begin
+    { local variable or constant }
+    With Compiler.getCurrentFunction, Result do
+    Begin
+     mVariable := SymbolList[ID].mVariable;
+     MemPos    := mVariable.MemPos;
+     Typ       := mVariable.Typ;
+     RegChar   := mVariable.Typ.RegPrefix;
+     Value     := mVariable.Value;
+     isConst   := mVariable.isConst;
+
+     if (MemPos > 0) Then
+      PosStr := 'e'+RegChar+IntToStr(MemPos) Else
+      PosStr := '['+IntToStr(MemPos-PushedValues)+']';
+    End;
+   End Else
+   Begin
+    { global variable or constant }
+    With Result do
+    Begin
+     mVariable := Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Result.ID].mVariable;
+
+     if (mVariable = nil) Then
+      goto Failed;
+
+     MemPos  := mVariable.MemPos;
+     Typ     := mVariable.Typ;
+     RegChar := mVariable.Typ.RegPrefix;
+     Value   := mVariable.Value;
+     isConst := mVariable.isConst;
+    End;
+   End;
+
+  Failed:
+   if (Result.ID = -1) and (FailWhenNotFound) Then // var not found
+   Begin
+    Error(eUnknownVariable, [Result.Name]);
+    Exit;
+   End;
+
+   if (Result.isConst) and (not AllowConstants) Then // not a constant
+    Error(Expr^.Token, eLValueRequired, []);
   End;
- End;
 
-Failed:
- if (Result.ID = -1) and (FailWhenNotFound) Then // var not found
- Begin
-  Error(eUnknownVariable, [Result.Name]);
-  Exit;
- End;
+  { getType }
+  Function getType(Value: Variant): TType;
+  Begin
+   if (Value = null) Then
+   Begin
+    DevLog('Warning: getType() -> Value = null; returned `nil`');
+    Exit(nil);
+   End;
 
- if (Result.isConst) and (not AllowConstants) Then // not a constant
-  Error(Expr^.Token, eLValueRequired, []);
-End;
+   Result := TType(LongWord(Value));
+  End;
 
-{ getType }
-Function getType(Value: Variant): TType;
-Begin
- if (Value = null) Then
- Begin
-  DevLog('Warning: getType() -> Value = null; returned `nil`');
-  Exit(nil);
- End;
+  { getTypeFromMExpr }
+  Function getTypeFromMExpr(Expr: PMExpression): TType;
+  Begin
+   Result := TYPE_ANY;
+   Case Expr^.Typ of
+    mtBool    : Result := TYPE_BOOL;
+    mtChar    : Result := TYPE_CHAR;
+    mtInt     : Result := TYPE_INT;
+    mtFloat   : Result := TYPE_FLOAT;
+    mtString  : Result := TYPE_STRING;
+    mtVariable: Result := getVariable(Expr).Typ;
+   End;
+  End;
 
- Result := TType(LongWord(Value));
-End;
+  { getValueFromMExpr }
+  Function getValueFromMExpr(Expr: PMExpression): String;
+  Begin
+   if (Expr^.Value = null) Then
+    Error(eInternalError, ['Expr^.Value = null']);
 
-{ getTypeFromMExpr }
-Function getTypeFromMExpr(Expr: PMExpression): TType;
-Begin
- Result := TYPE_ANY;
- Case Expr^.Typ of
-  mtBool    : Result := TYPE_BOOL;
-  mtChar    : Result := TYPE_CHAR;
-  mtInt     : Result := TYPE_INT;
-  mtFloat   : Result := TYPE_FLOAT;
-  mtString  : Result := TYPE_STRING;
-  mtVariable: Result := getVariable(Expr).Typ;
- End;
-End;
+   Result := getValueFromExpression(Expr);
+  End;
 
-{ getValueFromMExpr }
-Function getValueFromMExpr(Expr: PMExpression): String;
-Begin
- if (Expr^.Value = null) Then
-  Error(eInternalError, ['Expr^.Value = null']);
+  { isLValue }
+  Function isLValue(Expr: PMExpression): Boolean;
+  Begin
+   Result := (Expr^.Typ in [mtVariable, mtArrayElement]);
 
- Result := getValueFromExpression(Expr);
-End;
+   if (Expr^.Typ = mtVariable) and (Expr^.IdentID <> -1) Then // check if passed variable identifier isn't a constant
+   Begin
+    if (Expr^.isLocal) Then
+     Exit(not Compiler.getCurrentFunction.SymbolList[Expr^.IdentID].mVariable.isConst) Else
+     Exit(not Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Expr^.IdentID].mVariable.isConst);
+   End;
+  End;
 
-{ isLValue }
-Function isLValue(Expr: PMExpression): Boolean;
-Begin
- Result := (Expr^.Typ in [mtVariable, mtArrayElement]);
+  { countLeaves }
+  Function countLeaves(Expr: PMExpression): LongWord;
+  Var I: Integer;
+  Begin
+   if (Expr = nil) Then
+    Exit(0);
 
- if (Expr^.Typ = mtVariable) and (Expr^.IdentID <> -1) Then // check if passed variable identifier isn't a constant
- Begin
-  if (Expr^.isLocal) Then
-   Exit(not Compiler.getCurrentFunction.SymbolList[Expr^.IdentID].mVariable.isConst) Else
-   Exit(not Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Expr^.IdentID].mVariable.isConst);
- End;
-End;
+   With Expr^ do
+   Begin
+    Result := 1;
 
-{ countLeaves }
-Function countLeaves(Expr: PMExpression): LongWord;
-Var I: Integer;
-Begin
- if (Expr = nil) Then
-  Exit(0);
+    if (Left <> nil) Then
+     Result += countLeaves(Left);
+    if (Right <> nil) Then
+     Result += countLeaves(Right);
 
- With Expr^ do
- Begin
-  Result := 1;
+    For I := Low(ParamList) To High(ParamList) Do
+     Result += countLeaves(ParamList[I]);
 
-  if (Left <> nil) Then
-   Result += countLeaves(Left);
-  if (Right <> nil) Then
-   Result += countLeaves(Right);
+    if (Typ in [mtMethodCall, mtFunctionCall]) Then
+     Inc(Result);
+   End;
+  End;
 
-  For I := Low(ParamList) To High(ParamList) Do
-   Result += countLeaves(ParamList[I]);
-
-  if (Typ in [mtMethodCall, mtFunctionCall]) Then
-   Inc(Result);
- End;
-End;
-
-{ variables }
+{ variable handling }
 {$I variable_handling.pas}
 
 { CompileSimple }
@@ -1545,6 +1548,9 @@ Begin
 
  if (not Compiler.inFunction) Then
   Compiler.CompileError(Expr^.Token, eInternalError, ['not inFunction']);
+
+ ExprLabel := Compiler.getCurrentFunction.MangledName+'__expression_'+IntToStr(Compiler.SomeCounter);
+ Inc(Compiler.SomeCounter);
 
  Result := Parse(Expr, 0, #0, False);
 End;

@@ -984,7 +984,7 @@ End;
 Function TCompiler.getTypeFromExpr(Expr: TMExpression): TType;
 Begin
  if (Expr.Left <> nil) or (Expr.Right <> nil) Then
-  CompileError(eInternalError, ['Expected folded expression']);
+  CompileError(eInternalError, ['Expected a folded expression']);
 
  Case Expr.Typ of
   mtBool  : Exit(TYPE_BOOL);
