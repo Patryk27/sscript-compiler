@@ -418,7 +418,7 @@ Var Token: TToken_P;
      _COMMA: if (Bracket = 1) Then
               Inc(Result);
 
-     _SEMICOLON, _BRACKET3_OP, _BRACKET3_CL: Compiler.CompileError(eExpected, [')', Token.Display]);
+     _SEMICOLON, _BRACKET3_OP, _BRACKET3_CL: Compiler.CompileError(eExpected, [')', Token.Value]);
     End;
    End;
 
@@ -469,12 +469,12 @@ Begin
  While (true) do
  Begin
   Token := read;
-  Str   := Token.Display;
+  Str   := Token.Value;
 
   if (Token.Token in EndTokens) and (Bracket = 0) Then
   Begin
    Case Expect of
-    eValue: CompileError(eExpectedValue, [Token.Display]);
+    eValue: CompileError(eExpectedValue, [Token.Value]);
    End;
 
    Break;
@@ -482,8 +482,8 @@ Begin
 
   if (Token.Token in [_SEMICOLON, _BRACKET3_OP, _BRACKET3_CL]) Then
    if (Bracket = 0) Then
-    Compiler.CompileError(eUnexpected, [Token.Display]) Else
-    Compiler.CompileError(eExpected, [')', Token.Display]);
+    Compiler.CompileError(eUnexpected, [Token.Value]) Else
+    Compiler.CompileError(eExpected, [')', Token.Value]);
 
   Parsed := True;
   Case Token.Token of
@@ -493,7 +493,7 @@ Begin
    _STRING: FinalExprPush(mtString, Str, Token);
    _CHAR  : FinalExprPush(mtChar, Str[1], Token);
 
-   _BREAK, _CONTINUE: Compiler.CompileError(eNotAllowed, [Token.Display]);
+   _BREAK, _CONTINUE: Compiler.CompileError(eNotAllowed, [Token.Value]);
 
    else Parsed := False;
   End;
@@ -502,7 +502,7 @@ Begin
   if (Token.Token in [_INT, _FLOAT, _STRING, _CHAR]) Then
   Begin
    if (Expect = eOperator) Then
-    Compiler.CompileError(eExpectedOperator, [Token.Display]);
+    Compiler.CompileError(eExpectedOperator, [Token.Value]);
 
    Expect := eOperator;
   End;
@@ -520,7 +520,7 @@ Begin
    if (next_t <> _BRACKET1_OP) Then
    Begin
     read;
-    CompileError(eExpected, ['(', next(-1).Display]);
+    CompileError(eExpected, ['(', next(-1).Value]);
    End;
 
    StackPush(mtTypeCast, LongWord(TypeID), Token);
@@ -532,18 +532,18 @@ Begin
   if (Token.Token = _IDENTIFIER) and (next_t = _DOUBLE_COLON) Then
   Begin
    PreviousNamespace := NamespaceID;
-   NamespaceID       := findNamespace(Token.Display);
+   NamespaceID       := findNamespace(Token.Value);
 
    if (NamespaceID = -1) Then
    Begin
-    CompileError(eUnknownNamespace, [Token.Display]);
+    CompileError(eUnknownNamespace, [Token.Value]);
     NamespaceID := 0;
    End;
 
    eat(_DOUBLE_COLON);
 
    if (next_t <> _IDENTIFIER) Then
-    CompileError(eExpectedIdentifier, [next.Display]);
+    CompileError(eExpectedIdentifier, [next.Value]);
 
    if (next_t(1) = _DOUBLE_COLON) Then // namespace-in-namespace isn't supported for now
    Begin
@@ -562,9 +562,9 @@ Begin
 
    if (next_t(-3) = _POINT) Then
    Begin
-    StackPush(mtMethodCall, Token.Display, Token); // method call
+    StackPush(mtMethodCall, Token.Value, Token); // method call
    End Else
-    StackPush(mtFunctionCall, Token.Display, Token); // function call
+    StackPush(mtFunctionCall, Token.Value, Token); // function call
 
    Stack[StackPos-1].ParamCount := ReadParamCount;
 
@@ -583,9 +583,9 @@ Begin
   if (Token.Token = _COMMA) Then
   Begin
    if (Expect = eValue) Then
-    Compiler.CompileError(eExpectedValue, [Token.Display]);
+    Compiler.CompileError(eExpectedValue, [Token.Value]);
    if (FunctionBracket = 0) Then
-    Compiler.CompileError(eExpectedOperator, [Token.Display]);
+    Compiler.CompileError(eExpectedOperator, [Token.Value]);
 
    Expect := eValue;
 
@@ -597,10 +597,10 @@ Begin
   if (Token.Token = _IDENTIFIER) Then
   Begin
    if (Expect = eOperator) Then
-    Compiler.CompileError(eExpectedOperator, [Token.Display]);
+    Compiler.CompileError(eExpectedOperator, [Token.Value]);
 
    Expect := eOperator;
-   FinalExprPush(mtVariable, Token.Display, Token, NamespaceID); // add it directly to the final expression
+   FinalExprPush(mtVariable, Token.Value, Token, NamespaceID); // add it directly to the final expression
 
    NamespaceID := PreviousNamespace;
   End Else
@@ -696,7 +696,7 @@ Begin
    End;
 
    if (Expect = eValue) and (Str <> _UNARY_MINUS) and not (Token.Token in [_EXCLM_MARK, _TILDE, _DOUBLE_PLUS, _DOUBLE_MINUS, _NEW]) Then
-    Compiler.CompileError(eExpectedValue, [Token.Display]);
+    Compiler.CompileError(eExpectedValue, [Token.Value]);
 
    Expect := eValue;
 
@@ -777,7 +777,7 @@ Begin
      if (next_t <> _BRACKET2_OP) Then // fast syntax-check
      Begin
       read;
-      Compiler.CompileError(eExpected, ['[', next(-1).Display]);
+      Compiler.CompileError(eExpected, ['[', next(-1).Value]);
      End;
 
      OperatorNew := True;
@@ -786,9 +786,9 @@ Begin
     { invalid operator }
     else
      Case Expect of
-      eOperator: Compiler.CompileError(eExpectedOperator, [Token.Display]);
-      eValue   : Compiler.CompileError(eExpectedValue, [Token.Display]);
-      else Compiler.CompileError(eUnexpected, [Token.Display]);
+      eOperator: Compiler.CompileError(eExpectedOperator, [Token.Value]);
+      eValue   : Compiler.CompileError(eExpectedValue, [Token.Value]);
+      else Compiler.CompileError(eUnexpected, [Token.Value]);
      End;
    End;
 

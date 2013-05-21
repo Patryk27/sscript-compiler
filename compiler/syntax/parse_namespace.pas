@@ -51,7 +51,7 @@ Begin
   NamespaceList[CurrentNamespace].Visibility := getVisibility;
 
   if (next_t <> _BRACKET3_OP) Then
-   CompileError(eExpected, ['{', next.Display]);
+   CompileError(eExpected, ['{', next.Value]);
  End Else
 
  (* if second pass *)

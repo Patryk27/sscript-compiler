@@ -56,7 +56,7 @@ Begin
     { label }
     if (next_t = _COLON) Then
     Begin
-     Opcode := PutLabel(Token.Display, not DirectBytecode);
+     Opcode := PutLabel(Token.Value, not DirectBytecode);
      eat(_COLON);
 
      if {(DirectBytecode) and} (next_t = _POINT) Then
@@ -69,7 +69,7 @@ Begin
        _PUBLIC : Opcode^.isPublic := True;
        _PRIVATE: Opcode^.isPublic := False;
        else
-        CompileError(eUnknownMacro, [Token.Display]);
+        CompileError(eUnknownMacro, [Token.Value]);
       End;
      End;
 
@@ -77,7 +77,7 @@ Begin
     End;
 
     { opcode }
-    Name := CopyStringToPChar(Token.Display);
+    Name := CopyStringToPChar(Token.Value);
 
     eat(_BRACKET1_OP); { `(` }
 
@@ -113,7 +113,7 @@ Begin
 
       _COLON { : }, _AT { @ }:
       Begin
-       Arg := Token.Display;
+       Arg := Token.Value;
        if (next_t = _AMPERSAND) and (not DirectBytecode) Then
        Begin
         eat(_AMPERSAND);
@@ -163,7 +163,7 @@ Begin
       // @TODO: func call (maybe `$funcname`? eg.`call(:$myfunc)`)
 
       else
-       CompileError(eUnexpected, [Token.Display]);
+       CompileError(eUnexpected, [Token.Value]);
      End;
 
      SetLength(ArgList^, Length(ArgList^)+1);

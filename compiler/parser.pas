@@ -229,8 +229,8 @@ Begin
 
  With TCompiler(Compiler) do
   Case Result.Token of
-   _INVALID_INT: CompileError(Result, eInvalidIntegerValue, [Result.Display]);
-   _INVALID_FLOAT: CompileError(Result, eInvalidFloatValue, [Result.Display]);
+   _INVALID_INT: CompileError(Result, eInvalidIntegerValue, [Result.Value]);
+   _INVALID_FLOAT: CompileError(Result, eInvalidFloatValue, [Result.Value]);
    _INVALID_STRING: CompileError(Result, eStringExceedsLine, []);
   End;
 End;
@@ -278,8 +278,8 @@ End;
 Function TParser.read_ident: String;
 Begin
  if (next_t <> _IDENTIFIER) Then
-  TCompiler(Compiler).CompileError(next, eExpectedIdentifier, [next.Display]);
- Result := read.Display;
+  TCompiler(Compiler).CompileError(next, eExpectedIdentifier, [next.Value]);
+ Result := read.Value;
 End;
 
 (* TParser.read_string *)
@@ -289,8 +289,8 @@ End;
 Function TParser.read_string: String;
 Begin
  if (next_t <> _STRING) Then
-  TCompiler(Compiler).CompileError(next, eExpectedString, [next.Display]);
- Result := read.Display;
+  TCompiler(Compiler).CompileError(next, eExpectedString, [next.Value]);
+ Result := read.Value;
 End;
 
 (* TParser.read_int *)
@@ -300,7 +300,7 @@ End;
 Function TParser.read_int: Integer;
 Begin
  if (next_t <> _INT) Then
-  TCompiler(Compiler).CompileError(next, eExpectedInt, [next.Display]);
+  TCompiler(Compiler).CompileError(next, eExpectedInt, [next.Value]);
  Result := StrToInt(read.Value);
 End;
 
@@ -342,7 +342,7 @@ Begin
     Begin
      eat(_DOUBLE_COLON);
 
-     NamespaceName := Token.Display;
+     NamespaceName := Token.Value;
      NamespaceID   := findNamespace(NamespaceName);
 
      if (NamespaceID = -1) Then // namespace not found
@@ -357,16 +357,16 @@ Begin
     End Else // `type name`
     Begin
      if (inFunction) Then
-      TypeID := findLocalType(Token.Display) Else
+      TypeID := findLocalType(Token.Value) Else
       TypeID := -1;
 
      if (TypeID = -1) Then // not a local type
      Begin
-      findTypeCandidate(Token.Display, SelectedNamespaces, TypeID, NamespaceID);
+      findTypeCandidate(Token.Value, SelectedNamespaces, TypeID, NamespaceID);
 
       if (TypeID = -1) Then // type not found
       Begin
-       CompileError(next(-1), eUnknownType, [Token.Display]);
+       CompileError(next(-1), eUnknownType, [Token.Value]);
        Exit;
       End;
 
@@ -381,7 +381,7 @@ Begin
     isFunction := True;
 
    else
-    CompileError(next, eExpectedIdentifier, [Token.Display]);
+    CompileError(next, eExpectedIdentifier, [Token.Value]);
   End;
 
   { function type }
@@ -442,7 +442,7 @@ Begin
   { check for primary type existence }
   if (Base = nil) Then
   Begin
-   CompileError(next, eUnknownType, [Token.Display]);
+   CompileError(next, eUnknownType, [Token.Value]);
    Exit;
   End;
 
@@ -501,7 +501,7 @@ End;
 Procedure TParser.eat(Token: TToken);
 Begin
  if (read_t <> Token) Then
-  TCompiler(Compiler).CompileError(eExpected, [getTokenDisplay(Token), next(-1).Display]);
+  TCompiler(Compiler).CompileError(eExpected, [getTokenDisplay(Token), next(-1).Value]);
 End;
 
 (* TParser.semicolon *)

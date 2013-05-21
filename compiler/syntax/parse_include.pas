@@ -27,7 +27,7 @@ Begin
 With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
- FileName := ReplaceDirSep(read.Display); // [string]
+ FileName := ReplaceDirSep(read.Value); // [string]
  eat(_BRACKET1_CL); // )
 
  if (CompilePass <> cp2) {cp1} Then

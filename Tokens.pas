@@ -209,9 +209,9 @@ Unit Tokens;
 
  Type PToken_P = ^TToken_P;
       TToken_P = Record
-                  Token                    : TToken;
-                  TokenName, Value, Display: String;
-                  Position, Line, Char     : LongWord;
+                  Token               : TToken;
+                  TokenName, Value    : String;
+                  Position, Line, Char: LongWord;
                  End;
 
  Function getTokenName(T: TToken): String;

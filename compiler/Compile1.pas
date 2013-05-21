@@ -521,7 +521,7 @@ Begin
     _AT       : ParseMacro_Outside;
     _TYPE     : Parse_TYPE.Parse(self);
 
-    else CompileError(eExpectedDeclOrDef, [Token.Display]);
+    else CompileError(eExpectedDeclOrDef, [Token.Value]);
    End;
   End Else // inside some function
   Begin
@@ -531,7 +531,7 @@ Begin
     _VAR        : Parse_VAR.Parse(self);
     _CONST      : Parse_CONST.Parse(self);
     _RETURN     : Parse_RETURN.Parse(self);
-    _COLON      : if (next.Display = 'CODE') Then Parse_CODE.Parse(self) Else CompileError(eUnexpected, [next.Display]);
+    _COLON      : if (next.Value = 'CODE') Then Parse_CODE.Parse(self) Else CompileError(eUnexpected, [next.Value]);
     _FOR        : Parse_FOR.Parse(self);
     _IF         : Parse_IF.Parse(self);
     _USE        : Parse_USE;
@@ -544,7 +544,7 @@ Begin
     _THROW      : Parse_THROW.Parse(self);
     _TRY        : Parse_TRY_CATCH.Parse(self);
 
-    _ELSE, _NAMESPACE, _CATCH: CompileError(eNotAllowed, [Token.Display]);
+    _ELSE, _NAMESPACE, _CATCH: CompileError(eNotAllowed, [Token.Value]);
 
     _SEMICOLON: ; // at semicolon, don't do anything
 
@@ -606,13 +606,13 @@ Begin
 
       is an invalid construction
      }
-     CompileError(next, eUnexpected, [next.Display]);
+     CompileError(next, eUnexpected, [next.Value]);
     End;
 
     ParseToken;
     Exit;
    End Else
-    CompileError(next, eExpected, ['{', next.Display]);
+    CompileError(next, eExpected, ['{', next.Value]);
 
   Deep := CurrentDeep;
   Repeat

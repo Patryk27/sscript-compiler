@@ -495,7 +495,6 @@ Begin
  Token           := getToken;
  Result.Token    := Token;
  Result.Value    := '';
- Result.Display  := '';
  Result.Position := Position;
 
  Result.Line := getLine;
@@ -512,9 +511,8 @@ Begin
     Ch := '"' Else
     Ch := '''';
 
-   Result.Token   := _STRING;
-   Result.Value   := __readString(OK, Ch);
-   Result.Display := Result.Value;
+   Result.Token := _STRING;
+   Result.Value := __readString(OK, Ch);
 
    if (Token = _APOSTR) Then
     Result.Token := _CHAR;
@@ -526,9 +524,8 @@ Begin
   { identifiers }
   _CHAR, _UNDERSCORE:
   Begin
-   Result.Token   := _IDENTIFIER;
-   Result.Value   := __readIdentifier;
-   Result.Display := Result.Value;
+   Result.Token := _IDENTIFIER;
+   Result.Value := __readIdentifier;
 
    if (isKeyword(Result.Value)) Then // is keyword?
     Result.Token := KeywordToToken(Result.Value);
@@ -541,10 +538,10 @@ Begin
 
    Case Token of
     { decimal int or float }
-    _NUMBER: Result.Value := FloatToStr(__readNumber(OK, isFloat, Result.Display));
+    _NUMBER: Result.Value := FloatToStr(__readNumber(OK, isFloat, Result.Value));
 
    { hexadecimal int }
-    _HEX_INTEGER: Result.Value := IntToStr(__readHexNumber(OK, Result.Display));
+    _HEX_INTEGER: Result.Value := IntToStr(__readHexNumber(OK, Result.Value));
    End;
 
    if (isFloat) Then // is float?
@@ -563,11 +560,11 @@ Begin
 
    Case isFloat of
     True:
-     if (not TryStrToFloat(Result.Display, Flt)) Then
+     if (not TryStrToFloat(Result.Value, Flt)) Then
       Result.Token := _INVALID_FLOAT;
 
     False:
-     if (not TryStrToInt64(Result.Display, Int)) Then
+     if (not TryStrToInt64(Result.Value, Int)) Then
       Result.Token := _INVALID_INT;
    End;
   End;
@@ -575,12 +572,12 @@ Begin
 
  Result.TokenName := getTokenName(Result.Token);
 
- if (Result.Display = '') Then
+ if (Result.Value = '') Then
  Begin
-  Result.Display := getTokenDisplay(Result.Token);
+  Result.Value := getTokenDisplay(Result.Token);
 
-  if (Result.Display = '') Then
-   Result.Display := Code[Result.Position];
+  if (Result.Value = '') Then
+   Result.Value := Code[Result.Position];
  End;
 
  if (not ((Result.Token in [_IDENTIFIER, _STRING, _INVALID_STRING]) or (isKeyword(Result.Value)))) Then

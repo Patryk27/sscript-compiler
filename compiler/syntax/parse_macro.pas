@@ -7,7 +7,7 @@ Procedure ParseMacro_Outside;
   Begin
    With Parser do
    Begin
-    Str := read.Display;
+    Str := read.Value;
     Case Str of
      'public' : Visibility := mvPublic;
      'private': Visibility := mvPrivate;

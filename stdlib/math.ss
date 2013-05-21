@@ -27,5 +27,6 @@ namespace std
  function<int> min(int, int) [library="math.ssm"];
  function<float> fmin(float, float) [library="math.ssm"];
  function<int> gcd(int, int) [library="math.ssm"];
+ function<int> factorial(int) [library="math.ssm"];
  function<bool> in_range(float, float, float) [library="math.ssm"];
 }

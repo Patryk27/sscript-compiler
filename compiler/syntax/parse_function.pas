@@ -91,7 +91,7 @@ Var Func : TFunction; // our new function
        if (next_t in [_COMMA, _BRACKET1_CL]) Then
        Begin
         if (NamedParams = npYes) Then
-         CompileError(next, eExpectedIdentifier, [next.Display]) Else
+         CompileError(next, eExpectedIdentifier, [next.Value]) Else
          Begin
           NamedParams := npNo;
           goto NextParam;
@@ -99,7 +99,7 @@ Var Func : TFunction; // our new function
        End;
 
        if (NamedParams = npNo) Then
-        CompileError(next, eExpected, [',', next.Display]);
+        CompileError(next, eExpected, [',', next.Value]);
 
        Name        := read_ident; // [param name]
        NamedParams := npYes;
@@ -252,7 +252,7 @@ Begin
   End;
 
   if (NamedParams = npNo) and (next_t <> _SEMICOLON) Then
-   CompileError(next, eExpected, [';', next.Display]);
+   CompileError(next, eExpected, [';', next.Value]);
 
   { add parameters }
   With Func do
