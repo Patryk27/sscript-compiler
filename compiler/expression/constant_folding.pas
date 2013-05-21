@@ -143,7 +143,7 @@ Begin
   End;
 
   { bool }
-  if (Left^.Typ = mtBool) Then
+  if (Left^.Typ = mtBool) and (not Evaluated) Then
   Begin
    Evaluated := True;
 
@@ -156,7 +156,7 @@ Begin
   End;
 
   { int }
-  if (Left^.Typ = mtInt) Then
+  if (Left^.Typ = mtInt) and (not Evaluated) Then
   Begin
    Evaluated := True;
 
