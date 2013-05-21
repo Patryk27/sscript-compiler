@@ -15,12 +15,12 @@ Unit Parser;
                  Public
                 // public fields
                   TokenList: Array of TToken_P; // list of tokens (with stripped comments)
-                  TokenPos : LongWord; // current token ID (counting from 0)
+                  TokenPos : Int64; // current token ID (counting from 0)
 
                   CurrentDeep: Integer; // current brackets' deep (`{` = +1, `}` = -1)
                   Visibility : TVisibility; // current visibility
 
-                  Property getPosition: LongWord read TokenPos; // current token position
+                  Property getPosition: Int64 read TokenPos; // current token position
                   Property getVisibility: TVisibility read Visibility; // current visibility state
 
 
@@ -39,6 +39,8 @@ Unit Parser;
                   Function read_string: String;
                   Function read_int: Integer;
                   Function read_type(const AllowArrays: Boolean=True): TType;
+                  Function read_constant_expr(const Sep: TTokenSet=[_SEMICOLON, _COMMA]): PMExpression;
+                  Function read_constant_expr_int: Int64;
                   Procedure eat(Token: TToken);
                   Procedure semicolon;
 
@@ -47,7 +49,7 @@ Unit Parser;
                  End;
 
  Implementation
-Uses CompilerUnit, Compile1, Messages, SysUtils;
+Uses CompilerUnit, Compile1, ExpressionCompiler, Messages, SysUtils;
 
 (* TParser.Create *)
 {
@@ -152,7 +154,7 @@ End;
  Returns current scope's range.
 }
 Function TParser.getCurrentRange(Deep: Integer=1): TRange;
-Var TPos: LongWord;
+Var TPos: Int64;
 Begin
  Try
   DontFailOnEOF := True; // don't fail on case when brackets are unclosed (it would fail with error `unexpected eof`), as this error will be detected and raised later (eg.when parsing a construction)
@@ -491,6 +493,33 @@ Begin
   { set result }
   Result := Typ;
  End;
+End;
+
+(* TParser.read_constant_expr *)
+{
+ Reads and evaluates a constant expression.
+}
+Function TParser.read_constant_expr(const Sep: TTokenSet=[_SEMICOLON, _COMMA]): PMExpression;
+Begin
+ Result := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, Sep, [oInsertConstants, oConstantFolding, oDisplayParseErrors]).Values[0]);
+End;
+
+(* TParser.read_constant_expr_int *)
+Function TParser.read_constant_expr_int: Int64;
+Var Expr: PMExpression;
+Begin
+ Expr := read_constant_expr;
+
+ if (Expr^.Typ <> mtInt) Then
+  TCompiler(Compiler).CompileError(eWrongType, [getExpressionTypeName(Expr), 'int']);
+
+ if (Expr^.Value = null) Then
+ Begin
+  DevLog('Error: TParser.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
+  Exit(0);
+ End;
+
+ Exit(Expr^.Value);
 End;
 
 (* TParser.eat *)

@@ -72,6 +72,7 @@ Unit ExpressionCompiler;
  Function MakeIntExpression(const Value: String): PMExpression;
  Function MakeFloatExpression(const Value: Extended): PMExpression;
  Function getValueFromExpression(const Expr: PMExpression; Beautify: Boolean=False): String;
+ Function getExpressionTypeName(const Expr: PMExpression): String;
 
  Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): TMConstruction;
  Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TType;
@@ -151,6 +152,20 @@ Begin
  End;
 
  Exit(Value);
+End;
+
+{ getExpressionTypeName }
+Function getExpressionTypeName(const Expr: PMExpression): String;
+Begin
+ Case Expr^.Typ of
+  mtBool  : Result := 'bool';
+  mtChar  : Result := 'char';
+  mtInt   : Result := 'int';
+  mtFloat : Result := 'float';
+  mtString: Result := 'string';
+  else
+   Result := 'erroneous type';
+ End;
 End;
 
 { DisplayTree }

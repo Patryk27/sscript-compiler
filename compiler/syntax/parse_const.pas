@@ -42,7 +42,7 @@ Begin
 
   eat(_EQUAL); // =
 
-  Variable.Value          := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA], [oInsertConstants, oConstantFolding, oDisplayParseErrors]).Values[0]); // [constant value]
+  Variable.Value          := read_constant_expr; // [constant value]
   Variable.Value^.VarName := Variable.RefSymbol.Name;
 
   With Variable.Value^ do

@@ -9,8 +9,8 @@ Unit symdef;
 
  Type TVisibility = (mvPublic, mvPrivate);
 
- Type TTypeAttributes = Set of (taStrict, taFunction, taUnspecialized);
- Type TVariableAttributes = Set of (vaConst, vaFuncParam, vaDontAllocate);
+ Type TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized);
+ Type TVariableAttributes = Set of (vaConst, vaEnumItem, vaFuncParam, vaDontAllocate);
  Type TFunctionAttributes = Set of (faNaked);
 
  Type TRange = Record
@@ -26,6 +26,9 @@ Unit symdef;
 
  Type TGlobalSymbol     = class;
       TGlobalSymbolList = specialize TFPGList<TGlobalSymbol>;
+
+ Type TVariable     = Class;
+      TVariableList = specialize TFPGList<TVariable>;
 
  (* Symbol *)
  Type TSymbol = Class
@@ -69,6 +72,8 @@ Unit symdef;
 
                 FuncReturn: TType;
                 FuncParams: TParamList;
+
+                EnumItemList: TVariableList;
 
                 Attributes: TTypeAttributes;
 
@@ -241,7 +246,7 @@ Begin
  Result :=
  (A.ArrayDimCount = B.ArrayDimCount) and
  (A.InternalID    = B.InternalID) and
- (A.Attributes    = B.Attributes) and
+// (A.Attributes    = B.Attributes) and
  (A.RegPrefix     = B.RegPrefix);
 
  if (not Result) Then
@@ -407,6 +412,7 @@ Begin
  ArrayBase     := nil;
  InternalID    := 0;
  FuncReturn    := nil;
+ EnumItemList  := TVariableList.Create;
  Attributes    := [];
 
  SetLength(FuncParams, 0);
