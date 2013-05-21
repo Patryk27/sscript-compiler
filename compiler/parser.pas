@@ -4,6 +4,8 @@ Unit Parser;
  Uses Classes, symdef,
       Scanner, Tokens, MTypes;
 
+ Const DefaultSeparators = [_SEMICOLON, _COMMA, _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL];
+
  { TParser }
  Type TParser = Class
                  Private
@@ -39,8 +41,8 @@ Unit Parser;
                   Function read_string: String;
                   Function read_int: Integer;
                   Function read_type(const AllowArrays: Boolean=True): TType;
-                  Function read_constant_expr(const Sep: TTokenSet=[_SEMICOLON, _COMMA]): PMExpression;
-                  Function read_constant_expr_int: Int64;
+                  Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PMExpression;
+                  Function read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
                   Procedure eat(Token: TToken);
                   Procedure semicolon;
 
@@ -499,16 +501,16 @@ End;
 {
  Reads and evaluates a constant expression.
 }
-Function TParser.read_constant_expr(const Sep: TTokenSet=[_SEMICOLON, _COMMA]): PMExpression;
+Function TParser.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PMExpression;
 Begin
  Result := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, Sep, [oInsertConstants, oConstantFolding, oDisplayParseErrors]).Values[0]);
 End;
 
 (* TParser.read_constant_expr_int *)
-Function TParser.read_constant_expr_int: Int64;
+Function TParser.read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
 Var Expr: PMExpression;
 Begin
- Expr := read_constant_expr;
+ Expr := read_constant_expr(Sep);
 
  if (Expr^.Typ <> mtInt) Then
   TCompiler(Compiler).CompileError(eWrongType, [getExpressionTypeName(Expr), 'int']);
