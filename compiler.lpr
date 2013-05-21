@@ -19,7 +19,7 @@
 *)
 
 {$IFNDEF FPC}
- {$FATAL The whole compiler, virtual machine and editor have been written in Free Pascal Compiler; compiling it by eg.Delphi will most likely fail!}
+ {$FATAL The whole compiler, virtual machine and editor have been written in Free Pascal Compiler; compiling it/them in eg.Delphi will most likely fail!}
 {$ENDIF}
 
 Program compiler;
@@ -159,14 +159,14 @@ Begin
    Input  := ExpandFileName(ParamStr(1));
    Output := ExpandFileName(getStringOption('o', 'output.ssc'));
 
-    // -version
+   // -version
    if (_version) Then
    Begin
     Writeln(Version);
     raise Exception.Create('');
    End;
 
-    // -logo
+   // -logo
    if (_logo) Then
     verbose_mode := True;
 

@@ -1972,12 +1972,26 @@ Begin
      { global type }
      if (Typ = gsType) Then
       With mType do
-       Str := 'type<'+mType.asString+'> '+RefSymbol.Name+';';
+      Begin
+       if (taEnum in Attributes) Then // special case: enumeration types
+       Begin
+        Str := 'type<enum> '+RefSymbol.Name+' = {';
+
+        For mCnst in EnumItemList Do
+         Str += mCnst.RefSymbol.Name+'='+IntToStr(mCnst.Value^.Value)+', ';
+
+        System.Delete(Str, Length(Str)-1, 2);
+
+        Str += '};';
+       End Else
+        Str := 'type<'+mType.asString+'> '+RefSymbol.Name+';';
+      End;
 
      { global constant }
      if (Typ = gsConstant) Then
       With mCnst do
-       Str := 'const '+RefSymbol.Name+' = '+getValueFromExpression(Value, True)+';';
+       if not (vaEnumItem in Attributes) Then
+        Str := 'const '+RefSymbol.Name+' = '+getValueFromExpression(Value, True)+';';
 
      { function }
      if (Typ = gsFunction) Then
@@ -2000,10 +2014,13 @@ Begin
        Str += ') [library="'+ExtractFileName(self.OutputFile)+'"];';
       End;
 
-     if (Name <> '') Then
-      Str := ' '+Str;
+     if (Str <> '') Then
+     Begin
+      if (Name <> '') Then
+       Str := ' '+Str;
 
-     Add(Str);
+      Add(Str);
+     End;
     End;
 
     if (Name <> 'self') Then

@@ -49,8 +49,9 @@ Begin
    Name       := read_ident; // [identifier]
    DeclToken  := next_pnt(-1);
    mCompiler  := Compiler;
-   Visibility := Visibility;
+   Visibility := getVisibility;
    Range      := getCurrentRange;
+   isInternal := False;
 
    RedeclarationCheck(Name);
   End;
@@ -70,8 +71,9 @@ Begin
     Name       := read_ident; // [identifier]
     DeclToken  := next_pnt(-1);
     mCompiler  := Compiler;
-    Visibility := Visibility;
+    Visibility := getVisibility;
     Range      := getCurrentRange;
+    isInternal := False;
 
     RedeclarationCheck(Name);
    End;
@@ -110,8 +112,9 @@ Begin
    Name       := read_ident; // [identifier]
    DeclToken  := next_pnt(-1);
    mCompiler  := Compiler;
-   Visibility := Visibility;
+   Visibility := getVisibility;
    Range      := getCurrentRange;
+   isInternal := False;
 
    RedeclarationCheck(Name);
   End;
