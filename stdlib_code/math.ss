@@ -253,6 +253,16 @@ function<int> gcd(int u, int v)
  return u << shift;
 }
 
+function<int> factorial(int num)
+{
+ var<int> result = 1;
+
+ while (--num > 0)
+  result *= num+1;
+
+ return result;
+} 
+
 function<bool> in_range(float num, float lower, float upper)
 {
  return (num >= lower) && (num <= upper);
