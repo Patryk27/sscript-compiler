@@ -56,7 +56,7 @@ Begin
   End;
 
   eat(_EQUAL); // `=`
-  eat(_BRACKET1_OP); // `(`
+  eat(_BRACKET3_OP); // `{`
 
   { enum items }
   While (true) Do
@@ -92,9 +92,9 @@ Begin
 
    EnumPrevValue := EnumItem.Value^.Value;
 
-   if (next_t = _BRACKET1_CL) Then // if end
+   if (next_t = _BRACKET3_CL) Then // if end
    Begin
-    eat(_BRACKET1_CL);
+    eat(_BRACKET3_CL);
     Break;
    End Else
     eat(_COMMA);
