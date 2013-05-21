@@ -12,7 +12,7 @@ Unit CompilerUnit;
  (
   opt_bytecode, opt_output, opt_initcode, opt_includepath,
   opt_Cm, opt_internal_const,
-  opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt__remove_unreachable, opt_O1,
+  opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt__remove_unreachable, opt__short_circuit, opt_O1,
   opt__strip_debug,
   opt_header,
   opt_logo, opt_version, opt_wait, opt_verbose
@@ -37,6 +37,7 @@ Unit CompilerUnit;
   (Names: ('--constant-folding', '-Of');   Typ: pBool),
   (Names: ('--bytecode-optimize', '-Op');  Typ: pBool),
   (Names: ('--remove-unreachable', '-Ou'); Typ: pBool),
+  (Names: ('--short-circuit', '-Os');      Typ: pBool),
   (Names: ('-O1', '');                     Typ: pBool),
 
   (Names: ('--strip-debug', '-Sd'); Typ: pBool),
