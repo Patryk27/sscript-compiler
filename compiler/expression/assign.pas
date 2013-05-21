@@ -3,6 +3,7 @@ Var Variable       : TRVariable;
     TypeID, TmpType: TType;
     Index, DimCount: Byte;
     ShouldFail     : Boolean;
+Label WrongTypeInAssign;
 Label asArray;
 Begin
  { left side is l-value (variable), right side is the expression to parse (a value, which we'll assign into the variable) }
@@ -36,18 +37,18 @@ Begin
    TypeID := Parse(Right, 1); // parse expression and load it into a helper register (e_1)
    RePop(Right, TypeID, 1);
 
+   if (TypeID = nil) Then
+    goto WrongTypeInAssign;
+
    __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
   End;
-
-//  if (Compiler.isConstantValue(Right^)) and (Compiler.getBoolOption(opt__constant_folding)) Then @TODO
-//   Variable.mVariable.Value := Right Else
-//   Variable.mVariable.Value := nil;
 
   Compiler.PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', Variable.PosStr]);
 
   With Compiler do
    if (not TypeID.CanBeAssignedTo(Variable.Typ)) Then // type check
    Begin
+   WrongTypeInAssign:
     Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, Variable.Typ.asString]);
     Exit;
    End;
