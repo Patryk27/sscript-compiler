@@ -313,14 +313,17 @@ End;
  Reads a type name or a full type (based on current token) and returns its ID.
 }
 Function TParser.read_type(const AllowArrays: Boolean=True): TType;
-Var Base, Typ: TType;
+Var Base, Typ, TmpType: TType;
 
     Token: TToken_P;
 
+    I         : Integer;
     FuncReturn: TType;
     FuncParams: TParamList;
+    FuncParam : PParam;
 
     isArray, isStringBased, isFunction: Boolean;
+    RequireDefaultValue               : Boolean = False;
 
     NamespaceName: String;
     NamespaceID  : Integer;
@@ -408,31 +411,57 @@ Begin
       Break;
 
      SetLength(FuncParams, Length(FuncParams)+1);
+     FuncParam := @FuncParams[High(FuncParams)];
 
      if (Token.Token = _CONST) Then // const-param
      Begin
       Token := read;
 
-      FuncParams[High(FuncParams)].Attributes += [vaConst];
-      FuncParams[High(FuncParams)].isConst := True;
+      FuncParam^.Attributes += [vaConst];
+      FuncParam^.isConst := True;
      End Else
 
      if (Token.Token = _VAR) Then // var-param
      Begin
       Token := read;
 
-      FuncParams[High(FuncParams)].isVar := True;
+      FuncParam^.isVar := True;
      End;
 
-     FuncParams[High(FuncParams)].Typ := read_type(); // [param type]
+     FuncParam^.Typ := read_type(); // [param type]
 
-     if (FuncParams[High(FuncParams)].Typ.isVoid) Then // error: void-typed param
+     if (FuncParam^.Typ.isVoid) Then // error: void-typed param
       CompileError(eVoidNoNameParam);
 
-     if (next_t = _BRACKET1_CL) Then
+     if (next_t = _IDENTIFIER) Then // optional identifier indicating parameter's name
+     Begin
+      FuncParam^.Name := read_ident;
+
+      For I := 0 To High(FuncParams)-1 Do
+       if (FuncParams[I].Name = FuncParam^.Name) Then // redeclaration
+        CompileError(eRedeclaration, [FuncParam^.Name]);
+     End;
+
+     if (next_t = _EQUAL) Then // optional default parameter's value
+     Begin
+      eat(_EQUAL);
+      FuncParam^.DefaultValue := read_constant_expr;
+      TmpType                 := getTypeFromExpr(FuncParam^.DefaultValue^);
+      Dec(TokenPos);
+
+      if (not TmpType.CanBeAssignedTo(FuncParam^.Typ)) Then
+       CompileError(eWrongType, [TmpType.asString, FuncParam^.Typ.asString]);
+
+      RequireDefaultValue := True;
+     End Else
+      if (RequireDefaultValue) Then
+       CompileError(next, eDefaultValueRequired, [FuncParam^.Name]) Else
+       FuncParam^.DefaultValue := nil;
+
+     if (next_t = _BRACKET1_CL) Then // end of parameter list?
       Break;
 
-     eat(_COMMA);
+     eat(_COMMA); // 'eat' comma (parameter list separator)
     End;
     eat(_BRACKET1_CL);
 

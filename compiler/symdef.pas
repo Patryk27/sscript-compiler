@@ -51,12 +51,14 @@ Unit symdef;
  (* Type *)
  Type TType = class;
 
- Type TParam = Record
-                Name      : String;
-                Typ       : TType;
-                Attributes: TVariableAttributes;
-                isConst   : Boolean;
-                isVar     : Boolean;
+ Type PParam = ^TParam;
+      TParam = Record
+                Name        : String;
+                Typ         : TType;
+                DefaultValue: PMExpression;
+                Attributes  : TVariableAttributes;
+                isConst     : Boolean;
+                isVar       : Boolean;
                End;
       TParamList = Array of TParam;
 
@@ -216,7 +218,7 @@ Unit symdef;
  Function TYPE_STRING: TType;
 
  Implementation
-Uses CompilerUnit, Compile1, Messages, SysUtils;
+Uses CompilerUnit, Compile1, ExpressionCompiler, Messages, SysUtils;
 
 (* CreateFunctionMangledName *)
 {
@@ -659,7 +661,7 @@ End;
 Function TType.asString: String;
 Var I: Integer;
 Begin
- if (self = nil) Then
+ if (self = nil) Then // erroneous (invalid) type
   Exit('erroneous type');
 
  Result := '';
@@ -681,6 +683,10 @@ Begin
      Result += 'var ';
 
     Result += FuncParams[I].Typ.asString;
+
+    if (FuncParams[I].DefaultValue <> nil) Then
+     Result += ' = '+getValueFromExpression(FuncParams[I].DefaultValue, True);
+
     if (I <> High(FuncParams)) Then
      Result += ', ';
    End;
@@ -702,7 +708,7 @@ Begin
 
   if (InternalID > High(PrimaryTypeNames)) Then
   Begin
-   DevLog('Error: InternalID > High(PrimaryTypeNames) ('+IntToStr(InternalID)+' > '+IntToStr(High(PrimaryTypeNames))+'); returned `erroneous type`');
+   DevLog('Error: InternalID > High(PrimaryTypeNames) ['+IntToStr(InternalID)+' > '+IntToStr(High(PrimaryTypeNames))+']; returned `erroneous type`');
    Exit('erroneous type');
   End;
 

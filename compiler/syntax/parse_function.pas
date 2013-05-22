@@ -24,8 +24,10 @@ Var Func : TFunction; // our new function
     CList: TMConstructionList;
     c_ID : Integer;
 
-    NamedParams  : (npUnknown, npYes, npNo) = npUnknown;
-    FuncNameLabel: String;
+    NamedParams        : (npUnknown, npYes, npNo) = npUnknown;
+    RequireDefaultValue: Boolean = False;
+    DefaultValueType   : TType;
+    FuncNameLabel      : String;
 
   {$I gen_bytecode.pas}
 
@@ -115,6 +117,22 @@ Var Func : TFunction; // our new function
          CompileError(eRedeclaration, [Name]); // error: parameter has been redeclared
          Break;
         End;
+
+       if (next_t = _EQUAL) Then // default parameter value specified
+       Begin
+        eat(_EQUAL);
+        DefaultValue     := read_constant_expr;
+        DefaultValueType := getTypeFromExpr(DefaultValue^);
+        Dec(TokenPos);
+
+        if (not DefaultValueType.CanBeAssignedTo(Typ)) Then
+         CompileError(eWrongType, [DefaultValueType.asString, Typ.asString]);
+
+        RequireDefaultValue := True;
+       End Else
+        if (RequireDefaultValue) Then
+         CompileError(eDefaultValueRequired, [Name]) Else
+         DefaultValue := nil;
       End;
 
      NextParam:

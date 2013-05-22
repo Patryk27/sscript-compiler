@@ -1042,9 +1042,10 @@ Begin
   Inc(Pos);
  Until (Pos >= FinalExprPos);
 
- if (StackPos <> 1) Then
-  Compiler.CompileError(eInvalidExpression, []) Else
-  Result := CreateNodeFromStack;
+ Result := CreateNodeFromStack;
+
+ if (StackPos <> 0) Then
+  Compiler.CompileError(eInvalidExpression, []);
 End;
 
 { TInterpreter.Optimize }
@@ -1070,25 +1071,29 @@ Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEM
 Var Compiler   : TCompiler absolute CompilerPnt;
     Interpreter: TInterpreter;
 Begin
- Interpreter := TInterpreter(Compiler.Interpreter);
+ Interpreter := TInterpreter.Create(Compiler);
 
- if (oGetFromCommandLine in Options) Then
- Begin
-  Options -= [oGetFromCommandLine];
+ Try
+  if (oGetFromCommandLine in Options) Then
+  Begin
+   Options -= [oGetFromCommandLine];
 
-  if (Compiler.getBoolOption(opt__constant_folding)) Then
-   Options += [oInsertConstants, oConstantFolding];
+   if (Compiler.getBoolOption(opt__constant_folding)) Then
+    Options += [oInsertConstants, oConstantFolding];
+  End;
+
+  Interpreter.Parse(EndTokens);
+
+  Result.Typ := ctExpression;
+  SetLength(Result.Values, 1);
+  Result.Values[0] := Interpreter.Optimize(Interpreter.MakeTree, Options);
+
+  {$IFDEF DISPLAY_TREE}
+   DisplayTree(Result.Values[0]);
+  {$ENDIF}
+ Finally
+  Interpreter.Free;
  End;
-
- Interpreter.Parse(EndTokens);
-
- Result.Typ := ctExpression;
- SetLength(Result.Values, 1);
- Result.Values[0] := Interpreter.Optimize(Interpreter.MakeTree, Options);
-
- {$IFDEF DISPLAY_TREE}
-  DisplayTree(Result.Values[0]);
- {$ENDIF}
 End;
 
 { getDisplay }

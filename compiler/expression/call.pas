@@ -1,13 +1,66 @@
 Procedure ParseCall(const isMethodCall: Boolean);
 Var IdentID, Namespace: Integer;
 
+// ReverseParamList
+Procedure ReverseParamList;
+Var Tmp: Array of PMExpression;
+    I  : Integer;
+Begin
+ SetLength(Tmp, Length(Expr^.ParamList));
+ For I := 0 To High(Expr^.ParamList) Do
+  Tmp[I] := Expr^.ParamList[High(Expr^.ParamList)-I];
+ Expr^.ParamList := Tmp;
+End;
+
+// RequiredParamCount
+Function RequiredParamCount(const ParamList: TParamList): Integer;
+Var I: Integer;
+Begin
+ Result := 0;
+
+ For I := Low(ParamList) To High(ParamList) Do
+  if (ParamList[I].DefaultValue <> nil) and (not ParamList[I].isVar) Then
+   Break Else
+   Inc(Result);
+End;
+
+// ParseParamList
+Procedure ParseParamList(const FuncName: String; const ParamList: TParamList);
+Var Param : Integer;
+    TypeID: TType;
+Begin
+ With Compiler do
+ Begin
+  For Param := High(ParamList) Downto Low(ParamList) Do
+  Begin
+   if (Param > High(Expr^.ParamList)) Then
+   Begin
+    Parse(ParamList[Param].DefaultValue);
+    Continue;
+   End;
+
+   if (ParamList[Param].isVar) Then // is variable required?
+    if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
+     Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
+
+   if (ParamList[Param].isVar) and (ParamList[Param].DefaultValue <> nil) Then // special case: var-param and default value
+    TypeID := Parse(ParamList[Param].DefaultValue) Else
+    TypeID := Parse(Expr^.ParamList[Param]);
+
+   With Compiler do
+    if (not TypeID.CanBeAssignedTo(ParamList[Param].Typ)) Then
+     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [FuncName, Param+1, TypeID.asString, ParamList[Param].Typ.asString]);
+  End;
+ End;
+End;
+
 // CleanAfterCall
 Procedure CleanAfterCall(const ParamList: TParamList);
 Var Param: Integer;
 Begin
  For Param := Low(ParamList) To High(ParamList) Do
-  if (ParamList[High(ParamList)-Param].isVar) Then
-   Compiler.PutOpcode(o_mov, [getVariable(Expr^.ParamList[Param]).PosStr, '['+IntToStr(-(High(ParamList)-Param))+']']);
+  if (ParamList[Param].isVar) Then
+   Compiler.PutOpcode(o_mov, [getVariable(Expr^.ParamList[Param]).PosStr, '['+IntToStr(-Param)+']']);
 
  Compiler.PutOpcode(o_sub, ['stp', Length(ParamList)]);
  Dec(PushedValues, Length(ParamList))
@@ -17,8 +70,7 @@ End;
 Function CastCall: TType;
 Var TypeID       : TType;
     Param        : Integer;
-    fParamList   : TParamList;
-    Unspecialized: Boolean;
+    FuncParamList: TParamList;
 Begin
  TypeID := Parse(Left, 1, 'r');
  RePop(Left, TypeID, 1);
@@ -30,41 +82,32 @@ Begin
    Exit;
   End;
 
- fParamList    := TypeID.FuncParams;
+ FuncParamList := TypeID.FuncParams;
  Result        := TypeID.FuncReturn;
- Unspecialized := TypeID.isUnspecialized;
 
- if (not Unspecialized) Then
+ if (not TypeID.isUnspecialized) Then
  Begin
   // check param count
-  if (Length(Expr^.ParamList) <> Length(fParamList)) Then
+  if not (Length(Expr^.ParamList) in [RequiredParamCount(FuncParamList)..Length(FuncParamList)]) Then
   Begin
-   Error(eWrongParamCount, ['anonymous cast-function', Length(fParamList), Length(Expr^.ParamList)]);
+   Error(eWrongParamCount, ['<anonymouse cast-function>', Length(FuncParamList), Length(Expr^.ParamList)]);
    Exit;
   End;
- End Else
-  SetLength(fParamList, Length(Expr^.ParamList));
+ End;
 
  // push parameters onto the stack
- For Param := Low(fParamList) To High(fParamList) Do
+ if (TypeID.isUnspecialized) Then
  Begin
-  if (fParamList[High(fParamList)-Param].isVar) Then
-   if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
-    Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
-
-  TypeID := Parse(Expr^.ParamList[Param]);
-
-  if (not Unspecialized) Then
-   With Compiler do
-    if (not TypeID.CanBeAssignedTo(fParamList[High(fParamList)-Param].Typ)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, TypeID.asString, fParamList[High(fParamList)-Param].Typ.asString]);
- End;
+  For Param := High(Expr^.ParamList) Downto Low(Expr^.ParamList) Do
+   Parse(Expr^.ParamList[Param]);
+ End Else
+  ParseParamList('<anonymouse cast-function>', FuncParamList);
 
  // call function-pointer
  Compiler.PutOpcode(o_acall, ['er1']);
 
  // clean after call
- CleanAfterCall(fParamList);
+ CleanAfterCall(FuncParamList);
 End;
 
 { LocalVarCall }
@@ -72,8 +115,7 @@ Function LocalVarCall: TType;
 Var TypeID       : TType;
     Param        : Integer;
     Variable     : TRVariable;
-    fParamList   : TParamList;
-    Unspecialized: Boolean;
+    FuncParamList: TParamList;
 Begin
  Variable := getVariable(Left);
 
@@ -83,76 +125,54 @@ Begin
  TypeID := __variable_getvalue_reg(Variable, 1, 'r');
 
  With Compiler do
-  if (not TypeID.isFunctionPointer) Then
+  if (not TypeID.isFunctionPointer) Then // a function pointer is required
   Begin
    Error(eWrongType, [TypeID.asString, 'function pointer']);
    Exit;
   End;
 
- fParamList    := TypeID.FuncParams;
+ FuncParamList := TypeID.FuncParams;
  Result        := TypeID.FuncReturn;
- Unspecialized := TypeID.isUnspecialized;
 
- if (not Unspecialized) Then
+ if (not TypeID.isUnspecialized) Then
  Begin
   // check param count
-  if (Length(Expr^.ParamList) <> Length(fParamList)) Then
+  if not (Length(Expr^.ParamList) in [RequiredParamCount(FuncParamList)..Length(FuncParamList)]) Then
   Begin
-   Error(eWrongParamCount, [Variable.Name, Length(fParamList), Length(Expr^.ParamList)]);
+   Error(eWrongParamCount, [Variable.Name, Length(FuncParamList), Length(Expr^.ParamList)]);
    Exit;
   End;
- End Else
-  SetLength(fParamList, Length(Expr^.ParamList));
+ End;
 
  // push parameters onto the stack
- For Param := Low(fParamList) To High(fParamList) Do
+ if (TypeID.isUnspecialized) Then
  Begin
-  if (fParamList[High(fParamList)-Param].isVar) Then
-   if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
-    Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
-
-  TypeID := Parse(Expr^.ParamList[Param]);
-
-  if (not Unspecialized) Then
-   With Compiler do
-    if (not TypeID.CanBeAssignedTo(fParamList[High(fParamList)-Param].Typ)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, TypeID.asString, fParamList[High(fParamList)-Param].Typ.asString]);
- End;
+  For Param := High(Expr^.ParamList) Downto Low(Expr^.ParamList) Do
+   Parse(Expr^.ParamList[Param]);
+ End Else
+  ParseParamList(Variable.Name, FuncParamList);
 
  // call function-pointer
  Compiler.PutOpcode(o_acall, ['er1']);
 
  // clean after call
- CleanAfterCall(fParamList);
+ CleanAfterCall(FuncParamList);
 End;
 
 { GlobalFuncCall }
 Procedure GlobalFuncCall;
-Var TypeID: TType;
-    Param : Integer;
 Begin
  With Compiler.NamespaceList[Namespace].SymbolList[IdentID], mFunction do
  Begin
   // check param count
-  if (Length(Expr^.ParamList) <> Length(ParamList)) Then
+  if not (Length(Expr^.ParamList) in [RequiredParamCount(ParamList)..Length(ParamList)]) Then
   Begin
    Error(eWrongParamCount, [Name, Length(ParamList), Length(Expr^.ParamList)]);
    Exit;
   End;
 
   // push parameters onto the stack
-  For Param := Low(ParamList) To High(ParamList) Do
-  Begin
-   if (ParamList[High(ParamList)-Param].isVar) Then
-    if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
-     Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
-
-   TypeID := Parse(Expr^.ParamList[Param]);
-
-   With Compiler do
-    if (not TypeID.CanBeAssignedTo(ParamList[High(ParamList)-Param].Typ)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Name, High(ParamList)-Param+1, TypeID.asString, ParamList[High(ParamList)-Param].Typ.asString]);
-  End;
+  ParseParamList(Name, ParamList);
 
   // call function
   Compiler.PutOpcode(o_call, [':'+MangledName]);
@@ -181,7 +201,7 @@ Procedure MethodCall; // pseudo-OOP for arrays :P
 
   RePop(Expr^.Left, method, 1);
 
-  if (not method.isObject) Then // is it an object?
+  if (not method.isObject) Then // is it an "object"?
   Begin
    Error(eNonObjectMethodCall, [name, method.asString]);
    Exit;
@@ -204,41 +224,47 @@ Begin
 End;
 
 Begin
- IdentID    := Expr^.IdentID;
- Namespace  := Expr^.IdentNamespace;
+ ReverseParamList;
 
- // calling a method?
- if (isMethodCall) Then
- Begin
-  MethodCall;
-  Exit;
- End;
+ Try
+  IdentID    := Expr^.IdentID;
+  Namespace  := Expr^.IdentNamespace;
 
- if (Expr^.IdentID = -1) Then // function not found or cast-call
- Begin
-  if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call
+  // calling a method?
+  if (isMethodCall) Then
   Begin
-   Result := CastCall;
+   MethodCall;
    Exit;
   End;
 
-  // is it any of internal functions?
-  Case VarToStr(Left^.Value) of
-   { @Note: when changing internal functions, modify also TInterpreter.MakeTree->CreateNodeFromStack and Parse_FUNCTION }
-   '':
+  if (Expr^.IdentID = -1) Then // function not found or cast-call
+  Begin
+   if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call
+   Begin
+    Result := CastCall;
+    Exit;
+   End;
+
+   // is it any of internal functions?
+   Case VarToStr(Left^.Value) of
+    { @Note: when changing internal functions, modify also TInterpreter.MakeTree->CreateNodeFromStack and Parse_FUNCTION }
+    '':
+   End;
+
+   Exit; // error message had been already shown when building the expression tree
   End;
 
-  Exit; // error message had been already shown when building the expression tree
+  { local variable call }
+  if (Expr^.isLocal) Then
+   Result := LocalVarCall Else
+
+  { global function call }
+  if (Compiler.NamespaceList[Namespace].SymbolList[IdentID].Typ = gsFunction) Then
+   GlobalFuncCall Else
+
+  { global variable call (and, as there's no global variables for now, there's no glob-var-call) }
+   Error(eInternalError, ['@TODO']);
+ Finally
+  ReverseParamList;
  End;
-
- { local variable call }
- if (Expr^.isLocal) Then
-  Result := LocalVarCall Else
-
- { global function call }
- if (Compiler.NamespaceList[Namespace].SymbolList[IdentID].Typ = gsFunction) Then
-  GlobalFuncCall Else
-
- { global variable call (and, as there's no global variables for now, there's no glob-var-call) }
-  Error(eInternalError, ['@TODO']);
 End;

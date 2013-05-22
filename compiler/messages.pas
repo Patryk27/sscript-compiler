@@ -11,7 +11,7 @@ Unit Messages;
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
-  eUnknownAttribute, eFileNotFound,
+  eUnknownAttribute, eFileNotFound, eDefaultValueRequired,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference);
 
@@ -73,6 +73,7 @@ Unit Messages;
   'Invalid float value: `%s`',
   'Unknown attribute: `%s`',
   'File not found: %s',
+  'Default parameter value required for `%s`',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

@@ -45,7 +45,6 @@ Unit Compile1;
                     OutputFile  : String; // output file name
                     ModuleName  : String; // module name
                     Options     : TCompileOptions; // compile options
-                    Interpreter : Pointer; // pointer to an expression's interpreter class (ExpressionCompiler.pas)
                     IncludePaths: TStringList; // list of include paths
 
                     CurrentFunction   : TFunction; // currently parsed (or compiled) function
@@ -1689,8 +1688,6 @@ Begin
 
   SetLength(Scope, 0);
 
-  Interpreter := ExpressionCompiler.TInterpreter.Create(self);
-
   { When `-Cm=bytecode` is specified: }
   if (CompileMode = cmBytecode) Then
   Begin
@@ -1835,7 +1832,7 @@ End;
 }
 Procedure TCompiler.CompileError(Error: TCompileError; Args: Array of Const);
 Begin
- CompileError(Parser.next(-1), Error, Args);
+ CompileError(Parser.next(0), Error, Args);
 End;
 
 (* TCompiler.CompileError *)
@@ -1873,7 +1870,7 @@ End;
 }
 Procedure TCompiler.CompileHint(Hint: TCompileHint; Args: Array of Const);
 Begin
- CompileHint(Parser.next(-1), Hint, Args);
+ CompileHint(Parser.next(0), Hint, Args);
 End;
 
 (* TCompiler.CompileHint *)
@@ -1911,7 +1908,7 @@ End;
 }
 Procedure TCompiler.CompileNote(Note: TCompileNote; Args: Array of Const);
 Begin
- CompileNote(Parser.next(-1), Note, Args);
+ CompileNote(Parser.next(0), Note, Args);
 End;
 
 (* TCompiler.CompileNote *)
@@ -2011,6 +2008,9 @@ Begin
          Str += 'var ';
 
         Str += ParamList[I].Typ.asString;
+
+        if (ParamList[I].DefaultValue <> nil) Then
+         Str += ' = '+getValueFromExpression(ParamList[I].DefaultValue, True);
 
         if (I <> High(ParamList)) Then
          Str += ', ';
