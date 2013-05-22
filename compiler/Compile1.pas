@@ -2005,6 +2005,11 @@ Begin
        // parameter list
        For I := Low(ParamList) To High(ParamList) Do
        Begin
+        if (ParamList[I].isConst) Then
+         Str += 'const ';
+        if (ParamList[I].isVar) Then
+         Str += 'var ';
+
         Str += ParamList[I].Typ.asString;
 
         if (I <> High(ParamList)) Then
