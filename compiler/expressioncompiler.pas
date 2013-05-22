@@ -10,7 +10,7 @@ Unit ExpressionCompiler;
  Interface
  Uses Compile1, MTypes, symdef, Tokens, Variants, TypInfo;
 
- Const STACK_SIZE = 5000; // internal compiler stack size (in elements)
+ Const STACK_SIZE = 5000; // internal parser's expression stack size (in elements)
 
  Const UnaryOperations  = ['!']; // @TODO: ?
        BinaryOperations = ['+', '-', '*', '/', '%', '=']; // @TODO: ?
@@ -1235,7 +1235,7 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
    End;
 
    if (Result.isConst) and (not AllowConstants) Then // not a constant
-    Error(Expr^.Token, eLValueRequired, []);
+    Error(Expr^.Token, eLValueExpected, []);
   End;
 
   { getType }

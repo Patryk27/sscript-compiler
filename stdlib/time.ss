@@ -2,6 +2,7 @@
 
 namespace std
 {
+ type<int> Time;
  function<int> get_milliseconds() [library="time.ssm"];
  function<int> get_millis() [library="time.ssm"];
  function<int> get_time() [library="time.ssm"];

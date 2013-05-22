@@ -1,6 +1,18 @@
 Procedure ParseCall(const isMethodCall: Boolean);
 Var IdentID, Namespace: Integer;
 
+// CleanAfterCall
+Procedure CleanAfterCall(const ParamList: TParamList);
+Var Param: Integer;
+Begin
+ For Param := Low(ParamList) To High(ParamList) Do
+  if (ParamList[High(ParamList)-Param].isVar) Then
+   Compiler.PutOpcode(o_mov, [getVariable(Expr^.ParamList[Param]).PosStr, '['+IntToStr(-(High(ParamList)-Param))+']']);
+
+ Compiler.PutOpcode(o_sub, ['stp', Length(ParamList)]);
+ Dec(PushedValues, Length(ParamList))
+End;
+
 { CastCall }
 Function CastCall: TType;
 Var TypeID       : TType;
@@ -36,6 +48,10 @@ Begin
  // push parameters onto the stack
  For Param := Low(fParamList) To High(fParamList) Do
  Begin
+  if (fParamList[High(fParamList)-Param].isVar) Then
+   if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
+    Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
+
   TypeID := Parse(Expr^.ParamList[Param]);
 
   if (not Unspecialized) Then
@@ -44,11 +60,11 @@ Begin
      Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, ['anonymous cast-function', High(fParamList)-Param+1, TypeID.asString, fParamList[High(fParamList)-Param].Typ.asString]);
  End;
 
- Dec(PushedValues, Length(fParamList));
-
  // call function-pointer
  Compiler.PutOpcode(o_acall, ['er1']);
- Compiler.PutOpcode(o_sub, ['stp', Length(fParamList)]);
+
+ // clean after call
+ CleanAfterCall(fParamList);
 End;
 
 { LocalVarCall }
@@ -91,6 +107,10 @@ Begin
  // push parameters onto the stack
  For Param := Low(fParamList) To High(fParamList) Do
  Begin
+  if (fParamList[High(fParamList)-Param].isVar) Then
+   if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
+    Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
+
   TypeID := Parse(Expr^.ParamList[Param]);
 
   if (not Unspecialized) Then
@@ -99,11 +119,11 @@ Begin
      Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Variable.Name, High(fParamList)-Param+1, TypeID.asString, fParamList[High(fParamList)-Param].Typ.asString]);
  End;
 
- Dec(PushedValues, Length(fParamList));
-
  // call function-pointer
  Compiler.PutOpcode(o_acall, ['er1']);
- Compiler.PutOpcode(o_sub, ['stp', Length(fParamList)]);
+
+ // clean after call
+ CleanAfterCall(fParamList);
 End;
 
 { GlobalFuncCall }
@@ -123,6 +143,10 @@ Begin
   // push parameters onto the stack
   For Param := Low(ParamList) To High(ParamList) Do
   Begin
+   if (ParamList[High(ParamList)-Param].isVar) Then
+    if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
+     Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
+
    TypeID := Parse(Expr^.ParamList[Param]);
 
    With Compiler do
@@ -130,11 +154,11 @@ Begin
      Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [Name, High(ParamList)-Param+1, TypeID.asString, ParamList[High(ParamList)-Param].Typ.asString]);
   End;
 
-  Dec(PushedValues, Length(ParamList));
-
   // call function
   Compiler.PutOpcode(o_call, [':'+MangledName]);
-  Compiler.PutOpcode(o_sub, ['stp', Length(ParamList)]);
+
+  // clean after call
+  CleanAfterCall(ParamList);
 
   Result := Return;
  End;

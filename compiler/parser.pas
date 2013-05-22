@@ -104,7 +104,7 @@ Begin
 
   if (Token.Token = _EOF) Then
   Begin
-   DevLog('Info: reached `EOF` - finishing code parsing.');
+   DevLog('Info: reached `EOF` - finishing code parsing...');
    Break;
   End;
 
@@ -408,9 +408,25 @@ Begin
       Break;
 
      SetLength(FuncParams, Length(FuncParams)+1);
-     FuncParams[High(FuncParams)].Typ := read_type();
 
-     if (FuncParams[High(FuncParams)].Typ.isVoid) Then
+     if (Token.Token = _CONST) Then // const-param
+     Begin
+      Token := read;
+
+      FuncParams[High(FuncParams)].Attributes += [vaConst];
+      FuncParams[High(FuncParams)].isConst := True;
+     End Else
+
+     if (Token.Token = _VAR) Then // var-param
+     Begin
+      Token := read;
+
+      FuncParams[High(FuncParams)].isVar := True;
+     End;
+
+     FuncParams[High(FuncParams)].Typ := read_type(); // [param type]
+
+     if (FuncParams[High(FuncParams)].Typ.isVoid) Then // error: void-typed param
       CompileError(eVoidNoNameParam);
 
      if (next_t = _BRACKET1_CL) Then

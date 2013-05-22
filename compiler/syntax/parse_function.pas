@@ -78,10 +78,14 @@ Var Func : TFunction; // our new function
        Begin
         read;
         Attributes += [vaConst];
-       End;
+        isConst := True;
+       End Else
 
        if (next_t = _VAR) Then // is a var-param?
-        CompileError(eUnimplemented, ['var-params']);
+       Begin
+        read;
+        isVar := True;
+       End;
 
        Typ := read_type; // [param type]
 

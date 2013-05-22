@@ -12,7 +12,7 @@ Begin
  Begin
   if (not isLValue(Left)) Then
   Begin
-   Error(Left^.Token, eLValueRequired, []);
+   Error(Left^.Token, eLValueExpected, []);
    Exit;
   End;
 

@@ -6,7 +6,7 @@ Unit Messages;
  Type TCompileError =
  (eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedString,
   eExpectedInt, eNotAllowed,
-  eRedeclaration, eLValueRequired, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
+  eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
@@ -34,7 +34,7 @@ Unit Messages;
   'Syntax error: expected int but `%s` found',
   'Syntax error: `%s` not allowed here',
   'Redeclaration of identifier: `%s`',
-  'lvalue required',
+  'L-value expected',
   'Unknown type: `%s`',
   'Unknown variable: `%s`',
   'Unknown function: `%s`',

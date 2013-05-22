@@ -55,6 +55,8 @@ Unit symdef;
                 Name      : String;
                 Typ       : TType;
                 Attributes: TVariableAttributes;
+                isConst   : Boolean;
+                isVar     : Boolean;
                End;
       TParamList = Array of TParam;
 
@@ -630,7 +632,10 @@ Begin
  Result.FuncReturn := FuncReturn.Clone;
  SetLength(Result.FuncParams, Length(FuncParams));
  For I := Low(FuncParams) To High(FuncParams) Do
+ Begin
+  Result.FuncParams[I]     := FuncParams[I];
   Result.FuncParams[I].Typ := FuncParams[I].Typ.Clone;
+ End;
 
  Result.Attributes := Attributes;
 
@@ -669,6 +674,12 @@ Begin
 
    For I := Low(FuncParams) To High(FuncParams) Do
    Begin
+    if (FuncParams[I].isConst) Then
+     Result += 'const ';
+
+    if (FuncParams[I].isVar) Then
+     Result += 'var ';
+
     Result += FuncParams[I].Typ.asString;
     if (I <> High(FuncParams)) Then
      Result += ', ';
@@ -753,7 +764,9 @@ Begin
    Exit(False);
 
   For I := Low(self.FuncParams) To High(T2.FuncParams) Do
-   if (not type_equal(self.FuncParams[I].Typ, T2.FuncParams[I].Typ)) Then
+   if (not (type_equal(self.FuncParams[I].Typ, T2.FuncParams[I].Typ))) or
+      (self.FuncParams[I].isVar <> T2.FuncParams[I].isVar) or
+      (self.FuncParams[I].isConst <> T2.FuncParams[I].isConst) Then
     Exit(False);
 
   Exit(True);

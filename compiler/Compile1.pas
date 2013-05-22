@@ -163,7 +163,7 @@ Uses Compile2, ExpressionCompiler, SSM_parser, Peephole;
 
 (* ReplaceDirSep *)
 {
- Replaces `/` and/or `\` to appropriate directory separator
+ Replaces `/` and/or `\` to the appropriate directory separator
 }
 Function ReplaceDirSep(FileName: String): String;
 Const Sep = DirectorySeparator;
