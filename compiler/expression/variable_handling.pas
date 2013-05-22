@@ -34,7 +34,7 @@ Begin
  RegStr := 'e'+RegChar+IntToStr(RegID);
 
  With Compiler do
-  if (_var.isConst) Then
+  if (_var.isConst) and (_var.Value <> nil) Then
    PutOpcode(o_mov, [RegStr, getValueFromExpression(_var.Value)]) Else
    PutOpcode(o_mov, [RegStr, _var.PosStr]);
 End;
