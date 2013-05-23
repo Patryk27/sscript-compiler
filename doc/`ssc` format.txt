@@ -9,7 +9,7 @@ Description:
 
 	Format:
 		4 byte - longword - magic number: 0x0DEFACED
-		1 byte - byte - equal `1` if it's a runnable application, or `0` when it's not. Any another value is invalid.
+		1 byte - byte - equal `1` if it's an application, or `0` when it's a library. Any another value is invalid.
 		1 byte - byte - bytecode major version
 		1 byte - byte - bytecode minor version
 
