@@ -376,18 +376,11 @@ function<bool> strcmpl(string c1, string c2)
    return false;
 }
 
-function<string> boolstr(bool b)
+function<string> boolstr(bool b, string on_true="true", string on_false="false")
 {
  if (b)
-  return "true"; else
-  return "false";
-}
-
-function<string> boolstrb(bool b, string _true, string _false)
-{
- if (b)
-  return _true; else
-  return _false;
+  return on_true; else
+  return on_false;
 }
 
 function<string[]> strexplode(string text, char sep)

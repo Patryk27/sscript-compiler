@@ -37,8 +37,7 @@ namespace std
  function<string> strright(string, int) [library="string.ssm"];
  function<bool> strcmp(string, string) [library="string.ssm"];
  function<bool> strcmpl(string, string) [library="string.ssm"];
- function<string> boolstr(bool) [library="string.ssm"];
- function<string> boolstrb(bool, string, string) [library="string.ssm"];
+ function<string> boolstr(bool, string = "true", string = "false") [library="string.ssm"];
  function<string[]> strexplode(string, char) [library="string.ssm"];
  function<string> strimplode(string[], string) [library="string.ssm"];
  function<string> streach(string, function<char>(char)) [library="string.ssm"];
