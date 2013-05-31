@@ -16,8 +16,7 @@ namespace std
  function<string> strdelete(string, int, int) [library="string.ssm"];
  function<string> strdelete_begin(string, int) [library="string.ssm"];
  function<string> strdelete_end(string, int) [library="string.ssm"];
- function<int> strpos_ex(string, string, int) [library="string.ssm"];
- function<int> strpos(string, string) [library="string.ssm"];
+ function<int> strpos(string, string, int = 1) [library="string.ssm"];
  function<bool> strfind(string, string) [library="string.ssm"];
  function<string> strtrim_l(string) [library="string.ssm"];
  function<string> strtrim_r(string) [library="string.ssm"];
@@ -30,13 +29,10 @@ namespace std
  function<bool> strstarts(string, string) [library="string.ssm"];
  function<bool> strends(string, string) [library="string.ssm"];
  function<string> strinsert(string, string, int) [library="string.ssm"];
- function<string> strreplace_ex(string, string, string, bool) [library="string.ssm"];
- function<string> strreplace(string, string, string) [library="string.ssm"];
- function<string> strreplace_once(string, string, string) [library="string.ssm"];
+ function<string> strreplace(string, string, string, bool = False) [library="string.ssm"];
  function<string> strleft(string, int) [library="string.ssm"];
  function<string> strright(string, int) [library="string.ssm"];
- function<bool> strcmp(string, string) [library="string.ssm"];
- function<bool> strcmpl(string, string) [library="string.ssm"];
+ function<bool> strcmp(string, string, bool = True) [library="string.ssm"];
  function<string> boolstr(bool, string = "true", string = "false") [library="string.ssm"];
  function<string[]> strexplode(string, char) [library="string.ssm"];
  function<string> strimplode(string[], string) [library="string.ssm"];

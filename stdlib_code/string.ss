@@ -124,7 +124,7 @@ function<string> strdelete_end(string text, int count)
  return strdelete(text, strlen(text)-count, count);
 }
 
-function<int> strpos_ex(string search, string text, int begin)
+function<int> strpos(string search, string text, int begin=1)
 {                   
  var<int> index = 0;
  var<int> len = strlen(text);
@@ -156,11 +156,6 @@ function<int> strpos_ex(string search, string text, int begin)
   }
 
  return index;
-}
-
-function<int> strpos(string search, string text)
-{                   
- return strpos_ex(search, text, 1);
 }
 
 function<bool> strfind(string search, string text)
@@ -297,7 +292,7 @@ function<string> strinsert(string text, string what, int at)
 	strcopy(text, at, len2);
 }
 
-function<string> strreplace_ex(string text, string search, string replace, bool only_once)
+function<string> strreplace(string text, string search, string replace, bool only_once=false)
 {
  while (true)
  {
@@ -313,16 +308,6 @@ function<string> strreplace_ex(string text, string search, string replace, bool 
   if (only_once) 
    return text;
  }
-}
-
-function<string> strreplace(string text, string search, string replace)
-{
- return strreplace_ex(text, search, replace, false);
-}
-
-function<string> strreplace_once(string text, string search, string replace)
-{
- return strreplace_ex(text, search, replace, true);
 }
 
 function<string> strleft(string text, int count)
@@ -358,22 +343,23 @@ function<string> strright(string text, int count)
  return str;
 }
 
-function<bool> strcmp(string c1, string c2)
+function<bool> strcmp(string c1, string c2, bool case_sensitive=true)
 {
- return c1 == c2;
-}
+ if (case_sensitive)
+  return (c1 == c2); else
+ {
+  var<int> len1 = strlen(c1);
+  var<int> len2 = strlen(c2); 
 
-function<bool> strcmpl(string c1, string c2)
-{
- var<int> len1 = strlen(c1);
- var<int> len2 = strlen(c2);
-
- if (len1 != len2)
-  return false;
-
- for (var<int> i=1; i<=len1; i++)
-  if (chlower(c1[i]) != chlower(c2[i]))
+  if (len1 != len2)
    return false;
+
+  for (var<int> i=1; i<=len1; i++)
+   if (chlower(c1[i]) != chlower(c2[i]))
+    return false;
+
+  return true;
+ }
 }
 
 function<string> boolstr(bool b, string on_true="true", string on_false="false")
