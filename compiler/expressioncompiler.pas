@@ -4,6 +4,7 @@
 *)
 
 {.$DEFINE DISPLAY_TREE}
+{$MODESWITCH ADVANCEDRECORDS}
 
 Unit ExpressionCompiler;
 
@@ -1110,20 +1111,33 @@ End;
 
 // TRVariable
 Type TRVariable = Record
-                   Name   : String;
-                   ID     : Integer;
-                   MemPos : Integer;
-                   RegChar: Char;
-                   Typ    : TType;
-                   PosStr : String;
-                   Value  : PMExpression;
+                   Private
+                    pPushedValues: PInteger;
 
-                   getArray: Byte;
+                   Public
+                    Name   : String;
+                    ID     : Integer;
+                    MemPos : Integer;
+                    RegChar: Char;
+                    Typ    : TType;
+                    Value  : PMExpression;
 
-                   isConst: Boolean;
+                    getArray: Byte;
 
-                   mVariable: TVariable;
+                    isConst: Boolean;
+
+                    mVariable: TVariable;
+
+                    Function PosStr: String;
                   End;
+
+// TRVariable.PosStr
+Function TRVariable.PosStr: String;
+Begin
+ if (MemPos > 0) Then
+  PosStr := 'e'+RegChar+IntToStr(MemPos) Else
+  PosStr := '['+IntToStr(MemPos-pPushedValues^)+']';
+End;
 
 { CompileConstruction }
 Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TType;
@@ -1175,12 +1189,12 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
    { set default values }
    With Result do
    Begin
-    MemPos    := 0;
-    RegChar   := #0;
-    Typ       := nil;
-    isConst   := False;
-    PosStr    := '[0]';
-    mVariable := nil;
+    pPushedValues := @PushedValues;
+    MemPos        := 0;
+    RegChar       := #0;
+    Typ           := nil;
+    isConst       := False;
+    mVariable     := nil;
    End;
 
    Result.getArray := 0;
@@ -1209,10 +1223,6 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
      RegChar   := mVariable.Typ.RegPrefix;
      Value     := mVariable.Value;
      isConst   := mVariable.isConst;
-
-     if (MemPos > 0) Then
-      PosStr := 'e'+RegChar+IntToStr(MemPos) Else
-      PosStr := '['+IntToStr(MemPos-PushedValues)+']';
     End;
    End Else
    Begin
@@ -1493,6 +1503,7 @@ Begin
   Case Expr^.Typ of
    mtAdd, mtSub, mtMul, mtDiv, mtMod, mtSHL, mtSHR              : ParseArithmeticOperator(False);
    mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtSHLEq, mtSHREq: ParseArithmeticOperator(True);
+
    mtAssign    : ParseAssign;
    mtLogicalOR : ParseLogicalOR;
    mtLogicalAND: ParseLogicalAND;

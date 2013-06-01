@@ -257,7 +257,7 @@ Begin
       if (isArgumentChanging(2)) Then
        Break;
 
-     if (oTmp.Opcode in [o_call, o_acall]) Then // copy propagation can be applied for these two calls
+     if (oTmp.Opcode in [o_call, o_acall]) Then // copy propagation can be applied to these two calls
       __optimize1(0);
 
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls
@@ -287,20 +287,20 @@ Begin
         mul(ef1, ef1)
         some_label:
 
-        It's some-way-fixed, but still... this isn't an optimization.
+        It's some-way-fixed, but still... this isn't an optimization then.
       }
       Break;
      End;
+
+     { optimize }
+     For I := Low(oTmp.Args) To High(oTmp.Args) Do
+      __optimize1(I);
 
      if (oTmp.Opcode in [o_arset, o_arget]) and (oTmp.Args[1].Typ = ptInt) Then
       PushFix -= oTmp.Args[1].Value;
 
      if (oTmp.Opcode in [o_arcrt]) and (oTmp.Args[2].Typ = ptInt) Then
       PushFix -= oTmp.Args[2].Value;
-
-     { optimize }
-     For I := Low(oTmp.Args) To High(oTmp.Args) Do
-      __optimize1(I);
 
      if (oTmp.Opcode = o_push) Then
       Inc(PushFix);

@@ -149,7 +149,7 @@ Begin
         if (isIdentLocal) Then
         Begin
          With getCurrentFunction.SymbolList[IdentID].mVariable do
-          if (isConst) Then
+          if (isConst) and (Value <> nil) Then
            Arg := getValueFromExpression(Value) Else
            Arg := getBytecodePos;
         End Else

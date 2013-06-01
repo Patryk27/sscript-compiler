@@ -1,4 +1,4 @@
-Bytecode version: 0.4 (major.minor)
+Bytecode version: 0.41
 
 1 byte - byte - opcode type (see `\compiler\Opcodes.pas` for the opcode list)
   [for each opcode argument (parameter)]
@@ -14,7 +14,7 @@ Bytecode version: 0.4 (major.minor)
 		1 byte - byte - ASCII char value (an unsigned number from `0..255`)
 
 	[if `type` is `int`]
-		8 bytes - int64 - 64-bit integer value
+		8 bytes - int64 - signed 64-bit integer value
 
 	[if `type` is `float`]
 		10 bytes - extended - floating-point value
@@ -23,7 +23,7 @@ Bytecode version: 0.4 (major.minor)
 		x bytes - byte/char - subsequent ASCII chars; string is null-terminated (it means, it ends with char `0x00`)
 
 	[if `type` is anything else]
-		4 bytes - integer - value
+		4 bytes - integer - signed integer value
 
 Argument types:
 ptBoolReg=0	| boolean register
@@ -37,4 +37,4 @@ ptChar=7	| char value
 ptInt=8		| integer value
 ptFloat=9	| float value
 ptString=10	| string value
-ptStackVal=11	| stack value
+ptStackVal=11	| value from the stack

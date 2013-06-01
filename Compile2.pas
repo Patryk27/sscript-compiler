@@ -9,7 +9,7 @@ Unit Compile2;
  Uses CompilerUnit, Compile1, Classes, SysUtils, Variants, MTypes, Opcodes, Tokens, Messages, Zipper, Stream;
 
  Const bytecode_version_major = 0;
-       bytecode_version_minor = 4;
+       bytecode_version_minor = 41;
 
  // TLabel
  Type TLabel = Record
