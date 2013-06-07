@@ -144,12 +144,18 @@ Begin
   Case Expr^.Typ of
    mtChar  : Exit('''\0x'+IntToHex(ord(Value[1]), 2)+'''');
    mtString: Exit('"'+Value+'"');
+   mtBool  : if (Expr^.Value) Then
+              Exit('true') Else
+              Exit('false');
   End;
  End;
 
  Case Expr^.Typ of
   mtChar  : Exit('#'+IntToStr(ord(Value[1])));
   mtString: Exit('"'+Value+'"');
+  mtBool  : if (Expr^.Value) Then
+             Exit('true') Else
+             Exit('false');
  End;
 
  Exit(Value);

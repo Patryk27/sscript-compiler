@@ -24,7 +24,7 @@ Var Func : TFunction; // our new function
     CList: TMConstructionList;
     c_ID : Integer;
 
-    NamedParams        : (npUnknown, npYes, npNo) = npUnknown;
+    NamedParams        : (npNotSetYet, npYes, npNo) = npNotSetYet;
     RequireDefaultValue: Boolean = False;
     DefaultValueType   : TType;
     FuncNameLabel      : String;
@@ -62,9 +62,9 @@ Var Func : TFunction; // our new function
   // ReadParamList
   Procedure ReadParamList;
   Var I: Integer;
-  Label NextParam;
+  Label SkipParamName;
   Begin
-   SetLength(Func.ParamList, 0);
+   SetLength(Func.ParamList, 0); // every function has no parameters by the default
 
    With TCompiler(Compiler), Parser, Func do
    Begin
@@ -74,16 +74,17 @@ Var Func : TFunction; // our new function
      While (true) Do
      Begin
       SetLength(ParamList, Length(ParamList)+1); // resize the param array
+
       With ParamList[High(ParamList)] do // read parameter
       Begin
-       if (next_t = _CONST) Then // is a const-param?
+       if (next_t = _CONST) { const } Then // is a const-param?
        Begin
         read;
         Attributes += [vaConst];
         isConst := True;
        End Else
 
-       if (next_t = _VAR) Then // is a var-param?
+       if (next_t = _VAR) { var } Then // is a var-param?
        Begin
         read;
         isVar := True;
@@ -94,13 +95,13 @@ Var Func : TFunction; // our new function
        if (Typ.isVoid) Then // error: void-typed param
         CompileError(eVoidParam, [Name]);
 
-       if (next_t in [_COMMA, _BRACKET1_CL]) Then
+       if (next_t in [_EQUAL, _COMMA, _BRACKET1_CL]) Then // if `=`, `,` or `)` is next...
        Begin
         if (NamedParams = npYes) Then
          CompileError(next, eExpectedIdentifier, [next.Value]) Else
          Begin
           NamedParams := npNo;
-          goto NextParam;
+          goto SkipParamName;
          End;
        End;
 
@@ -118,6 +119,7 @@ Var Func : TFunction; // our new function
          Break;
         End;
 
+      SkipParamName:
        if (next_t = _EQUAL) Then // default parameter value specified
        Begin
         eat(_EQUAL);
@@ -135,7 +137,6 @@ Var Func : TFunction; // our new function
          DefaultValue := nil;
       End;
 
-     NextParam:
       if (next_t = _BRACKET1_CL) Then
        Break Else
        eat(_COMMA); // parameters are separated by comma

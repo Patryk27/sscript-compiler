@@ -29,10 +29,10 @@ namespace std
  function<bool> strstarts(string, string) [library="string.ssm"];
  function<bool> strends(string, string) [library="string.ssm"];
  function<string> strinsert(string, string, int) [library="string.ssm"];
- function<string> strreplace(string, string, string, bool = False) [library="string.ssm"];
+ function<string> strreplace(string, string, string, bool = false) [library="string.ssm"];
  function<string> strleft(string, int) [library="string.ssm"];
  function<string> strright(string, int) [library="string.ssm"];
- function<bool> strcmp(string, string, bool = True) [library="string.ssm"];
+ function<bool> strcmp(string, string, bool = true) [library="string.ssm"];
  function<string> boolstr(bool, string = "true", string = "false") [library="string.ssm"];
  function<string[]> strexplode(string, char) [library="string.ssm"];
  function<string> strimplode(string[], string) [library="string.ssm"];
