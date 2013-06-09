@@ -115,9 +115,20 @@ Begin
     Continue;
    End;
 
-   if (oCurrent.Compiler = nil) or (oNext.Compiler = nil) Then // skip non-our bytecode (ie. - don't optimize imported bytecode, so we don't change any later opcodes' addresses)
+   if (oCurrent.Compiler = nil) or (oNext.Compiler = nil) Then // don't optimize bytecode imported from libraries
    Begin
     Inc(Pos);
+    Continue;
+   End;
+
+   {
+    nop()
+    ->
+    [nothing]
+   }
+   if (oCurrent.Opcode = o_nop) Then
+   Begin
+    OpcodeList.Remove(pCurrent);
     Continue;
    End;
 
