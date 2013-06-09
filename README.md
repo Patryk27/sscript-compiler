@@ -4,8 +4,8 @@ SScript Compiler
 ### Description
 It's a simple SScript (my language) compiler, written mainly for fun and to use in my future projects (but you can use it too, if you want) :)
 
-All tutorials are - as for now - written only in Polish: http://sscriptwiki.xorg.pl/wiki/Strona_g³ówna
-... but soon I'm going to translate them into English ;)
+All tutorials are - as for now - written only in Polish: http://sscript.4programmers.net/
+... but soon I'm going to translate them to English ;)
 
 ### Downloading
 There are 2 branches:
