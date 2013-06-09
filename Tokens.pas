@@ -212,7 +212,8 @@ Unit Tokens;
  Type PToken_P = ^TToken_P;
       TToken_P = Record
                   Token               : TToken;
-                  TokenName, Value    : String;
+                  TokenName           : String;
+                  Value               : Variant;
                   Position, Line, Char: LongWord;
                  End;
 

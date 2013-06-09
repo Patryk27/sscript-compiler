@@ -491,10 +491,11 @@ Var Token: TToken;
 
     Flt: Extended;
     Int: Int64;
+    Str: String;
 Begin
  Token           := getToken;
  Result.Token    := Token;
- Result.Value    := '';
+ Result.Value    := null;
  Result.Position := Position;
 
  Result.Line := getLine;
@@ -538,18 +539,18 @@ Begin
 
    Case Token of
     { decimal int or float }
-    _NUMBER: Result.Value := FloatToStr(__readNumber(OK, isFloat, Result.Value));
+    _NUMBER: Result.Value := __readNumber(OK, isFloat, Str);
 
-   { hexadecimal int }
-    _HEX_INTEGER: Result.Value := IntToStr(__readHexNumber(OK, Result.Value));
+    { hexadecimal int }
+    _HEX_INTEGER: Result.Value := __readHexNumber(OK, Str);
    End;
 
    if (isFloat) Then // is float?
    Begin
     Result.Token := _FLOAT;
 
-    if (Pos('.', Result.Value) = 0) Then
-     Result.Value := Result.Value+'.0';
+    //if (Pos('.', Result.Value) = 0) Then
+    // Result.Value := Result.Value+'.0';
    End Else // is integer?
     Result.Token := _INT;
 
@@ -572,7 +573,7 @@ Begin
 
  Result.TokenName := getTokenName(Result.Token);
 
- if (Result.Value = '') Then
+ if (Result.Value = null) Then
  Begin
   Result.Value := getTokenDisplay(Result.Token);
 
