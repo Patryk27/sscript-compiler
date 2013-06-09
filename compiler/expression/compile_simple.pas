@@ -1,17 +1,29 @@
+{
+ @TODO: short-circuit may not be a good solution, when we're comparing two variables:
+
+ if (a && b)
+  foo();
+
+ is faster than:
+ if (a)
+  if (b)
+   foo();
+}
+
 Function CompileSimple(out TypeLeft, TypeRight: TType; const isLeftVariable: Boolean=False; const ShortCircuit: TShortCircuit=scNone; const ShortCircuitLabel: String=''): TType;
 Var Variable   : TRVariable;
     LeftFirst  : Boolean=False;
     isComparing: Boolean;
 
-    I        : Integer;
-    SCOpcodes: Array[0..3] of PMOpcode;
-    SCCannot : String;
-    SCSubSTP : Boolean = False;
+    I              : Integer;
+    SCOpcodes      : Array[0..4] of PMOpcode;
+    SCCannotPredict: String;
+    SCResultOnStack: Boolean = False;
 Begin
  isComparing := Expr^.Typ in [mtEqual, mtDifferent, mtGreater, mtLower, mtGreaterEqual, mtLowerEqual];
 
- SCOpcodes[0] := nil;
- SCCannot     := ShortCircuitLabel+'_cannot';
+ SCOpcodes[0]    := nil;
+ SCCannotPredict := ShortCircuitLabel+'_cannotpredict';
 
  if (isLeftVariable) Then // if the left side is a variable
  Begin
@@ -28,10 +40,10 @@ Begin
 
    if (ShortCircuit <> scNone) Then
    Begin
-    For I := 0 To 3 Do // used in short-circuit evaluation
+    For I := 0 To 4 Do // used in short-circuit evaluation
      SCOpcodes[I] := Compiler.PutOpcode(o_nop);
 
-    Compiler.PutLabel(SCCannot);
+    Compiler.PutLabel(SCCannotPredict);
    End;
 
    TypeLeft := Parse(Left, 1); // left to first register
@@ -42,10 +54,10 @@ Begin
 
    if (ShortCircuit <> scNone) Then
    Begin
-    For I := 0 To 3 Do // used in short-circuit evaluation
+    For I := 0 To 4 Do // used in short-circuit evaluation
      SCOpcodes[I] := Compiler.PutOpcode(o_nop);
 
-    Compiler.PutLabel(SCCannot);
+    Compiler.PutLabel(SCCannotPredict);
    End;
 
    TypeRight := Parse(Right, 2); // right to second register
@@ -55,13 +67,13 @@ Begin
  // we must 'pop' result back to the corresponding register
  if (LeftFirst) Then
  Begin
-  SCSubStp := Left^.ResultOnStack;
+  SCResultOnStack := Left^.ResultOnStack;
 
   RePop(Right, TypeRight, 2);
   RePop(Left, TypeLeft, 1);
  End Else
  Begin
-  SCSubStp := Right^.ResultOnStack;
+  SCResultOnStack := Right^.ResultOnStack;
 
   RePop(Left, TypeLeft, 1);
   RePop(Right, TypeRight, 2);
@@ -74,22 +86,28 @@ Begin
 
   if (SCOpcodes[0] <> nil) Then
   Begin
-   SCOpcodes[0]^ := PutOpcode(o_mov, ['if', 'e'+TypeLeft.RegPrefix+'1'])^;
+   if (not TypeLeft.isBool) Then
+    SCOpcodes[0]^ := PutOpcode(o_mov, ['if', 'e'+TypeLeft.RegPrefix+'1'])^;
 
    { || }
-   if (ShortCircuit = scOR) Then // short circuit for operator `||`
-    SCOpcodes[1]^ := PutOpcode(o_fjmp, [':'+SCCannot])^;
+   if (ShortCircuit = scOR) Then // short circuit for operator `||`: if left term is true, then the result must be true.
+    SCOpcodes[1]^ := PutOpcode(o_fjmp, [':'+SCCannotPredict])^;
 
    { && }
-   if (ShortCircuit = scAND) Then // short circuit for operator `&&`
-    SCOpcodes[1]^ := PutOpcode(o_tjmp, [':'+SCCannot])^;
+   if (ShortCircuit = scAND) Then // short circuit for operator `&&`: if left term is false, then the result must be false.
+    SCOpcodes[1]^ := PutOpcode(o_tjmp, [':'+SCCannotPredict])^;
 
    if (ShortCircuit <> scNone) Then
    Begin
-    if (SCSubSTP) Then
-     SCOpcodes[2]^ := PutOpcode(o_sub, ['stp', 1])^;
+    if (SCResultOnStack) Then
+     SCOpcodes[2]^ := PutOpcode(o_sub, ['stp', '1'])^;
 
-    SCOpcodes[3]^ := PutOpcode(o_jmp, [':'+ShortCircuitLabel])^;
+    Case ShortCircuit of
+     scOR : SCOpcodes[3]^ := PutOpcode(o_mov, ['e'+TypeLeft.RegPrefix+'1', 'true'])^; // true || anything = true
+     scAND: SCOpcodes[3]^ := PutOpcode(o_mov, ['e'+TypeLeft.RegPrefix+'1', 'false'])^; // false && anything = false
+    End;
+
+    SCOpcodes[4]^ := PutOpcode(o_jmp, [':'+ShortCircuitLabel])^;
    End;
   End;
 
