@@ -22,6 +22,10 @@
  {$FATAL The whole compiler, virtual machine and editor have been written in Free Pascal Compiler; compiling it/them in eg.Delphi will most likely fail!}
 {$ENDIF}
 
+{$IFDEF CPU64}
+ {$FATAL 64-bit CPUs are not supported!} // (because of floating point operations)
+{$ENDIF}
+
 Program compiler;
 Uses SysUtils, TypInfo,
      CompilerUnit, Compile1;
@@ -116,6 +120,9 @@ Begin
    Tmp   := Length(Current);
    Value := not (Current[Tmp] = '-');
 
+   if (Current[Tmp] in ['+', '-']) Then
+    Delete(Current, Length(Current), 1);
+
    // find this option
    OptID := -1;
    For Option := Low(CommandLineNames) To High(CommandLineNames) Do
@@ -130,7 +137,7 @@ Begin
    End;
 
    if (ord(Option) = -1) Then
-    Writeln('Unknown command-line option: ', Current) Else
+    Writeln('Unknown command-line switch: ', Current) Else
     AddOption(Option, Value);
   End Else
 
@@ -216,9 +223,3 @@ Begin
   Readln;
  End;
 End.
-
-{$IF (sizeof(Byte) <> 1) or (sizeof(Char) <> 1) or (sizeof(Integer) <> 4) or (sizeof(LongWord) <> 4) or (sizeof(Extended) <> 10)}
- {$WARNING Invalid type sizes!}
- {$WARNING You can try to compile this anyway (just remove this `$FATAL` below), but I'm not responsible for any damage...}
- {$FATAL :<}
-{$ENDIF}

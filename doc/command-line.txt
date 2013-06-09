@@ -21,7 +21,7 @@ By default, all switches are disabled.
 	--constant-folding / -Of	enables constant expression folding
 	--bytecode-optimize / -Op	optimizes bytecode
 	--remove-unreachable / -Ou	removes unreachable parts of code
-	--short-circuit	/ -Os		enables/disables short-circuit-evalution. It is implicitly **enabled** and most likely you don't want to turn it off!
+	--short-circuit	/ -Os		enables/disables short-circuit-evalution. It is implicitly **enabled** and most likely you don't want to turn it off.
 
 	-O1	enables `--register-alloc`, `--constant-folding`, `--bytecode-optimize` and `--remove-unreachable`
 
