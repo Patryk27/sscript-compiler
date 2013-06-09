@@ -318,6 +318,26 @@ Begin
   { ====== parse function's body ====== }
   ParseCodeBlock;
 
+  { function info }
+  PutComment('--------------------------------- ;');
+  PutComment('Function name   : '+Func.RefSymbol.Name);
+  PutComment('Declared at line: '+IntToStr(Func.RefSymbol.DeclToken^.Line));
+  PutComment('--------------------');
+
+  PutComment('Parameters:');
+  For Symbol in Func.SymbolList Do
+   if (not Symbol.isInternal) and (Symbol.Typ = lsVariable) and (Symbol.mVariable.isFuncParam) Then
+    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos);
+
+  PutComment('');
+
+  PutComment('Variables:');
+  For Symbol in Func.SymbolList Do
+   if (not Symbol.isInternal) and (Symbol.Typ = lsVariable) and (not Symbol.mVariable.isFuncParam) Then
+    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(TokenList[Symbol.mVariable.RefSymbol.Range.PBegin].Line)+'-'+IntToStr(TokenList[Symbol.mVariable.RefSymbol.Range.PEnd-1].Line));
+
+  PutComment('--------------------------------- ;');
+
   PutOpcode(o_loc_func, ['"'+Func.RefSymbol.Name+'"']);
 
   (* now, we have a full construction list used in this function; so - let's generate bytecode! :) *)

@@ -363,8 +363,9 @@ End;
 
 (* TSymbol.Create *)
 Constructor TSymbol.Create;
+Const AnonymouseTypeID: UInt64 = 0;
 Begin
- Name         := '';
+ Name         := '__anonymouse_symbol_#'+IntToStr(AnonymouseTypeID);
  Range.PBegin := 0;
  Range.PEnd   := 0;
 
@@ -372,6 +373,8 @@ Begin
  mCompiler  := nil;
  DeclToken  := nil;
  isInternal := False;
+
+ Inc(AnonymouseTypeID);
 End;
 
 (* TSymbol.Clone *)

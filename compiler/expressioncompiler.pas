@@ -214,6 +214,77 @@ Begin
  End;
 End;
 
+{ ExpressionToString }
+Function ExpressionToString(Expr: PMExpression): String;
+Var I   : int32;
+    L, R: String;
+Begin
+ if (Expr = nil) Then
+  Exit('');
+
+ if (Expr^.Typ = mtVariable) Then
+  Exit(Expr^.VarName);
+
+ if (Expr^.Typ in [mtBool, mtChar, mtInt, mtFloat]) Then
+  Exit(Expr^.Value);
+
+ if (Expr^.Typ = mtString) Then
+  Exit('"'+Expr^.Value+'"');
+
+ { function call }
+ if (Expr^.Typ = mtFunctionCall) Then
+ Begin
+  Result := Expr^.Left^.Value+'(';
+
+  For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
+  Begin
+   Result += ExpressionToString(Expr^.ParamList[I]);
+
+   if (I <> High(Expr^.ParamList)) Then
+    Result += ', ';
+  End;
+
+  Result += ')';
+  Exit;
+ End;
+
+ { method call }
+ // @TODO
+
+ { array element }
+ if (Expr^.Typ = mtArrayElement) Then
+ Begin
+  Result := ExpressionToString(Expr^.Left)+'['+ExpressionToString(Expr^.Right)+']';
+  Exit;
+ End;
+
+ { type casting }
+ if (Expr^.Typ = mtTypeCast) Then
+ Begin
+  Result := 'cast<'+TType(LongWord(Expr^.Value)).asString+'>('+ExpressionToString(Expr^.Left)+')';
+  Exit;
+ End;
+
+ { unary minus }
+ if (Expr^.Typ = mtNeg) Then
+ Begin
+  Result := '-'+ExpressionToString(Expr^.Left);
+  Exit;
+ End;
+
+ L := ExpressionToString(Expr^.Left);
+ R := ExpressionToString(Expr^.Right);
+
+ if (Expr^.Typ in [mtMul, mtDiv, mtMod]) Then
+ Begin
+  L := '('+L+')';
+  R := '('+R+')';
+ End;
+
+ Result := L+MExpressionDisplay[Expr^.Typ]+R;
+End;
+
+// -------------------------------------------------------------------------- //
 { getOrder }
 Function getOrder(E: String): Integer;
 Const Order: Array[0..7] of Array[0..7] of String =
@@ -1585,6 +1656,8 @@ Begin
 
  if (not Compiler.inFunction) Then
   Compiler.CompileError(Expr^.Token, eInternalError, ['not inFunction']);
+
+ Compiler.PutComment(IntToStr(Expr^.Token.Line)+': '+ExpressionToString(Expr));
 
  ExprLabel := Compiler.getCurrentFunction.MangledName+'__expression_'+IntToStr(Compiler.SomeCounter);
  Inc(Compiler.SomeCounter);
