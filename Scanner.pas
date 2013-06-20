@@ -13,11 +13,11 @@ Unit Scanner;
                    Code    : String;
                    Position: Int64;
 
-                   Function __readChar(out NewLine, Escaped: Boolean; const AllowFormatting: Boolean=False): Char;
-                   Function __readCharN(out NewLine: Boolean; const AllowFormatting: Boolean=False): Char;
+                   Function __readChar(out NewLine, Escaped: Boolean; const AllowEscaping: Boolean=False): Char;
+                   Function __readCharN(out NewLine: Boolean; const AllowEscaping: Boolean=False): Char;
                    Function __readString(out OK: Boolean; const Ch: Char): String;
                    Function __readIdentifier: String;
-                   Function __readNumber(out OK: Boolean; out isFloat: Boolean; out Str: String): Extended;
+                   Function __readNumber(out OK, isFloat: Boolean; out Str: String): Extended;
                    Function __readHexNumber(out OK: Boolean; out Str: String): Int64;
 
                    Function getToken: TToken;
@@ -33,20 +33,11 @@ Unit Scanner;
  Implementation
 Const NewlineChar = #13;
 
-{ TScanner.Create }
-Constructor TScanner.Create(Lines: TStringList);
-Var I: Integer;
-Begin
- Code := '';
-
- For I := 0 To Lines.Count-1 Do
-  Code += Lines[I] + #13;
-
- Position := 1; // `string` is iterated from `1`
-End;
-
-{ TScanner.__readChar }
-Function TScanner.__readChar(out NewLine, Escaped: Boolean; const AllowFormatting: Boolean=False): Char;
+(* TScanner.__readChar *)
+{
+ Reads a single char which may be - when 'AllowEscaping = true' - escaped, eg.: `\0xA` or `\\`
+}
+Function TScanner.__readChar(out NewLine, Escaped: Boolean; const AllowEscaping: Boolean=False): Char;
 Var C  : Char;
     Tmp: String;
 Label Now1, Now2;
@@ -55,7 +46,6 @@ Begin
  Escaped := False;
 
  Result := Code[Position];
-
  Inc(Position);
 
  if (Result = NewlineChar) Then // newline
@@ -64,10 +54,7 @@ Begin
   Exit;
  End;
 
- //if (Result = [#13]) Then // skip newlines
- // Result := __readCharN(NewLine);
-
- if (Result = '\') and (AllowFormatting) Then // char escape
+ if (Result = '\') and (AllowEscaping) Then // char escape (`\0`, `\0x512` etc.)
  Begin
   C       := __readCharN(NewLine);
   Escaped := True;
@@ -91,6 +78,8 @@ Begin
    { read a hexadecimal number }
    if (C = 'x') Then { 0x ... }
    Begin
+    // @TODO: __readHexNumber?
+
     While (true) Do
     Begin
      C := __readCharN(NewLine);
@@ -110,6 +99,8 @@ Begin
 
    { read a decimal number }
    Begin
+    // @TODO: __readNumber?
+
     if (C in ['0'..'9']) Then
      Tmp += C Else
      Dec(Position);
@@ -135,14 +126,21 @@ Begin
  End;
 End;
 
-{ TScanner.__readChar }
-Function TScanner.__readCharN(out NewLine: Boolean; const AllowFormatting: Boolean=False): Char;
+(* TScanner.__readCharN *)
+{
+ Works like `__readChar`, but do not require the "Escaped" parameter (variable) to be given.
+}
+Function TScanner.__readCharN(out NewLine: Boolean; const AllowEscaping: Boolean=False): Char;
 Var Escaped: Boolean;
 Begin
- Result := __readChar(NewLine, Escaped, AllowFormatting);
+ Result := __readChar(NewLine, Escaped, AllowEscaping);
 End;
 
-{ TScanner.__readString }
+(* TScanner.__readString *)
+{
+ Reads a string.
+ 'Ch' should be `"` or `'`, depending on string to be read.
+}
 Function TScanner.__readString(out OK: Boolean; const Ch: Char): String;
 Var C          : Char;
     NL, Escaped: Boolean;
@@ -164,7 +162,10 @@ Begin
   OK := False;
 End;
 
-{ TScanner.__readIdentifier }
+(* TScanner.__readIdentifier *)
+{
+ Reads an identifier.
+}
 Function TScanner.__readIdentifier: String;
 Var Ch     : Char;
     Newline: Boolean;
@@ -176,7 +177,7 @@ Begin
  Begin
   Ch := __readCharN(Newline);
 
-  if (not (Ch in IdentAllowed)) or (Newline) Then
+  if (not (Ch in IdentAllowed)) or (Newline) Then // if encountered non-identifier char or newline, stop
    Break;
 
   Result += Ch;
@@ -185,8 +186,11 @@ Begin
  Dec(Position);
 End;
 
-{ TScanner.__readNumber }
-Function TScanner.__readNumber(out OK: Boolean; out isFloat: Boolean; out Str: String): Extended;
+(* TScanner.__readNumber *)
+{
+ Reads a decimal integer or float number.
+}
+Function TScanner.__readNumber(out OK, isFloat: Boolean; out Str: String): Extended;
 Var Ch             : Char;
     Newline, Dot, E: Boolean;
 Begin
@@ -203,7 +207,7 @@ Begin
  Begin
   Ch := __readCharN(Newline);
 
-  if (not (Ch in ['0'..'9', '.', 'e', '+', '-'])) or (Newline) Then
+  if (not (Ch in ['0'..'9', '.', 'e', '+', '-'])) or (Newline) Then // if encountered non-number char or newline, stop
    Break;
 
   if (Ch = '.') Then
@@ -226,10 +230,10 @@ Begin
 
   if (Ch in ['+', '-']) Then // `+` and `-` are allowed only after `e`/`E`
   Begin
-   if (Length(Str) = 0) Then
+   if (Length(Str) = 0) Then // invalid use of `+` or `-`
     Break;
 
-   if not (Str[Length(Str)] in ['e', 'E']) Then
+   if not (Str[Length(Str)] in ['e', 'E']) Then // invalid use of `+` or `-`
     Break;
   End;
 
@@ -240,7 +244,10 @@ Begin
  Dec(Position);
 End;
 
-{ TScanner.__readHexNumber }
+(* TScanner.__readHexNumber *)
+{
+ Reads a hexadecimal integer number.
+}
 Function TScanner.__readHexNumber(out OK: Boolean; out Str: String): Int64;
 Var Ch     : Char;
     Newline: Boolean;
@@ -254,7 +261,7 @@ Begin
  Begin
   Ch := __readCharN(Newline);
 
-  if (not (Ch in ['0'..'9', 'a'..'f', 'A'..'F'])) or (Newline) Then
+  if (not (Ch in ['0'..'9', 'a'..'f', 'A'..'F'])) or (Newline) Then // if encountered non-hex-number char or newline, stop
    Break;
 
   Str += Ch;
@@ -266,7 +273,10 @@ Begin
  Dec(Position);
 End;
 
-{ TScanner.getToken }
+(* TScanner.getToken *)
+{
+ Reads a token.
+}
 Function TScanner.getToken: TToken;
 Var C1, C2, C3: Char;
     NL        : Boolean;
@@ -278,7 +288,7 @@ Var C1, C2, C3: Char;
   End;
 
 Begin
- if (not Can) Then // end of file
+ if (not Can) Then // encountered end of file
  Begin
   Result := _EOF;
   Exit;
@@ -286,18 +296,18 @@ Begin
 
  Result := noToken;
 
- C1 := __readCharN(NL); // first char
+ C1 := __readCharN(NL); // first token char
 
- if (not NL) Then // second char (if possible)
+ if (not NL) Then // second token char (if possible)
   C2 := Code[Position] Else
   C2 := #0;
 
- if (not NL) Then // third char (if possible)
+ if (not NL) Then // third token char (if possible)
   C3 := Code[Position+1] Else
   C3 := #0;
 
  if (C1 in [' ', NewlineChar]) Then // skip spaces and newlines
-  Result := getToken();
+  Result := getToken(); // @TODO: 'Exit()'?
 
  if (C1 = '0') and (C2 = 'x') Then
  Begin
@@ -335,9 +345,8 @@ Begin
   '~': Result := _TILDE;
   '#': Result := _HASH;
 
-  '0'..'9': Result := _NUMBER;
-  'a'..'z': Result := _CHAR;
-  'A'..'Z': Result := _CHAR;
+  '0'..'9'          : Result := _NUMBER;
+  'a'..'z', 'A'..'Z': Result := _CHAR;
  End;
 
  if (C1 = '+') and (C2 = '=') Then { += }
@@ -456,7 +465,26 @@ Begin
  End;
 End;
 
-{ TScanner.getToken_P }
+// -------------------------------------------------------------------------- //
+(* TScanner.Create *)
+{
+ Tokenizes code given in `TStringList`.
+}
+Constructor TScanner.Create(Lines: TStringList);
+Var I: Integer;
+Begin
+ Code := '';
+
+ For I := 0 To Lines.Count-1 Do
+  Code += Lines[I] + NewlineChar;
+
+ Position := 1; // `string` is iterated from `1`
+End;
+
+(* TScanner.getToken_P *)
+{
+ Reads a token.
+}
 Function TScanner.getToken_P: TToken_P;
 
   // getLine
@@ -528,7 +556,7 @@ Begin
    Result.Token := _IDENTIFIER;
    Result.Value := __readIdentifier;
 
-   if (isKeyword(Result.Value)) Then // is keyword?
+   if (isKeyword(Result.Value)) Then // is it a keyword?
     Result.Token := KeywordToToken(Result.Value);
   End;
 
@@ -548,9 +576,6 @@ Begin
    if (isFloat) Then // is float?
    Begin
     Result.Token := _FLOAT;
-
-    //if (Pos('.', Result.Value) = 0) Then
-    // Result.Value := Result.Value+'.0';
    End Else // is integer?
     Result.Token := _INT;
 
@@ -561,11 +586,11 @@ Begin
 
    Case isFloat of
     True:
-     if (not TryStrToFloat(Result.Value, Flt)) Then
+     if (not TryStrToFloat(Result.Value, Flt)) Then // check for over or underflow
       Result.Token := _INVALID_FLOAT;
 
     False:
-     if (not TryStrToInt64(Result.Value, Int)) Then
+     if (not TryStrToInt64(Result.Value, Int)) Then // check for over or underflow
       Result.Token := _INVALID_INT;
    End;
   End;
@@ -585,7 +610,10 @@ Begin
   Result.Char += 1;
 End;
 
-{ TScanner.Can }
+(* TScanner.Can *)
+{
+ Returns 'true', if there's at least one token to be read.
+}
 Function TScanner.Can: Boolean;
 Begin
  Result := (Position < Length(Code));
