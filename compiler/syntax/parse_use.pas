@@ -24,7 +24,7 @@ Var Namespace: Integer;
 Begin
  With Parser do
  Begin
-  if not ((CompilePass = cp2) or (inFunction)) Then // `use` is parsed in second pass or inside function
+  if not ((CompilePass = _cp3) or (inFunction)) Then // `use` is parsed in the third pass or inside function
   Begin
    read_until(_SEMICOLON);
    Exit;

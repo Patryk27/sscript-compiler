@@ -55,18 +55,10 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="$(ProjOutDir);compiler\expression;compiler\expression\internal_functions;compiler\syntax"/>
+      <IncludeFiles Value="compiler;compiler\optimization;compiler\expression;compiler\expression\internal_functions;compiler\syntax;$(ProjOutDir)"/>
       <OtherUnitFiles Value="compiler;compiler\syntax"/>
-      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+      <UnitOutputDirectory Value="lib"/>
     </SearchPaths>
-    <Parsing>
-      <SyntaxOptions>
-        <CStyleMacros Value="True"/>
-      </SyntaxOptions>
-    </Parsing>
-    <CodeGeneration>
-      <TargetCPU Value="i386"/>
-    </CodeGeneration>
     <Other>
       <Verbosity>
         <ShowHintsForUnusedUnitsInMainSrc Value="True"/>
@@ -81,7 +73,7 @@
     </Other>
   </CompilerOptions>
   <Debugging>
-    <Exceptions Count="6">
+    <Exceptions Count="7">
       <Item1>
         <Name Value="EAbort"/>
       </Item1>
@@ -100,6 +92,9 @@
       <Item6>
         <Name Value="EConvertError"/>
       </Item6>
+      <Item7>
+        <Name Value="EListError"/>
+      </Item7>
     </Exceptions>
   </Debugging>
 </CONFIG>

@@ -1,6 +1,6 @@
 (*
  SScript Compiler
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2012-2013
 
  -------------------------------------------------------------------------------
  SScript Compiler is free software; you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 *)
 
 {$IFNDEF FPC}
- {$FATAL The whole compiler, virtual machine and editor have been written in Free Pascal Compiler; compiling it/them in eg.Delphi will most likely fail!}
+ {$FATAL The compiler has been written in Free Pascal Compiler; compiling it in any other compiler will gracefully fail.}
 {$ENDIF}
 
 {$IFDEF CPU64}
@@ -28,7 +28,7 @@
 
 Program compiler;
 Uses SysUtils, TypInfo,
-     CompilerUnit, Compile1;
+     CompilerUnit, Compile1, ExpressionCompiler;
 Var Input, Output: String;
 
     Options : TCompileOptions;
@@ -48,6 +48,31 @@ Begin
 End;
 
 {$I do_not_read.pas}
+
+{ _O1 }
+Procedure _O1;
+Begin
+ AddOption(opt__register_alloc, True);
+ AddOption(opt__constant_folding, True);
+ AddOption(opt__bytecode_optimize, True);
+ AddOption(opt__remove_dead, True);
+End;
+
+{ _O2 }
+Procedure _O2;
+Begin
+ _O1;
+
+ AddOption(opt__constant_propagation, True);
+End;
+
+{ _O3 }
+Procedure _O3;
+Begin
+ _O2;
+
+ AddOption(opt__optimize_branches, True);
+End;
 
 { ParseCommandLine }
 Procedure ParseCommandLine;
@@ -71,10 +96,19 @@ Begin
   { -O1 (optimize level 1) }
   if (Current = '-O1') Then
   Begin
-   AddOption(opt__register_alloc, True);
-   AddOption(opt__constant_folding, True);
-   AddOption(opt__bytecode_optimize, True);
-   AddOption(opt__remove_unreachable, True);
+   _O1;
+  End Else
+
+  { -O2 (optimization level 2) }
+  if (Current = '-O2') Then
+  Begin
+   _O2;
+  End Else
+
+  { -O3 (optimization level 3) }
+  if (Current = '-O3') Then
+  Begin
+   _O3;
   End Else
 
   { -logo }
@@ -150,6 +184,8 @@ End;
 
 { program's body }
 Begin
+ Randomize;
+
  DefaultFormatSettings.DecimalSeparator := '.';
 
  ParseCommandLine;
@@ -178,7 +214,7 @@ Begin
     verbose_mode := True;
 
    Log('SScript Compiler '+Version+' [compiled '+{$I %DATE%}+']');
-   Log('by Patryk Wychowaniec');
+   Log('Copyright (c) 2012-2013 by Patryk Wychowaniec');
 
    {$IFDEF NIGHTLY}
     Log;
@@ -213,6 +249,38 @@ Begin
     Frames := ExceptFrames;
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
+
+    if (getCompiler <> nil) Then
+    Begin
+     With TCompiler(getCompiler) do
+     Begin
+      Writeln;
+      Writeln('File name: ', InputFile);
+      Writeln('Line     : ', Parser.getToken(Parser.getPosition).Line);
+
+      if (getCurrentFunction <> nil) Then
+      Begin
+       With getCurrentFunction do
+       Begin
+        Writeln;
+        Writeln('Function name: ', RefSymbol.Name);
+        Writeln('Line         : ', RefSymbol.DeclToken^.Line);
+
+        Writeln;
+        if (getCurrentNode <> nil) Then
+        Begin
+         With getCurrentNode do
+         Begin
+          Writeln('Current node: ', getGraphSymbol);
+          Writeln('Line        : ', getToken^.Line);
+          Writeln('Typ         : ', Typ);
+          Writeln('Value       : ', ExpressionToString(Value));
+         End;
+        End;
+       End;
+      End;
+     End;
+    End;
    End;
  End;
 

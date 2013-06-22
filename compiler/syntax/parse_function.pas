@@ -5,34 +5,49 @@
 Unit Parse_FUNCTION;
 
  Interface
- Uses MTypes, Tokens, Variants, TypInfo;
+ Uses Expression, Tokens, Variants, TypInfo;
 
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, Messages, Opcodes, ExpressionCompiler, symdef, SysUtils, CompilerUnit;
+Uses SysUtils, Classes, FGL, Compile1, Messages, Opcodes, ExpressionCompiler, symdef, cfgraph, CompilerUnit;
+
+Type PVar = ^TVar;
+     TVar = Record
+             mVar    : TVariable;
+             UseCount: uint32;
+            End;
+
+// SortVarRec
+Function SortVarRec(const A, B: PVar): Integer;
+Begin
+ if (A^.UseCount > B^.UseCount) Then
+  Result := -1 Else
+ if (A^.UseCount < B^.UseCount) Then
+  Result := 1 Else
+  Result := 0;
+End;
 
 (* Parse *)
 {
  Parses and compiles functions.
 }
 Procedure Parse(Compiler: Pointer);
-Type TVarRecArray = Array of TVarRec;
-     PVarRecArray = ^TVarRecArray;
 Var Func : TFunction; // our new function
-
-    CList: TMConstructionList;
-    c_ID : Integer;
 
     NamedParams        : (npNotSetYet, npYes, npNo) = npNotSetYet;
     RequireDefaultValue: Boolean = False;
     DefaultValueType   : TType;
     FuncNameLabel      : String;
 
+    VarsOnStack: uint16 = 0; // number of variables allocated on the stack
+
+    RemovedNodes: TCFGNodeList; // list of removed nodes
+
   {$I gen_bytecode.pas}
 
   // NewConst (used to create internal constants, if enabled)
-  Procedure NewConst(const cName: String; cTyp: TType; cValue: PMExpression);
+  Procedure NewConst(const cName: String; cTyp: TType; cValue: PExpression);
   Var Variable: TVariable;
   Begin
    With TCompiler(Compiler) do
@@ -168,10 +183,10 @@ Var Func : TFunction; // our new function
        Value := read_string;
 
        Case Option of
-        'library': Func.LibraryFile := Value;
+        'library'  : Func.LibraryFile := Value;
         'namespace': Func.NamespaceName := Value;
-        'name': FuncNameLabel := Value;
-        'label': Func.MangledName := Value;
+        'name'     : FuncNameLabel := Value;
+        'label'    : Func.MangledName := Value;
 
         else
          CompileError(eUnknownAttribute, [Option]);
@@ -189,13 +204,13 @@ Var Func : TFunction; // our new function
   End;
 
 // main function block
-Var I, SavedRegs: Integer;
-    VarsOnStack : LongWord = 0;
+Var I: Integer;
 
     FuncID, NamespaceID: Integer;
-    Symbol             : TLocalSymbol;
 
     Namespaces: Array of Integer;
+
+    TmpNode: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
@@ -205,7 +220,19 @@ Begin
   Namespaces[I] := SelectedNamespaces[I];
 
  (* if first pass *)
- if (CompilePass = cp1) Then
+ if (CompilePass = _cp1) Then
+ Begin
+  skip_parenthesis; // return type
+  skip_parenthesis; // param list
+  While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
+   read;
+
+  SkipCodeBlock;
+  Exit;
+ End Else
+
+ (* if second pass *)
+ if (CompilePass = _cp2) Then
  Begin
   Func                     := TFunction.Create;
   CurrentFunction          := Func;
@@ -214,9 +241,9 @@ Begin
   Func.NamespaceName       := getCurrentNamespace.Name;
 
   { read function return type }
-  eat(_LOWER); // <
-  Func.Return := read_type; // [type]
-  eat(_GREATER); // >
+  eat(_LOWER);
+  Func.Return := read_type;
+  eat(_GREATER);
 
   { read function name }
   Func.RefSymbol.Name       := read_ident; // [identifier]
@@ -292,8 +319,8 @@ Begin
   Exit;
  End Else
 
- (* if second pass *)
- if (CompilePass = cp2) Then
+ (* if third pass *)
+ if (CompilePass = _cp3) Then
  Begin
   skip_parenthesis; // return type
   Func := getCurrentNamespace.SymbolList[findFunction(read_ident)].mFunction;
@@ -316,103 +343,72 @@ Begin
   NewScope(sFunction);
 
   { ====== parse function's body ====== }
-  ParseCodeBlock;
+  setNewRootNode(nil, False);
 
-  { function info }
-  PutComment('--------------------------------- ;');
-  PutComment('Function name   : '+Func.RefSymbol.Name);
-  PutComment('Declared at line: '+IntToStr(Func.RefSymbol.DeclToken^.Line));
-  PutComment('--------------------');
+  ParseCodeBlock; // parse!
 
-  PutComment('Parameters:');
-  For Symbol in Func.SymbolList Do
-   if (not Symbol.isInternal) and (Symbol.Typ = lsVariable) and (Symbol.mVariable.isFuncParam) Then
-    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos);
+  Func.FlowGraph.Root := getCurrentRoot;
+  Func.FlowGraph.Last := getCurrentNode;
 
-  PutComment('');
+  (* now, we have the full control flow graph of this function; so - let's do many magic things and eventually generate bytecode! :) *)
 
-  PutComment('Variables:');
-  For Symbol in Func.SymbolList Do
-   if (not Symbol.isInternal) and (Symbol.Typ = lsVariable) and (not Symbol.mVariable.isFuncParam) Then
-    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(TokenList[Symbol.mVariable.RefSymbol.Range.PBegin].Line)+'-'+IntToStr(TokenList[Symbol.mVariable.RefSymbol.Range.PEnd-1].Line));
+  VisitedNodes := TCFGNodeList.Create;
+  RemovedNodes := TCFGNodeList.Create;
+  Try
+   DevLog(dvInfo, 'Parse', 'Validing graph for function `'+Func.RefSymbol.Name+'`...');
+   ValidateGraph;
 
-  PutComment('--------------------------------- ;');
+  //if (Func.RefSymbol.Name = 'main') Then // @TODO
+  // DrawGraph(Func.FlowGraph); // `not_optimized/main.dot`
 
-  PutOpcode(o_loc_func, ['"'+Func.RefSymbol.Name+'"']);
-
-  (* now, we have a full construction list used in this function; so - let's generate bytecode! :) *)
-  CList := getCurrentFunction.ConstructionList;
-
-  { allocate local stack variables }
-  VarsOnStack := 0;
-
-  if (not Func.isNaked) Then
-  Begin
-   With getCurrentFunction do
-    For Symbol in SymbolList Do // each symbol
-     if (Symbol.Typ = lsVariable) Then // if variable
-      With Symbol.mVariable do
-       if (MemPos <= 0) and (not DontAllocate) Then
-        Inc(VarsOnStack); // next variable to allocate
-
-   PutOpcode(o_add, ['stp', VarsOnStack+1]); // `+1`, because `stack[stp]` is the caller's IP (instruction pointer)
-  End;
-
-  { if register is occupied by variable, we need to at first save this register's value (and restore it at the end of the function) }
-  SavedRegs := 0;
-  With getCurrentFunction do
-  Begin
-   For Symbol in SymbolList Do // each symbol
-    if (Symbol.Typ = lsVariable) Then // if variable
-     With Symbol.mVariable do
-      if (MemPos > 0) Then // if allocated in register
-      Begin
-       PutOpcode(o_push, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
-       Inc(SavedRegs);
-      End;
-
-   For Symbol in SymbolList Do // each symbol
-    if (Symbol.Typ = lsVariable) Then // if variable
-     With Symbol.mVariable do
-      if (MemPos <= 0) Then // if allocated on the stack
-      Begin
-       MemPos -= SavedRegs;
-
-       if (isFuncParam) Then
-        MemPos -= VarsOnStack;
-      End;
-  End;
-
-  { new label (main function's body; nothing should jump here, it's just facilitation for optimizer) }
-  PutLabel(Func.MangledName+'_body');
-
-  { compile constructions }
-  c_ID := 0;
-  Repeat
-   ParseConstruction(c_ID);
-   Inc(c_ID);
-  Until (c_ID > High(CList));
-
-  { function end code }
-  PutLabel(Func.MangledName+'_end');
-
-  With getCurrentFunction do
-  Begin
-   For I := SymbolList.Count-1 Downto 0 Do
+   if (getBoolOption(opt__constant_folding)) Then
    Begin
-    Symbol := SymbolList[I];
-    if (Symbol.Typ = lsVariable) Then // if variable
-     With Symbol.mVariable do
-      if (MemPos > 0) Then // if allocated in register
-       PutOpcode(o_pop, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
+    DevLog(dvInfo, 'Parse', 'Optimizing expressions...'); // @TODO: there should be switch turning this optimization on/off (but static compile-time expressions (like `const x = 2+2*2;`) have to be directly evaluated!
+    OptimizeExpressions;
    End;
+
+   if (getBoolOption(opt__optimize_branches)) Then
+   Begin
+    DevLog(dvInfo, 'Parse', 'Optimizing branches...');
+    OptimizeBranches;
+   End;
+
+   if (getBoolOption(opt__remove_dead)) Then
+   Begin
+    DevLog(dvInfo, 'Parse', 'Removing unused variables...'); // @TODO: there should be switch turning this optimization on/off
+    RemoveUnusedVariables;
+   End;
+
+   DevLog(dvInfo, 'Parse', 'Allocating variables...');
+   AllocateVariables(getBoolOption(opt__register_alloc));
+
+   DevLog(dvInfo, 'Parse', 'Generating bytecode...');
+   AddPrologCode;
+   GenerateBytecode(Func.FlowGraph.Root);
+   AddEpilogCode;
+  Finally
+   DoNotGenerateCode := True;
+   For TmpNode in RemovedNodes Do // compile (but not save generated bytecode) removed nodes
+    Generate(TmpNode);
+   DoNotGenerateCode := False;
+
+   (* @Note:
+    We're compiling removed nodes, to avoid situations like this:
+
+    if (true)
+     main(); else
+     this_would_not_be_compiled_and_thus_no_error_would_have_been_raised*2;
+   *)
+
+   RemovedNodes.Free;
+   VisitedNodes.Free;
   End;
 
-  if (not Func.isNaked) Then
-   PutOpcode(o_sub, ['stp', VarsOnStack+1]);
+  DevLog(dvInfo, 'Parse', 'Function '''+Func.RefSymbol.Name+''' has been compiled!');
+  DevLog;
 
-  PutOpcode(o_ret);
-  // </>
+  //if (Func.RefSymbol.Name = 'main') Then // @TODO
+  // DrawGraph(Func.FlowGraph); // `optimized/main.dot`
 
   RemoveScope; // ... and - as we finished compiling this function - remove scope
  End;

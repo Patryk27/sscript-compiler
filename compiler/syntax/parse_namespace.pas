@@ -9,17 +9,17 @@ Unit Parse_NAMESPACE;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, MTypes, symdef, Tokens, Messages;
+Uses Compile1, Expression, symdef, Tokens, Messages;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
 Var nName     : String;
     Deep, I   : Integer;
-    Namespaces: TMIntegerArray;
+    Namespaces: TIntegerArray;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- // make a backup of current namespaces (as we'll restore them when we'll finish compiling this namespace)
+ // make a "backup" of current namespaces (as we'll restore them when finished compiling this namespace)
  SetLength(Namespaces, Length(SelectedNamespaces));
  For I := Low(Namespaces) To High(Namespaces) Do
   Namespaces[I] := SelectedNamespaces[I];
@@ -27,7 +27,7 @@ Begin
  Deep := CurrentDeep;
 
  (* if first pass *)
- if (CompilePass = cp1) Then
+ if (CompilePass = _cp1) Then
  Begin
   nName := read_ident; // _IDENTIFIER
   RedeclarationCheck(nName, True); // redeclaration check
@@ -55,7 +55,16 @@ Begin
  End Else
 
  (* if second pass *)
- if (CompilePass = cp2) Then
+ if (CompilePass = _cp2) Then
+ Begin
+  CurrentNamespace := findNamespace(read_ident);
+
+  if (CurrentNamespace = -1) Then
+   CompileError(eInternalError, ['CurrentNamespace = -1']);
+ End Else
+
+ (* if third pass *)
+ if (CompilePass = _cp3) Then
  Begin
   CurrentNamespace := findNamespace(read_ident);
 

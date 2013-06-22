@@ -10,31 +10,28 @@ Unit Parse_TRY_CATCH;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, MTypes, symdef, Opcodes, Tokens;
+Uses Compile1, cfgraph, symdef, Opcodes, Tokens;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var m_try, m_catch, m_catch_end: TMConstruction;
-    Symbol                     : TLocalSymbol;
+Var Symbol                  : TLocalSymbol;
+    Node, TryNode, CatchNode: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
  NewScope(sTryCatch);
 
- { parse `try` }
- m_try.Typ := ctTRY;
- SetLength(m_try.Values, 1);
- m_try.Values[0] := CopyStringToPChar(getCurrentFunction.MangledName+'__exception_catch_'+IntToStr(SomeCounter)+'_');
- AddConstruction(m_try);
- Inc(SomeCounter);
+ (* parse 'try' *)
+ TryNode := TCFGNode.Create(fCurrentNode, next_pnt);
+ setNewRootNode(TryNode);
+ ParseCodeBlock; // parse code block
+ restorePrevRootNode;
 
- ParseCodeBlock(False);
+ (* parse 'catch' *)
+ Inc(CurrentDeep);
 
- { parse `catch` }
- Inc(Parser.CurrentDeep);
-
- eat(_CATCH);
- eat(_BRACKET1_OP);
+ eat(_CATCH); // `catch`
+ eat(_BRACKET1_OP); // `(`
 
  Symbol           := TLocalSymbol.Create(lsVariable); // create new local symbol
  Symbol.Name      := read_ident; // [var name]
@@ -46,26 +43,34 @@ Begin
  Begin
   Typ        := TYPE_STRING;
   MemPos     := 0;
-  Attributes := [vaDontAllocate];
+  Attributes := [vaDontAllocate]; // we'll allocate this variable by ourselves
  End;
 
- getCurrentFunction.SymbolList.Add(Symbol); // insert symbol
+ getCurrentFunction.SymbolList.Add(Symbol); // add symbol into the function's symbol list
 
- eat(_BRACKET1_CL);
-
- m_catch.Typ := ctCATCH;
- SetLength(m_catch.Values, 0);
- AddConstruction(m_catch);
+ eat(_BRACKET1_CL); // `)`
 
  Symbol.Range := Parser.getCurrentRange(0);
- ParseCodeBlock(False);
 
- { `catch` end }
+ // parse 'catch' code block
+ CatchNode := TCFGNode.Create(fCurrentNode, next_pnt);
+ setNewRootNode(CatchNode);
+ ParseCodeBlock; // parse code block
+ restorePrevRootNode;
+
+ (* do some CFG-magic *)
+ Node := TCFGNode.Create(fCurrentNode, cetTryCatch, nil, TryNode.getToken);
+
+ Node.Child.Add(TryNode);
+ Node.Child.Add(CatchNode);
+
+ TryNode.Parent   := Node;
+ CatchNode.Parent := Node;
+
+ CFGAddNode(Node);
+
+ // ... and, of course, remove scope
  Dec(CurrentDeep);
- m_catch_end.Typ := ctCATCH_END;
- SetLength(m_catch_end.Values, 0);
- AddConstruction(m_catch_end);
-
  RemoveScope;
 End;
 End;

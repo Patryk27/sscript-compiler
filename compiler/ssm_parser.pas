@@ -6,7 +6,7 @@
 Unit SSM_parser;
 
  Interface
- Uses Compile1, Compile2, Opcodes, MTypes, Messages, Classes, Stream, Zipper;
+ Uses Compile1, Compile2, Opcodes, Messages, Classes, Stream, Zipper;
 
  Const SSM_version = 1;
 

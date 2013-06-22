@@ -60,7 +60,7 @@ End;
 (*
  See description of @__variable_getvalue_reg
 *)
-Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PMExpression): TType;
+Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpression): TType;
 Var RegStr: String;
 Begin
  RegStr := 'e'+RegChar+IntToStr(RegID);
@@ -93,10 +93,10 @@ End;
 (*
  See description of @__variable_setvalue_reg
 *)
-Function __variable_setvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PMExpression): TType;
+Function __variable_setvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpression): TType;
 Var RegStr    : String;
     TmpType   : TType;
-    TmpExpr   : PMExpression;
+    TmpExpr   : PExpression;
     IndexCount: Integer;
     Variable  : TRVariable;
 Begin

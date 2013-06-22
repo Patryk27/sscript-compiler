@@ -9,7 +9,7 @@ Unit Parse_include;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, CompilerUnit, Tokens, Messages, MTypes, symdef, SysUtils;
+Uses Compile1, CompilerUnit, Tokens, Messages, symdef, SysUtils;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
@@ -30,7 +30,7 @@ Begin
  FileName := ReplaceDirSep(read.Value); // [string]
  eat(_BRACKET1_CL); // )
 
- if (CompilePass <> cp2) {cp1} Then
+ if (CompilePass <> _cp3) Then
   Exit;
 
  Log('Including file: '+FileName);

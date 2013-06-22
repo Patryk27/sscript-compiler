@@ -9,7 +9,7 @@ Unit Parse_VAR;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses CompilerUnit, Compile1, ExpressionCompiler, Tokens, MTypes, symdef, Messages, Opcodes;
+Uses Compile1, ExpressionCompiler, Tokens, symdef, Messages, Opcodes, cfgraph;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
@@ -18,7 +18,7 @@ Var Variable: TVariable;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- if not ((CompilePass = cp1) or (inFunction)) Then
+ if not ((CompilePass = _cp2) or (inFunction)) Then // variables are parsed in the second pass or inside a function
  Begin
   read_until(_SEMICOLON);
   Exit;
@@ -47,15 +47,13 @@ Begin
   if (Variable.Typ.isVoid) Then // cannot create a void-variable
    CompileError(eVoidVar, [Variable.RefSymbol.Name]);
 
-  Variable.MemPos := __allocate_var(getBoolOption(opt__register_alloc), Variable.Typ.RegPrefix);
-
   { add variable into the function }
   getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsVariable, Variable));
 
   if (next_t = _EQUAL) Then // var(...) name=value;
   Begin
    Dec(TokenPos);
-   AddConstruction(ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA]));
+   CFGAddNode(TCFGNode.Create(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA])));
    Dec(TokenPos); // ExpressionCompiler 'eats' comma.
   End;
 

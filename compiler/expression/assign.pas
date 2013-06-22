@@ -14,7 +14,7 @@ Begin
  End;
 
  Variable := getVariable(Left, True);
- if (Variable.ID = -1) Then // variable not found
+ if (Variable.Symbol = nil) Then // variable not found
   Exit;
 
  if (Variable.isConst) Then // error message had been already shown in `getVariable`
@@ -41,6 +41,12 @@ Begin
     goto WrongTypeInAssign;
 
    __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
+  End;
+
+  if (TypeID = nil) Then
+  Begin
+   DevLog(dvError, 'ParseAssign', 'TypeID = nil; leaving function...');
+   Exit;
   End;
 
   Compiler.PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', Variable.PosStr]);

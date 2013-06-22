@@ -9,22 +9,19 @@ Unit Parse_DELETE;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, MTypes, ExpressionCompiler, Tokens;
+Uses Compile1, Expression, ExpressionCompiler, Tokens, cfgraph;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Expr, C: TMConstruction;
+Var Expr: PExpression;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
  While (true) Do
  Begin
-  Expr := ExpressionCompiler.MakeConstruction(Compiler, [_SEMICOLON, _COMMA]);
+  Expr := ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA]); // expression to be freed
 
-  SetLength(C.Values, 1);
-  C.Typ       := ctDelete;
-  C.Values[0] := Expr.Values[0];
-  AddConstruction(C);
+  CFGAddNode(TCFGNode.Create(fCurrentNode, cetObjDelete, Expr));
 
   Dec(TokenPos);
   if (next_t = _SEMICOLON) Then

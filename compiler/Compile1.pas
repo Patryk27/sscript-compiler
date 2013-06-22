@@ -5,8 +5,8 @@
 Unit Compile1;
 
  Interface
- Uses Classes, SysUtils, Variants, FGL, Math,
-      Parser, Tokens, CompilerUnit, Opcodes, Messages, MTypes, symdef,
+ Uses Classes, SysUtils, Variants, FGL, Math, cfgraph,
+      Parser, Tokens, CompilerUnit, Opcodes, Messages, Expression, symdef,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include, Parse_DELETE,
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
@@ -19,10 +19,17 @@ Unit Compile1;
  Type TCompiler = class;
 
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
- Type TCompilePass = (cp1, cp2); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `cp3` enum
+ Type TCompilePass = (_cp1, _cp2, _cp3); // fourth pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `cp4` enum
 
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
+
+ Type TScopeType = (sFunction, sFOR, sIF, sWHILE, sTryCatch);
+
+ Type TScope = Record
+                Typ               : TScopeType;
+                LoopBegin, LoopEnd: TCFGNode;
+               End;
 
  (* TCompiler *)
  Type TCompiler = Class
@@ -34,7 +41,12 @@ Unit Compile1;
                    Public
                     Parser: TParser; // code parser
 
-                    AnyError: Boolean;
+                    AnyError: Boolean; // 'true' if any error (`CompileError()`) was raised, 'false' otherwise.
+
+                    fCurrentRoot: TCFGNode; // when equal 'nil', nodes added by `CFGAddNode` will be added to current function's flow graph. Otherwise - to this.
+                    fCurrentNode: TCFGNode;
+
+                    PrevRootNodes: TCFGNodeList;
 
                    Public
                     Parent      : TCompiler;
@@ -54,13 +66,18 @@ Unit Compile1;
                     OpcodeList   : TOpcodeList; // output code opcode list
                     IncludeList  : PCompilerArray; // global include list
                     NamespaceList: TNamespaceList; // namespace list
-                    Scope        : Array of TMScope; // current function scopes
+                    Scope        : Array of TScope; // current function scopes
 
                     SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>_begin`, so they don't overwrite each other
 
                     DoNotGenerateCode: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
 
                     ParsingFORInitInstruction: Boolean; // don't even ask...
+
+               { -> properties }
+                    Property getCurrentRoot: TCFGNode read fCurrentRoot;
+                   // Property getCurrentNode: TCFGNode read fCurrentNode;
+                    Function getCurrentNode: TCFGNode;
 
                     Property getCurrentFunction: TFunction read CurrentFunction;
 
@@ -71,7 +88,9 @@ Unit Compile1;
 
                     Function SearchFile(const FileName: String; out Found: Boolean): String;
 
-                    Procedure AddConstruction(C: TMConstruction);
+                   { control flow graph }
+                    Procedure setNewRootNode(NewRoot: TCFGNode; const SavePrevious: Boolean=True);
+                    Procedure restorePrevRootNode;
 
                    { parser }
                     Procedure ParseToken;
@@ -82,7 +101,7 @@ Unit Compile1;
                     Function PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
                     Function PutOpcode(Opcode: TOpcode_E): PMOpcode;
                     Function PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
-                    Function PutLabel(fName: String; const asConstruction: Boolean=False): PMOpcode;
+                    Function PutLabel(fName: String; const asNode: Boolean=False): PMOpcode;
                     Procedure PutComment(fComment: String);
 
                     Function findLabel(Name: String): Integer;
@@ -92,31 +111,30 @@ Unit Compile1;
 
                     Function findLocalType(fName: String; fTokenPos: Int64=-1): Integer;
                     Function findGlobalType(const TypeName: String; NamespaceID: Integer=-1): TType;
-                    Procedure findTypeCandidate(const TypeName: String; Namespaces: TMIntegerArray; out TypeID, NamespaceID: Integer; const Token: PToken_P=nil);
+                    Procedure findTypeCandidate(const TypeName: String; Namespaces: TIntegerArray; out TypeID, NamespaceID: Integer; const Token: PToken_P=nil);
 
-                    Function getTypeFromExpr(Expr: TMExpression): TType;
+                    Function getTypeFromExpr(Expr: TExpression): TType;
 
                    { scope }
-                    Procedure NewScope(const Typ: TMScopeType; LoopBegin: String=''; LoopEnd: String='');
+                    Procedure NewScope(const Typ: TScopeType; LoopBegin: TCFGNode=nil; LoopEnd: TCFGNode=nil);
                     Procedure RemoveScope;
-                    Function inRange(Range: TRange; TokenPos: Int64=-1): Boolean;
+                    Function inRange(Range: TRange; Position: Int64=-1): Boolean;
 
                    { variables }
-                    Function findFreeRegister(cRegChar: Char): Integer;
-
                     Procedure __variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
-                    Function __allocate_var(const TryRegisters: Boolean; RegPrefix: Char=#0): Integer;
 
-                    Function isConstantValue(Expr: TMExpression): Boolean;
+                    Function FetchVariableValue(VariablePnt: TVariable): PExpression;
 
-                    Function findLocalVariable(fName: String; fTokenPos: Int64=-1): Integer;
-                    Procedure findGlobalVariableCandidate(const VarName: String; Namespaces: TMIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
+                    Function findLocalVariable(fName: String): Integer;
+                    Procedure findGlobalVariableCandidate(const VarName: String; Namespaces: TIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
 
                    { functions }
                     Function findFunction(FuncName: String; NamespaceID: Integer=-1): Integer;
                     Procedure findFunctionByLabel(const LabelName: String; out FuncID, NamespaceID: Integer);
 
-                    Procedure findFunctionCallCandidate(const FuncName: String; Namespaces: TMIntegerArray; out FuncID, NamespaceID: Integer; const Token: PToken_P=nil);
+                    Procedure findFunctionCallCandidate(const FuncName: String; Namespaces: TIntegerArray; out FuncID, NamespaceID: Integer; const Token: PToken_P=nil);
+
+                    Procedure CFGAddNode(Node: TCFGNode);
 
                    { namespaces }
                     Function getCurrentNamespace: TNamespace;
@@ -128,7 +146,7 @@ Unit Compile1;
                     Function inFunction: Boolean;
 
                     Function findGlobalVariable(VarName: String; NamespaceID: Integer=-1): Integer;
-                    Procedure findGlobalCandidate(const IdentName: String; Namespaces: TMIntegerArray; out IdentID, NamespaceID: Integer; const Token: PToken_P=nil);
+                    Procedure findGlobalCandidate(const IdentName: String; Namespaces: TIntegerArray; out IdentID, NamespaceID: Integer; const Token: PToken_P=nil);
 
                     Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 
@@ -139,6 +157,11 @@ Unit Compile1;
                     Procedure CompileError(Token: PToken_P; Error: TCompileError; Args: Array of Const);
                     Procedure CompileError(Error: TCompileError; Args: Array of Const);
                     Procedure CompileError(Error: TCompileError);
+
+                    Procedure CompileWarning(Token: TToken_P; Warning: TCompileWarning; Args: Array of Const);
+                    Procedure CompileWarning(Token: PToken_P; Warning: TCompileWarning; Args: Array of Const);
+                    Procedure CompileWarning(Warning: TCompileWarning; Args: Array of Const);
+                    Procedure CompileWarning(Warning: TCompileWarning);
 
                     Procedure CompileHint(Token: TToken_P; Hint: TCompileHint; Args: Array of Const);
                     Procedure CompileHint(Token: PToken_P; Hint: TCompileHint; Args: Array of Const);
@@ -175,7 +198,7 @@ End;
 
 (* makeModuleName *)
 {
- Creates a module (bytecode label) name, based on FileName in parameter.
+ Creates a module (bytecode label) name based on FileName in parameter.
 }
 Function makeModuleName(FileName: String): String;
 Var Ch: Char;
@@ -198,6 +221,22 @@ Begin
 
  For I := 1 To Length(Str) Do
   Result[I-1] := Str[I];
+End;
+
+// -------------------------------------------------------------------------- //
+(* TCompiler.getCurrentNode *)
+Function TCompiler.getCurrentNode: TCFGNode; // @TODO: is this function even used anywhere?
+Begin
+ if (fCurrentNode = nil) Then
+ Begin
+  if (fCurrentRoot = nil) Then
+  Begin
+   DevLog(dvError, 'TCompiler.getCurrentNode', 'everything is nil!');
+   Result := nil;
+  End Else
+   Result := fCurrentRoot;
+ End Else
+  Result := fCurrentNode;
 End;
 
 (* TCompiler.MakeImports *)
@@ -434,39 +473,44 @@ Begin
  Result := FileName;
  Found  := False;
 
- DevLog('Searching for file `'+FileName+'`');
+ DevLog(dvInfo, 'TCompiler.SearchFile', 'Searching for file: `'+FileName+'`');
 
  For I := 0 To IncludePaths.Count-1 Do
  Begin
   Tmp := ReplaceDirSep(IncludePaths[I]+'\'+FileName);
 
-  DevLog('Trying: `'+Tmp+'`');
+  DevLog(dvInfo, 'TCompiler.SearchFile', 'Trying: `'+Tmp+'`');
 
   if (FileExists(Tmp)) Then
   Begin
-   DevLog('Found!');
+   DevLog(dvInfo, 'TCompiler.SearchFile', 'Found!');
    Found := True;
    Exit(Tmp);
   End;
  End;
 End;
 
-(* TCompiler.AddConstruction *)
-{
- Adds construction into the current function's construction list.
-}
-Procedure TCompiler.AddConstruction(C: TMConstruction);
+(* TCompiler.setNewRootNode *)
+Procedure TCompiler.setNewRootNode(NewRoot: TCFGNode; const SavePrevious: Boolean);
 Begin
- if (getCurrentFunction = nil) Then
-  CompileError(eInternalError, ['No function being parsed/compiled!']);
-
- C.Token := Parser.next_pnt(-1);
-
- With getCurrentFunction do // current function
+ if (SavePrevious) Then
  Begin
-  SetLength(ConstructionList, Length(ConstructionList)+1);
-  ConstructionList[High(ConstructionList)] := C;
+  PrevRootNodes.Add(fCurrentRoot);
+  PrevRootNodes.Add(fCurrentNode);
  End;
+
+ fCurrentRoot := NewRoot;
+ fCurrentNode := NewRoot;
+End;
+
+(* TCompiler.restorePrevRootNode *)
+Procedure TCompiler.restorePrevRootNode;
+Begin
+ fCurrentNode := PrevRootNodes.Last;
+ PrevRootNodes.Remove(fCurrentNode);
+
+ fCurrentRoot := PrevRootNodes.Last;
+ PrevRootNodes.Remove(fCurrentRoot);
 End;
 
 (* TCompiler.ParseToken *)
@@ -482,6 +526,7 @@ Procedure TCompiler.ParseToken;
 // main block
 Var Token : TToken_P;
     TmpVis: TVisibility;
+    Node  : TCFGNode;
 Begin
  With Parser do
  Begin
@@ -550,7 +595,8 @@ Begin
     else
     Begin
      Dec(TokenPos);
-     AddConstruction(ExpressionCompiler.MakeConstruction(self)); // parse as expression
+     Node := TCFGNode.Create(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(self)); // parse as expression
+     CFGAddNode(Node);
     End;
    End;
   End;
@@ -808,9 +854,9 @@ End;
 
 (* TCompiler.PutLabel *)
 {
- Puts label, either directly into the code (when `asConstruction` = false) or as a construction
+ Puts label, either directly into the code (when `asNOde` = false) or as a node
  (so the label will be added when compiling (not parsing!) a function), when `asConstruction` = true.
- At least one function have to be created, when enabling `asConstruction`
+ At least one function have to be created when enabling `asNode`
 
  Sample code:
   PutLabel('first', False);
@@ -833,17 +879,18 @@ End;
   second:
   opcode_3
 }
-Function TCompiler.PutLabel(fName: String; const asConstruction: Boolean=False): PMOpcode;
+Function TCompiler.PutLabel(fName: String; const asNode: Boolean=False): PMOpcode;
 Var Item: PMOpcode;
-    C   : TMConstruction;
+    Node: TCFGNode;
 Begin
- if (asConstruction) Then
+ if (asNode) Then
  Begin
-  C.Typ := ctLabel;
-  SetLength(C.Values, 2);
-  C.Values[0] := CopyStringToPChar(fName);
-  C.Values[1] := Parser.next_pnt(-1);
-  AddConstruction(C);
+  Node                     := TCFGNode.Create(fCurrentNode, cetBytecode, nil, Parser.next_pnt(-1));
+  Node.Bytecode.OpcodeName := '';
+  Node.Bytecode.LabelName  := fName;
+
+  CFGAddNode(Node);
+
   Exit(nil);
  End Else
  Begin
@@ -921,7 +968,7 @@ Begin
 
  if (not inFunction) Then
  Begin
-  DevLog('Info: findLocalType() called outside function');
+  DevLog(dvInfo, 'TCompiler.findLocalType', 'called outside function');
   Exit;
  End;
 
@@ -964,7 +1011,7 @@ Begin
 End;
 
 (* TCompiler.findTypeCandidate *)
-Procedure TCompiler.findTypeCandidate(const TypeName: String; Namespaces: TMIntegerArray; out TypeID, NamespaceID: Integer; const Token: PToken_P=nil);
+Procedure TCompiler.findTypeCandidate(const TypeName: String; Namespaces: TIntegerArray; out TypeID, NamespaceID: Integer; const Token: PToken_P=nil);
 Begin
  findGlobalCandidate(TypeName, Namespaces, TypeID, NamespaceID, Token);
 
@@ -978,12 +1025,12 @@ End;
 
 (* TCompiler.getTypeFromExpr *)
 {
- Gets a type from TMExpression; works only for constant (already folded) expressions (ie. only a parent without any childrens).
+ Gets the type from TExpression; works only for constant (already folded) expressions (ie. only a parent without any childrens).
 }
-Function TCompiler.getTypeFromExpr(Expr: TMExpression): TType;
+Function TCompiler.getTypeFromExpr(Expr: TExpression): TType;
 Begin
  if (Expr.Left <> nil) or (Expr.Right <> nil) Then
-  CompileError(eInternalError, ['Expected a folded expression']);
+  CompileError(eInternalError, ['A folded expression was expected!']);
 
  Case Expr.Typ of
   mtBool  : Exit(TYPE_BOOL);
@@ -1000,9 +1047,9 @@ End;
 (* TCompiler.NewScope *)
 {
  Makes a new scope typed `Typ`; when scope is a loop (supporting `continue` and `break`), there are required also
- `LoopBegin` and `LoopEnd`, which are labels' names (without preceding `:`) for - respectively - `continue` and `break` instructions
+ `LoopBegin` and `LoopEnd`, which are nodes for - respectively - `continue` and `break` instructions
 }
-Procedure TCompiler.NewScope(const Typ: TMScopeType; LoopBegin: String=''; LoopEnd: String='');
+Procedure TCompiler.NewScope(const Typ: TScopeType; LoopBegin: TCFGNode=nil; LoopEnd: TCFGNode=nil);
 Begin
  SetLength(Scope, Length(Scope)+1);
  Scope[High(Scope)].Typ       := Typ;
@@ -1023,44 +1070,12 @@ Begin
 End;
 
 (* TCompiler.inRange *)
-Function TCompiler.inRange(Range: TRange; TokenPos: Int64): Boolean;
+Function TCompiler.inRange(Range: TRange; Position: Int64): Boolean;
 Begin
- if (TokenPos < 0) Then
-  TokenPos := Parser.TokenPos;
+ if (Position < 0) Then
+  Position := Parser.next(-1).Position;
 
- Exit(Math.inRange(TokenPos, Range.PBegin, Range.PEnd));
-End;
-
-(* TCompiler.findFreeRegister *)
-{
- Searches for a free register (e_3 / e_4) of type `cRegChar`.
- Should be called only for local (or temporary) variable allocation.
- When a free register is found, returned is its ID; in other case, returned is `-1`.
-}
-Function TCompiler.findFreeRegister(cRegChar: Char): Integer;
-Var I       : Integer;
-    FreeRegs: Set of 1..4 = [];
-    Symbol  : TLocalSymbol;
-Begin
- For I := 3 To 4 Do // first 2 registers (ei1/ei2, ef1/ef2 ...) of each type are used in temporary calculations, so we cannot use them as variable holders
-  Include(FreeRegs, I);
-
- if not (cRegChar in ['b', 'c', 'i', 'f', 's', 'r']) Then
-  CompileError(eInternalError, ['TCompiler.findFreeRegister() called with invalid register prefix: #'+IntToStr(ord(cRegChar))]);
-
- With getCurrentFunction do // search in current function
- Begin
-  For Symbol in SymbolList Do // each symbol
-   if (Symbol.Typ = lsVariable) Then // if variable
-    With Symbol, mVariable do
-     if (inRange(Range)) and (Typ.RegPrefix = cRegChar) and (MemPos > 0) Then // if register is already allocated, we exclude it from the `FreeRegs` list
-      Exclude(FreeRegs, MemPos);
-
-  For I in FreeRegs Do // return first free register
-   Exit(I);
- End;
-
- Result := -1; // no free register found! :<
+ Exit(Math.inRange(Position, Range.PBegin, Range.PEnd));
 End;
 
 (* TCompiler.__variable_create *)
@@ -1088,40 +1103,64 @@ Begin
  End;
 End;
 
-(* TCompiler.__allocate_var *)
+(* TCompiler.FetchVariableValue *)
 {
- Tries to allocate a variable; returns `TVariable.MemPos`
+ Tries to fetch the variable's value from previous nodes.
+
+ @TODO:
+ if (x == 30)
+ {
+  y = 2*x; // `x` have to be `30`, so it can be directly inserted
+ }
 }
-Function TCompiler.__allocate_var(const TryRegisters: Boolean; RegPrefix: Char=#0): Integer;
-Var Symbol: TLocalSymbol;
+Function TCompiler.FetchVariableValue(VariablePnt: TVariable): PExpression;
+Var Node   : TCFGNode;
+    Visited: TStringList;
+    VarName: String;
 Begin
- Result := -1;
+ Result := nil;
 
- { allocate in register }
- if (TryRegisters) Then
-  Result := findFreeRegister(RegPrefix);
+ VarName := TVariable(VariablePnt).RefSymbol.Name;
 
- { allocate on the stack }
- if (Result = -1) Then
- Begin
-  Result := 0;
-  With getCurrentFunction do
-   For Symbol in SymbolList Do // each symbol
-    if (Symbol.Typ = lsVariable) Then // if vasriable
-     With Symbol, mVariable do
-      if (inRange(Range)) and (MemPos <= 0) and (not DontAllocate) Then
-       Dec(Result);
+ Node := getCurrentNode;//.Parent;
+
+ if (Node = nil) Then
+  Node := getCurrentNode;
+
+ Visited := TStringList.Create;
+ Try
+  While (Node <> nil) Do
+  Begin
+   if (Visited.IndexOf(Node.getGraphSymbol) <> -1) Then // node has been already visited
+    Break;
+
+   Visited.Add(Node.getGraphSymbol);
+
+   if (Node.Typ = cetCondition) Then
+   Begin
+    if (isVariableModified(VariablePnt, Node.Child[0], Node.Child[2])) and (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
+     Exit(nil);
+
+    if (isVariableModified(VariablePnt, Node.Child[1], Node.Child[2])) and (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
+     Exit(nil);
+   End;
+
+   if (Node.Value <> nil) Then
+   Begin
+    if (Node.Value^.Typ in [mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq]) and (Node.Value^.Left^.IdentName = VarName) Then // @TODO: 1) these operators can be nested; 2) if the right side is known, we can parse it at the compile-time
+     Exit(nil);
+
+    if (Node.Value^.Typ = mtAssign) Then // @TODO: assigns can be nested inside expression!
+     if (Node.Value^.Left^.IdentName = VarName) Then
+      if (Node.Value^.Right^.isConstant) Then
+       Exit(Node.Value^.Right);
+   End;
+
+   Node := Node.Parent;
+  End;
+ Finally
+  Visited.Free;
  End;
-End;
-
-(* TCompiler.isConstantValue *)
-{
- Returns `true`, when an expression is a constant value.
- Passed expression must be already folded.
-}
-Function TCompiler.isConstantValue(Expr: TMExpression): Boolean;
-Begin
- Result := (Expr.Left = nil) and (Expr.Right = nil) and (Expr.Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]);
 End;
 
 (* TCompiler.findLocalVariable *)
@@ -1129,7 +1168,7 @@ End;
  Finds a local variable or constant with specified name (`fName`) in specified scope (`fDeep`).
  When `fDeep` equals `-1`, it's set to current scope.
 }
-Function TCompiler.findLocalVariable(fName: String; fTokenPos: Int64=-1): Integer;
+Function TCompiler.findLocalVariable(fName: String): Integer;
 Var I: Integer;
 Begin
  Result := -1;
@@ -1142,7 +1181,7 @@ Begin
   For I := 0 To SymbolList.Count-1 Do
    if (SymbolList[I].Typ in [lsVariable, lsConstant]) Then
     With SymbolList[I], mVariable do
-     if (inRange(Range, fTokenPos) and (Name = fName)) Then
+     if (inRange(Range) and (Name = fName)) Then
       Exit(I);
  End;
 End;
@@ -1152,7 +1191,7 @@ End;
  See @TCompiler.findGlobalCandidate
  This function searches global constants and variables.
 }
-Procedure TCompiler.findGlobalVariableCandidate(const VarName: String; Namespaces: TMIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
+Procedure TCompiler.findGlobalVariableCandidate(const VarName: String; Namespaces: TIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
 Begin
  findGlobalCandidate(VarName, Namespaces, VarID, NamespaceID, Token);
 
@@ -1216,7 +1255,7 @@ End;
 
  Also, when `Token == nil`, it's automatically set to current token.
 }
-Procedure TCompiler.findFunctionCallCandidate(const FuncName: String; Namespaces: TMIntegerArray; out FuncID, NamespaceID: Integer; const Token: PToken_P=nil);
+Procedure TCompiler.findFunctionCallCandidate(const FuncName: String; Namespaces: TIntegerArray; out FuncID, NamespaceID: Integer; const Token: PToken_P=nil);
 Begin
  findGlobalCandidate(FuncName, Namespaces, FuncID, NamespaceID, Token);
 
@@ -1225,6 +1264,29 @@ Begin
   Begin
    FuncID      := -1;
    NamespaceID := -1;
+  End;
+End;
+
+(* TCompiler.CFGAddNode *)
+{
+ Adds a note to current function's flow graph.
+}
+Procedure TCompiler.CFGAddNode(Node: TCFGNode);
+Begin
+ if (Node = nil) Then
+  CompileError(eInternalError, ['Node = nil']);
+
+ if (fCurrentRoot = nil) Then
+ Begin
+  fCurrentRoot := Node;
+  fCurrentNode := Node;
+ End Else
+
+ if (fCurrentNode = nil) Then
+  fCurrentNode := Node Else
+  Begin
+   fCurrentNode.Child.Add(Node);
+   fCurrentNode := Node;
   End;
 End;
 
@@ -1295,7 +1357,7 @@ End;
 {
  This function searches for global variables, constants, functions and types.
 }
-Procedure TCompiler.findGlobalCandidate(const IdentName: String; Namespaces: TMIntegerArray; out IdentID, NamespaceID: Integer; const Token: PToken_P=nil);
+Procedure TCompiler.findGlobalCandidate(const IdentName: String; Namespaces: TIntegerArray; out IdentID, NamespaceID: Integer; const Token: PToken_P=nil);
 Type TCandidate = Record
                    ID, Namespace: Integer;
                    Symbol       : TSymbol;
@@ -1458,14 +1520,14 @@ Var Compiler2: Compile2.TCompiler;
     VBytecode        : String = '';
     UnfinishedComment: Boolean = False;
 
-   // AddPrimaryType
+    // AddPrimaryType
     Procedure AddPrimaryType(Typ: TType);
     Begin
      Typ.RefSymbol.isInternal := True;
      NamespaceList[0].SymbolList.Add(TGlobalSymbol.Create(gsType, Typ));
     End;
 
-   // CheckMain
+    // CheckMain
     Function CheckMain: Boolean;
     Var FuncID: Integer;
     Begin
@@ -1485,7 +1547,7 @@ Var Compiler2: Compile2.TCompiler;
      End;
     End;
 
-   // ParseCommandLine
+    // ParseCommandLine
     Procedure ParseCommandLine;
     Var I  : Integer;
         Str: String;
@@ -1524,8 +1586,8 @@ Var Compiler2: Compile2.TCompiler;
      VBytecode := getStringOption(opt_bytecode);
     End;
 
-   // CreateGlobalConstant
-    Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PMExpression);
+    // CreateGlobalConstant
+    Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PExpression);
     Begin
      With NamespaceList.Last do
      Begin
@@ -1607,12 +1669,11 @@ Var Compiler2: Compile2.TCompiler;
     Begin
      Log('Compilation pass 1');
      ResetParser;
-     CompilePass := cp1;
+     CompilePass := _cp1;
 
      With Parser do
-      Repeat
+      While (Parser.Can) Do
        ParseToken;
-      Until (TokenPos > High(TokenList)) or (TokenList[TokenPos].Token = noToken);
     End;
 
    // Pass2
@@ -1620,12 +1681,23 @@ Var Compiler2: Compile2.TCompiler;
     Begin
      Log('Compilation pass 2');
      ResetParser;
-     CompilePass := cp2;
+     CompilePass := _cp2;
 
      With Parser do
-      Repeat
+      While (Parser.Can) Do
        ParseToken;
-      Until (TokenPos > High(TokenList)) or (TokenList[TokenPos].Token = noToken);
+    End;
+
+   // Pass3
+    Procedure Pass3;
+    Begin
+     Log('Compilation pass 3');
+     ResetParser;
+     CompilePass := _cp3;
+
+     With Parser do
+      While (Parser.Can) Do
+       ParseToken;
     End;
 
 Var Str: String;
@@ -1641,6 +1713,8 @@ Begin
  AnyError    := False;
  Parent      := fParent;
  Supervisor  := fSupervisor;
+
+ PrevRootNodes := TCFGNodeList.Create;
 
  CurrentFunction           := nil;
  DoNotGenerateCode         := False;
@@ -1663,12 +1737,12 @@ Begin
   { no parent specified }
   if (Parent = nil) Then
   Begin
-   DevLog('Info: no `parent` specified!');
+   DevLog(dvInfo, 'TCompiler.CompileCode', 'no `parent` specified!');
    Parent := self;
 
    if (isIncluded) Then
    Begin
-    DevLog('Fatal: no `parent` specified and compiling as unit!');
+    DevLog(dvFatal, 'TCompiler.CompileCode', 'no `parent` specified and compiling as an unit!');
     CompileError(eInternalError, ['Parent = nil']);
    End;
   End;
@@ -1729,10 +1803,13 @@ Begin
   { compile code }
   Pass1;
 
+  if (not AnyError) Then
+   Pass2;
+
   if (not Pass1Only) Then
   Begin
    if (not AnyError) Then
-    Pass2;
+    Pass3;
   End;
 
   { go next? }
@@ -1842,6 +1919,44 @@ End;
 Procedure TCompiler.CompileError(Error: TCompileError);
 Begin
  CompileError(Error, []);
+End;
+
+(* TCompiler.CompileWarning *)
+{
+ Displays a warning
+}
+Procedure TCompiler.CompileWarning(Token: TToken_P; Warning: TCompileWarning; Args: Array of Const);
+Begin
+ Writeln(InputFile+'('+IntToStr(Token.Line)+','+IntToStr(Token.Char)+') Warning: '+Format(CompileWarning_fmt[Warning], Args));
+End;
+
+(* TCompiler.CompileWarning *)
+{
+ See above
+}
+Procedure TCompiler.CompileWarning(Token: PToken_P; Warning: TCompileWarning; Args: Array of Const);
+Begin
+ if (Token = nil) Then
+  CompileWarning(Warning, Args) Else
+  CompileWarning(Token^, Warning, Args);
+End;
+
+(* TCompiler.CompileWarning *)
+{
+ See above
+}
+Procedure TCompiler.CompileWarning(Warning: TCompileWarning; Args: Array of Const);
+Begin
+ CompileWarning(Parser.next(0), Warning, Args);
+End;
+
+(* TCompiler.CompileWarning *)
+{
+ See above
+}
+Procedure TCompiler.CompileWarning(Warning: TCompileWarning);
+Begin
+ CompileWarning(Warning, []);
 End;
 
 (* TCompiler.CompileHint *)

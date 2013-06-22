@@ -3,20 +3,17 @@
  All rights reserved.
 *)
 
-{.$DEFINE DISPLAY_TREE}
+{.$DEFINE DISPLAY_TREE} // debug only
 {$MODESWITCH ADVANCEDRECORDS}
 
 Unit ExpressionCompiler;
 
  Interface
- Uses Compile1, MTypes, symdef, Tokens, Variants, TypInfo;
+ Uses Compile1, Expression, symdef, Tokens, Variants, TypInfo;
 
  Const STACK_SIZE = 5000; // internal parser's expression stack size (in elements)
 
- Const UnaryOperations  = ['!']; // @TODO: ?
-       BinaryOperations = ['+', '-', '*', '/', '%', '=']; // @TODO: ?
-
-       _UNARY_MINUS = #01;
+ Const _UNARY_MINUS = #01;
 
  Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oDisplayParseErrors);
       TOptions = Set of TOption;
@@ -25,7 +22,7 @@ Unit ExpressionCompiler;
 
  { TStackValue }
  Type TStackValue = Record // value on the stack
-                     Typ  : TMExpressionType;
+                     Typ  : TExpressionType;
                      Value: Variant;
                      Token: TToken_P;
 
@@ -45,45 +42,63 @@ Unit ExpressionCompiler;
                        FinalExprPos: Integer;
 
                        Procedure StackPush(Val: TStackValue);
-                       Procedure StackPush(fTyp: TMExpressionType; fValue: Variant; fToken: TToken_P);
-                       Procedure StackPush(fTyp: TMExpressionType; fValue: Variant);
-                       Procedure StackPush(Typ: TMExpressionType; Token: TToken_P);
+                       Procedure StackPush(fTyp: TExpressionType; fValue: Variant; fToken: TToken_P);
+                       Procedure StackPush(fTyp: TExpressionType; fValue: Variant);
+                       Procedure StackPush(Typ: TExpressionType; Token: TToken_P);
                        Function StackPop: TStackValue;
                        Function StackPeek: TStackValue;
 
                        Procedure FinalExprPush(Val: TStackValue);
-                       Procedure FinalExprPush(Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1);
+                       Procedure FinalExprPush(Typ: TExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1);
                        Function FinalExprPop: TStackValue;
                        Function FinalExprPeek: TStackValue;
 
-                       Function CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PMExpression;
+                       Function CreateNode(Left, Right: PExpression; Typ: TExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PExpression;
 
                       Public
                        Constructor Create(fCompiler: TCompiler);
 
                        Procedure Parse(EndTokens: TTokenSet);
-                       Function MakeTree: PMExpression;
-                       Function Optimize(const Tree: PMExpression; Options: TOptions): PMExpression;
+                       Function MakeTree: PExpression;
                       End;
 
- Function EmptyExpression: PMExpression;
+ Procedure OptimizeExpression(const Compiler: TCompiler; const Tree: PExpression; const Options: TOptions);
 
- Function MakeStringExpression(const Value: String): PMExpression;
- Function MakeIntExpression(const Value: Int64): PMExpression;
- Function MakeIntExpression(const Value: String): PMExpression;
- Function MakeFloatExpression(const Value: Extended): PMExpression;
- Function getValueFromExpression(const Expr: PMExpression; Beautify: Boolean=False): String;
- Function getExpressionTypeName(const Expr: PMExpression): String;
+ Function EmptyExpression: PExpression;
 
- Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): TMConstruction;
- Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TType;
+ Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpression;
+ Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpression;
+ Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpression;
+ Function MakeFloatExpression(const Value: Extended; const Token: PToken_P=nil): PExpression;
+ Function MakeStringExpression(const Value: String; const Token: PToken_P=nil): PExpression;
+
+ Function getValueFromExpression(const Expr: PExpression; Beautify: Boolean=False): String;
+ Function getExpressionTypeName(const Expr: PExpression): String;
+ Function ExpressionToString(Expr: PExpression): String;
+
+ Function MakeExpression(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): PExpression;
+ Function CompileExpression(const CompilerPnt: Pointer; Expr: PExpression): TType;
 
  Implementation
 Uses SysUtils,
      CompilerUnit, Opcodes, Messages;
 
-{ EmptyExpression }
-Function EmptyExpression: PMExpression;
+(* OptimizeExpression *)
+Procedure OptimizeExpression(const Compiler: TCompiler; const Tree: PExpression; const Options: TOptions);
+
+{$I insert_constants.pas}
+{$I constant_folding.pas}
+
+Begin
+ if (oInsertConstants in Options) Then
+  __insert_constants(oDisplayParseErrors in Options);
+
+ if (oConstantFolding in Options) Then
+  __constant_folding(oDisplayParseErrors in Options);
+End;
+
+(* EmptyExpression *)
+Function EmptyExpression: PExpression;
 Begin
  New(Result);
 
@@ -97,44 +112,68 @@ Begin
  End;
 End;
 
-{ MakeStringExpression }
-Function MakeStringExpression(const Value: String): PMExpression;
+(* MakeBoolExpression *)
+Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpression;
 Begin
  Result := EmptyExpression;
 
- Result^.Typ   := mtString;
+ Result^.Typ   := mtBool;
  Result^.Value := Value;
+
+ if (Token <> nil) Then
+  Result^.Token := Token^;
 End;
 
-{ MakeIntExpression }
-Function MakeIntExpression(const Value: Int64): PMExpression;
-Begin
- Result := EmptyExpression;
-
- Result^.Typ   := mtInt;
- Result^.Value := Value;
-End;
-
-{ MakeIntExpression }
-Function MakeIntExpression(const Value: String): PMExpression;
+(* MakeIntExpression *)
+Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpression;
 Begin
  Result := EmptyExpression;
 
  Result^.Typ   := mtInt;
  Result^.Value := Value;
+
+ if (Token <> nil) Then
+  Result^.Token := Token^;
 End;
 
-{ MakeFloatExpression }
-Function MakeFloatExpression(const Value: Extended): PMExpression;
+(* MakeIntExpression *)
+Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpression;
+Begin
+ Result := EmptyExpression;
+
+ Result^.Typ   := mtInt;
+ Result^.Value := Value;
+
+ if (Token <> nil) Then
+  Result^.Token := Token^;
+End;
+
+(* MakeFloatExpression *)
+Function MakeFloatExpression(const Value: Extended; const Token: PToken_P=nil): PExpression;
 Begin
  Result := EmptyExpression;
 
  Result^.Typ   := mtFloat;
  Result^.Value := Value;
+
+ if (Token <> nil) Then
+  Result^.Token := Token^;
 End;
 
-{ getValueFromExpression }
-Function getValueFromExpression(const Expr: PMExpression; Beautify: Boolean=False): String;
+(* MakeStringExpression *)
+Function MakeStringExpression(const Value: String; const Token: PToken_P=nil): PExpression;
+Begin
+ Result := EmptyExpression;
+
+ Result^.Typ   := mtString;
+ Result^.Value := Value;
+
+ if (Token <> nil) Then
+  Result^.Token := Token^;
+End;
+
+(* getValueFromExpression *)
+Function getValueFromExpression(const Expr: PExpression; Beautify: Boolean=False): String;
 Var Value: String;
 Begin
  Value := VarToStr(Expr^.Value);
@@ -161,8 +200,8 @@ Begin
  Exit(Value);
 End;
 
-{ getExpressionTypeName }
-Function getExpressionTypeName(const Expr: PMExpression): String;
+(* getExpressionTypeName *)
+Function getExpressionTypeName(const Expr: PExpression): String;
 Begin
  Case Expr^.Typ of
   mtBool  : Result := 'bool';
@@ -175,47 +214,8 @@ Begin
  End;
 End;
 
-{ DisplayTree }
-Procedure DisplayTree(Tree: PMExpression; Deep: Byte=0);
-
-  // Writeln
-  Procedure Writeln(const Text: String);
-  Var I: Integer;
-  Begin
-   For I := 0 To Deep-1 Do
-    Write('-');
-   System.Writeln('> ', Text);
-  End;
-
-Var I: Integer;
-Begin
- if (Tree = nil) Then
- Begin
-  Writeln('nil');
-  Exit;
- End;
-
- if (Tree^.Value = null) Then
-  Writeln('Type = '+MExpressionDisplay[Tree^.Typ]+' | Value = [null]') Else
-  Writeln('Type = '+MExpressionDisplay[Tree^.Typ]+' | Value = '+VarToStr(Tree^.Value));
-
- Writeln('^L:');
- DisplayTree(Tree^.Left, Deep+5);
-
- Writeln('^R:');
- DisplayTree(Tree^.Right, Deep+5);
-
- Writeln('^P:');
- For I := Low(Tree^.ParamList) To High(Tree^.ParamList) Do
- Begin
-  Writeln('arg ['+IntToStr(I)+']:');
-  DisplayTree(Tree^.ParamList[I], Deep+5);
-  Writeln('');
- End;
-End;
-
-{ ExpressionToString }
-Function ExpressionToString(Expr: PMExpression): String;
+(* ExpressionToString *)
+Function ExpressionToString(Expr: PExpression): String;
 Var I   : int32;
     L, R: String;
 Begin
@@ -223,7 +223,7 @@ Begin
   Exit('');
 
  if (Expr^.Typ = mtVariable) Then
-  Exit(Expr^.VarName);
+  Exit(Expr^.IdentName);
 
  if (Expr^.Typ in [mtBool, mtChar, mtInt, mtFloat]) Then
   Exit(Expr^.Value);
@@ -234,7 +234,7 @@ Begin
  { function call }
  if (Expr^.Typ = mtFunctionCall) Then
  Begin
-  Result := Expr^.Left^.Value+'(';
+  Result := Expr^.Left^.IdentName+'(';
 
   For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
   Begin
@@ -281,7 +281,47 @@ Begin
   R := '('+R+')';
  End;
 
- Result := L+MExpressionDisplay[Expr^.Typ]+R;
+ Result := L+ExpressionDisplay[Expr^.Typ]+R;
+End;
+
+// -------------------------------------------------------------------------- //
+{ DisplayTree }
+Procedure DisplayTree(Tree: PExpression; Deep: Byte=0);
+
+  // Writeln
+  Procedure Writeln(const Text: String);
+  Var I: Integer;
+  Begin
+   For I := 0 To Deep-1 Do
+    Write('-');
+   System.Writeln('> ', Text);
+  End;
+
+Var I: Integer;
+Begin
+ if (Tree = nil) Then
+ Begin
+  Writeln('nil');
+  Exit;
+ End;
+
+ if (Tree^.Value = null) Then
+  Writeln('Type = '+ExpressionDisplay[Tree^.Typ]+' | Value = [null]') Else
+  Writeln('Type = '+ExpressionDisplay[Tree^.Typ]+' | Value = '+VarToStr(Tree^.Value));
+
+ Writeln('^L:');
+ DisplayTree(Tree^.Left, Deep+5);
+
+ Writeln('^R:');
+ DisplayTree(Tree^.Right, Deep+5);
+
+ Writeln('^P:');
+ For I := Low(Tree^.ParamList) To High(Tree^.ParamList) Do
+ Begin
+  Writeln('arg ['+IntToStr(I)+']:');
+  DisplayTree(Tree^.ParamList[I], Deep+5);
+  Writeln('');
+ End;
 End;
 
 // -------------------------------------------------------------------------- //
@@ -316,7 +356,7 @@ End;
 Function getOrder(E: TStackValue): Integer;
 Begin
  if (E.Typ in MOperators) Then
-  Result := getOrder(MExpressionDisplay[E.Typ]) Else
+  Result := getOrder(ExpressionDisplay[E.Typ]) Else
   Result := -1;
 End;
 
@@ -329,9 +369,9 @@ End;
 { isLeftAssoc }
 Function isLeftAssoc(X: String): Boolean;
 Begin
- Result := ((X[1] in BinaryOperations) or (X = '<<') or (X = '>>') or (X = '==') or (X = '!=') or (X = '>=') or (X = '<=') or (X = '<') or (X = '>')
-                                       or (X = '+=') or (X = '-=') or (X = '*=') or (X = '/=') or (X = '%=') or (X = '&&') or (X = '||')
-                                       and (not isRightAssoc(X)));
+ Result := ((X[1] in ['+', '-', '*', '/', '%', '=']) or (X = '<<') or (X = '>>') or (X = '==') or (X = '!=') or (X = '>=') or (X = '<=') or (X = '<') or (X = '>')
+           or (X = '+=') or (X = '-=') or (X = '*=') or (X = '/=') or (X = '%=') or (X = '&&') or (X = '||')
+           and (not isRightAssoc(X)));
 End;
 
 // ---------- TInterpreter ---------- //
@@ -344,7 +384,7 @@ Begin
 End;
 
 { TInterpreter.StackPush }
-Procedure TInterpreter.StackPush(fTyp: TMExpressionType; fValue: Variant; fToken: TToken_P);
+Procedure TInterpreter.StackPush(fTyp: TExpressionType; fValue: Variant; fToken: TToken_P);
 Begin
  With Stack[StackPos] do
  Begin
@@ -356,7 +396,7 @@ Begin
 End;
 
 { TInterpreter.StackPush }
-Procedure TInterpreter.StackPush(fTyp: TMExpressionType; fValue: Variant);
+Procedure TInterpreter.StackPush(fTyp: TExpressionType; fValue: Variant);
 Begin
  With Stack[StackPos] do
  Begin
@@ -367,7 +407,7 @@ Begin
 End;
 
 { TInterpreter.StackPush }
-Procedure TInterpreter.StackPush(Typ: TMExpressionType; Token: TToken_P);
+Procedure TInterpreter.StackPush(Typ: TExpressionType; Token: TToken_P);
 Begin
  StackPush(Typ, null, Token);
 End;
@@ -399,7 +439,7 @@ Begin
 End;
 
 { TInterpreter.FinalExprPush }
-Procedure TInterpreter.FinalExprPush(Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1);
+Procedure TInterpreter.FinalExprPush(Typ: TExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1);
 Var Val: TStackValue;
 Begin
  Val.Typ         := Typ;
@@ -429,7 +469,7 @@ Begin
 End;
 
 { TInterpreter.CreateNode }
-Function TInterpreter.CreateNode(Left, Right: PMExpression; Typ: TMExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PMExpression;
+Function TInterpreter.CreateNode(Left, Right: PExpression; Typ: TExpressionType; Value: Variant; Token: TToken_P; NamespaceID: Integer=-1): PExpression;
 Begin
  New(Result);
 
@@ -440,14 +480,14 @@ Begin
    Result^.Namespaces[0] := NamespaceID;
   End;
 
- Result^.Left           := Left;
- Result^.Right          := Right;
- Result^.Typ            := Typ;
- Result^.Value          := Value;
- Result^.Token          := Token;
- Result^.IdentID        := -1;
- Result^.IdentNamespace := -1;
- Result^.isLocal        := False;
+ Result^.Left      := Left;
+ Result^.Right     := Right;
+ Result^.Typ       := Typ;
+ Result^.Value     := Value;
+ Result^.Token     := Token;
+ Result^.Symbol    := nil;
+ Result^.isLocal   := False;
+ Result^.IdentName := '';
 
  Result^.ResultOnStack := False;
 End;
@@ -900,22 +940,22 @@ End;
 End;
 
 { TInterpreter.MakeTree }
-Function TInterpreter.MakeTree: PMExpression;
+Function TInterpreter.MakeTree: PExpression;
 Var Pos, I: Integer;
     Value : TStackValue;
-    MType : TMExpressionType;
-    Node  : PMExpression;
+    MType : TExpressionType;
+    Node  : PExpression;
 
     ID, Namespace: Integer;
 
 { CreateNodeFromStack }
-Function CreateNodeFromStack: PMExpression;
+Function CreateNodeFromStack: PExpression;
 Var Value: TStackValue;
 
-    Tmp: PMExpression;
+    Tmp: PExpression;
 
     Name      : String;
-    Namespaces: TMIntegerArray;
+    Namespaces: TIntegerArray;
 Begin
  Value := StackPop;
 
@@ -925,7 +965,7 @@ Begin
   if (Value.Value = null) Then // shouldn't happen
    Compiler.CompileError(eInternalError, ['Value.Value = null']);
 
-  Result := PMExpression(LongWord(Value.Value)); // get pointer
+  Result := PExpression(LongWord(Value.Value)); // get pointer
 
   { function call }
   if (Result^.Typ = mtFunctionCall) Then
@@ -934,7 +974,10 @@ Begin
 
    if (Tmp^.Typ = mtVariable) Then // calling an identifier
    Begin
-    Name       := Tmp^.Value;
+    if (Tmp^.Value = null) Then
+     Name := Tmp^.IdentName Else
+     Name := Tmp^.Value;
+
     Namespaces := Tmp^.Namespaces;
 
     if (Name <> '') Then
@@ -948,15 +991,13 @@ Begin
       if (ID = -1) or not (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsFunction]) Then // nor a global variable/function - so raise error
        Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
       Begin // global variable
-       Result^.IdentID        := ID;
-       Result^.IdentNamespace := Namespace;
-       Result^.isLocal        := False;
+       Result^.Symbol  := Compiler.NamespaceList[Namespace].SymbolList[ID];
+       Result^.isLocal := False;
       End;
      End Else // local variable
      Begin
-      Result^.IdentID        := ID;
-      Result^.IdentNamespace := Namespace;
-      Result^.isLocal        := True;
+      Result^.Symbol  := Compiler.getCurrentFunction.SymbolList[ID];
+      Result^.isLocal := True;
      End;
     End;
    End Else // calling not an identifier (cast-call, like: `(cast<function<void>()>(somevar))()` )
@@ -975,24 +1016,23 @@ Begin
  { variable or constant }
  if (Value.Typ = mtVariable) Then
  Begin
-  Result^.VarName := VarToStr(Result^.Value);
-  ID              := Compiler.findLocalVariable(Result^.Value); // local things at first
+  Result^.IdentName := VarToStr(Result^.Value);
+  Result^.Value     := null;
+  ID                := Compiler.findLocalVariable(Result^.IdentName); // local things at first
 
   if (ID = -1) Then // not a local variable
   Begin
-   Compiler.findGlobalCandidate(Result^.Value, Result^.Namespaces, ID, Namespace, @Result^.Token);
+   Compiler.findGlobalCandidate(Result^.IdentName, Result^.Namespaces, ID, Namespace, @Result^.Token);
 
    if (ID <> -1) and (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsConstant, gsFunction]) Then // global variable
    Begin
-    Result^.IdentID        := ID;
-    Result^.IdentNamespace := Namespace;
-    Result^.isLocal        := False;
+    Result^.Symbol  := Compiler.NamespaceList[Namespace].SymbolList[ID];
+    Result^.isLocal := False;
    End;
   End Else // local variable
   Begin
-   Result^.IdentID        := ID;
-   Result^.IdentNamespace := Namespace;
-   Result^.isLocal        := True;
+   Result^.Symbol  := Compiler.getCurrentFunction.SymbolList[ID];
+   Result^.isLocal := True;
   End;
  End;
 End;
@@ -1126,26 +1166,10 @@ Begin
   Compiler.CompileError(eInvalidExpression, []);
 End;
 
-{ TInterpreter.Optimize }
-Function TInterpreter.Optimize(const Tree: PMExpression; Options: TOptions): PMExpression;
-
-{$I insert_constants.pas}
-{$I constant_folding.pas}
-
-Begin
- if (oInsertConstants in Options) Then
-  __insert_constants(oDisplayParseErrors in Options);
-
- if (oConstantFolding in Options) Then
-  __constant_folding(oDisplayParseErrors in Options);
-
- Exit(Tree);
-End;
-
 // ---------- </> ---------- //
 
-{ MakeConstruction }
-Function MakeConstruction(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): TMConstruction;
+{ MakeExpression }
+Function MakeExpression(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): PExpression;
 Var Compiler   : TCompiler absolute CompilerPnt;
     Interpreter: TInterpreter;
 Begin
@@ -1162,12 +1186,10 @@ Begin
 
   Interpreter.Parse(EndTokens);
 
-  Result.Typ := ctExpression;
-  SetLength(Result.Values, 1);
-  Result.Values[0] := Interpreter.Optimize(Interpreter.MakeTree, Options);
+  Result := Interpreter.MakeTree;//Interpreter.Optimize(Interpreter.MakeTree, Options);
 
   {$IFDEF DISPLAY_TREE}
-   DisplayTree(Result.Values[0]);
+   DisplayTree(Result);
   {$ENDIF}
  Finally
   Interpreter.Free;
@@ -1175,13 +1197,13 @@ Begin
 End;
 
 { getDisplay }
-Function getDisplay(Expr: PMExpression): String;
+Function getDisplay(Expr: PExpression): String;
 Begin
  if (Expr^.Value = null) Then
-  Result := MExpressionDisplay[Expr^.Typ] Else
+  Result := ExpressionDisplay[Expr^.Typ] Else
 
- if (Expr^.VarName <> '') Then
-  Result := Expr^.VarName Else
+ if (Expr^.IdentName <> '') Then
+  Result := Expr^.IdentName Else
 
   Result := Expr^.Value;
 End;
@@ -1193,11 +1215,11 @@ Type TRVariable = Record
 
                    Public
                     Name   : String;
-                    ID     : Integer;
+                    Symbol : Pointer;
                     MemPos : Integer;
                     RegChar: Char;
                     Typ    : TType;
-                    Value  : PMExpression;
+                    Value  : PExpression;
 
                     getArray: Byte;
 
@@ -1216,37 +1238,37 @@ Begin
   PosStr := '['+IntToStr(MemPos-pPushedValues^)+']';
 End;
 
-{ CompileConstruction }
-Function CompileConstruction(const CompilerPnt: Pointer; Expr: PMExpression): TType;
+(* CompileExpression *)
+Function CompileExpression(const CompilerPnt: Pointer; Expr: PExpression): TType;
 Var Compiler    : TCompiler; // caller compiler pointer
     ExprLabel   : String; // unique name for each expression
     PushedValues: Integer=0; // amount of values pushed onto stack; used in eg.getting value of variables lying on the stack
 
 { Parse }
-Function Parse(Expr: PMExpression; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): TType;
-Var Left, Right: PMExpression; // left and right side of the `Expr`
+Function Parse(Expr: PExpression; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): TType;
+Var Left, Right: PExpression; // left and right side of the `Expr`
     Push_IF_reg: Boolean=False; // if `true`, the `if` register is pushed at the end of parsing `Expr`
 
-  { Error }
+  // Error
   Procedure Error(Error: TCompileError; Args: Array of Const);
   Begin
    Compiler.CompileError(Expr^.Token, Error, Args);
   End;
 
-  { Error }
+  // Error
   Procedure Error(Token: TToken_P; Error: TCompileError; Args: Array of Const);
   Begin
    Compiler.CompileError(Token, Error, Args);
   End;
 
-  { Hint }
+  // Hint
   Procedure Hint(Hint: TCompileHint; Args: Array of Const);
   Begin
    Compiler.CompileHint(Expr^.Token, Hint, Args);
   End;
 
-  { RePop }
-  Procedure RePop(Expr: PMExpression; TypeID: TType; Reg: Byte);
+  // RePop
+  Procedure RePop(Expr: PExpression; TypeID: TType; Reg: Byte);
   Begin
    if (Expr^.ResultOnStack) Then
    Begin
@@ -1259,8 +1281,8 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
    End;
   End;
 
-  { getVariable }
-  Function getVariable(Expr: PMExpression; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
+  // getVariable
+  Function getVariable(Expr: PExpression; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
   Label Failed;
   Begin
    { set default values }
@@ -1283,10 +1305,10 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
     Inc(Result.getArray);
    End;
 
-   Result.Name := Expr^.VarName;
-   Result.ID   := Expr^.IdentID;
+   Result.Name   := Expr^.IdentName;
+   Result.Symbol := Expr^.Symbol;
 
-   if (Result.ID = -1) Then // variable or constant not found
+   if (Result.Symbol = nil) Then // variable or constant not found
     goto Failed;
 
    if (Expr^.isLocal) Then
@@ -1294,7 +1316,7 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
     { local variable or constant }
     With Compiler.getCurrentFunction, Result do
     Begin
-     mVariable := SymbolList[ID].mVariable;
+     mVariable := TLocalSymbol(Result.Symbol).mVariable;
      MemPos    := mVariable.MemPos;
      Typ       := mVariable.Typ;
      RegChar   := mVariable.Typ.RegPrefix;
@@ -1306,7 +1328,7 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
     { global variable or constant }
     With Result do
     Begin
-     mVariable := Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Result.ID].mVariable;
+     mVariable := TGlobalSymbol(Result.Symbol).mVariable;
 
      if (mVariable = nil) Then
       goto Failed;
@@ -1320,7 +1342,7 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
    End;
 
   Failed:
-   if (Result.ID = -1) and (FailWhenNotFound) Then // var not found
+   if (Result.Symbol = nil) and (FailWhenNotFound) Then // var not found
    Begin
     Error(eUnknownVariable, [Result.Name]);
     Exit;
@@ -1335,7 +1357,7 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
   Begin
    if (Value = null) Then
    Begin
-    DevLog('Warning: getType() -> Value = null; returned `nil`');
+    DevLog(dvWarning, 'getType', 'Value = null; returned `nil`');
     Exit(nil);
    End;
 
@@ -1343,7 +1365,7 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
   End;
 
   { getTypeFromMExpr }
-  Function getTypeFromMExpr(Expr: PMExpression): TType;
+  Function getTypeFromMExpr(Expr: PExpression): TType;
   Begin
    Result := TYPE_ANY;
    Case Expr^.Typ of
@@ -1357,7 +1379,7 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
   End;
 
   { getValueFromMExpr }
-  Function getValueFromMExpr(Expr: PMExpression): String;
+  Function getValueFromMExpr(Expr: PExpression): String;
   Begin
    if (Expr^.Value = null) Then
     Error(eInternalError, ['Expr^.Value = null']);
@@ -1366,20 +1388,20 @@ Var Left, Right: PMExpression; // left and right side of the `Expr`
   End;
 
   { isLValue }
-  Function isLValue(Expr: PMExpression): Boolean;
+  Function isLValue(Expr: PExpression): Boolean;
   Begin
    Result := (Expr^.Typ in [mtVariable, mtArrayElement]);
 
-   if (Expr^.Typ = mtVariable) and (Expr^.IdentID <> -1) Then // check if passed variable identifier isn't a constant
+   if (Expr^.Typ = mtVariable) and (Expr^.Symbol <> nil) Then // check if passed variable identifier isn't a constant
    Begin
     if (Expr^.isLocal) Then
-     Exit(not Compiler.getCurrentFunction.SymbolList[Expr^.IdentID].mVariable.isConst) Else
-     Exit(not Compiler.NamespaceList[Expr^.IdentNamespace].SymbolList[Expr^.IdentID].mVariable.isConst);
+     Exit(not TLocalSymbol(Expr^.Symbol).mVariable.isConst) Else
+     Exit(not TGlobalSymbol(Expr^.Symbol).mVariable.isConst);
    End;
   End;
 
   { countLeaves }
-  Function countLeaves(Expr: PMExpression): LongWord;
+  Function countLeaves(Expr: PExpression): LongWord;
   Var I: Integer;
   Begin
    if (Expr = nil) Then
@@ -1491,7 +1513,7 @@ Begin
   Begin
    Variable := getVariable(Expr, False, True);
 
-   if (Variable.ID = -1) Then // variable not found
+   if (Variable.Symbol = nil) Then // variable not found
    Begin
     { special variable: `__line` }
     if (Variable.Name = '__line') and (Compiler.getBoolOption(opt_internal_const)) Then
@@ -1632,7 +1654,7 @@ Over:
 
  if (Result = nil) Then
  Begin
-  DevLog('Info: ExpressionCompiler :: Result = nil; assuming TYPE_ANY');
+  DevLog(dvInfo, 'CompileExpression::Parse', 'Result = nil; assuming `TYPE_ANY`');
   Exit(TYPE_ANY);
  End;
 
@@ -1652,6 +1674,9 @@ Over:
 End;
 
 Begin
+ if (Expr = nil) Then
+  Exit;
+
  Compiler := TCompiler(CompilerPnt);
 
  if (not Compiler.inFunction) Then

@@ -1,23 +1,29 @@
+(*
+ Copyright © by Patryk Wychowaniec, 2013
+ All rights reserved.
+*)
 Unit Parser;
 
  Interface
- Uses Classes, symdef,
-      Scanner, Tokens, MTypes;
+ Uses Classes, FGL,
+      symdef, Scanner, Tokens, Expression;
 
  Const DefaultSeparators = [_SEMICOLON, _COMMA, _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL];
+
+ Type TTokenList = specialize TFPGList<PToken_P>;
 
  { TParser }
  Type TParser = Class
                  Private
                 // private fields
-                  Compiler: Pointer;
+                  Compiler : Pointer;
+                  TokenList: TTokenList; // list of tokens (with stripped comments)
 
                   DontFailOnEOF: Boolean;
 
                  Public
                 // public fields
-                  TokenList: Array of TToken_P; // list of tokens (with stripped comments)
-                  TokenPos : Int64; // current token ID (counting from 0)
+                  TokenPos: Int64; // current token ID (counting from 0)
 
                   CurrentDeep: Integer; // current brackets' deep (`{` = +1, `}` = -1)
                   Visibility : TVisibility; // current visibility
@@ -25,10 +31,11 @@ Unit Parser;
                   Property getPosition: Int64 read TokenPos; // current token position
                   Property getVisibility: TVisibility read Visibility; // current visibility state
 
-
                 // public methods
                   Constructor Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
 
+                  Function getToken(const Index: uint32): TToken_P;
+                  Function getTokenPnt(const Index: uint32): PToken_P;
                   Function getLastToken: TToken_P;
                   Function getCurrentRange(Deep: Integer=1): TRange;
 
@@ -41,13 +48,15 @@ Unit Parser;
                   Function read_string: String;
                   Function read_int: Integer;
                   Function read_type(const AllowArrays: Boolean=True): TType;
-                  Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PMExpression;
+                  Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpression;
                   Function read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
                   Procedure eat(Token: TToken);
                   Procedure semicolon;
 
                   Procedure skip_parenthesis;
                   Procedure read_until(const Token: TToken);
+
+                  Function Can: Boolean;
                  End;
 
  Implementation
@@ -62,9 +71,8 @@ Var Scanner: TScanner; // token scanner
     Code   : TStringList; // TScanner needs a TStringList to parse code
 
     Token           : TToken_P; // current token
+    PToken          : PToken_P;
     ShortCommentLine: LongWord=0; // short comment (`//`) line
-
-    I: Integer; // temporary variable
 Begin
  Compiler      := CompilerPnt;
  inLongComment := False;
@@ -77,26 +85,17 @@ Begin
  Code.LoadFromFile(InputFile); // `InputFile` is already set in the `CompileCode`
 
  { parse it }
- SetLength(TokenList, 0);
+ TokenList := TTokenList.Create;
 
  Scanner := TScanner.Create(Code);
  if (not Scanner.Can) Then // an empty file
  Begin
-  SetLength(TokenList, 1);
-  TokenList[0].Token := _EOF;
+  // TokenList.Add(_EOF);
+  Exit;
  End;
 
  While (Scanner.Can) do
  Begin
-  if (TokenPos > High(TokenList)) Then // we ran out of the array, so we need to expand it
-  Begin
-   SetLength(TokenList, Length(TokenList)+100);
-   // @TODO: use a generic list instead of an array
-   For I := High(TokenList)-99 To High(TokenList) Do
-    if (I >= 0) Then
-     TokenList[I].Token := noToken;
-  End;
-
   Token := Scanner.getToken_P;
 
   if (Token.Token = noToken) Then // skip `noToken`-s
@@ -104,7 +103,7 @@ Begin
 
   if (Token.Token = _EOF) Then
   Begin
-   DevLog('Info: reached `EOF` - finishing code parsing...');
+   DevLog(dvInfo, 'TParser.Create', 'reached `EOF` - finishing code parsing...');
    Break;
   End;
 
@@ -123,8 +122,10 @@ Begin
 
      if (not inLongComment) Then
      Begin
-      TokenList[TokenPos] := Token;
-      Inc(TokenPos);
+      New(PToken);
+      PToken^          := Token;
+      PToken^.Position := TokenList.Count;
+      TokenList.Add(PToken);
      End;
     End;
   End;
@@ -139,16 +140,31 @@ Begin
  Code.Free;
 End;
 
+(* TParser.getToken *)
+{
+ Returns a token with specified index.
+}
+Function TParser.getToken(const Index: uint32): TToken_P;
+Begin
+ Result := TokenList[Index]^;
+End;
+
+(* TParser.getTokenPnt *)
+{
+ Returns a pointer to token with specified index.
+}
+Function TParser.getTokenPnt(const Index: uint32): PToken_P;
+Begin
+ Result := TokenList[Index];
+End;
+
 (* TParser.getLastToken *)
 {
  Returns last non-`noToken` token
 }
 Function TParser.getLastToken: TToken_P;
-Var I: LongWord;
 Begin
- For I := High(TokenList) Downto Low(TokenList) Do
-  if (TokenList[I].Token <> noToken) Then
-   Exit(TokenList[I]);
+ Exit(TokenList.Last^);
 End;
 
 (* TParser.getCurrentRange *)
@@ -162,7 +178,7 @@ Begin
   DontFailOnEOF := True; // don't fail on case when brackets are unclosed (it would fail with error `unexpected eof`), as this error will be detected and raised later (eg.when parsing a construction)
 
   TPos          := TokenPos;
-  Result.PBegin := TokenPos;
+  Result.PBegin := TokenList[TokenPos]^.Position;
 
   With TCompiler(Compiler) do
    if (ParsingFORInitInstruction) Then
@@ -186,7 +202,7 @@ Begin
       read_until(_SEMICOLON);
      End;
 
-     Result.PEnd := TokenPos;
+     Result.PEnd := TokenList[TokenPos]^.Position;
      TokenPos    := TPos;
      Exit;
     End;
@@ -196,13 +212,15 @@ Begin
 
   While (true) Do
   Begin
-   if (Result.PEnd >= High(TokenList)) Then // ending `}` not found
+   if (Result.PEnd >= TokenList.Count) Then // ending `}` not found
    Begin
-    DevLog('Syntax error: ending `}` not found');
-    Exit;
+    Dec(Result.PEnd);
+
+    DevLog(dvWarning, 'TParser.getCurrentRange', 'ending `}` not found');
+    Break;
    End;
 
-   Case TokenList[Result.PEnd].Token of
+   Case TokenList[Result.PEnd]^.Token of
     _BRACKET3_OP: Inc(Deep);
     _BRACKET3_CL: Dec(Deep);
    End;
@@ -212,6 +230,11 @@ Begin
    if (Deep = 0) Then
     Break;
   End;
+
+  if (Result.PEnd >= TokenList.Count) Then
+   Dec(Result.PEnd);
+
+  Result.PEnd := TokenList[Result.PEnd]^.Position;
 
   TokenPos := TPos;
  Finally
@@ -225,10 +248,10 @@ End;
 }
 Function TParser.read: TToken_P;
 Begin
- if (TokenPos > High(TokenList)) Then
+ if (TokenPos >= TokenList.Count) Then
   TCompiler(Compiler).CompileError(eEOF);
 
- Result := TokenList[TokenPos];
+ Result := TokenList[TokenPos]^;
  Inc(TokenPos);
 
  With TCompiler(Compiler) do
@@ -254,7 +277,7 @@ End;
 }
 Function TParser.next(const I: Integer=0): TToken_P;
 Begin
- Result := TokenList[TokenPos+I];
+ Result := next_pnt(I)^;
 End;
 
 (* TParser.next_pnt *)
@@ -263,7 +286,9 @@ End;
 }
 Function TParser.next_pnt(const I: Integer=0): PToken_P;
 Begin
- Result := @TokenList[TokenPos+I];
+ if (TokenPos+I >= TokenList.Count) Then
+  Result := TokenList.Last Else
+  Result := TokenList[TokenPos+I];
 End;
 
 (* TParser.next_t *)
@@ -546,14 +571,14 @@ End;
 {
  Reads and evaluates a constant expression.
 }
-Function TParser.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PMExpression;
+Function TParser.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpression;
 Begin
- Result := PMExpression(ExpressionCompiler.MakeConstruction(Compiler, Sep, [oInsertConstants, oConstantFolding, oDisplayParseErrors]).Values[0]);
+ Result := ExpressionCompiler.MakeExpression(Compiler, Sep, [oInsertConstants, oConstantFolding, oDisplayParseErrors]);
 End;
 
 (* TParser.read_constant_expr_int *)
 Function TParser.read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
-Var Expr: PMExpression;
+Var Expr: PExpression;
 Begin
  Expr := read_constant_expr(Sep);
 
@@ -562,7 +587,7 @@ Begin
 
  if (Expr^.Value = null) Then
  Begin
-  DevLog('Error: TParser.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
+  DevLog(dvError, 'TParser.read_constant_expr_int', 'Error: TParser.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
   Exit(0);
  End;
 
@@ -597,7 +622,7 @@ Procedure TParser.skip_parenthesis;
 Var Deep: Integer = 0;
 Begin
  Repeat
-  if ((TokenPos >= High(TokenList)) and (DontFailOnEOF)) Then
+  if ((TokenPos >= TokenList.Count) and (DontFailOnEOF)) Then
    Exit;
 
   Case read_t of
@@ -614,7 +639,7 @@ Var Deep: Integer = 0;
 Begin
  While (true) do
  Begin
-  if ((TokenPos >= High(TokenList)) and (DontFailOnEOF)) Then
+  if ((TokenPos >= TokenList.Count) and (DontFailOnEOF)) Then
    Exit;
 
   Tok := read_t;
@@ -627,5 +652,14 @@ Begin
    _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL: Dec(Deep);
   End;
  End;
+End;
+
+(* TParser.Can *)
+{
+ Returns 'true', if at least one token can be read.
+}
+Function TParser.Can: Boolean;
+Begin
+ Result := (TokenPos < TokenList.Count);
 End;
 End.

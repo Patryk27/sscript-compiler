@@ -9,7 +9,7 @@ Unit Parse_CONST;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, Tokens, MTypes, symdef, Messages, Opcodes;
+Uses Compile1, ExpressionCompiler, Tokens, symdef, Messages, Opcodes;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
@@ -17,7 +17,7 @@ Var Variable: TVariable;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- if not ((CompilePass = cp1) or (inFunction)) Then // `const` is parsed in second pass or inside function
+ if not ((CompilePass = _cp2) or (inFunction)) Then // constants are parsed in the second pass or inside a function
  Begin
   read_until(_SEMICOLON);
   Exit;
@@ -42,12 +42,12 @@ Begin
 
   eat(_EQUAL); // =
 
-  Variable.Value          := read_constant_expr; // [constant value]
-  Variable.Value^.VarName := Variable.RefSymbol.Name;
+  Variable.Value            := read_constant_expr; // [constant value]
+  Variable.Value^.IdentName := Variable.RefSymbol.Name;
 
   With Variable.Value^ do
   Begin
-   if (isConstantValue(Variable.Value^)) Then // is this a constant expression?
+   if (isConstant) Then // is this a constant expression?
    Begin
     Variable.Typ := getTypeFromExpr(Variable.Value^);
    End Else // if it's not - show error

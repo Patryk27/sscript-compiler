@@ -9,28 +9,20 @@ Unit Parse_RETURN;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, MTypes, Tokens;
+Uses Compile1, ExpressionCompiler, Tokens, cfgraph;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var C: TMConstruction;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- if (next_t = _SEMICOLON) Then // `return;`
+ if (next_t = _SEMICOLON) Then // `return;` (aka "void return")
  Begin
-  SetLength(C.Values, 1);
-
-  C.Typ       := ctVoidReturn;
-  C.Values[0] := @TokenList[TokenPos];
-
-  AddConstruction(C);
-  Exit;
+  CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, nil, next_pnt));
+ End Else // `return expression;`
+ Begin
+  CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, MakeExpression(TCompiler(Compiler))));
  End;
-
- C     := ExpressionCompiler.MakeConstruction(TCompiler(Compiler));
- C.Typ := ctReturn;
- AddConstruction(C);
 End;
 End;
 End.

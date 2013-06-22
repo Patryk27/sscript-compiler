@@ -5,24 +5,18 @@
 Unit Parse_THROW;
 
  Interface
+ Uses SysUtils;
 
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, MTypes, ExpressionCompiler, Tokens;
+Uses Compile1, ExpressionCompiler, Tokens, cfgraph;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var M: TMConstruction;
 Begin
-With TCompiler(Compiler) do
-Begin
- M.Typ := ctTHROW;
- SetLength(M.Values, 1);
- M.Values[0] := MakeConstruction(Compiler).Values[0];
-
- AddConstruction(M);
-End;
+ With TCompiler(Compiler) do
+  CFGAddNode(TCFGNode.Create(fCurrentNode, cetThrow, MakeExpression(Compiler)));
 End;
 
 End.

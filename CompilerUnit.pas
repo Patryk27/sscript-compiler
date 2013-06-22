@@ -12,7 +12,9 @@ Unit CompilerUnit;
  (
   opt_bytecode, opt_output, opt_initcode, opt_includepath,
   opt_Cm, opt_internal_const,
-  opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt__remove_unreachable, opt__short_circuit, opt_O1,
+  opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt__remove_dead, opt__short_circuit,
+  opt__constant_propagation,
+  opt__optimize_branches,
   opt__strip_debug,
   opt_header,
   opt_logo, opt_version, opt_wait, opt_verbose
@@ -33,12 +35,13 @@ Unit CompilerUnit;
   (Names: ('-Cm', '');                    Typ: pString),
   (Names: ('-internal-const', '-Cconst'); Typ: pBool),
 
-  (Names: ('--register-alloc', '-Or');     Typ: pBool),
-  (Names: ('--constant-folding', '-Of');   Typ: pBool),
-  (Names: ('--bytecode-optimize', '-Op');  Typ: pBool),
-  (Names: ('--remove-unreachable', '-Ou'); Typ: pBool),
-  (Names: ('--short-circuit', '-Os');      Typ: pBool),
-  (Names: ('-O1', '');                     Typ: pBool),
+  (Names: ('--register-alloc', '-Or');       Typ: pBool),
+  (Names: ('--constant-folding', '-Of');     Typ: pBool),
+  (Names: ('--bytecode-optimize', '-Op');    Typ: pBool),
+  (Names: ('--remove-dead', '-Ou');          Typ: pBool),
+  (Names: ('--short-circuit', '-Os');        Typ: pBool),
+  (Names: ('--constant-propagation', '-Oc'); Typ: pBool),
+  (Names: ('--optimize-branches', '-Ob');    Typ: pBool),
 
   (Names: ('--strip-debug', '-Sd'); Typ: pBool),
 
@@ -57,11 +60,14 @@ Unit CompilerUnit;
                        End;
  Type TCompileOptions = Array of TCompileOption;
 
+ // TDevlogVerbosity
+ Type TDevlogVerbosity = (dvInfo, dvWarning, dvError, dvFatal);
+
  { functions }
  Procedure Log(const Text: String);
  Procedure Log;
 
- Procedure DevLog(const Text: String);
+ Procedure DevLog(const Verbosity: TDevlogVerbosity; const FuncName, Text: String);
  Procedure DevLog;
 
  Function getCompiler: Pointer;
@@ -93,16 +99,18 @@ Begin
 End;
 
 { DevLog }
-Procedure DevLog(const Text: String);
+Procedure DevLog(const Verbosity: TDevlogVerbosity; const FuncName, Text: String);
+Const VerbosityStr: Array[TDevlogVerbosity] of String = ('info', 'warning', 'error', 'fatal');
 Begin
  if (show_devlog) Then
-  Writeln(Text);
+  Writeln('[', VerbosityStr[Verbosity], '] ', FuncName, '() -> ', Text);
 End;
 
 { DevLog }
 Procedure DevLog;
 Begin
- DevLog('');
+ if (show_devlog) Then
+  Writeln;
 End;
 
 (* getCompiler *)

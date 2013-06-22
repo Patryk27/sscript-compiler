@@ -5,74 +5,84 @@
 Unit Parse_FOR;
 
  Interface
+ Uses SysUtils;
 
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, SysUtils, Tokens, MTypes, Messages, Opcodes;
+Uses Compile1, ExpressionCompiler, Tokens, Messages, Opcodes, cfgraph;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Str               : PChar;
-    Condition, Step, C: TMConstruction;
+Var Content, Condition, Step, EndingNode: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
 
- Str := CopyStringToPChar(getCurrentFunction.MangledName+'__for_'+IntToStr(SomeCounter)+'_');
- Inc(SomeCounter);
+ Content    := TCFGNode.Create(nil, next_pnt);
+ EndingNode := TCFGNode.Create(nil, next_pnt);
 
- C.Typ := ctFOR;
- SetLength(C.Values, 3);
-
- NewScope(sFOR, Str+'step', Str+'end');
  Inc(CurrentDeep);
 
- ParsingFORInitInstruction := True;
-
- // init instruction
+ (* parse init instruction *)
+ ParsingFORInitInstruction := True; // don't even ask...
  if (next_t in [_VAR, _SEMICOLON]) Then
   ParseToken Else
-  AddConstruction(ExpressionCompiler.MakeConstruction(Compiler));
-
+  CFGAddNode(TCFGNode.Create(fCurrentNode, cetExpression, MakeExpression(Compiler)));
  ParsingFORInitInstruction := False;
 
- // condition
+ (* parse condition *)
  if (next_t = _SEMICOLON) Then
  Begin
-  read;
-  Condition.Typ := ctNone;
+  eat(_SEMICOLON);
+  Condition := TCFGNode.Create(fCurrentNode, cetCondition, MakeBoolExpression(True, next_pnt(-1)));
  End Else
-  Condition := MakeConstruction(Compiler, [_SEMICOLON]);
+  Condition := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_SEMICOLON]));
 
- // step
+ (* parse step instruction *)
  if (next_t = _BRACKET1_CL) Then
  Begin
-  read;
-  Step.Typ := ctNone;
+  eat(_BRACKET1_CL);
+  Step := nil;
  End Else
-  Step := MakeConstruction(Compiler, [_BRACKET1_CL]);
+  Step := TCFGNode.Create(fCurrentNode, cetExpression, MakeExpression(Compiler, [_BRACKET1_CL]));
 
- if (Condition.Typ <> ctNone) Then
-  C.Values[0] := Condition.Values[0] Else
-  C.Values[0] := nil;
+ (* parse loop's content *)
+ setNewRootNode(Content);
 
- if (Step.Typ <> ctNone) Then
-  C.Values[1] := Step.Values[0] Else
-  C.Values[1] := nil;
-
- C.Values[2] := Str;
- AddConstruction(C);
+ if (Step = nil) Then
+  NewScope(sFOR, Content, EndingNode) Else
+  NewScope(sFOR, Step, EndingNode);
 
  ParseCodeBlock(True); // parse 'for' loop
 
- C.Typ := ctFOR_end;
- SetLength(C.Values, 0);
- AddConstruction(C);
-
  Dec(CurrentDeep);
  RemoveScope;
+
+ if (Step <> nil) Then // add step instruction
+  CFGAddNode(Step);
+
+ if (Condition = nil) Then // check condition
+  CFGAddNode(Content) Else
+  CFGAddNode(Condition);
+
+ restorePrevRootNode;
+
+ (* do some control-flow-graph magic *)
+ if (Condition = nil) Then
+  CFGAddNode(Content) Else
+  CFGAddNode(Condition);
+
+ EndingNode.Parent := fCurrentNode;
+ fCurrentNode      := EndingNode;
+
+ if (Condition <> nil) Then
+ Begin
+  Condition.Child.Add(Content); // on true
+  Condition.Child.Add(EndingNode); // on false
+  Condition.Child.Add(EndingNode);
+ End;
 End;
 End;
 End.

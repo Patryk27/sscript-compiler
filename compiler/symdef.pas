@@ -5,7 +5,7 @@
 Unit symdef;
 
  Interface
- Uses MTypes, Tokens, FGL;
+ Uses FGL, Expression, cfgraph, Tokens;
 
  Type TVisibility = (mvPublic, mvPrivate);
 
@@ -55,7 +55,7 @@ Unit symdef;
       TParam = Record
                 Name        : String;
                 Typ         : TType;
-                DefaultValue: PMExpression;
+                DefaultValue: PExpression;
                 Attributes  : TVariableAttributes;
                 isConst     : Boolean;
                 isVar       : Boolean;
@@ -113,10 +113,10 @@ Unit symdef;
                    // public fields
                     RefSymbol: TSymbol;
 
-                    MemPos: Integer; // negative values and zero for stack position, positive values for register ID (1..4)
+                    MemPos: int16; // negative values and zero for stack position, positive values for register ID (1..4)
 
                     Typ  : TType;
-                    Value: PMExpression;
+                    Value: PExpression;
 
                     isFreed: Boolean; // used for reference-counted variables; by default equal `false`
 
@@ -146,9 +146,9 @@ Unit symdef;
 
                     Return: TType; // return type
 
-                    ParamList       : TParamList; // parameter list
-                    SymbolList      : TLocalSymbolList; // local symbol list
-                    ConstructionList: TMConstructionList; // construction list
+                    ParamList : TParamList; // parameter list
+                    SymbolList: TLocalSymbolList; // local symbol list
+                    FlowGraph : TCFGraph; // flow graph
 
                     Attributes: TFunctionAttributes;
 
@@ -453,7 +453,7 @@ Var I: Integer;
 Begin
  if (self = nil) Then
  Begin
-  DevLog('Error: TType.getBytecodeType() -> self = nil; that was not supposed to happen. Returned an empty string.');
+  DevLog(dvError, 'TType.getBytecodeType', 'self = nil; that was not supposed to happen. Returned an empty string.');
   Exit('');
  End;
 
@@ -646,7 +646,7 @@ Begin
 
  if (ArrayBase = self) Then
  Begin
-  DevLog('Error: TType.Clone() -> ArrayBase = self; cannot do the entire type cloning');
+  DevLog(dvError, 'TType.Clone', 'ArrayBase = self; cannot do the entire type cloning');
   Result.ArrayBase := ArrayBase;
   Exit;
  End;
@@ -711,7 +711,7 @@ Begin
 
   if (InternalID > High(PrimaryTypeNames)) Then
   Begin
-   DevLog('Error: InternalID > High(PrimaryTypeNames) ['+IntToStr(InternalID)+' > '+IntToStr(High(PrimaryTypeNames))+']; returned `erroneous type`');
+   DevLog(dvError, 'TType.asString', 'InternalID > High(PrimaryTypeNames) ['+IntToStr(InternalID)+' > '+IntToStr(High(PrimaryTypeNames))+']; returned `erroneous type`');
    Exit('erroneous type');
   End;
 
@@ -748,7 +748,7 @@ Begin
 
  if (self = nil) or (T2 = nil) Then
  Begin
-  DevLog('Comparing erroneous types; returned `true`');
+  DevLog(dvWarning, 'TType.CanBeAssignedTo', 'comparing erroneous types; returned `true`');
   Exit(True);
  End;
 
@@ -849,13 +849,13 @@ Function TType.CanBeCastedTo(T2: TType): Boolean;
 Begin
  if (self = nil) Then
  Begin
-  DevLog('Warning: TType.CanBeCastedTo() -> self = nil; returned `false`');
+  DevLog(dvWarning, 'TType.CanBeCastedTo', 'self = nil; returned `false`');
   Exit(False);
  End;
 
  if (T2 = nil) Then
  Begin
-  DevLog('Warning: TType.CanBeCastedTo() -> T2 = nil; returned `false`');
+  DevLog(dvWarning, 'TType.CanBeCastedTo', 'T2 = nil; returned `false`');
   Exit(False);
  End;
 
@@ -944,8 +944,8 @@ Begin
  Return := nil;
 
  SetLength(ParamList, 0);
- SetLength(ConstructionList, 0);
 
+ FlowGraph  := TCFGraph.Create;
  SymbolList := TLocalSymbolList.Create;
 
  Attributes := [];

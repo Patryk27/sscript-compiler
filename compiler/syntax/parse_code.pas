@@ -10,12 +10,10 @@ Unit Parse_CODE;
  Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
 
  Implementation
-Uses Compile1, ExpressionCompiler, Messages, MTypes, Tokens, Opcodes;
+Uses Compile1, ExpressionCompiler, Messages, Tokens, Opcodes, cfgraph;
 
-{ Parse }
+(* Parse *)
 Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
-Type TVarRecArray = Array of TVarRec;
-     PVarRecArray = ^TVarRecArray;
 Var Opcode: PMOpcode;
 
     Deep, IdentID, IdentNamespace: Integer;
@@ -28,7 +26,7 @@ Var Opcode: PMOpcode;
     Arg    : String;
     ArgList: PVarRecArray;
 
-    C: TMConstruction;
+    Node: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
@@ -179,12 +177,12 @@ Begin
      PutOpcode(Name, ArgList^);
     End Else
     Begin
-     C.Typ := ctInlineBytecode;
-     SetLength(C.Values, 3);
-     C.Values[0] := Name;
-     C.Values[1] := ArgList;
-     C.Values[2] := next_pnt(-1);
-     AddConstruction(C);
+     Node                        := TCFGNode.Create(fCurrentNode, next_pnt(-1));
+     Node.Typ                    := cetBytecode;
+     Node.Bytecode.OpcodeName    := Name;
+     Node.Bytecode.OpcodeArgList := ArgList;
+
+     CFGAddNode(Node);
     End;
    End;
   End;

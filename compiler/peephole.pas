@@ -3,7 +3,7 @@
  All rights reserved.
 *)
 
-{$MODE DELPHI} // so we don't have to use the `^` operator all the time.
+{$MODE DELPHI} // use Delphi syntax, so we don't have to use the dereference (`^`) operator all the time.
 
 Unit Peephole;
 
@@ -30,7 +30,7 @@ End;
 }
 Function isInt(T: TPrimaryType): Boolean;
 Begin
- Result := T in [ptInt];
+ Result := (T = ptInt);
 End;
 
 (* isVariableHolder *)
@@ -94,7 +94,7 @@ Begin
 
   if (OpcodeList.Count = 0) Then
   Begin
-   DevLog('Info: OpcodeList.Count = 0 -> no optimizations to do!');
+   DevLog(dvInfo, 'OptimizeBytecode', 'OpcodeList.Count = 0; no optimizations to be done!');
    Exit;
   End;
 

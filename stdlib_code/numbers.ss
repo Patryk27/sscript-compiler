@@ -162,7 +162,7 @@ function<string> fltstr(float n)
  }
 
  if (neg)
-  result = '-'+result;
+  result = "-"+result;
  
  if (strfind(".", result))
   return strremove_end(result, '0'); else

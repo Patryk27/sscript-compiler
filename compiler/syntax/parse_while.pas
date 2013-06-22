@@ -5,91 +5,95 @@
 Unit Parse_WHILE;
 
  Interface
+ Uses SysUtils;
 
  Procedure Parse(Compiler: Pointer);
  Procedure Parse_DO_WHILE(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, SysUtils, Tokens, MTypes, Messages, Opcodes;
+Uses Compile1, ExpressionCompiler, Tokens, Messages, Opcodes, cfgraph;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Str         : PChar;
-    Condition, C: TMConstruction;
+Var ConditionNode, CondTrue, CondFalse, CondTrueLast: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
 
- Str := CopyStringToPChar(getCurrentFunction.MangledName+'__while_'+IntToStr(SomeCounter)+'_');
+ (* parse loop condition *)
+ ConditionNode := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_BRACKET1_CL]));
+ CondFalse     := TCFGNode.Create(ConditionNode, next_pnt); // dummy
 
- Inc(SomeCounter);
+ (* parse loop content *)
+ CondTrue := TCFGNode.Create(ConditionNode, next_pnt);
+ setNewRootNode(CondTrue);
 
- C.Typ := ctWHILE;
- SetLength(C.Values, 2);
-
- NewScope(sWHILE, Str+'condition', Str+'end');
+ NewScope(sWHILE, ConditionNode, CondFalse);
  Inc(CurrentDeep);
-
- { condition }
- Condition := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]);
-
- C.Values[0] := Condition.Values[0];
- C.Values[1] := Str;
- AddConstruction(C);
-
- { parse loop's code }
- ParseCodeBlock(True);
-
- { loop end }
- C.Typ := ctWHILE_end;
- SetLength(C.Values, 0);
- AddConstruction(C);
-
- { remove scope }
+ ParseCodeBlock(True); // parse loop's content
  Dec(CurrentDeep);
  RemoveScope;
+
+ CondTrueLast := getCurrentNode;
+
+ restorePrevRootNode;
+
+ (* do magic *)
+ ConditionNode.Child.Add(CondTrue);
+ ConditionNode.Child.Add(CondFalse);
+
+ CFGAddNode(ConditionNode);
+
+ fCurrentNode := TCFGNode.Create(ConditionNode);
+
+ ConditionNode.Child.Add(fCurrentNode);
+ CondTrueLast.Child.Add(ConditionNode);
+ CondFalse.Child.Add(fCurrentNode);
 End;
 End;
 
 { Parse_DO_WHILE }
 Procedure Parse_DO_WHILE(Compiler: Pointer);
-Var Str         : PChar;
-    Condition, C: TMConstruction;
+Var BaseNode, BaseNodeLast, ConditionNode, CondFalse: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- Str := CopyStringToPChar(getCurrentFunction.MangledName+'__do_while_'+IntToStr(SomeCounter)+'_');
+ (* parse loop content *)
+ BaseNode      := TCFGNode.Create(fCurrentNode, next_pnt);
+ ConditionNode := TCFGNode.Create(fCurrentNode, cetCondition, nil);
+ CondFalse     := TCFGNode.Create(ConditionNode, next_pnt); // dummy
 
- Inc(SomeCounter);
+ setNewRootNode(BaseNode);
 
- NewScope(sWHILE, Str+'begin', Str+'end');
+ NewScope(sWHILE, ConditionNode, CondFalse);
  Inc(CurrentDeep);
-
- { loop begin }
- SetLength(C.Values, 1);
- C.Typ       := ct_DO_WHILE;
- C.Values[0] := Str;
- AddConstruction(C);
-
- { parse loop's code }
- ParseCodeBlock(True);
-
- { condition }
- eat(_WHILE);
- eat(_BRACKET1_OP); // (
- Condition := ExpressionCompiler.MakeConstruction(TCompiler(Compiler), [_BRACKET1_CL]);
- semicolon;
-
- { loop end }
- SetLength(C.Values, 1);
- C.Typ       := ct_DO_WHILE_END;
- C.Values[0] := Condition.Values[0];
- AddConstruction(C);
-
- { remove scope }
+ ParseCodeBlock(True); // parse loop's content
  Dec(CurrentDeep);
  RemoveScope;
+
+ BaseNodeLast := getCurrentNode;
+
+ restorePrevRootNode;
+
+ (* parse loop condition *)
+ eat(_WHILE);
+ eat(_BRACKET1_OP);
+
+ ConditionNode.Value := MakeExpression(Compiler, [_BRACKET1_CL]);
+
+ (* do magic *)
+ BaseNodeLast.Child.Add(ConditionNode);
+
+ ConditionNode.Child.Add(BaseNode); // on true
+ ConditionNode.Child.Add(CondFalse); // on false
+
+ CFGAddNode(BaseNode);
+
+ fCurrentNode := TCFGNode.Create(ConditionNode);
+
+ ConditionNode.Child.Add(fCurrentNode);
+ CondFalse.Child.Add(fCurrentNode);
 End;
 End;
 End.

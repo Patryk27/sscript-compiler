@@ -19,7 +19,7 @@ Begin
  End;
 
  Variable := getVariable(Expr^.Left, True);
- if (Variable.ID = -1) Then // variable not found
+ if (Variable.Symbol = nil) Then // variable not found
   Exit;
 
  if (not Variable.Typ.isNumerical) Then

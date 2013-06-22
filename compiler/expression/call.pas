@@ -1,9 +1,9 @@
 Procedure ParseCall(const isMethodCall: Boolean);
-Var IdentID, Namespace: Integer;
+Var Symbol: Pointer;
 
 // ReverseParamList
 Procedure ReverseParamList;
-Var Tmp: Array of PMExpression;
+Var Tmp: Array of PExpression;
     I  : Integer;
 Begin
  SetLength(Tmp, Length(Expr^.ParamList));
@@ -119,7 +119,7 @@ Var TypeID       : TType;
 Begin
  Variable := getVariable(Left);
 
- if (Variable.ID = -1) Then
+ if (Variable.Symbol = nil) Then
   Exit;
 
  TypeID := __variable_getvalue_reg(Variable, 1, 'r');
@@ -162,7 +162,7 @@ End;
 { GlobalFuncCall }
 Procedure GlobalFuncCall;
 Begin
- With Compiler.NamespaceList[Namespace].SymbolList[IdentID], mFunction do
+ With TGlobalSymbol(Symbol), mFunction do
  Begin
   // check param count
   if not (Length(Expr^.ParamList) in [RequiredParamCount(ParamList)..Length(ParamList)]) Then
@@ -188,7 +188,7 @@ End;
 Procedure MethodCall; // pseudo-OOP for arrays :P
 
  // magic
- Function magic(Expr: PMExpression): TType;
+ Function magic(Expr: PExpression): TType;
  Var method, param: TType;
      name         : String;
 
@@ -197,7 +197,7 @@ Procedure MethodCall; // pseudo-OOP for arrays :P
  Begin
   Result := nil;
   method := Parse(Expr^.Left);
-  name   := VarToStr(Expr^.Right^.Value);
+  name   := Expr^.Right^.IdentName;
 
   RePop(Expr^.Left, method, 1);
 
@@ -226,10 +226,9 @@ End;
 Begin
  ReverseParamList;
 
- Try
-  IdentID    := Expr^.IdentID;
-  Namespace  := Expr^.IdentNamespace;
+ Symbol := Expr^.Symbol;
 
+ Try
   // calling a method?
   if (isMethodCall) Then
   Begin
@@ -237,7 +236,7 @@ Begin
    Exit;
   End;
 
-  if (Expr^.IdentID = -1) Then // function not found or cast-call
+  if (Expr^.Symbol = nil) Then // function not found or cast-call
   Begin
    if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call
    Begin
@@ -259,7 +258,7 @@ Begin
    Result := LocalVarCall Else
 
   { global function call }
-  if (Compiler.NamespaceList[Namespace].SymbolList[IdentID].Typ = gsFunction) Then
+  if (TGlobalSymbol(Symbol).Typ = gsFunction) Then
    GlobalFuncCall Else
 
   { global variable call (and, as there's no global variables for now, there's no glob-var-call) }

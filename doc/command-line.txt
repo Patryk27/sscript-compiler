@@ -20,10 +20,16 @@ By default, all switches are disabled.
 	--register-alloc / -Or		allows to allocate variables in registers (when possible)
 	--constant-folding / -Of	enables constant expression folding
 	--bytecode-optimize / -Op	optimizes bytecode
-	--remove-unreachable / -Ou	removes unreachable parts of code
+	--remove-dead / -Ou		tries to remove unreachable (dead) parts of code (eg.code after `return`) and unused variables; it works the best with `--optimize-branches`
 	--short-circuit	/ -Os		enables/disables short-circuit-evalution. It is implicitly **enabled** and most likely you don't want to turn it off.
 
+	--constant-propagation / -Oc	enables constant propagation (it's an a bit expensive operation)
+
+	--optimize-branches / -Ob	optimizes condition jumps (it's an expensive optimization)
+
 	-O1	enables `--register-alloc`, `--constant-folding`, `--bytecode-optimize` and `--remove-unreachable`
+	-O2	enables `-O1` and `--constant-propagation`
+	-O3	enables `-O2` and `--optimize-branches`
 
 4.Debug
 	--strip-debug / -Sd	strips debug symbols from the file (but do not removes debug symbols from eg.linked libraries)

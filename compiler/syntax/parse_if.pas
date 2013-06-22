@@ -9,59 +9,68 @@ Unit Parse_IF;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, Tokens, SysUtils, MTypes;
+Uses Compile1, ExpressionCompiler, Tokens, cfgraph;
 
+{ Parse }
 Procedure Parse(Compiler: Pointer);
-Var Str: PChar;
-    C   : TMConstruction;
+Var BaseNode, onTrue, onFalse, onTrueLast, onFalseLast: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
  eat(_BRACKET1_OP); // (
 
- C.Typ := ctIF;
- SetLength(C.Values, 2);
+ BaseNode := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_BRACKET1_CL])); // 'if' main node
 
- Str := CopyStringToPChar(getCurrentFunction.MangledName+'__if_'+IntToStr(SomeCounter)+'_');
- Inc(SomeCounter);
+ onFalse     := TCFGNode.Create(BaseNode, next_pnt);
+ onFalseLast := onFalse;
 
- C.Values[0] := MakeConstruction(Compiler, [_BRACKET1_CL]).Values[0]; // read condition
- C.Values[1] := Str;
-
- AddConstruction(C); // add construction ('if' begin)
+ (* parse 'true' *)
+ onTrue := TCFGNode.Create(BaseNode, next_pnt);
+ setNewRootNode(onTrue); // set new root node
 
  NewScope(sIF); // new scope
  Inc(CurrentDeep);
 
  ParseCodeBlock(True); // parse code block
 
- C.Typ := ctIF_end;
- SetLength(C.Values, 0);
- AddConstruction(C); // new construction ('if' end)
-
  Dec(CurrentDeep); // remove scope
  RemoveScope;
 
+ onTrueLast := getCurrentNode;
+
+ restorePrevRootNode; // restore previous root node
+
+ (* parse 'else' (`false`), if possible *)
  if (next_t = _ELSE) Then // parse 'else' block
  Begin
+  onFalse := TCFGNode.Create(BaseNode, next_pnt);
+  setNewRootNode(onFalse); // set new root node
+
   NewScope(sIF); // new scope
   Inc(CurrentDeep);
 
   eat(_ELSE);
 
-  C.Typ := ctIF_else;
-  SetLength(C.Values, 0);
-  AddConstruction(C); // new construction ('else' block)
-
   ParseCodeBlock(True); // parse code block
-
-  C.Typ := ctIF_end;
-  SetLength(C.Values, 0);
-  AddConstruction(C); // new construction ('if' end)
 
   Dec(CurrentDeep); // remove scope
   RemoveScope;
+
+  onFalseLast := getCurrentNode;
+
+  restorePrevRootNode; // restore previous root node
  End;
+
+ BaseNode.Child.Add(onTrue);
+ BaseNode.Child.Add(onFalse);
+
+ CFGAddNode(BaseNode);
+
+ fCurrentNode := TCFGNode.Create(BaseNode, next_pnt);
+
+ BaseNode.Child.Add(fCurrentNode);
+ onTrueLast.Child.Add(fCurrentNode);
+ onFalseLast.Child.Add(fCurrentNode);
 End;
 End;
 End.

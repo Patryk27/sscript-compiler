@@ -1,8 +1,9 @@
 Procedure __insert_constants(const ShowErrors: Boolean);
 
-{ Parse }
-Procedure Parse(Expr: PMExpression);
+(* Parse *)
+Procedure Parse(Expr: PExpression);
 Var I, VarID, NamespaceID: Integer;
+    TmpExpr              : PExpression;
 Begin
  if (Expr^.Typ = mtArrayElement) Then
   Exit;
@@ -20,17 +21,17 @@ Begin
   { variable }
   if (Expr^.Typ = mtVariable) Then
   Begin
-   VarID       := Compiler.findLocalVariable(Expr^.Value); // is it a local variable?
+   VarID       := Compiler.findLocalVariable(Expr^.IdentName); // is it a local variable?
    NamespaceID := -1;
 
    if (VarID = -1) Then // local variable not found
    Begin
-    Compiler.findGlobalVariableCandidate(Expr^.Value, Expr^.Namespaces, VarID, NamespaceID, @Expr^.Token); // so - maybe it's a global variable?
+    Compiler.findGlobalVariableCandidate(Expr^.IdentName, Expr^.Namespaces, VarID, NamespaceID, @Expr^.Token); // so - maybe it's a global variable?
 
     if (VarID = -1) Then
     Begin
      if (ShowErrors) Then
-      Compiler.CompileError(Expr^.Token, eUnknownVariable, [Expr^.Value]);
+      Compiler.CompileError(Expr^.Token, eUnknownVariable, [Expr^.IdentName]);
      Exit;
     End;
    End;
@@ -40,10 +41,23 @@ Begin
     { local constant }
     With Compiler.getCurrentFunction.SymbolList[VarID] do
     Begin
+     if (Typ = lsVariable) Then
+     Begin
+      With TCompiler(Compiler) do
+       TmpExpr := FetchVariableValue(mVariable);
+
+      if (TmpExpr <> nil) Then // value could be fetched
+      Begin
+       Expr^.Value     := TmpExpr^.Value;
+       Expr^.IdentType := TmpExpr^.Typ;
+      End;
+
+      Exit;
+     End Else
      if (Typ <> lsConstant) Then // is it a constant?
      Begin
       if (ShowErrors) Then
-       Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.Value]);
+       Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
       Exit;
      End;
 
@@ -58,7 +72,7 @@ Begin
      if (Typ <> gsConstant) Then // is it a constant?
      Begin
       if (ShowErrors) Then
-       Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.Value]);
+       Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
       Exit;
      End;
 

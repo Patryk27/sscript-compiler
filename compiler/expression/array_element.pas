@@ -1,7 +1,7 @@
 Procedure ParseArrayElement;
 Var TmpType, Typ, ArrayType: TType;
     IndexCount             : Integer;
-    TmpExpr                : PMExpression;
+    TmpExpr                : PExpression;
 Begin
  { find array origin (a variable, cast (...)) }
  TmpExpr := Expr;

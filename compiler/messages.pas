@@ -84,14 +84,22 @@ Unit Messages;
  );
 
  { warnings }
+ Type TCompileWarning =
+ (wNotEveryPathReturnsAValue);
+
+ Const CompileWarning_fmt: Array[TCompileWarning] of String =
+ (
+  'Not every code path returns a value!'
+ );
 
  { hints }
  Type TCompileHint =
- (hDidntYouMean);
+ (hDidntYouMean, hUnreachableCode);
 
  Const CompileHint_fmt: Array[TCompileHint] of String =
  (
-  'Didn''t you mean: `%s`?'
+  'Didn''t you mean: `%s`?',
+  'Unreachable code'
  );
 
  { notes }

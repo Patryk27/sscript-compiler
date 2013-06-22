@@ -17,7 +17,7 @@ Begin
   End;
 
   Variable := getVariable(Left, True);
-  if (Variable.ID = -1) Then // variable not found
+  if (Variable.Symbol = nil) Then // variable not found
    Exit;
  End Else
   Variable.getArray := 0;
@@ -27,7 +27,7 @@ Begin
 
  if (Result = nil) Then
  Begin
-  DevLog('Warning: ParseArithmeticOperator() -> CompileSimple() returned `nil`; leaving function...');
+  DevLog(dvWarning, 'ParseArithmeticOperator', 'CompileSimple() returned `nil`; leaving function...');
   Exit;
  End;
 

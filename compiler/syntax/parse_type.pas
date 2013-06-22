@@ -9,7 +9,7 @@ Unit Parse_TYPE;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, ExpressionCompiler, Messages, Tokens, MTypes, symdef;
+Uses Compile1, ExpressionCompiler, Messages, Tokens, symdef;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
@@ -20,7 +20,7 @@ Var Base, Typ    : TType;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- if not ((CompilePass = cp1) or (inFunction)) Then // `type` is parsed in the second pass or inside function
+ if not ((CompilePass = _cp1) or (inFunction)) Then // `type` is parsed in the first pass or inside function
  Begin
   read_until(_SEMICOLON);
   Exit;

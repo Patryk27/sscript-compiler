@@ -1,15 +1,15 @@
 { ParseBreak }
 Procedure ParseBreak;
-Var I: Integer;
-    C: TMConstruction;
+Var I   : Integer;
+    Node: TCFGNode;
 Begin
  For I := High(Scope) Downto Low(Scope) Do
   if (Scope[I].Typ in [sFOR, sWHILE]) Then
   Begin
-   C.Typ := ctJump;
-   SetLength(C.Values, 1);
-   C.Values[0] := CopyStringToPChar(':'+Scope[I].LoopEnd);
-   AddConstruction(C);
+   Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
+   Node.Child.Add(Scope[I].LoopEnd);
+   CFGAddNode(Node);
+
    Parser.eat(_SEMICOLON);
    Exit;
   End;
@@ -19,16 +19,16 @@ End;
 
 { ParseContinue }
 Procedure ParseContinue;
-Var I: Integer;
-    C: TMConstruction;
+Var I   : Integer;
+    Node: TCFGNode;
 Begin
  For I := High(Scope) Downto Low(Scope) Do
   if (Scope[I].Typ in [sFOR, sWHILE]) Then
   Begin
-   C.Typ := ctJump;
-   SetLength(C.Values, 1);
-   C.Values[0] := CopyStringToPChar(':'+Scope[I].LoopBegin);
-   AddConstruction(C);
+   Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
+   Node.Child.Add(Scope[I].LoopBegin);
+   CFGAddNode(Node);
+
    Parser.eat(_SEMICOLON);
    Exit;
   End;

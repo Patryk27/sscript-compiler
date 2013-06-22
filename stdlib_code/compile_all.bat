@@ -1,3 +1,4 @@
+@echo off
 rem SScript Standard Library build script
 
 goto :begin
@@ -20,28 +21,14 @@ goto :begin
 	echo --] '%~1.ss' :: '%outputfile%'
 
 	if exist %outputfile% del /Q %outputfile% > nul
-	..\compiler %~1.ss -o %outputfile% -h ..\stdlib\%~1.ss -Cm lib -O1
+	..\compiler %~1.ss -o %outputfile% -h ..\stdlib\%~1.ss -Cm lib -O3
 	if not exist %outputfile% goto :fail
 
 	goto :eof
 
 :begin
-@echo off
-cls
-
-echo -------------------------------------------
-echo - SScript Standard Library; version: 0.1c -
-echo -------------------------------------------
-echo.
-
 if not exist "..\compiler.exe" goto :compiler_not_found
 
-echo Compiler test:
-echo -------------------------------------------
-..\compiler -logo
-echo -------------------------------------------
-
-echo.
 echo -] init code
 call :compile "init"
 
@@ -66,14 +53,3 @@ call :compile "stdio"
 echo.
 echo -] VM
 call :compile "vm"
-
-echo.
-echo --------------------------------------------------
-echo - SScript Standard Library has been compiled! :) -
-echo - Headers and compiled files are in `..\stdlib\` -
-echo - Have a good fun with SScript!                  -
-echo -                                                -
-echo - ~Patryk Wychowaniec                            -
-echo --------------------------------------------------
-
-goto :loop

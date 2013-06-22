@@ -6,7 +6,7 @@
 Unit Compile2;
 
  Interface
- Uses CompilerUnit, Compile1, Classes, SysUtils, Variants, MTypes, Opcodes, Tokens, Messages, Zipper, Stream;
+ Uses CompilerUnit, Compile1, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
 
  Const bytecode_version_major = 0;
        bytecode_version_minor = 41;

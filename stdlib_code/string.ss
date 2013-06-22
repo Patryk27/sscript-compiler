@@ -216,7 +216,8 @@ function<string> strremove_end(string text, char ch)
 
 function<string> strupper(string text)
 {
- for (var<int> i=1; i<=strlen(text); i++)
+ var<int> len = strlen(text);
+ for (var<int> i=1; i<=len; i++)
   text[i] = chupper(text[i]);
   
  return text;
@@ -224,7 +225,8 @@ function<string> strupper(string text)
 
 function<string> strlower(string text)
 {
- for (var<int> i=1; i<=strlen(text); i++)
+ var<int> len = strlen(text);
+ for (var<int> i=1; i<=len; i++)
   text[i] = chlower(text[i]);
   
  return text;
