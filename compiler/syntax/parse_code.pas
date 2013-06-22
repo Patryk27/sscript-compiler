@@ -130,6 +130,10 @@ Begin
 
       _PERCENT { % }:
       Begin
+       CompileError(eUnimplemented, ['using variables in bytecode']);
+
+       // @TODO: at the time of parsing user bytecode, variables hasn't been allocated yet!
+
        Arg := read_ident;
 
        IdentID      := findLocalVariable(Arg);
