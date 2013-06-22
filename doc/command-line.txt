@@ -27,8 +27,8 @@ By default, all switches are disabled.
 
 	--optimize-branches / -Ob	optimizes condition jumps (it's an expensive optimization)
 
-	-O1	enables `--register-alloc`, `--constant-folding`, `--bytecode-optimize` and `--remove-unreachable`
-	-O2	enables `-O1` and `--constant-propagation`
+	-O1	enables `--register-alloc`, `--constant-folding`, `--bytecode-optimize`
+	-O2	enables `-O1`, `--remove-dead` and `--constant-propagation`
 	-O3	enables `-O2` and `--optimize-branches`
 
 4.Debug

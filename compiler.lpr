@@ -55,7 +55,6 @@ Begin
  AddOption(opt__register_alloc, True);
  AddOption(opt__constant_folding, True);
  AddOption(opt__bytecode_optimize, True);
- AddOption(opt__remove_dead, True);
 End;
 
 { _O2 }
@@ -64,6 +63,7 @@ Begin
  _O1;
 
  AddOption(opt__constant_propagation, True);
+ AddOption(opt__remove_dead, True);
 End;
 
 { _O3 }
