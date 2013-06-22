@@ -60,7 +60,13 @@ Procedure Stage2;
       Symbol := TSymbol(Back.Value^.Left^.Symbol);
 
       if (Symbol = nil) Then
-       TCompiler(Compiler).CompileError(eInternalError, ['Symbol = nil']);
+       Symbol := TSymbol(Node.Value^.Left^.Symbol);
+
+      if (Symbol = nil) Then // can happen when operating on arrays...
+      Begin
+       Back := Back.Parent;
+       Continue;
+      End;
 
       if (Symbol is TLocalSymbol) and (not isVariableUsed(TLocalSymbol(Back.Value^.Left^.Symbol).mVariable, Back, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
       Begin
