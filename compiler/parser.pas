@@ -573,7 +573,8 @@ End;
 }
 Function TParser.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpression;
 Begin
- Result := ExpressionCompiler.MakeExpression(Compiler, Sep, [oInsertConstants, oConstantFolding, oDisplayParseErrors]);
+ Result := MakeExpression(Compiler, Sep, []);
+ OptimizeExpression(TCompiler(Compiler), Result, [oInsertConstants, oConstantFolding, oDisplayParseErrors]);
 End;
 
 (* TParser.read_constant_expr_int *)
