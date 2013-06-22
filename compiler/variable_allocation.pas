@@ -50,7 +50,7 @@ Begin
    For Symbol in Func.SymbolList Do
     if (Symbol.Typ = lsVariable) Then
     Begin
-     if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) Then
+     if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) and (not Symbol.mVariable.DontAllocate) Then
      Begin
       New(VarRec);
       VarRec^.mVar     := Symbol.mVariable;
@@ -72,7 +72,7 @@ Begin
   { stack-only allocation }
 
   For Symbol in Func.SymbolList Do
-   if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) Then
+   if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) and (not Symbol.mVariable.DontAllocate) Then
    Begin
     Symbol.mVariable.MemPos := -StackPos;
     Inc(StackPos);
