@@ -9,7 +9,7 @@ Var VarList: TVarList;
 
     // Alloc
     Procedure Alloc(mVar: TVariable);
-    Var FreeRegs: Set of Byte = [3, 4]; // variables can be allocated only in `e_3` and `e_4` registers
+    Var FreeRegs: Set of Byte = [3, 4]; // variables can be allocated only in `e_3` and `e_4` registers (and ofc.on the stack)
         RegChar : Char;
         VarRec  : PVar;
         StackPos: uint8 = 0;
@@ -38,9 +38,11 @@ Var VarList: TVarList;
       mVar.MemPos := -StackPos;
     End;
 
+Var StackPos: uint16 = 0;
 Begin
  if (CanUseRegs) Then
  Begin
+  { register and stack allocation }
   VarList := TVarList.Create;
 
   Try
@@ -65,5 +67,15 @@ Begin
   Finally
    VarList.Free;
   End;
+ End Else
+ Begin
+  { stack-only allocation }
+
+  For Symbol in Func.SymbolList Do
+   if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) Then
+   Begin
+    Symbol.mVariable.MemPos := -StackPos;
+    Inc(StackPos);
+   End;
  End;
 End;
