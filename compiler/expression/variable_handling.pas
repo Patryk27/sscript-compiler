@@ -133,9 +133,8 @@ Begin
    Inc(IndexCount);
   Until (ArrayElements^.Typ = mtVariable);
 
-  Dec(PushedValues, IndexCount);
-
   { set new value }
   PutOpcode(o_arset, [Variable.PosStr, IndexCount, RegStr]);
+  Dec(PushedValues, IndexCount);
  End;
 End;

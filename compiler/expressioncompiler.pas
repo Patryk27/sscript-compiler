@@ -416,7 +416,7 @@ End;
 Function TInterpreter.StackPop: TStackValue;
 Begin
  if (StackPos <= 0) Then
-  Compiler.CompileError(eInvalidExpression, []);
+  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
 
  Dec(StackPos);
  Result := Stack[StackPos];
@@ -426,7 +426,7 @@ End;
 Function TInterpreter.StackPeek: TStackValue;
 Begin
  if (StackPos <= 0) Then
-  Compiler.CompileError(eInvalidExpression, []);
+  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
 
  Result := Stack[StackPos-1];
 End;
@@ -453,7 +453,7 @@ End;
 Function TInterpreter.FinalExprPop: TStackValue;
 Begin
  if (FinalExprPos <= 0) Then
-  Compiler.CompileError(eInvalidExpression, []);
+  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
 
  Dec(FinalExprPos);
  Result := FinalExpr[FinalExprPos];
@@ -463,7 +463,7 @@ End;
 Function TInterpreter.FinalExprPeek: TStackValue;
 Begin
  if (FinalExprPos <= 0) Then
-  Compiler.CompileError(eInvalidExpression, []);
+  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
 
  Result := FinalExpr[FinalExprPos-1];
 End;
@@ -1163,7 +1163,7 @@ Begin
  Result := CreateNodeFromStack;
 
  if (StackPos <> 0) Then
-  Compiler.CompileError(eInvalidExpression, []);
+  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
 End;
 
 // ---------- </> ---------- //

@@ -26,30 +26,35 @@ End;
 
 // ParseParamList
 Procedure ParseParamList(const FuncName: String; const ParamList: TParamList);
-Var Param : Integer;
-    TypeID: TType;
+Var ParamID: Integer;
+    Param  : PExpression;
+    TypeID : TType;
 Begin
  With Compiler do
  Begin
-  For Param := High(ParamList) Downto Low(ParamList) Do
+  For ParamID := High(ParamList) Downto Low(ParamList) Do
   Begin
-   if (Param > High(Expr^.ParamList)) Then
+   if (ParamID > High(Expr^.ParamList)) Then
    Begin
-    Parse(ParamList[Param].DefaultValue);
+    Parse(ParamList[ParamID].DefaultValue);
     Continue;
    End;
 
-   if (ParamList[Param].isVar) Then // is variable required?
-    if (Expr^.ParamList[Param]^.Typ <> mtVariable) Then // error: expected variable
-     Compiler.CompileError(Expr^.ParamList[Param]^.Token, eLValueExpected, []);
+   Param := Expr^.ParamList[ParamID];
 
-   if (ParamList[Param].isVar) and (ParamList[Param].DefaultValue <> nil) Then // special case: var-param and default value
-    TypeID := Parse(ParamList[Param].DefaultValue) Else
-    TypeID := Parse(Expr^.ParamList[Param]);
+   if (ParamList[ParamID].isVar) Then // is variable required?
+   Begin
+    if (not (Param^.Typ in [mtVariable, mtArrayElement])) Then // error: expected variable
+     Compiler.CompileError(Expr^.ParamList[ParamID]^.Token, eLValueExpected, []);
+   End;
+
+   if (ParamList[ParamID].isVar) and (ParamList[ParamID].DefaultValue <> nil) Then // special case: var-ParamID and default value
+    TypeID := Parse(ParamList[ParamID].DefaultValue) Else
+    TypeID := Parse(Expr^.ParamList[ParamID]);
 
    With Compiler do
-    if (not TypeID.CanBeAssignedTo(ParamList[Param].Typ)) Then
-     Error(Expr^.ParamList[Param]^.Token, eWrongTypeInCall, [FuncName, Param+1, TypeID.asString, ParamList[Param].Typ.asString]);
+    if (not TypeID.CanBeAssignedTo(ParamList[ParamID].Typ)) Then
+     Error(Expr^.ParamList[ParamID]^.Token, eWrongTypeInCall, [FuncName, ParamID+1, TypeID.asString, ParamList[ParamID].Typ.asString]);
   End;
  End;
 End;
@@ -57,10 +62,20 @@ End;
 // CleanAfterCall
 Procedure CleanAfterCall(const ParamList: TParamList);
 Var Param: Integer;
+    rVar : TRVariable;
 Begin
  For Param := Low(ParamList) To High(ParamList) Do
   if (ParamList[Param].isVar) Then
-   Compiler.PutOpcode(o_mov, [getVariable(Expr^.ParamList[Param]).PosStr, '['+IntToStr(-Param)+']']);
+  Begin
+   rVar := getVariable(Expr^.ParamList[Param]);
+
+   if (rVar.getArray > 0) Then
+   Begin
+    Compiler.PutOpcode(o_mov, ['e'+rVar.RegChar+'1', '['+IntToStr(-Param)+']']);
+    __variable_setvalue_array_reg(rVar, 1, rVar.RegChar, Expr^.ParamList[Param]);
+   End Else
+    Compiler.PutOpcode(o_mov, [rVar.PosStr, '['+IntToStr(-Param)+']']);
+  End;
 
  Compiler.PutOpcode(o_sub, ['stp', Length(ParamList)]);
  Dec(PushedValues, Length(ParamList))

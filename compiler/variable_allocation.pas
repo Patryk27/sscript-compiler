@@ -70,7 +70,6 @@ Begin
  End Else
  Begin
   { stack-only allocation }
-
   For Symbol in Func.SymbolList Do
    if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) and (not Symbol.mVariable.DontAllocate) Then
    Begin
