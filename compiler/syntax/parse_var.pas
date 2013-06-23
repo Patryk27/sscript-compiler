@@ -47,6 +47,9 @@ Begin
   if (Variable.Typ.isVoid) Then // cannot create a void-variable
    CompileError(eVoidVar, [Variable.RefSymbol.Name]);
 
+  if (Variable.Typ.isArray(False)) Then
+   Variable.Attributes += [vaVolatile]; // arrays have to be volatile, because optimizer doesn't support arrays, thus weird things happen when it tries to optimize an array :P
+
   { add variable into the function }
   getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsVariable, Variable));
 

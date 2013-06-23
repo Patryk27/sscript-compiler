@@ -288,7 +288,10 @@ Var isThereAnyReturn: Boolean = False;
    End;
 
    if (Node.Child.Count = 0) and (Node.Value <> nil) Then // if it's an edge node with some expression and it isn't 'return', show warning
+   Begin
+    isThereAnyReturn := True; // otherwise the message below would be shown 2 times instead of one
     TCompiler(Compiler).CompileWarning(nil, wNotEveryPathReturnsAValue, []);
+   End;
 
    if (Node.Typ = cetCondition) Then
    Begin
