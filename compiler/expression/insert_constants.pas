@@ -41,7 +41,7 @@ Begin
     { local constant }
     With Compiler.getCurrentFunction.SymbolList[VarID] do
     Begin
-     if (Typ = lsVariable) Then
+     if (Typ = lsVariable) and (Compiler.getBoolOption(opt__constant_propagation)) Then
      Begin
       With TCompiler(Compiler) do
        TmpExpr := FetchVariableValue(mVariable);

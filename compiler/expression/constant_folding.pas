@@ -23,7 +23,7 @@ Begin
  For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
   Parse(Expr^.ParamList[I]);
 
- if (Left <> nil) and (Left^.Typ = mtVariable) and (Left^.Value <> null) and (not (Expr^.Typ in [mtAssign, mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq])) Then
+ if (Left <> nil) and (Left^.Typ = mtVariable) and (Left^.Value <> null) and (not (Expr^.Typ in MLValueOperators)) Then
  Begin
   Left^.Typ   := Left^.IdentType;
   Left^.Left  := nil;
