@@ -15,7 +15,7 @@ Unit CompilerUnit;
   opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt__remove_dead, opt__short_circuit,
   opt__constant_propagation,
   opt__optimize_branches,
-  opt__strip_debug,
+  opt__strip_debug, opt__dump_cfg,
   opt_header,
   opt_logo, opt_version, opt_wait, opt_verbose
  );
@@ -44,6 +44,7 @@ Unit CompilerUnit;
   (Names: ('--optimize-branches', '-Ob');    Typ: pBool),
 
   (Names: ('--strip-debug', '-Sd'); Typ: pBool),
+  (Names: ('--dump-cfg', '');       Typ: pBool),
 
   (Names: ('-header', '-h'); Typ: pString),
 

@@ -11,7 +11,7 @@ Unit Compile1;
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
  { constants }
- Const Version = '2.2.2 nightly';
+ Const Version = '2.2.2';
        vMajor  = 2.2;
        vMinor  = 2;
 
