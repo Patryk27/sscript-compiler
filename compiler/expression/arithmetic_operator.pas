@@ -64,7 +64,7 @@ Begin
 
   // put opcode
   Case WithAssign of
-   True: Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+TypeRight.RegPrefix+'2']);
+   True : Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+TypeRight.RegPrefix+'2']);
    False: Compiler.PutOpcode(Opcode, ['e'+TypeLeft.RegPrefix+'1', 'e'+TypeRight.RegPrefix+'2']);
   End;
 

@@ -17,7 +17,10 @@ Begin
  With Compiler do
  Begin
   if (Left^.ResultOnStack) Then
-   PutOpcode(o_pop, ['e'+TypeID.RegPrefix+'1']) Else
+  Begin
+   PutOpcode(o_pop, ['e'+TypeID.RegPrefix+'1']);
+   Dec(PushedValues);
+  End Else
    PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', 'e'+Typ.RegPrefix+'1']);
  End;
 

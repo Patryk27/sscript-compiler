@@ -36,7 +36,7 @@ Begin
   if (countLeaves(Right) > countLeaves(Left)) Then
   Begin
    LeftFirst := False;
-   TypeRight := Parse(Right, 2); // right to second register
+   TypeRight := Parse(Right, 2); // right to the second register
 
    if (ShortCircuit <> scNone) Then
    Begin
