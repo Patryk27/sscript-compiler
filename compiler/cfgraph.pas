@@ -379,11 +379,11 @@ Var Visited : TStringList;
       Exit;
      Visited.Add(Node.Name);
 
-     if (Node.Value <> nil) Then // @TODO: those operators can be nested!
+     if (Node.Value <> nil) Then
      Begin
       Range := inRange(Node.getToken^.Position, VarRange.PBegin, VarRange.PEnd);
 
-      if (Range) and (Node.Value^.isVariableModified(VarName, False)) Then
+      if (Range) and (Node.Value^.isVariableModified(VarName, True)) Then
       Begin
        Result := True;
        Exit;

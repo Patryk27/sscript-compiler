@@ -46,7 +46,7 @@ Begin
       With TCompiler(Compiler) do
        TmpExpr := FetchVariableValue(mVariable);
 
-      if (TmpExpr <> nil) Then // value could be fetched
+      if (TmpExpr <> nil) Then // variable's value has been fetched
       Begin
        Expr^.Value     := TmpExpr^.Value;
        Expr^.IdentType := TmpExpr^.Typ;

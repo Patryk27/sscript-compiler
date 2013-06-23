@@ -15,7 +15,8 @@ Unit Expression;
                          mtBool, mtChar, mtInt, mtFloat, mtString,
                          mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq,
                          mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent,
-                         mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq,
+                         mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR,
+                         mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq,
                          mtNeg, mtLogicalNOT, mtBitwiseNOT, mtPreInc, mtPreDec, mtPostInc, mtPostDec,
                          mtNew);
 
@@ -24,18 +25,19 @@ Unit Expression;
   'bool', 'char', 'int', 'float', 'string',
   '+', '-', '*', '/', '%', '=', '+=', '-=', '*=', '/=', '%=',
   '<', '>', '==', '<=', '>=', '!=',
-  '&&', '||', '&', '|', '^', '<<', '>>', '<<=', '>>=',
+  '&&', '||', '&', '|', '^', '<<', '>>',
+  '<<=', '>>=', '|=', '&=', '^=',
   '-', '!', '~', '++', '--', '++', '--',
   'new');
 
  Type TExpressionTypeSet = Set of TExpressionType;
 
- Const MBinaryOperators: TExpressionTypeSet  = [mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq];
+ Const MBinaryOperators: TExpressionTypeSet  = [mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq];
  Const MUnaryOperators: TExpressionTypeSet   = [mtNeg, mtLogicalNot, mtBitwiseNot, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
  Const MCompareOperators: TExpressionTypeSet = [mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent];
- Const MOperators: TExpressionTypeSet        = [mtArrayElement, mtNew, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
+ Const MOperators: TExpressionTypeSet        = [mtArrayElement, mtNew, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
 
- Const MLValueOperators: TExpressionTypeSet = [mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq, mtAssign];
+ Const MLValueOperators: TExpressionTypeSet = [mtAssign, mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq, mtOREq, mtANDEq, mtXOREq];
 
  Type PExpression = ^TExpression;
       TExpression = Record
@@ -81,6 +83,8 @@ Uses SysUtils;
 (* TExpression.isVariableModified *)
 {
  Returns 'true' if variable named 'VarName' is modified inside this expression.
+
+ @TODO: arrays!
 }
 Function TExpression.isVariableModified(const VarName: String; const CheckAssigns: Boolean): Boolean;
 Var I: Integer;
@@ -89,7 +93,7 @@ Begin
   Result := (Typ in MLValueOperators) Else
   Result := (Typ in (MLValueOperators-[mtAssign]));
 
- Result := Result and (IdentName = VarName);
+ Result := Result and (Left^.IdentName = VarName);
 
  if (not Result) and (Left <> nil) Then
   Result := Result or Left^.isVariableModified(VarName, CheckAssigns);
