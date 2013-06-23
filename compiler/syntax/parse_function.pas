@@ -359,7 +359,7 @@ Begin
    ValidateGraph;
 
   //if (Func.RefSymbol.Name = 'main') Then // @TODO
-   DrawGraph(Func.FlowGraph); // `not_optimized/main.dot`
+   //DrawGraph(Func.FlowGraph); // `not_optimized/main.dot`
 
    if (getBoolOption(opt__constant_folding)) Then
    Begin

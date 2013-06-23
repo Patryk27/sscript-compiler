@@ -50,13 +50,20 @@ Begin
   mtMod, mtModEq: Opcode := o_mod;
   mtSHL, mtSHLEq: Opcode := o_shl;
   mtSHR, mtSHREq: Opcode := o_shr;
+
+  mtOREq : Opcode := o_or;
+  mtANDEq: Opcode := o_and;
+  mtXOREq: Opcode := o_xor;
+
+  else
+   TCompiler(Compiler).CompileError(eInternalError, ['Unexpected Expr^.Typ = '+IntToStr(ord(Expr^.Typ))]);
  End;
 
  { not arrays }
  if (Variable.getArray = 0) or (Variable.Typ.isString and (Variable.Typ.ArrayDimCount = 1)) Then
  Begin
   if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Result.isNumerical)) or // numerical types only (except '+' and '+=' for strings)
-     ((Opcode in [o_mod, o_shl, o_shr]) and (not Result.isInt)) Then // some operators are `int-`only
+     ((Opcode in [o_mod, o_shl, o_shr, o_or, o_and, o_xor]) and (not Result.isInt)) Then // some operators are `int-`only
   Begin
    Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
    Exit;

@@ -17,7 +17,7 @@ Begin
  With TCompiler(Compiler) do
   if (OpcodeList.Last^.Opcode = o_push) Then
    With OpcodeList.Last^ do
-    OpcodeList.Delete(OpcodeList.Count-1);
+    OpcodeList.Remove(OpcodeList.Last);
 End;
 
 { Generate }
@@ -66,6 +66,12 @@ Begin
     Begin
      ExpressionCompiler.CompileExpression(Compiler, Node.Value);
      RemoveRedundantPush;
+
+     //With TCompiler(Compiler) do
+     // if (OpcodeList.Last^.Opcode = o_mov) and
+     //    (OpcodeList.Last^.Args[0].Typ in [ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg]) and
+     //    (OpcodeList.Last^.Args[0].Value = 1) Then
+     //     OpcodeList.Remove(OpcodeList.Last); // kinda ugly hack, but let's not talk about it...
 
      if (Node.Child.Count <> 0) Then
       Generate(Node.Child.First);
@@ -237,7 +243,7 @@ Var isThereAnyReturn: Boolean = False;
    Begin
     (* @Note:
 
-      In some specific cases, "try..catch" construction can have only 2 children, not 3; like here:
+      In some specific cases, "try..catch" construction has only 2 children, not 3; like here:
 
       function<void> foo()
       {

@@ -327,7 +327,7 @@ End;
 // -------------------------------------------------------------------------- //
 { getOrder }
 Function getOrder(E: String): Integer;
-Const Order: Array[0..7] of Array[0..7] of String =
+Const Order: Array[0..8] of Array[0..7] of String =
 (
  // operators' precedence (from the most important to the less)
  (_UNARY_MINUS, '@', '&', '|', '^', '!', 'new', 'delete'),
@@ -337,7 +337,8 @@ Const Order: Array[0..7] of Array[0..7] of String =
  ('||', '&&', '', '', '', '', '', ''),
  ('<', '<=', '==', '>=', '>', '!=', '', ''),
  ('<<', '>>', '', '', '', '', '', ''),
- ('=', '+=', '-=', '/=', '*=', '%=', '<<=', '>>=')
+ ('=', '+=', '-=', '/=', '*=', '%=', '', ''),
+ ('<<=', '>>=', '|=', '&=', '^=', '', '', '')
 );
 Var I, Q: Integer;
 Begin
@@ -370,7 +371,7 @@ End;
 Function isLeftAssoc(X: String): Boolean;
 Begin
  Result := ((X[1] in ['+', '-', '*', '/', '%', '=']) or (X = '<<') or (X = '>>') or (X = '==') or (X = '!=') or (X = '>=') or (X = '<=') or (X = '<') or (X = '>')
-           or (X = '+=') or (X = '-=') or (X = '*=') or (X = '/=') or (X = '%=') or (X = '&&') or (X = '||')
+           or (X = '+=') or (X = '-=') or (X = '*=') or (X = '/=') or (X = '%=') or (X = '&&') or (X = '||') or (X = '>>=') or (X = '<<=') or (X = '|=') or (X = '&=') or (X = '^=')
            and (not isRightAssoc(X)));
 End;
 
@@ -878,11 +879,32 @@ Begin
     _GREATER_EQUAL: StackPush(mtGreaterEqual, Token); // >=
     _DIFFERENT    : StackPush(mtDifferent, Token); // !=
 
-    _PIPE            : StackPush(mtBitwiseOR, Token); // |
     _DOUBLE_PIPE     : StackPush(mtLogicalOR, Token); // ||
-    _AMPERSAND       : StackPush(mtBitwiseAND, Token); // &
     _DOUBLE_AMPERSAND: StackPush(mtLogicalAND, Token); // &&
-    _CARON           : StackPush(mtXOR, Token); // ^
+
+    _PIPE: // |
+    if (next_t = _EQUAL) Then
+    Begin
+     read;
+     StackPush(mtOrEq, Token);
+    End Else
+     StackPush(mtBitwiseOR, Token);
+
+    _AMPERSAND: // &
+    if (next_t = _EQUAL) Then
+    Begin
+     read;
+     StackPush(mtANDEq, Token);
+    End Else
+     StackPush(mtBitwiseAND, Token);
+
+    _CARON: // ^
+    if (next_t = _EQUAL) Then
+    Begin
+     read;
+     StackPush(mtXOREq, Token);
+    End Else
+     StackPush(mtXOR, Token);
 
     _DOUBLE_LOWER: // <<
     if (next_t = _EQUAL) Then
@@ -1600,8 +1622,8 @@ Begin
    ParseCompare;
 
   Case Expr^.Typ of
-   mtAdd, mtSub, mtMul, mtDiv, mtMod, mtSHL, mtSHR              : ParseArithmeticOperator(False);
-   mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtSHLEq, mtSHREq: ParseArithmeticOperator(True);
+   mtAdd, mtSub, mtMul, mtDiv, mtMod, mtSHL, mtSHR                                        : ParseArithmeticOperator(False);
+   mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq: ParseArithmeticOperator(True);
 
    mtAssign    : ParseAssign;
    mtLogicalOR : ParseLogicalOR;
