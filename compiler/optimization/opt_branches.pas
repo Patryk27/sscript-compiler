@@ -90,17 +90,17 @@ Var AnythingOptimized: Boolean = False;
   Begin
    if (Node.Parent = nil) Then
     P := '<none>' Else
-    P := Node.Parent.getGraphSymbol+' ('+ExpressionToString(Node.Parent.Value)+')';
+    P := Node.Parent.getName+' ('+ExpressionToString(Node.Parent.Value)+')';
 
    For Q := 0 To Deep-1 Do
     Write(' ');
-   Writeln('Node [', Node.getGraphSymbol, '] :: ', Node.Typ, ' :: ', ExpressionToString(Node.Value), ' ; parent = ', P);
+   Writeln('Node [', Node.getName, '] :: ', Node.Typ, ' :: ', ExpressionToString(Node.Value), ' ; parent = ', P);
 
    For I := 0 To Node.Child.Count-1 Do
    Begin
     For Q := 0 To Deep-1 Do
      Write(' ');
-    Writeln('[', Node.getGraphSymbol, '].child ', I);
+    Writeln('[', Node.getName, '].child ', I);
     Foo(Node.Child[I], Deep+3);
    End;
   End;}

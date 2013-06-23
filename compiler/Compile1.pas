@@ -1125,7 +1125,10 @@ Begin
   Exit;
 
  VarName := TVariable(VariablePnt).RefSymbol.Name;
- Node    := getCurrentNode;
+ Node    := getCurrentNode.Parent;
+
+ if (Node = nil) Then
+  Node := getCurrentNode;
 
  Visited := TStringList.Create;
  Try
@@ -1138,10 +1141,10 @@ Begin
 
    if (Node.Typ = cetCondition) Then
    Begin
-    if (isVariableModified(VariablePnt, Node.Child[0], Node.Child[2])) and (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
+    if (isVariableModified(VariablePnt, Node.Child[0], Node.Child[2])) or (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
      Exit(nil);
 
-    if (isVariableModified(VariablePnt, Node.Child[1], Node.Child[2])) and (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
+    if (isVariableModified(VariablePnt, Node.Child[1], Node.Child[2])) or (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
      Exit(nil);
    End;
 
@@ -1153,7 +1156,10 @@ Begin
     Assign := Node.Value^.FindAssignment(VarName);
 
     if (Assign <> nil) and (Assign^.Right^.isConstant) Then
-     Exit(Assign^.Right);
+     Exit(Assign^.Right) Else
+
+    if (Assign <> nil) Then
+     Exit(nil);
    End;
 
    Node := Node.Parent;
