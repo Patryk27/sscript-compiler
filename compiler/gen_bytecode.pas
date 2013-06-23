@@ -29,13 +29,17 @@ Var Child   : TCFGNode;
     LabelName, LabelFalse, LabelOut: String;
 
     PrevDoNotGenerateCode: Boolean;
+
+    ArgList: PVarRecArray;
+    I      : Integer;
+    Symbol : TLocalSymbol;
 Begin
  if (Node = nil) Then
   Exit;
 
  if (VisitedNodes.IndexOf(Node) <> -1) Then // if node has been visited more than once, don't compile it again
  Begin
-  TCompiler(Compiler).PutOpcode(o_jmp, [':'+Node.getGraphSymbol]);
+  TCompiler(Compiler).PutOpcode(o_jmp, [':'+Node.getName]);
   Exit;
  End;
  VisitedNodes.Add(Node);
@@ -45,7 +49,7 @@ Begin
  TCompiler(Compiler).fCurrentNode := Node;
 
  if ({AnythingFromNodePointsAt(Func.FlowGraph.Root, nil, Node)} Node.Typ <> cetBytecode) Then
-  TCompiler(Compiler).PutLabel(Node.getGraphSymbol);
+  TCompiler(Compiler).PutLabel(Node.getName);
 
  Try
   With TCompiler(Compiler) do
@@ -156,7 +160,7 @@ Begin
  { cetTryCatch }
    cetTryCatch:
    Begin
-    LabelName := Node.getGraphSymbol+'_trycatch';
+    LabelName := Node.getName+'_trycatch';
 
     { save current exception handler and set the new one }
     PutOpcode(o_icall, ['"vm.save_exception_state"']);
@@ -186,7 +190,20 @@ Begin
    Begin
     if (Node.Bytecode.OpcodeName = '') Then
      PutLabel(Node.Bytecode.LabelName) Else
-     PutOpcode(Node.Bytecode.OpcodeName, Node.Bytecode.OpcodeArgList^, Node.getToken);
+     Begin
+      ArgList := Node.Bytecode.OpcodeArgList;
+
+      For I := Low(ArgList^) To High(ArgList^) Do
+      Begin
+       if (Pos('localvar.', ArgList^[I].VPChar) > 0) Then
+        For Symbol in Func.SymbolList Do
+         With Symbol do
+          if (Typ = lsVariable) Then
+           ArgList^[I].VPChar := CopyStringToPChar(StringReplace(ArgList^[I].VPChar, 'localvar.'+IntToStr(LongWord(mVariable)), mVariable.getBytecodePos, [rfReplaceAll]));
+      End;
+
+      PutOpcode(Node.Bytecode.OpcodeName, ArgList^, Node.getToken);
+     End;
 
     For Child in Node.Child Do
      Generate(Child);

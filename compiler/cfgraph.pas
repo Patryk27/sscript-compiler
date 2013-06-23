@@ -24,8 +24,8 @@ Unit cfgraph;
 
  Type TCFGNode = Class
                   Private
-                   GraphSymbol: String;
-                   fToken     : PToken_P;
+                   Name  : String;
+                   fToken: PToken_P;
 
                   Public
                    Typ  : TCFGNodeType;
@@ -46,7 +46,7 @@ Unit cfgraph;
 
                    Function getToken: PToken_P;
 
-                   Property getGraphSymbol: String read GraphSymbol;
+                   Property getName: String read Name;
                   End;
 
  Type TCFGraph = Class
@@ -118,7 +118,7 @@ Var Str, Visited: TStringList;
    if (Node = nil) Then
     Exit('nil');
 
-   if (Visited.IndexOf(Node.GraphSymbol) <> -1) Then
+   if (Visited.IndexOf(Node.Name) <> -1) Then
    Begin
     if (Node.Typ = cetNone) Then
     Begin
@@ -126,10 +126,10 @@ Var Str, Visited: TStringList;
       Exit('nil') Else
       Exit(Parse(Node.Child[0]));
     End Else
-     Exit(Node.GraphSymbol);
+     Exit(Node.Name);
    End;
 
-   Visited.Add(Node.GraphSymbol);
+   Visited.Add(Node.Name);
 
    if (Node.Typ = cetNone) Then
     if (Node.Child.Count = 0) Then
@@ -139,7 +139,7 @@ Var Str, Visited: TStringList;
    { expression }
    if (Node.Typ = cetExpression) Then
    Begin
-    Result := Node.GraphSymbol;
+    Result := Node.Name;
 
     Case Node.Child.Count of
      0: Exit;
@@ -152,7 +152,7 @@ Var Str, Visited: TStringList;
    { condition }
    if (Node.Typ = cetCondition) Then
    Begin
-    Str := Node.GraphSymbol;
+    Str := Node.Name;
 
     Result := Str;
     Result += #13#10+Str+' -> '+Parse(Node.Child[0]);
@@ -162,7 +162,7 @@ Var Str, Visited: TStringList;
    { return }
    if (Node.Typ = cetReturn) Then
    Begin
-    Result := Node.GraphSymbol;
+    Result := Node.Name;
 
     if (Node.Child.Count <> 0) Then
      Result += ' -> '+Parse(Node.Child[0]);
@@ -171,7 +171,7 @@ Var Str, Visited: TStringList;
    { throw }
    if (Node.Typ = cetThrow) Then
    Begin
-    Result := Node.GraphSymbol;
+    Result := Node.Name;
 
     if (Node.Child.Count <> 0) Then
      Result += ' -> '+Parse(Node.Child[0]);
@@ -180,17 +180,17 @@ Var Str, Visited: TStringList;
    { try }
    if (Node.Typ = cetTryCatch) Then
    Begin
-    Result := Node.GraphSymbol;
+    Result := Node.Name;
 
-    Result += #13#10+Node.GraphSymbol+' -> '+Parse(Node.Child[0]);
-    Result += #13#10+Node.GraphSymbol+' -> '+Parse(Node.Child[1]);
-    Result += #13#10+Node.GraphSymbol+' -> '+Parse(Node.Child[2]);
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[0]);
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[1]);
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[2]);
    End Else
 
    { bytecode }
    if (Node.Typ = cetBytecode) Then
    Begin
-    Result := Node.GraphSymbol;
+    Result := Node.Name;
 
     if (Node.Child.Count <> 0) Then
      Result += ' -> '+Parse(Node.Child[0]);
@@ -207,15 +207,15 @@ Var Str, Visited: TStringList;
    if (Node = nil) Then
     Exit;
 
-   if (Visited.IndexOf(Node.GraphSymbol) <> -1) Then
+   if (Visited.IndexOf(Node.Name) <> -1) Then
     Exit;
 
-   Visited.Add(Node.GraphSymbol);
+   Visited.Add(Node.Name);
 
    NS := NodeToString(Node);
 
    if (Length(NS) <> 0) Then
-    Str.Add(Node.GraphSymbol+' [label="'+NS+'"];');
+    Str.Add(Node.Name+' [label="'+NS+'"];');
 
    For I := 0 To Node.Child.Count-1 Do
     ParseF(Node.Child[I]);
@@ -256,9 +256,9 @@ Var Visited: TStringList;
      if (Node = rEndNode) Then
       Exit;
 
-     if (Visited.IndexOf(Node.GraphSymbol) <> -1) Then
+     if (Visited.IndexOf(Node.Name) <> -1) Then
       Exit;
-     Visited.Add(Node.GraphSymbol);
+     Visited.Add(Node.Name);
 
      if (Node = AtWhat) Then
      Begin
@@ -374,9 +374,9 @@ Var Visited : TStringList;
      if (Node = rEndNode) Then
       Exit;
 
-     if (Visited.IndexOf(Node.GraphSymbol) <> -1) Then
+     if (Visited.IndexOf(Node.Name) <> -1) Then
       Exit;
-     Visited.Add(Node.GraphSymbol);
+     Visited.Add(Node.Name);
 
      if (Node.Value <> nil) Then // @TODO: those operators can be nested!
      Begin
@@ -462,9 +462,9 @@ Var Visited : TStringList;
      if (Node = rEndNode) Then
       Exit;
 
-     if (Visited.IndexOf(Node.GraphSymbol) <> -1) Then
+     if (Visited.IndexOf(Node.Name) <> -1) Then
       Exit;
-     Visited.Add(Node.GraphSymbol);
+     Visited.Add(Node.Name);
 
      if (isUsed(Node, Node.Value)) Then
      Begin
@@ -494,7 +494,7 @@ End;
 (* TCFGNode.Create *)
 Constructor TCFGNode.Create(fParent: TCFGNode; ffToken: PToken_P);
 Begin
- GraphSymbol := RandomSymbol;
+ Name := RandomSymbol;
 
  Typ    := cetNone;
  Value  := nil;
@@ -507,7 +507,7 @@ End;
 (* TCFGNode.Create *)
 Constructor TCFGNode.Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpression; ffToken: PToken_P);
 Begin
- GraphSymbol := RandomSymbol;
+ Name := RandomSymbol;
 
  Typ    := fTyp;
  Value  := fValue;

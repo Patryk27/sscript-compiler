@@ -271,7 +271,7 @@ Begin
         Begin
          With getCurrentNode do
          Begin
-          Writeln('Current node: ', getGraphSymbol);
+          Writeln('Current node: ', getName);
           Writeln('Line        : ', getToken^.Line);
           Writeln('Typ         : ', Typ);
           Writeln('Value       : ', ExpressionToString(Value));

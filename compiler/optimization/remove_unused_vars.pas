@@ -36,16 +36,17 @@ Begin
   While (ID < SymbolList.Count) Do
   Begin
    if (SymbolList[ID].Typ = lsVariable) and (not SymbolList[ID].mVariable.isFuncParam) Then
-    if (not isVariableUsed(SymbolList[ID].mVariable, Func.FlowGraph.Root, nil)) Then // if variable's value isn't used anywhere...
-    Begin
-     VisitedNodes.Clear;
-     RemoveVarAssign(Func.FlowGraph.Root); // remove every assignment to this variable
+    if (not SymbolList[ID].mVariable.isVolatile) Then
+     if (not isVariableUsed(SymbolList[ID].mVariable, Func.FlowGraph.Root, nil)) Then // if variable's value isn't used anywhere...
+     Begin
+      VisitedNodes.Clear;
+      RemoveVarAssign(Func.FlowGraph.Root); // remove every assignment to this variable
 
-     DevLog(dvInfo, 'RemoveUnusedVariables', 'Variable killed: '+SymbolList[ID].Name);
-     SymbolList.Remove(SymbolList[ID]);
-     Dec(ID);
-     Inc(KilledVars);
-    End;
+      DevLog(dvInfo, 'RemoveUnusedVariables', 'Variable killed: '+SymbolList[ID].Name);
+      SymbolList.Remove(SymbolList[ID]);
+      Dec(ID);
+      Inc(KilledVars);
+     End;
 
    Inc(ID);
   End;

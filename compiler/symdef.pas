@@ -10,7 +10,7 @@ Unit symdef;
  Type TVisibility = (mvPublic, mvPrivate);
 
  Type TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized);
- Type TVariableAttributes = Set of (vaConst, vaEnumItem, vaFuncParam, vaDontAllocate);
+ Type TVariableAttributes = Set of (vaConst, vaEnumItem, vaFuncParam, vaDontAllocate, vaVolatile);
  Type TFunctionAttributes = Set of (faNaked);
 
  Type TRange = Record
@@ -127,6 +127,7 @@ Unit symdef;
 
                     Function isConst: Boolean;
                     Function isFuncParam: Boolean;
+                    Function isVolatile: Boolean;
                     Function DontAllocate: Boolean;
 
                     Function getBytecodePos: String;
@@ -912,6 +913,12 @@ End;
 Function TVariable.isFuncParam: Boolean;
 Begin
  Result := vaFuncParam in Attributes;
+End;
+
+(* TVariable.isVolatile *)
+Function TVariable.isVolatile: Boolean;
+Begin
+ Result := vaVolatile in Attributes;
 End;
 
 (* TVariable.DontAllocate *)

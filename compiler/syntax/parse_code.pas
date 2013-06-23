@@ -10,7 +10,7 @@ Unit Parse_CODE;
  Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
 
  Implementation
-Uses Compile1, ExpressionCompiler, Messages, Tokens, Opcodes, cfgraph;
+Uses Compile1, ExpressionCompiler, Messages, Tokens, Opcodes, cfgraph, symdef;
 
 (* Parse *)
 Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
@@ -130,10 +130,6 @@ Begin
 
       _PERCENT { % }:
       Begin
-       CompileError(eUnimplemented, ['using variables in bytecode']);
-
-       // @TODO: at the time of parsing user bytecode, variables hasn't been allocated yet!
-
        Arg := read_ident;
 
        IdentID      := findLocalVariable(Arg);
@@ -150,10 +146,14 @@ Begin
        Begin
         if (isIdentLocal) Then
         Begin
-         With getCurrentFunction.SymbolList[IdentID].mVariable do
-          if (isConst) and (Value <> nil) Then
-           Arg := getValueFromExpression(Value) Else
-           Arg := getBytecodePos;
+         With getCurrentFunction.SymbolList[IdentID] do
+          With mVariable do
+           if (isConst) and (Value <> nil) Then // if constant...
+            Arg := getValueFromExpression(Value) Else
+            Begin
+             Attributes += [vaVolatile]; // optimizer could remove this variable, what we don't want.
+             Arg        := 'localvar.'+IntToStr(LongWord(mVariable)); // a bit lame solution, but I have no idea how to make it work in better way
+            End;
         End Else
          With NamespaceList[IdentNamespace].SymbolList[IdentID].mVariable do
           if (isConst) Then

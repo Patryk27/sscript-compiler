@@ -705,10 +705,10 @@ Begin
     Typ := ptNone;
 
     if (T = vtAnsiString) Then
-     Str := AnsiString(fArgs[I].VAnsiString);
+     Str := AnsiString(fArgs[I].VAnsiString) Else
 
     if (T = vtPChar) Then
-     Str := fArgs[I].VPChar;
+     Str := fArgs[I].VPChar Else
 
     if (T = System.vtString) Then
      Str := fArgs[I].VString^;
@@ -1120,21 +1120,20 @@ Var Node   : TCFGNode;
 Begin
  Result := nil;
 
+ if (VariablePnt.isVolatile) Then // don't optimize volatile variables
+  Exit;
+
  VarName := TVariable(VariablePnt).RefSymbol.Name;
-
- Node := getCurrentNode;//.Parent;
-
- if (Node = nil) Then
-  Node := getCurrentNode;
+ Node    := getCurrentNode;
 
  Visited := TStringList.Create;
  Try
   While (Node <> nil) Do
   Begin
-   if (Visited.IndexOf(Node.getGraphSymbol) <> -1) Then // node has been already visited
+   if (Visited.IndexOf(Node.getName) <> -1) Then // node has been already visited
     Break;
 
-   Visited.Add(Node.getGraphSymbol);
+   Visited.Add(Node.getName);
 
    if (Node.Typ = cetCondition) Then
    Begin
