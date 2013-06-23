@@ -44,8 +44,9 @@ Unit cfgraph;
                    Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
                    Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpression; ffToken: PToken_P=nil);
 
-                   Function getToken: PToken_P;
+                   Function isThere(const SearchType: TCFGNodeType): Boolean;
 
+                   Function getToken: PToken_P;
                    Property getName: String read Name;
                   End;
 
@@ -519,6 +520,20 @@ Begin
    fToken := @Value^.Token;
 
  Child := TCFGNodeList.Create;
+End;
+
+(* TCFGNode.isThere *)
+Function TCFGNode.isThere(const SearchType: TCFGNodeType): Boolean;
+Var mChild: TCFGNode;
+Begin
+ Result := False;
+
+ if (Typ = SearchType) Then
+  Exit(True);
+
+ For mChild in Child Do
+  if (mChild.isThere(SearchType)) Then
+   Exit(True);
 End;
 
 (* TCFGNode.getToken *)

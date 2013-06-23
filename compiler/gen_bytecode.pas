@@ -220,6 +220,7 @@ End;
 // -------------------------------------------------------------------------- //
 (* ValidateGraph *)
 Procedure ValidateGraph;
+Var isThereAnyReturn: Boolean = False;
 
   // CheckTryCatch
   Procedure CheckTryCatch(Node: TCFGNode);
@@ -263,29 +264,31 @@ Procedure ValidateGraph;
   Procedure CheckReturn(Node, EndNode: TCFGNode);
   Var Child: TCFGNode;
   Begin
-   if (Node = nil) or (Node = EndNode) Then
+   if (Node = nil) or (Node = EndNode) Then // if encountered nil or end node...
     Exit;
 
    if (VisitedNodes.IndexOf(Node) <> -1) Then
     Exit;
-   VisitedNodes.Add(Node);
+   VisitedNodes.Add(Node); // add node to the visited list
 
-   if (Node.Typ = cetReturn) Then
+   if (Node.Typ = cetReturn) Then // if 'return'
    Begin
-    if (Node.Child.Count <> 0) Then
-     if (VisitedNodes.IndexOf(Node.Child[0]) = -1) Then
-     Begin                   // @TODO: `Node.Child[0].Value` is a bad solution here
-      if (Node.Child[0].Value <> nil) and (Node.Child[0] <> EndNode) Then
-      Begin
-       TCompiler(Compiler).CompileHint(Node.Child[0].getToken, hUnreachableCode, []);
-       VisitedNodes.Add(Node.Child[0]);
-      End;
+    isThereAnyReturn := True;
+
+    if (Node.Child.Count = 1) Then // any code appearing after 'return' is 'unreachable'...
+     if (Node.Child[0] <> EndNode) and // ...if it isn't ending node
+        (VisitedNodes.IndexOf(Node.Child[0]) = -1) and // ...and if it hasn't been already visited
+        (Node.Child[0].Value <> nil) Then // ...and ofc. - if it's an expression
+     Begin
+      TCompiler(Compiler).CompileHint(Node.Child[0].getToken, hUnreachableCode, []);
+      VisitedNodes.Add(Node.Child[0]);
      End;
 
     Exit;
-   End Else
-    if (Node.Child.Count = 0) and (Node.Value <> nil) Then
-     TCompiler(Compiler).CompileWarning(Node.getToken, wNotEveryPathReturnsAValue, []);
+   End;
+
+   if (Node.Child.Count = 0) and (Node.Value <> nil) Then // if it's an edge node with some expression and it isn't 'return', show warning
+    TCompiler(Compiler).CompileWarning(nil, wNotEveryPathReturnsAValue, []);
 
    if (Node.Typ = cetCondition) Then
    Begin
@@ -295,7 +298,18 @@ Procedure ValidateGraph;
    End Else
 
    if (Node.Typ = cetTryCatch) Then
-    CheckReturn(Node.Child[2], EndNode) Else
+   Begin
+    if (Node.Child[0].isThere(cetReturn)) and (Node.Child[1].isThere(cetReturn)) Then // if both nodes ("try" and "catch") return a value...
+    Begin
+     isThereAnyReturn := True;
+
+     Node := Node.Child[2];
+
+     if (Node <> nil) and (Node.Value <> nil) Then
+      TCompiler(Compiler).CompileHint(Node.getToken, hUnreachableCode, []);
+    End Else
+     CheckReturn(Node.Child[2], EndNode);
+   End Else
 
     For Child in Node.Child Do
      CheckReturn(Child, EndNode);
@@ -309,6 +323,9 @@ Begin
  Begin
   VisitedNodes.Clear;
   CheckReturn(Func.FlowGraph.Root, nil);
+
+  if (not isThereAnyReturn) Then
+   TCompiler(Compiler).CompileWarning(TCompiler(Compiler).Parser.next_pnt(-1), wNotEveryPathReturnsAValue, []);
  End;
 End;
 
