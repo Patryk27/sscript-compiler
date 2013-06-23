@@ -383,7 +383,7 @@ Var Visited : TStringList;
      Begin
       Range := inRange(Node.getToken^.Position, VarRange.PBegin, VarRange.PEnd);
 
-      if (Range) and (Node.Value^.Typ in [mtAssign, mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq]) and (Node.Value^.Left^.IdentName = VarName) Then
+      if (Range) and (Node.Value^.isVariableModified(VarName, False)) Then
       Begin
        Result := True;
        Exit;

@@ -363,7 +363,7 @@ Begin
 
    if (getBoolOption(opt__constant_folding)) Then
    Begin
-    DevLog(dvInfo, 'Parse', 'Optimizing expressions...'); // @TODO: there should be switch turning this optimization on/off (but static compile-time expressions (like `const x = 2+2*2;`) have to be directly evaluated!
+    DevLog(dvInfo, 'Parse', 'Optimizing expressions...');
     OptimizeExpressions;
    End;
 
@@ -375,7 +375,7 @@ Begin
 
    if (getBoolOption(opt__remove_dead)) Then
    Begin
-    DevLog(dvInfo, 'Parse', 'Removing unused variables...'); // @TODO: there should be switch turning this optimization on/off
+    DevLog(dvInfo, 'Parse', 'Removing unused variables...');
     RemoveUnusedVariables;
    End;
 

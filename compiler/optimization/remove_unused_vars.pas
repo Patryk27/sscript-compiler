@@ -4,7 +4,8 @@ Var ID, KilledVars: Integer;
 
   // RemoveVarAssign
   Procedure RemoveVarAssign(Node: TCFGNode);
-  Var Child: TCFGNode;
+  Var Child : TCFGNode;
+      Assign: PExpression;
   Begin
    if (Node = nil) Then
     Exit;
@@ -13,14 +14,21 @@ Var ID, KilledVars: Integer;
     Exit;
    VisitedNodes.Add(Node);
 
-   if (Node.Typ = cetExpression) and (Node.Value^.Typ = mtAssign) and (Node.Value^.Left^.IdentName = Func.SymbolList[ID].Name) Then // @TODO: assigns can be nested!
+   if (Node.Value <> nil) Then
    Begin
-    if (Node.Value^.Right^.HasCall) Then // if right side of the asignment is a call, remove the assign, but leave the call
-     Node.Value := Node.Value^.Right Else
+    Assign := Node.Value^.FindAssignment(Func.SymbolList[ID].Name);
+
+    if (Assign <> nil) Then
+    Begin
+     if (Node.Value^.HasCall) Then // if right side of the asignment is a call, remove the assignment, but leave the call
+     Begin
+      Node.Value^.RemoveAssignments(Func.SymbolList[ID].Name);
+     End Else
      Begin // otherwise just remove the whole expression
       Node.Typ   := cetNone;
       Node.Value := nil;
      End;
+    End;
    End;
 
    For Child in Node.Child Do

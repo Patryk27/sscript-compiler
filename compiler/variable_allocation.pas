@@ -35,7 +35,10 @@ Var VarList: TVarList;
       mVar.MemPos := 3 Else
      if (4 in FreeRegs) Then
       mVar.MemPos := 4 Else
-      mVar.MemPos := -StackPos;
+      Begin
+       mVar.MemPos := -StackPos;
+       Inc(VarsOnStack);
+      End;
     End;
 
 Var StackPos: uint16 = 0;
@@ -75,6 +78,7 @@ Begin
    Begin
     Symbol.mVariable.MemPos := -StackPos;
     Inc(StackPos);
+    Inc(VarsOnStack);
    End;
  End;
 End;

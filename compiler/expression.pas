@@ -35,6 +35,8 @@ Unit Expression;
  Const MCompareOperators: TExpressionTypeSet = [mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent];
  Const MOperators: TExpressionTypeSet        = [mtArrayElement, mtNew, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
 
+ Const MLValueOperators: TExpressionTypeSet = [mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq, mtAssign];
+
  Type PExpression = ^TExpression;
       TExpression = Record
                      Left, Right: PExpression;
@@ -53,8 +55,11 @@ Unit Expression;
                      Symbol    : Pointer;
                      isLocal   : Boolean;
 
-                     Function HasCall: Boolean;
+                     Function isVariableModified(const VarName: String; const CheckAssigns: Boolean): Boolean;
+                     Function FindAssignment(const VarName: String): PExpression;
+                     Procedure RemoveAssignments(const VarName: String);
 
+                     Function HasCall: Boolean;
                      Function isConstant: Boolean;
                     End;
 
@@ -73,6 +78,71 @@ Unit Expression;
 Uses SysUtils;
 
 // -------------------------------------------------------------------------- //
+(* TExpression.isVariableModified *)
+{
+ Returns 'true' if variable named 'VarName' is modified inside this expression.
+}
+Function TExpression.isVariableModified(const VarName: String; const CheckAssigns: Boolean): Boolean;
+Var I: Integer;
+Begin
+ if (CheckAssigns) Then
+  Result := (Typ in MLValueOperators) Else
+  Result := (Typ in (MLValueOperators-[mtAssign]));
+
+ Result := Result and (IdentName = VarName);
+
+ if (not Result) and (Left <> nil) Then
+  Result := Result or Left^.isVariableModified(VarName, CheckAssigns);
+
+ if (not Result) and (Right <> nil) Then
+  Result := Result or Right^.isVariableModified(VarName, CheckAssigns);
+
+ For I := Low(ParamList) To High(ParamList) Do
+  Result := Result or ParamList[I]^.isVariableModified(VarName, CheckAssigns);
+End;
+
+(* TExpression.FindAssignment *)
+{
+ Finds the first assignment to a variable named `VarName` and returns it, otherwise returns `nil`.
+
+ @TODO: arrays!
+}
+Function TExpression.FindAssignment(const VarName: String): PExpression;
+Var I: Integer;
+Begin
+ Result := nil;
+
+ if (Typ = mtAssign) and (Left^.IdentName = VarName) Then
+  Exit(@self);
+
+ if (Result = nil) and (Left <> nil) Then
+  Result := Left^.FindAssignment(VarName);
+
+ if (Result = nil) and (Right <> nil) Then
+  Result := Right^.FindAssignment(VarName);
+
+ For I := Low(ParamList) To High(ParamList) Do
+  if (Result = nil) Then
+   Result := ParamList[I]^.FindAssignment(VarName);
+End;
+
+(* TExpression.RemoveAssignments *)
+{
+ Removes all assignments to variable named `VarName`.
+}
+Procedure TExpression.RemoveAssignments(const VarName: String);
+Var Assign: PExpression;
+Begin
+ While (true) Do
+ Begin
+  Assign := FindAssignment(VarName);
+  if (Assign = nil) Then
+   Break;
+
+  Assign^ := Assign^.Right^;
+ End;
+End;
+
 (* TExpression.HasCall *)
 {
  Returns `true` if the expression or any of its children (and children's children, and so on) is a function or method call.

@@ -1117,6 +1117,7 @@ Function TCompiler.FetchVariableValue(VariablePnt: TVariable): PExpression;
 Var Node   : TCFGNode;
     Visited: TStringList;
     VarName: String;
+    Assign : PExpression;
 Begin
  Result := nil;
 
@@ -1146,13 +1147,13 @@ Begin
 
    if (Node.Value <> nil) Then
    Begin
-    if (Node.Value^.Typ in [mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq]) and (Node.Value^.Left^.IdentName = VarName) Then // @TODO: 1) these operators can be nested; 2) if the right side is known, we can parse it at the compile-time
+    if (Node.Value^.isVariableModified(VarName, False)) Then // @TODO: if the right side is known, we can parse it at the compile-time
      Exit(nil);
 
-    if (Node.Value^.Typ = mtAssign) Then // @TODO: assigns can be nested inside expression!
-     if (Node.Value^.Left^.IdentName = VarName) Then
-      if (Node.Value^.Right^.isConstant) Then
-       Exit(Node.Value^.Right);
+    Assign := Node.Value^.FindAssignment(VarName);
+
+    if (Assign <> nil) and (Assign^.Right^.isConstant) Then
+     Exit(Assign^.Right);
    End;
 
    Node := Node.Parent;

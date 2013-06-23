@@ -17,7 +17,7 @@ Procedure Stage1;
    TCompiler(Compiler).fCurrentNode := Node;
 
    if (Node.Value <> nil) Then
-    ExpressionCompiler.OptimizeExpression(TCompiler(Compiler), Node.Value, [oInsertConstants, oConstantFolding]); // @TODO (last parameter)
+    ExpressionCompiler.OptimizeExpression(TCompiler(Compiler), Node.Value, [oInsertConstants, oConstantFolding]);
 
    For Child in Node.Child Do
     Visit(Child);
@@ -35,6 +35,7 @@ Procedure Stage2;
   Var Child, Back : TCFGNode;
       CanBeRemoved: Boolean;
       Symbol      : TSymbol;
+      Second      : PExpression;
   Begin
    if (Node = nil) Then
     Exit;
@@ -54,23 +55,28 @@ Procedure Stage2;
     // get last variable's assign node
     While (Back <> nil) Do
     Begin
-     if (Back.Value <> nil) and (Back.Value^.Typ = mtAssign) and (Back.Value^.Left^.IdentName = Node.Value^.Left^.IdentName) Then
+     if (Back.Value <> nil) Then
      Begin
-      Symbol := TSymbol(Back.Value^.Left^.Symbol);
+      Second := Back.Value^.FindAssignment(Node.Value^.Left^.IdentName);
 
-      if (Symbol = nil) Then
-       Symbol := TSymbol(Node.Value^.Left^.Symbol);
-
-      if (Symbol = nil) Then // can happen when operating on array elements
+      if (Second <> nil) Then // if assign found...
       Begin
-       Back := Back.Parent;
-       Continue;
-      End;
+       Symbol := TSymbol(Second^.Left^.Symbol);
 
-      if (Symbol is TLocalSymbol) and (not isVariableUsed(TLocalSymbol(Back.Value^.Left^.Symbol).mVariable, Back, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
-      Begin
-       CanBeRemoved := True;
-       Break;
+       if (Symbol = nil) Then
+        Symbol := TSymbol(Second^.Left^.Symbol);
+
+       if (Symbol = nil) Then // can happen when operating on array elements
+       Begin
+        Back := Back.Parent;
+        Continue;
+       End;
+
+       if (Symbol is TLocalSymbol) and (not isVariableUsed(TLocalSymbol(Second^.Left^.Symbol).mVariable, Back, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
+       Begin
+        CanBeRemoved := True;
+        Break;
+       End;
       End;
      End;
 
