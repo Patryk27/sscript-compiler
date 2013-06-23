@@ -57,7 +57,7 @@ Unit cfgraph;
                   Procedure AddNode(Node: TCFGNode);
                  End;
 
- Procedure DrawGraph(Graph: TCFGraph);
+ Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
 
  Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 
@@ -80,8 +80,8 @@ Begin
 End;
 
 // -------------------------------------------------------------------------- //
-(* DrawGraph *)
-Procedure DrawGraph(Graph: TCFGraph);
+(* SaveGraph *)
+Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
 Var Str, Visited: TStringList;
 
   { NodeToString }
@@ -222,7 +222,13 @@ Var Str, Visited: TStringList;
     ParseF(Node.Child[I]);
   End;
 
+Var DirName: String;
 Begin
+ DirName := ExtractFileDir(FileName);
+
+ if (not DirectoryExists(DirName)) Then
+  CreateDir(DirName);
+
  Str     := TStringList.Create;
  Visited := TStringList.Create;
 
@@ -237,7 +243,7 @@ Begin
   Str.Add('}');
  Finally
   Visited.Free;
-  Str.SaveToFile('tree.dot');
+  Str.SaveToFile(FileName);
   Str.Free;
  End;
 End;

@@ -358,8 +358,8 @@ Begin
    DevLog(dvInfo, 'Parse', 'Validing graph for function `'+Func.RefSymbol.Name+'`...');
    ValidateGraph;
 
-  //if (Func.RefSymbol.Name = 'main') Then // @TODO
-   //DrawGraph(Func.FlowGraph); // `not_optimized/main.dot`
+   if (getBoolOption(opt__dump_cfg)) Then
+    SaveGraph(Func.FlowGraph, 'not_optimized/'+Func.RefSymbol.Name+'.d');
 
    if (getBoolOption(opt__constant_folding)) Then
    Begin
@@ -407,8 +407,8 @@ Begin
   DevLog(dvInfo, 'Parse', 'Function '''+Func.RefSymbol.Name+''' has been compiled!');
   DevLog;
 
-  //if (Func.RefSymbol.Name = 'main') Then // @TODO
-  // DrawGraph(Func.FlowGraph); // `optimized/main.dot`
+  if (getBoolOption(opt__dump_cfg)) Then
+   SaveGraph(Func.FlowGraph, 'optimized/'+Func.RefSymbol.Name+'.d');
 
   RemoveScope; // ... and - as we finished compiling this function - remove scope
  End;
