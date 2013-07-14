@@ -42,8 +42,10 @@ Var Func : TFunction; // our new function
 
     VarsOnStack: uint16 = 0; // number of variables allocated on the stack
 
+    VisitedNodes: TCFGNodeList;
     RemovedNodes: TCFGNodeList; // list of removed nodes
 
+  {$I ssa.pas}
   {$I gen_bytecode.pas}
 
   // NewConst (used to create internal constants, if enabled)
@@ -68,7 +70,7 @@ Var Func : TFunction; // our new function
     if (findLocalVariable(cName) = -1) Then // don't duplicate
      With getCurrentFunction do
      Begin
-      SymbolList.Add(TLocalSymbol.Create(lsConstant, False));
+      SymbolList.Add(TSymbol.Create(stConstant, False));
       SymbolList.Last.mVariable := Variable;
      End;
    End;
@@ -238,7 +240,7 @@ Begin
   CurrentFunction          := Func;
   Func.RefSymbol.mCompiler := Compiler;
   Func.RefSymbol.DeclToken := next_pnt(-1); // _FUNCTION
-  Func.NamespaceName       := getCurrentNamespace.Name;
+  Func.NamespaceName       := getCurrentNamespace.RefSymbol.Name;
 
   { read function return type }
   eat(_LOWER);
@@ -282,14 +284,14 @@ Begin
   { add this function into the symbol list }
   With getCurrentNamespace do
   Begin
-   SymbolList.Add(TGlobalSymbol.Create(gsFunction, Func));
+   SymbolList.Add(TSymbol.Create(stFunction, Func));
 
    With SymbolList.Last do
    Begin
-    mVariable                := TVariable.Create;
-    mVariable.RefSymbol.Name := Func.RefSymbol.Name;
-    mVariable.Typ            := NewTypeFromFunction(Func);
-    mVariable.Value          := MakeIntExpression('@'+Func.MangledName);
+    mVariable       := TVariable.Create;
+    mVariable.RefSymbol.Name  := Func.RefSymbol.Name;
+    mVariable.Typ   := NewTypeFromFunction(Func);
+    mVariable.Value := MakeIntExpression('@'+Func.MangledName);
 
     mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
    End;
@@ -357,6 +359,9 @@ Begin
   Try
    DevLog(dvInfo, 'Parse', 'Validing graph for function `'+Func.RefSymbol.Name+'`...');
    ValidateGraph;
+
+   DevLog(dvInfo, 'Parse', 'Generating SSA form...');
+   GenerateSSA;
 
    if (getBoolOption(opt__dump_cfg)) Then
     SaveGraph(Func.FlowGraph, 'not_optimized/'+Func.RefSymbol.Name+'.d');

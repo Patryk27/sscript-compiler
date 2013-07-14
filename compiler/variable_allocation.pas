@@ -4,7 +4,7 @@
 Procedure AllocateVariables(const CanUseRegs: Boolean);
 Type TVarList = specialize TFPGList<PVar>;
 Var VarList: TVarList;
-    Symbol : TLocalSymbol;
+    Symbol : TSymbol;
     VarRec : PVar;
 
     // Alloc
@@ -51,7 +51,7 @@ Begin
   Try
    // the most used variables are going to registers, rest onto the stack.
    For Symbol in Func.SymbolList Do
-    if (Symbol.Typ = lsVariable) Then
+    if (Symbol.Typ = stVariable) Then
     Begin
      if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) and (not Symbol.mVariable.DontAllocate) Then
      Begin

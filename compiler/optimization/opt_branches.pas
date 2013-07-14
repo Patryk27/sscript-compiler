@@ -1,8 +1,7 @@
 (* OptimizeBranches *)
 Procedure OptimizeBranches;
 Var AnythingOptimized: Boolean = False;
-
-  // Remap
+  { Remap }
   Procedure Remap(Parent, Node, nFrom, nTo, nFromParent, nToParent: TCFGNode);
   Var I: Integer;
   Begin
@@ -24,13 +23,13 @@ Var AnythingOptimized: Boolean = False;
    End;
   End;
 
-  // Visit
+  { Visit }
   Procedure Visit(Parent, Node: TCFGNode; ChildID: Integer);
   Var I        : Integer;
       Value    : Boolean;
       NewParent: TCFGNode;
   Begin
-   if (AnythingOptimized) Then
+   if (AnythingOptimized) Then // don't try to optimize multiple branches at once
     Exit;
 
    if (Node = nil) Then
@@ -40,7 +39,7 @@ Var AnythingOptimized: Boolean = False;
     Exit;
    VisitedNodes.Add(Node);
 
-   if (Node.Typ = cetCondition) Then // if condition...
+   if (Node.Typ = cetCondition) and (not Node.isVolatile) Then // if condition...
    Begin
     if (Node.Value^.isConstant) and (Node.Value^.Typ in [mtBool, mtInt]) Then // if can be optimized...
     Begin
@@ -63,6 +62,9 @@ Var AnythingOptimized: Boolean = False;
      End;
 
      VisitedNodes.Clear;
+     RemapSSA(Node.Child[ord(Value)], Node.Child[2], Node.Child[2]);
+
+     VisitedNodes.Clear;
      Remap(Parent, Node.Child[ord(not Value)], Node, NewParent, Node, NewParent);
 
      VisitedNodes.Clear;
@@ -83,28 +85,6 @@ Var AnythingOptimized: Boolean = False;
     Visit(Node, Node.Child[I], I);
   End;
 
-  // Foo
-  {Procedure Foo(Node: TCFGNode; Deep: uint8=0);
-  Var I, Q: Integer;
-      P   : String;
-  Begin
-   if (Node.Parent = nil) Then
-    P := '<none>' Else
-    P := Node.Parent.getName+' ('+ExpressionToString(Node.Parent.Value)+')';
-
-   For Q := 0 To Deep-1 Do
-    Write(' ');
-   Writeln('Node [', Node.getName, '] :: ', Node.Typ, ' :: ', ExpressionToString(Node.Value), ' ; parent = ', P);
-
-   For I := 0 To Node.Child.Count-1 Do
-   Begin
-    For Q := 0 To Deep-1 Do
-     Write(' ');
-    Writeln('[', Node.getName, '].child ', I);
-    Foo(Node.Child[I], Deep+3);
-   End;
-  End;}
-
 Var OptBranches: uint32 = 0;
 Begin
  Repeat
@@ -117,6 +97,9 @@ Begin
    OptimizeExpressions;
    Inc(OptBranches);
   End;
+
+  if (OptBranches > 1000) Then // probably the optimizer has entered an infinite loop
+   TCompiler(Compiler).CompileError(eInternalError, ['It seems that your code somehow crashes the branch optimizer (it stays in infinite loop), sorry...']);
  Until (not AnythingOptimized);
 
  DevLog(dvInfo, 'OptimizeBranches', 'Optimized branches: '+IntToStr(OptBranches));

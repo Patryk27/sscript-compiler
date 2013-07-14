@@ -41,6 +41,8 @@ Unit cfgraph;
                               LabelName: String;
                              End;
 
+                   isVolatile: Boolean;
+
                    Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
                    Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpression; ffToken: PToken_P=nil);
 
@@ -62,8 +64,6 @@ Unit cfgraph;
  Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 
  Function getVariableUseCount(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): uint32;
-
- Function isVariableModified(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
  Function isVariableUsed(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
 
  Implementation
@@ -260,7 +260,7 @@ Var Visited: TStringList;
     Procedure Visit(Node: TCFGNode);
     Var Child: TCFGNode;
     Begin
-     if (Node = rEndNode) Then
+     if (Node = nil) or (Node = rEndNode) Then
       Exit;
 
      if (Visited.IndexOf(Node.Name) <> -1) Then
@@ -274,15 +274,7 @@ Var Visited: TStringList;
      End;
 
      For Child in Node.Child Do
-     Begin
-      if (Child = AtWhat) Then
-      Begin
-       Result := True;
-       Exit;
-      End;
-
       Visit(Child);
-     End;
     End;
 
 Begin
@@ -361,62 +353,9 @@ Begin
  End;
 End;
 
-(* isVariableModified *)
-{
- Checks if variable `VariablePnt` is modified between nodes.
- `rEndNode` can be `nil`, if every node beginning from `rBeginNode` has to be checked.
-
- @TODO: what about variables passed-by-reference?
-}
-Function isVariableModified(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
-Var Visited : TStringList;
-    VarName : String;
-    VarRange: TRange;
-
-    // Visit
-    Procedure Visit(Node: TCFGNode);
-    Var Child: TCFGNode;
-        Range: Boolean;
-    Begin
-     if (Node = rEndNode) Then
-      Exit;
-
-     if (Visited.IndexOf(Node.Name) <> -1) Then
-      Exit;
-     Visited.Add(Node.Name);
-
-     if (Node.Value <> nil) Then
-     Begin
-      Range := inRange(Node.getToken^.Position, VarRange.PBegin, VarRange.PEnd);
-
-      if (Range) and (Node.Value^.isVariableModified(VarName, True)) Then
-      Begin
-       Result := True;
-       Exit;
-      End;
-     End;
-
-     For Child in Node.Child Do
-      Visit(Child);
-    End;
-
-Begin
- Result := False;
-
- VarName  := TVariable(VariablePnt).RefSymbol.Name;
- VarRange := TVariable(VariablePnt).RefSymbol.Range;
-
- Visited := TStringList.Create;
- Try
-  Visit(rBeginNode);
- Finally
-  Visited.Free;
- End;
-End;
-
 (* isVariableUsed *)
 {
- Returns `true` if variable is used in expressions between specified nodes.
+ Returns `true` if the variable is used in any expression between specified nodes.
 }
 Function isVariableUsed(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
 Var Visited : TStringList;

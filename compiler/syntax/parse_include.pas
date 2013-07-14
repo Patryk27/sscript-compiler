@@ -19,7 +19,7 @@ Var FileName         : String;
     Found            : Boolean;
     TmpNamespace, Tmp: Integer;
 
-    Symbol, Copy: TGlobalSymbol;
+    Symbol, Copy: TSymbol;
     AddSymbol   : Boolean;
 
     CircRef: Boolean;
@@ -81,12 +81,12 @@ Begin
  TmpNamespace := CurrentNamespace;
  For NS := 0 To NewC.NamespaceList.Count-1 Do
  Begin
-  if (NewC.NamespaceList[NS].Visibility <> mvPublic) Then
+  if (NewC.NamespaceList[NS].RefSymbol.Visibility <> mvPublic) Then
    Continue;
 
-  Log('Including namespace: '+NewC.NamespaceList[NS].Name);
+  Log('Including namespace: '+NewC.NamespaceList[NS].RefSymbol.Name);
 
-  Tmp := findNamespace(NewC.NamespaceList[NS].Name);
+  Tmp := findNamespace(NewC.NamespaceList[NS].RefSymbol.Name);
   if (Tmp = -1) Then // new namespace
   Begin
    Log('Included namespace is new in current scope.');
@@ -95,11 +95,15 @@ Begin
    CurrentNamespace := NamespaceList.Count-1;
    With NamespaceList.Last do
    Begin
-    Name       := NewC.NamespaceList[NS].Name;
-    Visibility := mvPrivate;
-    mCompiler  := NewC;
-    DeclToken  := NewC.NamespaceList[NS].DeclToken;
-    SymbolList := TGlobalSymbolList.Create;
+    With RefSymbol do
+    Begin
+     Name       := NewC.NamespaceList[NS].RefSymbol.Name;
+     Visibility := mvPrivate;
+     mCompiler  := NewC;
+     DeclToken  := NewC.NamespaceList[NS].RefSymbol.DeclToken;
+    End;
+
+    SymbolList := TSymbolList.Create;
    End;
   End Else // already existing namespace
   Begin
@@ -121,16 +125,16 @@ Begin
 
      Case Typ of
       { constant, variable, type }
-      gsConstant, gsVariable, gsType:
+      stConstant, stVariable, stType:
        AddSymbol := True;
 
       { function }
-      gsFunction:
+      stFunction:
        With mFunction do
         AddSymbol := ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '');
      End;
 
-     Copy            := TGlobalSymbol.Create(Symbol);
+     Copy            := TSymbol.Create(Symbol);
      Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't modify the original symbol).
 
      if (AddSymbol) Then

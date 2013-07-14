@@ -17,6 +17,7 @@ Var Base, Typ    : TType;
     isEnum       : Boolean = False;
     EnumItem     : TVariable;
     EnumPrevValue: Int64 = -1;
+    SymbolList   : TSymbolList;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
@@ -25,6 +26,10 @@ Begin
   read_until(_SEMICOLON);
   Exit;
  End;
+
+ if (inFunction) Then
+  SymbolList := getCurrentFunction.SymbolList Else
+  SymbolList := getCurrentNamespace.SymbolList;
 
  eat(_LOWER); // `<`
 
@@ -78,9 +83,7 @@ Begin
     RedeclarationCheck(Name);
    End;
 
-   if (inFunction) Then
-    getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsConstant, EnumItem)) { local constant } Else
-    getCurrentNamespace.SymbolList.Add(TGlobalSymbol.Create(gsConstant, EnumItem)); { global constant }
+   SymbolList.Add(TSymbol.Create(stConstant, EnumItem));
 
    if (next_t = _EQUAL) Then
    Begin
@@ -122,9 +125,7 @@ Begin
 
  semicolon;
 
- if (inFunction) Then
-  getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsType, Typ)) { local type } Else
-  getCurrentNamespace.SymbolList.Add(TGlobalSymbol.Create(gsType, Typ)); { global type }
+ SymbolList.Add(TSymbol.Create(stType, Typ));
 End;
 End;
 End.

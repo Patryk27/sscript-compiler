@@ -41,14 +41,18 @@ Begin
    CurrentNamespace := NamespaceList.Count-1;
    With NamespaceList.Last do
    Begin
-    Name       := nName;
-    mCompiler  := Compiler;
-    DeclToken  := next_pnt(-1);
-    SymbolList := TGlobalSymbolList.Create;
+    With RefSymbol do
+    Begin
+     Name       := nName;
+     mCompiler  := Compiler;
+     DeclToken  := next_pnt(-1);
+    End;
+
+    SymbolList := TSymbolList.Create;
    End;
   End;
 
-  NamespaceList[CurrentNamespace].Visibility := getVisibility;
+  NamespaceList[CurrentNamespace].RefSymbol.Visibility := getVisibility;
 
   if (next_t <> _BRACKET3_OP) Then
    CompileError(eExpected, ['{', next.Value]);

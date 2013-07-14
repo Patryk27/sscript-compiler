@@ -36,7 +36,8 @@ Begin
  if (next_t = _SEMICOLON) Then
  Begin
   eat(_SEMICOLON);
-  Condition := TCFGNode.Create(fCurrentNode, cetCondition, MakeBoolExpression(True, next_pnt(-1)));
+  Condition            := TCFGNode.Create(fCurrentNode, cetCondition, MakeBoolExpression(True, next_pnt(-1)));
+  Condition.isVolatile := True; // the branch optimizer would enter infinite loop trying to optimize this
  End Else
   Condition := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_SEMICOLON]));
 
@@ -70,6 +71,9 @@ Begin
  restorePrevRootNode;
 
  (* do some control-flow-graph magic *)
+ Content.Parent := Condition;
+// Step.Parent    := Content;
+
  if (Condition = nil) Then
   CFGAddNode(Content) Else
   CFGAddNode(Condition);

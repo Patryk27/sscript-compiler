@@ -14,7 +14,7 @@ Uses Compile1, cfgraph, symdef, Opcodes, Tokens;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Symbol                  : TLocalSymbol;
+Var Symbol                  : TSymbol;
     Node, TryNode, CatchNode: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
@@ -33,7 +33,7 @@ Begin
  eat(_CATCH); // `catch`
  eat(_BRACKET1_OP); // `(`
 
- Symbol           := TLocalSymbol.Create(lsVariable); // create new local symbol
+ Symbol           := TSymbol.Create(stVariable); // create new local symbol
  Symbol.Name      := read_ident; // [var name]
  Symbol.DeclToken := next_pnt;
 

@@ -59,6 +59,12 @@
       <OtherUnitFiles Value="compiler;compiler\syntax"/>
       <UnitOutputDirectory Value="lib"/>
     </SearchPaths>
+    <CodeGeneration>
+      <Optimizations>
+        <VariablesInRegisters Value="True"/>
+        <UncertainOptimizations Value="True"/>
+      </Optimizations>
+    </CodeGeneration>
     <Other>
       <Verbosity>
         <ShowHintsForUnusedUnitsInMainSrc Value="True"/>

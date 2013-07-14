@@ -3,7 +3,7 @@ Procedure __insert_constants(const ShowErrors: Boolean);
 (* Parse *)
 Procedure Parse(Expr: PExpression);
 Var I, VarID, NamespaceID: Integer;
-    TmpExpr              : PExpression;
+    Symbol               : TSymbol;
 Begin
  if (Expr^.Typ = mtArrayElement) Then
   Exit;
@@ -37,48 +37,21 @@ Begin
    End;
 
    if (NamespaceID = -1) Then
+    Symbol := Compiler.getCurrentFunction.SymbolList[VarID] Else
+    Symbol := Compiler.NamespaceList[NamespaceID].SymbolList[VarID];
+
+   With Symbol do
    Begin
-    { local constant }
-    With Compiler.getCurrentFunction.SymbolList[VarID] do
+    if (Typ <> stConstant) Then // is it a constant?
     Begin
-     if (Typ = lsVariable) and (Compiler.getBoolOption(opt__constant_propagation)) Then
-     Begin
-      With TCompiler(Compiler) do
-       TmpExpr := FetchVariableValue(mVariable);
-
-      if (TmpExpr <> nil) Then // variable's value has been fetched
-      Begin
-       Expr^.Value     := TmpExpr^.Value;
-       Expr^.IdentType := TmpExpr^.Typ;
-      End;
-
-      Exit;
-     End Else
-     if (Typ <> lsConstant) Then // is it a constant?
-     Begin
-      if (ShowErrors) Then
-       Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
-      Exit;
-     End;
-
-     Expr^ := mVariable.Value^;
+     if (ShowErrors) Then
+      Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
      Exit;
     End;
-   End Else
-   Begin
-    { global constant }
-    With Compiler.NamespaceList[NamespaceID].SymbolList[VarID] do
-    Begin
-     if (Typ <> gsConstant) Then // is it a constant?
-     Begin
-      if (ShowErrors) Then
-       Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
-      Exit;
-     End;
 
-     Expr^ := mVariable.Value^;
-     Exit;
-    End;
+    AnyChange := True;
+    Expr^     := mVariable.Value^;
+    Exit;
    End;
   End;
  End;

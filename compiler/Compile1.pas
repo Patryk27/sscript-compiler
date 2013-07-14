@@ -11,15 +11,15 @@ Unit Compile1;
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
  { constants }
- Const Version = '2.2.2';
+ Const Version = '2.2.3';
        vMajor  = 2.2;
-       vMinor  = 2;
+       vMinor  = 3;
 
  { types }
  Type TCompiler = class;
 
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
- Type TCompilePass = (_cp1, _cp2, _cp3); // fourth pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `cp4` enum
+ Type TCompilePass = (_cp1, _cp2, _cp3); // fourth pass is the actual function compiling; as it's performed at the end of each function, so there's no need for an additional `cp4` enum
 
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
@@ -122,8 +122,6 @@ Unit Compile1;
 
                    { variables }
                     Procedure __variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
-
-                    Function FetchVariableValue(VariablePnt: TVariable): PExpression;
 
                     Function findLocalVariable(fName: String): Integer;
                     Procedure findGlobalVariableCandidate(const VarName: String; Namespaces: TIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
@@ -275,12 +273,12 @@ Begin
   With Namespace do
   Begin
    For I := 0 To SymbolList.Count-1 Do // each symbol
-    if (SymbolList[I].Typ = gsFunction) and (SymbolList[I].mFunction.LibraryFile <> '') Then // is it an imported function?
+    if (SymbolList[I].Typ = stFunction) and (SymbolList[I].mFunction.LibraryFile <> '') Then // is it an imported function?
     Begin
      Can := True;
 
      For Q := 0 To I-1 Do // we don't want some file to be loaded eg.10 times instead of 1 time (it just skips multiple imports from same file)
-      if (SymbolList[Q].Typ = gsFunction) Then
+      if (SymbolList[Q].Typ = stFunction) Then
        if (SymbolList[Q].mFunction.LibraryFile = SymbolList[I].mFunction.LibraryFile) Then
         Can := False;
 
@@ -975,7 +973,7 @@ Begin
  With getCurrentFunction do // in current function
   For I := 0 To SymbolList.Count-1 Do // each symbol
    With SymbolList[I] do
-    if (Typ = lsType) Then // if type
+    if (Typ = stType) Then // if type
      With mType do
       if (inRange(Range, fTokenPos) and (Name = fName)) Then
        Exit(I);
@@ -990,10 +988,10 @@ Function TCompiler.findGlobalType(const TypeName: String; NamespaceID: Integer=-
 
   // Search
   Procedure Search(const Namespace: TNamespace);
-  Var Symbol: TGlobalSymbol;
+  Var Symbol: TSymbol;
   Begin
    For Symbol in Namespace.SymbolList Do
-    if (Symbol.Typ = gsType) and (AnsiCompareStr(Symbol.Name, TypeName) = 0) Then
+    if (Symbol.Typ = stType) and (AnsiCompareStr(Symbol.Name, TypeName) = 0) Then
     Begin
      Result := Symbol.mType;
      Exit;
@@ -1016,7 +1014,7 @@ Begin
  findGlobalCandidate(TypeName, Namespaces, TypeID, NamespaceID, Token);
 
  if (TypeID <> -1) Then
-  if not (NamespaceList[NamespaceID].SymbolList[TypeID].Typ = gsType) Then
+  if (not (NamespaceList[NamespaceID].SymbolList[TypeID].Typ = stType)) Then
   Begin
    TypeID      := -1;
    NamespaceID := -1;
@@ -1086,7 +1084,7 @@ Procedure TCompiler.__variable_create(fName: String; fTyp: TType; fMemPos: Integ
 Begin
  With getCurrentFunction do
  Begin
-  SymbolList.Add(TLocalSymbol.Create(lsVariable));
+  SymbolList.Add(TSymbol.Create(stVariable));
 
   With SymbolList.Last do
   Begin
@@ -1095,77 +1093,11 @@ Begin
    With mVariable do
    Begin
     Typ        := fTyp;
-    Range      := Parser.getCurrentRange;
     MemPos     := fMemPos;
     Attributes := fAttributes;
+    Range      := Parser.getCurrentRange;
    End;
   End;
- End;
-End;
-
-(* TCompiler.FetchVariableValue *)
-{
- Tries to fetch the variable's value from previous nodes.
-
- @TODO:
- if (x == 30)
- {
-  y = 2*x; // `x` have to be `30`, so it can be directly inserted
- }
-}
-Function TCompiler.FetchVariableValue(VariablePnt: TVariable): PExpression;
-Var Node   : TCFGNode;
-    Visited: TStringList;
-    VarName: String;
-    Assign : PExpression;
-Begin
- Result := nil;
-
- if (VariablePnt.isVolatile) Then // don't optimize volatile variables
-  Exit;
-
- VarName := TVariable(VariablePnt).RefSymbol.Name;
- Node    := getCurrentNode.Parent;
-
- if (Node = nil) Then
-  Node := getCurrentNode;
-
- Visited := TStringList.Create;
- Try
-  While (Node <> nil) Do
-  Begin
-   if (Visited.IndexOf(Node.getName) <> -1) Then // node has been already visited
-    Break;
-
-   Visited.Add(Node.getName);
-
-   if (Node.Typ = cetCondition) Then
-   Begin
-    if (isVariableModified(VariablePnt, Node.Child[0], Node.Child[2])) or (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
-     Exit(nil);
-
-    if (isVariableModified(VariablePnt, Node.Child[1], Node.Child[2])) or (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then
-     Exit(nil);
-   End;
-
-   if (Node.Value <> nil) Then
-   Begin
-    if (Node.Value^.isVariableModified(VarName, False)) Then // @TODO: if the right side is known, we can parse it at the compile-time
-     Exit(nil);
-
-    Assign := Node.Value^.FindAssignment(VarName);
-
-    if (Assign <> nil) and (Assign^.Right^.isConstant) Then
-     Exit(Assign^.Right) Else
-
-    if (Assign <> nil) Then
-     Exit(nil);
-   End;
-
-   Node := Node.Parent;
-  End;
- Finally
-  Visited.Free;
  End;
 End;
 
@@ -1185,9 +1117,9 @@ Begin
  With getCurrentFunction do
  Begin
   For I := 0 To SymbolList.Count-1 Do
-   if (SymbolList[I].Typ in [lsVariable, lsConstant]) Then
+   if (SymbolList[I].Typ in [stVariable, stConstant]) Then
     With SymbolList[I], mVariable do
-     if (inRange(Range) and (Name = fName)) Then
+     if (inRange(RefSymbol.Range)) and (RefSymbol.Name = fName) Then
       Exit(I);
  End;
 End;
@@ -1202,7 +1134,7 @@ Begin
  findGlobalCandidate(VarName, Namespaces, VarID, NamespaceID, Token);
 
  if (VarID <> -1) Then
-  if not (NamespaceList[NamespaceID].SymbolList[VarID].Typ in [gsVariable, gsConstant]) Then
+  if not (NamespaceList[NamespaceID].SymbolList[VarID].Typ in [stVariable, stConstant]) Then
   Begin
    VarID       := -1;
    NamespaceID := -1;
@@ -1224,14 +1156,13 @@ Begin
 
  With NamespaceList[NamespaceID] do
   For I := 0 To SymbolList.Count-1 Do
-   With SymbolList[I] do
-    if (Typ = gsFunction) and (Name = FuncName) Then
-     Exit(I);
+   if (SymbolList[I].Typ = stFunction) and (SymbolList[I].Name = FuncName) Then
+    Exit(I);
 End;
 
 (* TCompiler.findFunctionByLabel *)
 {
- Searches for function with label-name `LabelName` and returns that function's ID (when found) and its namespace, or `-1` (when not found).
+ Searches for function with label name `LabelName` and returns that function's ID (when found) and its namespace, or `-1` (when not found).
 }
 Procedure TCompiler.findFunctionByLabel(const LabelName: String; out FuncID, NamespaceID: Integer);
 Var NS, Func: Integer;
@@ -1243,7 +1174,7 @@ Begin
   With NamespaceList[NS] do
    For Func := 0 To SymbolList.Count-1 Do // each symbol in namespace
     With SymbolList[Func] do
-     if (Typ = gsFunction) and (mFunction.MangledName = LabelName) Then
+     if (Typ = stFunction) and (mFunction.MangledName = LabelName) Then
      Begin
       FuncID      := Func;
       NamespaceID := NS;
@@ -1266,7 +1197,7 @@ Begin
  findGlobalCandidate(FuncName, Namespaces, FuncID, NamespaceID, Token);
 
  if (FuncID <> -1) Then
-  if not (NamespaceList[NamespaceID].SymbolList[FuncID].Typ = gsFunction) Then
+  if not (NamespaceList[NamespaceID].SymbolList[FuncID].Typ = stFunction) Then
   Begin
    FuncID      := -1;
    NamespaceID := -1;
@@ -1325,7 +1256,7 @@ Begin
  Result := -1;
 
  For I := 0 To NamespaceList.Count-1 Do
-  if (NamespaceList[I].Name = Name) Then
+  if (NamespaceList[I].RefSymbol.Name = Name) Then
    Exit(I);
 End;
 
@@ -1335,7 +1266,7 @@ End;
 }
 Function TCompiler.inFunction: Boolean;
 Begin
- Result := Length(Scope) > 0;
+ Result := (Length(Scope) > 0);
 End;
 
 (* TCompiler.findGlobalVariable *)
@@ -1355,7 +1286,7 @@ Begin
  With NamespaceList[NamespaceID] do
   For I := 0 To SymbolList.Count-1 Do
    With SymbolList[I] do
-    if (Typ in [gsConstant, gsVariable]) and (Name = VarName) Then
+    if (Typ in [stConstant, stVariable]) and (RefSymbol.Name = VarName) Then
      Exit(I);
 End;
 
@@ -1427,7 +1358,7 @@ Begin
 
   For Tmp := Low(List) To High(List) Do
    With List[Tmp].Symbol do
-    TCompiler(mCompiler).CompileNote(DeclToken, nCandidate, [NamespaceList[List[Tmp].Namespace].Name+'::'+Name]);
+    TCompiler(mCompiler).CompileNote(DeclToken, nCandidate, [NamespaceList[List[Tmp].Namespace].RefSymbol.Name+'::'+Name]);
 
   NamespaceID := -1;
   IdentID     := -1;
@@ -1499,7 +1430,7 @@ Begin
    Begin
     CompileError(eRedeclaration, [Name]);
     With NamespaceList[ID] do
-     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
+     TCompiler(RefSymbol.mCompiler).CompileError(RefSymbol.DeclToken, ePrevDeclared, []);
    End;
   End;
  End;
@@ -1530,7 +1461,7 @@ Var Compiler2: Compile2.TCompiler;
     Procedure AddPrimaryType(Typ: TType);
     Begin
      Typ.RefSymbol.isInternal := True;
-     NamespaceList[0].SymbolList.Add(TGlobalSymbol.Create(gsType, Typ));
+     NamespaceList[0].SymbolList.Add(TSymbol.Create(stType, Typ));
     End;
 
     // CheckMain
@@ -1597,17 +1528,17 @@ Var Compiler2: Compile2.TCompiler;
     Begin
      With NamespaceList.Last do
      Begin
-      SymbolList.Add(TGlobalSymbol.Create(gsConstant));
+      SymbolList.Add(TSymbol.Create(stConstant));
       With SymbolList.Last do
       Begin
        Name       := cName;
        isInternal := True;
+       Visibility := mvPrivate;
 
        With mVariable do
        Begin
-        Typ        := cType;
-        Value      := cExpr;
-        Visibility := mvPrivate;
+        Typ   := cType;
+        Value := cExpr;
 
         Include(Attributes, vaConst);
        End;
@@ -1624,9 +1555,10 @@ Var Compiler2: Compile2.TCompiler;
 
      With NamespaceList.Last do
      Begin
-      Name       := 'self';
-      Visibility := mvPublic;
-      SymbolList := TGlobalSymbolList.Create;
+      RefSymbol.Name       := 'self';
+      RefSymbol.Visibility := mvPublic;
+
+      SymbolList := TSymbolList.Create;
      End;
 
      CurrentNamespace := 0;
@@ -2048,7 +1980,7 @@ Var Output: TStringList;
 
     Item, I: Integer;
 
-    Typ  : TGlobalSymbolType;
+    Typ  : TSymbolType;
     mFunc: TFunction;
     mCnst: TVariable;
     mType: TType;
@@ -2066,12 +1998,12 @@ Begin
   Begin
    With Namespace do
    Begin
-    if (Visibility <> mvPublic) Then
+    if (RefSymbol.Visibility <> mvPublic) Then
      Continue;
 
-    if (Name <> 'self') Then // `self` is the global namespace
+    if (RefSymbol.Name <> 'self') Then // `self` is the global namespace
     Begin
-     Add('namespace '+Name);
+     Add('namespace '+RefSymbol.Name);
      Add('{');
     End;
 
@@ -2082,13 +2014,13 @@ Begin
 
      Typ := SymbolList[Item].Typ;
      Case Typ of
-      gsType    : mType := SymbolList[Item].mType;
-      gsConstant: mCnst := SymbolList[Item].mVariable;
-      gsFunction: mFunc := SymbolList[Item].mFunction;
+      stType    : mType := SymbolList[Item].mType;
+      stConstant: mCnst := SymbolList[Item].mVariable;
+      stFunction: mFunc := SymbolList[Item].mFunction;
      End;
 
      { global type }
-     if (Typ = gsType) Then
+     if (Typ = stType) Then
       With mType do
       Begin
        if (taEnum in Attributes) Then // special case: enumeration types
@@ -2106,13 +2038,13 @@ Begin
       End;
 
      { global constant }
-     if (Typ = gsConstant) Then
+     if (Typ = stConstant) Then
       With mCnst do
        if not (vaEnumItem in Attributes) Then
         Str := 'const '+RefSymbol.Name+' = '+getValueFromExpression(Value, True)+';';
 
-     { function }
-     if (Typ = gsFunction) Then
+     { global function }
+     if (Typ = stFunction) Then
       With mFunc do
       Begin
        if (ModuleName <> self.ModuleName) Then
@@ -2142,14 +2074,14 @@ Begin
 
      if (Str <> '') Then
      Begin
-      if (Name <> '') Then
+      if (RefSymbol.Name <> '') Then
        Str := ' '+Str;
 
       Add(Str);
      End;
     End;
 
-    if (Name <> 'self') Then
+    if (RefSymbol.Name <> 'self') Then
      Add('}');
    End;
   End;

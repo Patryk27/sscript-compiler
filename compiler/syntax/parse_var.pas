@@ -51,7 +51,7 @@ Begin
    Variable.Attributes += [vaVolatile]; // arrays have to be volatile, because optimizer doesn't support arrays, thus weird things happen when it tries to optimize an array :P
 
   { add variable into the function }
-  getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsVariable, Variable));
+  getCurrentFunction.SymbolList.Add(TSymbol.Create(stVariable, Variable));
 
   if (next_t = _EQUAL) Then // var(...) name=value;
   Begin

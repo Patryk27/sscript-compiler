@@ -1,5 +1,4 @@
-VisitedNodes: TCFGNodeList;
-ret_stp_sub : int16 = 0;
+Var ret_stp_sub: int16 = 0;
 
 { GenerateLabelName }
 Function GenerateLabelName: String;
@@ -32,7 +31,7 @@ Var Child   : TCFGNode;
 
     ArgList: PVarRecArray;
     I      : Integer;
-    Symbol : TLocalSymbol;
+    Symbol : TSymbol;
 Begin
  if (Node = nil) Then
   Exit;
@@ -204,7 +203,7 @@ Begin
        if (Pos('localvar.', ArgList^[I].VPChar) > 0) Then
         For Symbol in Func.SymbolList Do
          With Symbol do
-          if (Typ = lsVariable) Then
+          if (Typ = stVariable) Then
            ArgList^[I].VPChar := CopyStringToPChar(StringReplace(ArgList^[I].VPChar, 'localvar.'+IntToStr(LongWord(mVariable)), mVariable.getBytecodePos, [rfReplaceAll]));
       End;
 
@@ -255,8 +254,9 @@ Var isThereAnyReturn: Boolean = False;
         b();
        }
       }
+      (because no code appears after the try..catch construction)
 
-      This could crash optimizer and the code generator (as they expect 'cetTryCatch'-typed nodes to have exactly 3 children), so we're just inserting a `nil` child-node into this node.
+      This could crash optimizer as well as the code generator (as they expect 'cetTryCatch'-typed nodes to have exactly 3 children), so we're just inserting a `nil` child-node into this node.
     *)
 
     Node.Child.Add(nil);
@@ -346,7 +346,7 @@ End;
 (* AddPrologCode *)
 Procedure AddPrologCode;
 Var SavedRegs  : uint16 = 0;
-    Symbol     : TLocalSymbol;
+    Symbol     : TSymbol;
 Begin
  VarsOnStack := 0;
 
@@ -360,14 +360,14 @@ Begin
 
   PutComment('Parameters:');
   For Symbol in Func.SymbolList Do
-   if (not Symbol.isInternal) and (Symbol.Typ = lsVariable) and (Symbol.mVariable.isFuncParam) Then
+   if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (Symbol.mVariable.isFuncParam) Then
     PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos);
 
   PutComment('');
 
   PutComment('Variables:');
   For Symbol in Func.SymbolList Do
-   if (not Symbol.isInternal) and (Symbol.Typ = lsVariable) and (not Symbol.mVariable.isFuncParam) Then
+   if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (not Symbol.mVariable.isFuncParam) Then
     PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(Parser.getToken(Symbol.mVariable.RefSymbol.Range.PBegin).Line)+'-'+IntToStr(Parser.getToken(Symbol.mVariable.RefSymbol.Range.PEnd-1).Line)+' lines');
 
   PutComment('--------------------------------- ;');
@@ -379,7 +379,7 @@ Begin
   Begin
    With Func do
     For Symbol in SymbolList Do // each symbol
-     if (Symbol.Typ = lsVariable) Then // if variable
+     if (Symbol.Typ = stVariable) Then // if variable
       With Symbol.mVariable do
        if (MemPos <= 0) and (not DontAllocate) Then
         Inc(VarsOnStack); // next variable to allocate
@@ -392,7 +392,7 @@ Begin
   With Func do
   Begin
    For Symbol in SymbolList Do // each symbol
-    if (Symbol.Typ = lsVariable) Then // if variable
+    if (Symbol.Typ = stVariable) Then // if variable
      With Symbol.mVariable do
       if (MemPos > 0) Then // if allocated in register
       Begin
@@ -401,7 +401,7 @@ Begin
       End;
 
    For Symbol in SymbolList Do // each symbol
-    if (Symbol.Typ = lsVariable) Then // if variable
+    if (Symbol.Typ = stVariable) Then // if variable
      With Symbol.mVariable do
       if (MemPos <= 0) Then // if allocated on the stack
       Begin
@@ -420,7 +420,7 @@ End;
 (* AddEpilogCode *)
 Procedure AddEpilogCode;
 Var I     : int32;
-    Symbol: TLocalSymbol;
+    Symbol: TSymbol;
 Begin
  With TCompiler(Compiler) do
  Begin
@@ -432,7 +432,7 @@ Begin
    For I := SymbolList.Count-1 Downto 0 Do
    Begin
     Symbol := SymbolList[I];
-    if (Symbol.Typ = lsVariable) Then // if variable
+    if (Symbol.Typ = stVariable) Then // if variable
      With Symbol.mVariable do
       if (MemPos > 0) Then // if allocated in register
        PutOpcode(o_pop, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);

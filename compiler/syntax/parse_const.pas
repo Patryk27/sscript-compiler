@@ -13,7 +13,8 @@ Uses Compile1, ExpressionCompiler, Tokens, symdef, Messages, Opcodes;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Variable: TVariable;
+Var Variable  : TVariable;
+    SymbolList: TSymbolList;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
@@ -22,6 +23,10 @@ Begin
   read_until(_SEMICOLON);
   Exit;
  End;
+
+ if (inFunction) Then
+  SymbolList := getCurrentFunction.SymbolList Else
+  SymbolList := getCurrentNamespace.SymbolList;
 
  While (true) Do
  Begin
@@ -57,9 +62,7 @@ Begin
    End;
   End;
 
-  if (inFunction) Then
-   getCurrentFunction.SymbolList.Add(TLocalSymbol.Create(lsConstant, Variable)) { local constant } Else
-   getCurrentNamespace.SymbolList.Add(TGlobalSymbol.Create(gsConstant, Variable)); { global constant }
+  SymbolList.Add(TSymbol.Create(stConstant, Variable));
 
   Dec(TokenPos); // ExpressionCompiler 'eats' comma.
 

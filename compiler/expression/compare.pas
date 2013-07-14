@@ -4,7 +4,7 @@ Var TypeLeft, TypeRight: TType;
 Begin
  Result := CompileSimple(TypeLeft, TypeRight);
 
- if (Result = nil) Then
+ if (Result = nil) or (TypeLeft = nil) or (TypeRight = nil) Then
   Exit;
 
  Case Expr^.Typ of

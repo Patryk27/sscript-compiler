@@ -23,13 +23,13 @@ Begin
  (* ===== not arrays ===== *)
  if (not Variable.Typ.isArray) or (Right^.Typ = mtNew) Then
  Begin
-  if (Left^.Typ = mtArrayElement) Then // tried to access eg.`int`-typed variable like array
+  if (Left^.Typ = mtArrayElement) Then // tried to access eg.`int`-typed variable like an array
   Begin
    Error(eInvalidArraySubscript, [Variable.Typ.asString, Parse(Left^.Right).asString]);
    Exit;
   End;
 
-  if (Variable.MemPos > 0) Then // if variable is stored in a register, we can directly set this variable's value (without using an helper register)
+  if (Variable.isStoredInRegister) Then // if variable is stored in a register, we can directly set this variable's value (without using a helper register)
   Begin
    TypeID := Parse(Right, Variable.MemPos, Variable.RegChar);
   End Else
@@ -48,6 +48,8 @@ Begin
    DevLog(dvError, 'ParseAssign', 'TypeID = nil; leaving function...');
    Exit;
   End;
+
+//  Variable.mVariable.State += [vsWrite];
 
   Compiler.PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', Variable.PosStr]);
 
@@ -79,7 +81,7 @@ asArray:
   Inc(Index);
  End;
 
- { normal arrays }
+ { regular arrays }
  if (Index = 0) Then // pointer assignment (changing what our varable points at)
  Begin
   TypeID := Parse(Right, 1); // this value will be our new pointer

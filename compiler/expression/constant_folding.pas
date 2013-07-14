@@ -193,6 +193,8 @@ Begin
    if (ErrorOnInvalidOperator) Then
     Compiler.CompileError(Expr^.Token, eUnsupportedUOperator, [ExpressionDisplay[Expr^.Typ], ExpressionDisplay[Left^.Typ]]);
  End;
+
+ AnyChange := AnyChange or Evaluated;
 End;
 
 Begin

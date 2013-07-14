@@ -177,17 +177,17 @@ End;
 { GlobalFuncCall }
 Procedure GlobalFuncCall;
 Begin
- With TGlobalSymbol(Symbol), mFunction do
+ With TSymbol(Symbol), mFunction do
  Begin
   // check param count
   if not (Length(Expr^.ParamList) in [RequiredParamCount(ParamList)..Length(ParamList)]) Then
   Begin
-   Error(eWrongParamCount, [Name, Length(ParamList), Length(Expr^.ParamList)]);
+   Error(eWrongParamCount, [RefSymbol.Name, Length(ParamList), Length(Expr^.ParamList)]);
    Exit;
   End;
 
   // push parameters onto the stack
-  ParseParamList(Name, ParamList);
+  ParseParamList(RefSymbol.Name, ParamList);
 
   // call function
   Compiler.PutOpcode(o_call, [':'+MangledName]);
@@ -273,7 +273,7 @@ Begin
    Result := LocalVarCall Else
 
   { global function call }
-  if (TGlobalSymbol(Symbol).Typ = gsFunction) Then
+  if (TSymbol(Symbol).Typ = stFunction) Then
    GlobalFuncCall Else
 
   { global variable call (and, as there's no global variables for now, there's no glob-var-call) }

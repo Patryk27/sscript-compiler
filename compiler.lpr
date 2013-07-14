@@ -249,37 +249,39 @@ Begin
     Frames := ExceptFrames;
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
-
-    if (getCompiler <> nil) Then
-    Begin
-     With TCompiler(getCompiler) do
+    Try
+     if (getCompiler <> nil) Then
      Begin
-      Writeln;
-      Writeln('File name: ', InputFile);
-      Writeln('Line     : ', Parser.getToken(Parser.getPosition).Line);
-
-      if (getCurrentFunction <> nil) Then
+      With TCompiler(getCompiler) do
       Begin
-       With getCurrentFunction do
-       Begin
-        Writeln;
-        Writeln('Function name: ', RefSymbol.Name);
-        Writeln('Line         : ', RefSymbol.DeclToken^.Line);
+       Writeln;
+       Writeln('File name: ', InputFile);
+       Writeln('Line     : ', Parser.getToken(Parser.getPosition).Line);
 
-        Writeln;
-        if (getCurrentNode <> nil) Then
+       if (getCurrentFunction <> nil) Then
+       Begin
+        With getCurrentFunction do
         Begin
-         With getCurrentNode do
+         Writeln;
+         Writeln('Function name: ', RefSymbol.Name);
+         Writeln('Line         : ', RefSymbol.DeclToken^.Line);
+
+         Writeln;
+         if (getCurrentNode <> nil) Then
          Begin
-          Writeln('Current node: ', getName);
-          Writeln('Line        : ', getToken^.Line);
-          Writeln('Typ         : ', Typ);
-          Writeln('Value       : ', ExpressionToString(Value));
+          With getCurrentNode do
+          Begin
+           Writeln('Current node: ', getName);
+           Writeln('Line        : ', getToken^.Line);
+           Writeln('Typ         : ', Typ);
+           Writeln('Value       : ', ExpressionToString(Value));
+          End;
          End;
         End;
        End;
       End;
      End;
+    Except
     End;
    End;
  End;

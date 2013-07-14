@@ -94,12 +94,13 @@ Unit Messages;
 
  { hints }
  Type TCompileHint =
- (hDidntYouMean, hUnreachableCode);
+ (hDidntYouMean, hUnreachableCode, hUseOfUninitializedVariable);
 
  Const CompileHint_fmt: Array[TCompileHint] of String =
  (
   'Didn''t you mean: `%s`?',
-  'Unreachable code'
+  'Unreachable code',
+  'Use of a possibly uninitialized variable `%s`'
  );
 
  { notes }

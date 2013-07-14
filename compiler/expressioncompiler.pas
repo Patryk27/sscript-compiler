@@ -15,7 +15,7 @@ Unit ExpressionCompiler;
 
  Const _UNARY_MINUS = #01;
 
- Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oDisplayParseErrors);
+ Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oConstantPropagation, oDisplayParseErrors);
       TOptions = Set of TOption;
 
       TShortCircuit = (scNone, scOR, scAND);
@@ -62,7 +62,7 @@ Unit ExpressionCompiler;
                        Function MakeTree: PExpression;
                       End;
 
- Procedure OptimizeExpression(const Compiler: TCompiler; const Tree: PExpression; const Options: TOptions);
+ Function OptimizeExpression(const Compiler: TCompiler; const Tree: PExpression; const Options: TOptions): Boolean;
 
  Function EmptyExpression: PExpression;
 
@@ -84,7 +84,12 @@ Uses SysUtils,
      CompilerUnit, Opcodes, Messages;
 
 (* OptimizeExpression *)
-Procedure OptimizeExpression(const Compiler: TCompiler; const Tree: PExpression; const Options: TOptions);
+{
+ Optimizes expression with given options.
+ Returns `true` if anything has been optimized.
+}
+Function OptimizeExpression(const Compiler: TCompiler; const Tree: PExpression; const Options: TOptions): Boolean;
+Var AnyChange: Boolean = False;
 
 {$I insert_constants.pas}
 {$I constant_folding.pas}
@@ -95,6 +100,8 @@ Begin
 
  if (oConstantFolding in Options) Then
   __constant_folding(oDisplayParseErrors in Options);
+
+ Result := AnyChange;
 End;
 
 (* EmptyExpression *)
@@ -223,7 +230,27 @@ Begin
   Exit('');
 
  if (Expr^.Typ = mtVariable) Then
-  Exit(Expr^.IdentName);
+ Begin
+  Result := Expr^.IdentName+'$';
+
+  if (Length(Expr^.SSA.Value) = 0) Then
+  Begin
+   Result += 'unknown';
+  End Else
+
+  if (Expr^.SSA.Typ = sstSingle) Then
+   Result += IntToStr(Expr^.SSA.Value[0]) Else
+   Begin
+    Result += '(';
+    For I := 0 To High(Expr^.SSA.Value) Do
+     Result += IntToStr(Expr^.SSA.Value[I])+', ';
+
+    Delete(Result, Length(Result)-1, 2);
+    Result += ')';
+   End;
+
+  Exit;
+ End;
 
  if (Expr^.Typ in [mtBool, mtChar, mtInt, mtFloat]) Then
   Exit(Expr^.Value);
@@ -489,6 +516,10 @@ Begin
  Result^.Symbol    := nil;
  Result^.isLocal   := False;
  Result^.IdentName := '';
+ Result^.IdentType := mtNothing;
+
+ Result^.SSA.Typ := sstNone;
+ SetLength(Result^.SSA.Value, 0);
 
  Result^.ResultOnStack := False;
 End;
@@ -1010,7 +1041,7 @@ Begin
      Begin
       Compiler.findGlobalCandidate(Name, Namespaces, ID, Namespace, @Result^.Token);
 
-      if (ID = -1) or not (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsFunction]) Then // nor a global variable/function - so raise error
+      if (ID = -1) or not (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [stVariable, stFunction]) Then // nor a global variable/function - so raise error
        Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
       Begin // global variable
        Result^.Symbol  := Compiler.NamespaceList[Namespace].SymbolList[ID];
@@ -1046,7 +1077,7 @@ Begin
   Begin
    Compiler.findGlobalCandidate(Result^.IdentName, Result^.Namespaces, ID, Namespace, @Result^.Token);
 
-   if (ID <> -1) and (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [gsVariable, gsConstant, gsFunction]) Then // global variable
+   if (ID <> -1) and (Compiler.NamespaceList[Namespace].SymbolList[ID].Typ in [stVariable, stConstant, stFunction]) Then // global variable
    Begin
     Result^.Symbol  := Compiler.NamespaceList[Namespace].SymbolList[ID];
     Result^.isLocal := False;
@@ -1250,6 +1281,7 @@ Type TRVariable = Record
                     mVariable: TVariable;
 
                     Function PosStr: String;
+                    Function isStoredInRegister: Boolean;
                   End;
 
 // TRVariable.PosStr
@@ -1258,6 +1290,12 @@ Begin
  if (MemPos > 0) Then
   PosStr := 'e'+RegChar+IntToStr(MemPos) Else
   PosStr := '['+IntToStr(MemPos-pPushedValues^)+']';
+End;
+
+// TRVariable.isStoredInRegister
+Function TRVariable.isStoredInRegister: Boolean;
+Begin
+ Result := (MemPos > 0);
 End;
 
 (* CompileExpression *)
@@ -1333,34 +1371,14 @@ Var Left, Right: PExpression; // left and right side of the `Expr`
    if (Result.Symbol = nil) Then // variable or constant not found
     goto Failed;
 
-   if (Expr^.isLocal) Then
+   With Result do
    Begin
-    { local variable or constant }
-    With Compiler.getCurrentFunction, Result do
-    Begin
-     mVariable := TLocalSymbol(Result.Symbol).mVariable;
-     MemPos    := mVariable.MemPos;
-     Typ       := mVariable.Typ;
-     RegChar   := mVariable.Typ.RegPrefix;
-     Value     := mVariable.Value;
-     isConst   := mVariable.isConst;
-    End;
-   End Else
-   Begin
-    { global variable or constant }
-    With Result do
-    Begin
-     mVariable := TGlobalSymbol(Result.Symbol).mVariable;
-
-     if (mVariable = nil) Then
-      goto Failed;
-
-     MemPos  := mVariable.MemPos;
-     Typ     := mVariable.Typ;
-     RegChar := mVariable.Typ.RegPrefix;
-     Value   := mVariable.Value;
-     isConst := mVariable.isConst;
-    End;
+    mVariable := TSymbol(Result.Symbol).mVariable;
+    MemPos    := mVariable.MemPos;
+    Typ       := mVariable.Typ;
+    RegChar   := mVariable.Typ.RegPrefix;
+    Value     := mVariable.Value;
+    isConst   := mVariable.isConst;
    End;
 
   Failed:
@@ -1415,11 +1433,7 @@ Var Left, Right: PExpression; // left and right side of the `Expr`
    Result := (Expr^.Typ in [mtVariable, mtArrayElement]);
 
    if (Expr^.Typ = mtVariable) and (Expr^.Symbol <> nil) Then // check if passed variable identifier isn't a constant
-   Begin
-    if (Expr^.isLocal) Then
-     Exit(not TLocalSymbol(Expr^.Symbol).mVariable.isConst) Else
-     Exit(not TGlobalSymbol(Expr^.Symbol).mVariable.isConst);
-   End;
+    Result := not TSymbol(Expr^.Symbol).mVariable.isConst;
   End;
 
   { countLeaves }

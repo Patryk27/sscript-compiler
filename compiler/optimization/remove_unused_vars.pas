@@ -43,7 +43,7 @@ Begin
 
   While (ID < SymbolList.Count) Do
   Begin
-   if (SymbolList[ID].Typ = lsVariable) and (not SymbolList[ID].mVariable.isFuncParam) Then
+   if (SymbolList[ID].Typ = stVariable) and (not SymbolList[ID].mVariable.isFuncParam) Then
     if (not SymbolList[ID].mVariable.isVolatile) Then
      if (not isVariableUsed(SymbolList[ID].mVariable, Func.FlowGraph.Root, nil)) Then // if variable's value isn't used anywhere...
      Begin

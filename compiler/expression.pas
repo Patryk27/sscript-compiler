@@ -6,7 +6,7 @@
 Unit Expression;
 
  Interface
- Uses Tokens;
+ Uses Tokens, FGL;
 
  Type TIntegerArray = Array of Integer;
 
@@ -39,7 +39,15 @@ Unit Expression;
 
  Const MLValueOperators: TExpressionTypeSet = [mtAssign, mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq, mtOREq, mtANDEq, mtXOREq];
 
+ Type PSSAVarID = ^TSSAVarID;
+      TSSAVarID = Record
+                   Typ  : (sstNone, sstSingle, sstPhi);
+                   Value: Array of uint32;
+                  End;
+
  Type PExpression = ^TExpression;
+      TExpressionList = specialize TFPGList<PExpression>;
+
       TExpression = Record
                      Left, Right: PExpression;
 
@@ -57,7 +65,8 @@ Unit Expression;
                      Symbol    : Pointer;
                      isLocal   : Boolean;
 
-                     Function isVariableModified(const VarName: String; const CheckAssigns: Boolean): Boolean;
+                     SSA: TSSAVarID;
+
                      Function FindAssignment(const VarName: String): PExpression;
                      Procedure RemoveAssignments(const VarName: String);
 
@@ -76,35 +85,38 @@ Unit Expression;
        TYPE_FLOAT_id  = 6;
        TYPE_STRING_id = 7;
 
+ Operator = (A, B: TSSAVarID): Boolean;
+ Operator in (A: Integer; B: Array of LongWord): Boolean;
+
  Implementation
 Uses SysUtils;
 
-// -------------------------------------------------------------------------- //
-(* TExpression.isVariableModified *)
-{
- Returns 'true' if variable named 'VarName' is modified inside this expression.
-
- @TODO: arrays!
-}
-Function TExpression.isVariableModified(const VarName: String; const CheckAssigns: Boolean): Boolean;
+(* TSSAVarID = TSSAVarID *)
+Operator = (A, B: TSSAVarID): Boolean;
 Var I: Integer;
 Begin
- if (CheckAssigns) Then
-  Result := (Typ in MLValueOperators) Else
-  Result := (Typ in (MLValueOperators-[mtAssign]));
+ if (Length(A.Value) <> Length(B.Value)) Then
+  Exit(False);
 
- Result := Result and (Left^.IdentName = VarName);
+ For I := Low(A.Value) To High(A.Value) Do
+  if (A.Value[I] <> B.Value[I]) Then
+   Exit(False);
 
- if (not Result) and (Left <> nil) Then
-  Result := Result or Left^.isVariableModified(VarName, CheckAssigns);
-
- if (not Result) and (Right <> nil) Then
-  Result := Result or Right^.isVariableModified(VarName, CheckAssigns);
-
- For I := Low(ParamList) To High(ParamList) Do
-  Result := Result or ParamList[I]^.isVariableModified(VarName, CheckAssigns);
+ Exit(True);
 End;
 
+(* Integer in Array of Integer *)
+Operator in (A: Integer; B: Array of LongWord): Boolean;
+Var I: Integer;
+Begin
+ Result := False;
+
+ For I in B Do
+  if (I = A) Then
+   Exit(True);
+End;
+
+// -------------------------------------------------------------------------- //
 (* TExpression.FindAssignment *)
 {
  Finds the first assignment to a variable named `VarName` and returns it, otherwise returns `nil`.

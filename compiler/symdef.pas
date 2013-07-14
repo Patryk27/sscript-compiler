@@ -17,36 +17,17 @@ Unit symdef;
                 PBegin, PEnd: Int64;
                End;
 
+ Type TRefSymbol = class;
+
  (* lists *)
  Type TNamespace     = class;
       TNamespaceList = specialize TFPGList<TNamespace>;
 
- Type TLocalSymbol     = class;
-      TLocalSymbolList = specialize TFPGList<TLocalSymbol>;
-
- Type TGlobalSymbol     = class;
-      TGlobalSymbolList = specialize TFPGList<TGlobalSymbol>;
+ Type TSymbol     = class;
+      TSymbolList = specialize TFPGList<TSymbol>;
 
  Type TVariable     = Class;
       TVariableList = specialize TFPGList<TVariable>;
-
- (* Symbol *)
- Type TSymbol = Class
-                 Public
-                  Name : String; // symbol name
-                  Range: TRange; // accessability range
-
-                  Visibility: TVisibility; // visibility
-                  mCompiler : Pointer; // compiler in which symbol has been declared
-                  DeclToken : PToken_P; // declaration token pointer
-
-                  isInternal: Boolean; // eg.`null` is internal
-
-                 // public methods
-                  Constructor Create;
-                  Function Clone: TSymbol;
-                  Procedure CopyTo(const Symbol: TSymbol);
-                 End;
 
  (* Type *)
  Type TType = class;
@@ -58,7 +39,7 @@ Unit symdef;
                 DefaultValue: PExpression;
                 Attributes  : TVariableAttributes;
                 isConst     : Boolean;
-                isVar       : Boolean;
+                isVar       : Boolean; // `isPassByRef`
                End;
       TParamList = Array of TParam;
 
@@ -66,7 +47,7 @@ Unit symdef;
  Type TType = Class
                Public
                // public fields
-                RefSymbol: TSymbol;
+                RefSymbol: TRefSymbol;
 
                 RegPrefix : Char;
                 InternalID: Byte;
@@ -111,7 +92,7 @@ Unit symdef;
  Type TVariable = Class
                    Public
                    // public fields
-                    RefSymbol: TSymbol;
+                    RefSymbol: TRefSymbol;
 
                     MemPos: int16; // negative values and zero for stack position, positive values for register ID (1..4)
 
@@ -138,7 +119,7 @@ Unit symdef;
  Type TFunction = Class
                    Public
                    // public fields
-                    RefSymbol: TSymbol;
+                    RefSymbol: TRefSymbol;
 
                     ModuleName   : String; // module name in which function has been declared
                     MangledName  : String; // function mangled (label) name
@@ -148,7 +129,7 @@ Unit symdef;
                     Return: TType; // return type
 
                     ParamList : TParamList; // parameter list
-                    SymbolList: TLocalSymbolList; // local symbol list
+                    SymbolList: TSymbolList; // local symbol list
                     FlowGraph : TCFGraph; // flow graph
 
                     Attributes: TFunctionAttributes;
@@ -159,50 +140,56 @@ Unit symdef;
                     Function isNaked: Boolean;
                    End;
 
- (* Local symbol *)
- Type TLocalSymbolType = (lsConstant, lsVariable, lsType);
- Type TLocalSymbol = Class (TSymbol)
-                      Public
-                      // methods
-                       Constructor Create(const SymbolType: TLocalSymbolType; const CreateInstance: Boolean=True);
-                       Constructor Create(const SymbolType: TLocalSymbolType; const Instance: Pointer);
-
-                      // fields
-                      Var
-                       Typ: TLocalSymbolType;
-
-                       mVariable: TVariable;
-                       mType    : TType;
-                      End;
-
- (* Global symbol *)
- Type TGlobalSymbolType = (gsConstant, gsVariable, gsFunction, gsType);
- Type TGlobalSymbol = Class (TSymbol)
-                       Public
-                       // methods
-                        Constructor Create(const SymbolType: TGlobalSymbolType; const CreateInstance: Boolean=True);
-                        Constructor Create(const SymbolType: TGlobalSymbolType; const Instance: Pointer);
-                        Constructor Create(const CloneOf: TGlobalSymbol);
-
-                       // fields
-                       Var
-                        Typ: TGlobalSymbolType;
-
-                        mVariable: TVariable; // gdConstant, gdVariable
-                        mFunction: TFunction; // gtFunction
-                        mType    : TType;
-                       End;
-
  (* Namespace *)
- Type TNamespace = Class (TSymbol)
+ Type TNamespace = Class
                     Public
                     // methods
                      Constructor Create;
 
                     // fields
                     Var
-                     SymbolList: TGlobalSymbolList; // global symbol list
+                     RefSymbol : TRefSymbol;
+                     SymbolList: TSymbolList; // global symbol list
                     End;
+
+ (* RefSymbol *)
+ Type TRefSymbol = Class
+                    Public
+                     // public methods
+                     Constructor Create;
+                     Function Clone: TRefSymbol;
+                     Procedure CopyTo(const Symbol: TRefSymbol);
+
+                     // public fields
+                     Var
+                      Name : String; // symbol name
+                      Range: TRange; // accessability range
+
+                      Visibility: TVisibility; // visibility
+                      mCompiler : Pointer; // compiler in which symbol has been declared
+                      DeclToken : PToken_P; // declaration token pointer
+
+                      isInternal: Boolean; // eg.`null` is internal
+                     End;
+
+ (* Symbol *)
+ Type TSymbolType = (stNamespace,  stFunction, stVariable, stConstant, stType);
+ Type TSymbol = Class (TRefSymbol)
+                 Public
+                 // methods
+                  Constructor Create(const SymbolType: TSymbolType; const CreateInstance: Boolean=True);
+                  Constructor Create(const SymbolType: TSymbolType; const Instance: Pointer);
+                  Constructor Create(const CloneOf: TSymbol);
+
+                 // fields
+                 Var
+                  Typ: TSymbolType;
+
+                  mNamespace: TNamespace;
+                  mVariable : TVariable;
+                  mFunction : TFunction;
+                  mType     : TType;
+                 End;
 
  // operators
  Function type_equal(A, B: TType): Boolean;
@@ -360,50 +347,6 @@ Begin
  End;
 End;
 
-(* ---------- TSymbol ---------- *)
-
-(* TSymbol.Create *)
-Constructor TSymbol.Create;
-Const AnonymouseTypeID: UInt64 = 0;
-Begin
- Name         := '__anonymouse_symbol_#'+IntToStr(AnonymouseTypeID);
- Range.PBegin := 0;
- Range.PEnd   := 0;
-
- Visibility := mvPrivate;
- mCompiler  := nil;
- DeclToken  := nil;
- isInternal := False;
-
- Inc(AnonymouseTypeID);
-End;
-
-(* TSymbol.Clone *)
-Function TSymbol.Clone: TSymbol;
-Begin
- Result := TSymbol.Create;
-
- Result.Name       := Name;
- Result.Range      := Range;
- Result.Visibility := Visibility;
- Result.mCompiler  := mCompiler;
- Result.DeclToken  := DeclToken;
- Result.isInternal := isInternal;
-End;
-
-(* TSymbol.CopyTo *)
-Procedure TSymbol.CopyTo(const Symbol: TSymbol);
-Begin
- if (Symbol = nil) Then
-  raise Exception.Create('Invalid method call! `Symbol = nil`');
-
- Symbol.Name       := Name;
- Symbol.Range      := Range;
- Symbol.Visibility := Visibility;
- Symbol.mCompiler  := mCompiler;
- Symbol.DeclToken  := DeclToken;
- Symbol.isInternal := isInternal;
-End;
 
 (* ---------- TType ---------- *)
 
@@ -413,7 +356,7 @@ End;
 }
 Constructor TType.Create;
 Begin
- RefSymbol := TSymbol.Create;
+ RefSymbol := TRefSymbol.Create;
 
  RegPrefix     := #0;
  ArrayDimCount := 0;
@@ -892,7 +835,7 @@ End;
 (* TVariable.Create *)
 Constructor TVariable.Create;
 Begin
- RefSymbol := TSymbol.Create;
+ RefSymbol := TRefSymbol.Create;
 
  MemPos := 0;
  Typ    := nil;
@@ -943,7 +886,7 @@ End;
 (* TFunction.Create *)
 Constructor TFunction.Create;
 Begin
- RefSymbol := TSymbol.Create;
+ RefSymbol := TRefSymbol.Create;
 
  ModuleName    := '';
  NamespaceName := '';
@@ -953,7 +896,7 @@ Begin
  SetLength(ParamList, 0);
 
  FlowGraph  := TCFGraph.Create;
- SymbolList := TLocalSymbolList.Create;
+ SymbolList := TSymbolList.Create;
 
  Attributes := [];
 End;
@@ -967,56 +910,60 @@ Begin
  Result := (faNaked in Attributes);
 End;
 
-(* ---------- TLocalSymbol ---------- *)
+(* ---------- TNamespace ---------- *)
 
-(* TLocalSymbol.Create *)
-Constructor TLocalSymbol.Create(const SymbolType: TLocalSymbolType; const CreateInstance: Boolean=True);
+(* TNamespace.Create *)
+Constructor TNamespace.Create;
 Begin
- Typ := SymbolType;
+ RefSymbol := TRefSymbol.Create;
 
- mVariable := nil;
- mType     := nil;
-
- if (CreateInstance) Then
-  Case Typ of
-   lsConstant, lsVariable:
-   Begin
-    mVariable           := TVariable.Create;
-    mVariable.RefSymbol := self;
-   End;
-
-   lsType:
-   Begin
-    mType           := TType.Create;
-    mType.RefSymbol := self;
-   End;
-  End;
+ SymbolList := TSymbolList.Create;
 End;
 
-(* TLocalSymbol.Create *)
-Constructor TLocalSymbol.Create(const SymbolType: TLocalSymbolType; const Instance: Pointer);
+(* ---------- TRefSymbol ---------- *)
+
+(* TRefSymbol.Create *)
+Constructor TRefSymbol.Create;
 Begin
- Create(SymbolType, False);
+ Name         := '';
+ Range.PBegin := 0;
+ Range.PEnd   := 0;
 
- Case Typ of
-  lsConstant, lsVariable:
-  Begin
-   mVariable := TVariable(Instance);
-   mVariable.RefSymbol.CopyTo(self);
-  End;
+ Visibility := mvPrivate;
+ mCompiler  := nil;
+ DeclToken  := nil;
 
-  lsType:
-  Begin
-   mType := TType(Instance);
-   mType.RefSymbol.CopyTo(self);
-  End;
- End;
+ isInternal := False;
 End;
 
-(* ---------- TGlobalSymbol ---------- *)
+(* TRefSymbol.Clone *)
+Function TRefSymbol.Clone: TRefSymbol;
+Begin
+ Result := TRefSymbol.Create;
+ CopyTo(Result);
+End;
 
-(* TGlobalSymbol.Create *)
-Constructor TGlobalSymbol.Create(const SymbolType: TGlobalSymbolType; const CreateInstance: Boolean=True);
+(* TRefSymbol.CopyTo *)
+Procedure TRefSymbol.CopyTo(const Symbol: TRefSymbol);
+Begin
+ if (Symbol = nil) Then
+  raise Exception.Create('Invalid method call! `Symbol = nil`');
+
+ if (self = nil) Then
+  raise Exception.Create('Invalid method call! `self = nil`');
+
+ Symbol.Name       := Name;
+ Symbol.Range      := Range;
+ Symbol.Visibility := Visibility;
+ Symbol.mCompiler  := mCompiler;
+ Symbol.DeclToken  := DeclToken;
+ Symbol.isInternal := isInternal;
+End;
+
+(* ---------- TSymbol ---------- *)
+
+(* TSymbol.Create *)
+Constructor TSymbol.Create(const SymbolType: TSymbolType; const CreateInstance: Boolean=True);
 Begin
  Typ := SymbolType;
 
@@ -1026,19 +973,19 @@ Begin
 
  if (CreateInstance) Then
   Case Typ of
-   gsConstant, gsVariable:
+   stConstant, stVariable:
    Begin
     mVariable           := TVariable.Create;
     mVariable.RefSymbol := self;
    End;
 
-   gsFunction:
+   stFunction:
    Begin
     mFunction           := TFunction.Create;
     mFunction.RefSymbol := self;
    End;
 
-   gsType:
+   stType:
    Begin
     mType           := TType.Create;
     mType.RefSymbol := self;
@@ -1046,25 +993,25 @@ Begin
   End;
 End;
 
-(* TGlobalSymbol.Create *)
-Constructor TGlobalSymbol.Create(const SymbolType: TGlobalSymbolType; const Instance: Pointer);
+(* TSymbol.Create *)
+Constructor TSymbol.Create(const SymbolType: TSymbolType; const Instance: Pointer);
 Begin
  Create(SymbolType, False);
 
  Case Typ of
-  gsConstant, gsVariable:
+  stConstant, stVariable:
   Begin
    mVariable := TVariable(Instance);
    mVariable.RefSymbol.CopyTo(self);
   End;
 
-  gsFunction:
+  stFunction:
   Begin
    mFunction := TFunction(Instance);
    mFunction.RefSymbol.CopyTo(self);
   End;
 
-  gsType:
+  stType:
   Begin
    mType := TType(Instance);
    mType.RefSymbol.CopyTo(self);
@@ -1072,8 +1019,8 @@ Begin
  End;
 End;
 
-(* TGlobalSymbol.Create *)
-Constructor TGlobalSymbol.Create(const CloneOf: TGlobalSymbol);
+(* TSymbol.Create *)
+Constructor TSymbol.Create(const CloneOf: TSymbol);
 Begin
  CloneOf.CopyTo(self);
 
@@ -1090,13 +1037,5 @@ Begin
 
  if (mType <> nil) Then
   mType.RefSymbol := mType.RefSymbol.Clone;
-End;
-
-(* ---------- TNamespace ---------- *)
-
-(* TNamespace.Create *)
-Constructor TNamespace.Create;
-Begin
- SymbolList := TGlobalSymbolList.Create;
 End;
 End.
