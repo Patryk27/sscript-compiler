@@ -16,13 +16,12 @@ Uses Compile1, ExpressionCompiler, Messages, Tokens, Opcodes, cfgraph, symdef;
 Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
 Var Opcode: PMOpcode;
 
-    Deep, IdentID, IdentNamespace: Integer;
-    Token                        : TToken_P;
+    Deep : Integer;
+    Token: TToken_P;
 
-    isIdentLocal: Boolean;
+    Variable: TVariable;
 
-    Name: PChar;
-
+    Name   : PChar;
     Arg    : String;
     ArgList: PVarRecArray;
 
@@ -132,30 +131,25 @@ Begin
       Begin
        Arg := read_ident;
 
-       IdentID      := findLocalVariable(Arg);
-       isIdentLocal := (IdentID <> -1);
+       Variable := findVariableCandidate(Arg, nil, Token);
 
-       if (IdentID = -1) Then
-        findGlobalVariableCandidate(Arg, SelectedNamespaces, IdentID, IdentNamespace);
-
-       if (IdentID = -1) Then { var not found }
+       if (Variable = nil) Then { var not found }
        Begin
         CompileError(eUnknownVariable, [Arg]);
-        Arg := '[0]';
+        Arg := 'ei1';
        End Else { var found }
        Begin
-        if (isIdentLocal) Then
+        if (Variable.RefSymbol.DeclFunction = nil) Then
         Begin
-         With getCurrentFunction.SymbolList[IdentID] do
-          With mVariable do
-           if (isConst) and (Value <> nil) Then // if constant...
-            Arg := getValueFromExpression(Value) Else
-            Begin
-             Attributes += [vaVolatile]; // optimizer could remove this variable, what we don't want.
-             Arg        := 'localvar.'+IntToStr(LongWord(mVariable)); // a bit lame solution, but I have no idea how to make it work in better way
-            End;
+         With Variable do
+          if (isConst) and (Value <> nil) Then // if constant...
+           Arg := getValueFromExpression(Value) Else
+           Begin
+            Attributes += [vaVolatile]; // optimizer could remove this variable or do any other optimization to it, which could break the user's bytecode
+            Arg        := 'localvar.'+IntToStr(LongWord(Variable)); // a bit lame solution, but I have no idea how to make it work in a better way
+           End;
         End Else
-         With NamespaceList[IdentNamespace].SymbolList[IdentID].mVariable do
+         With Variable do
           if (isConst) Then
            Arg := getValueFromExpression(Value) Else
            CompileError(eInternalError, ['Global variables have not been implemented yet.']);

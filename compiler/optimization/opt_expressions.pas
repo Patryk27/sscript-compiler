@@ -8,7 +8,7 @@ Type PVarData = ^TVarData;
      TVarData = Record
                  Symbol: Pointer;
                  SSAId : TSSAVarID;
-                 Value : PExpression;
+                 Value : PExpressionNode;
                 End;
 Type TVarList = specialize TFPGList<PVarData>;
 Var VarList: TVarList;
@@ -24,8 +24,8 @@ Var VarList: TVarList;
   End;
 
   // VisitExpression
-  Procedure VisitExpression(Expr: PExpression);
-  Var Param  : PExpression;
+  Procedure VisitExpression(Expr: PExpressionNode);
+  Var Param  : PExpressionNode;
       VarData: PVarData;
   Begin
    if (Expr = nil) Then
@@ -40,7 +40,7 @@ Var VarList: TVarList;
     VarList.Add(VarData);
    End Else
 
-   if (Expr^.Typ = mtVariable) and (Expr^.IdentType = mtNothing) Then
+   if (Expr^.Typ = mtIdentifier) and (Expr^.IdentType = mtNothing) Then
    Begin
     VarData := FindVarData(Expr^.Symbol, Expr^.SSA);
 
@@ -123,7 +123,7 @@ Procedure RemoveUnusedAssigns;
   Var Child, Back : TCFGNode;
       CanBeRemoved: Boolean;
       Symbol      : TSymbol;
-      Second      : PExpression;
+      Second      : PExpressionNode;
   Begin
    if (Node = nil) Then
     Exit;

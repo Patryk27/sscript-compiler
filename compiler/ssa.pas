@@ -65,8 +65,8 @@ Var Stage      : 1..2;
   End;
 
   // VisitExpression
-  Procedure VisitExpression(const Expr: PExpression);
-  Var Param: PExpression;
+  Procedure VisitExpression(const Expr: PExpressionNode);
+  Var Param: PExpressionNode;
       I    : Integer;
       Data : PSSAData;
   Begin
@@ -77,32 +77,28 @@ Var Stage      : 1..2;
     1:
      if (Expr^.Typ in MLValueOperators) Then
      Begin
-      For I := 0 To High(Expr^.Left^.SSA.Value) Do
+      For I := 0 To High(Expr^.Left^.SSA.Values) Do
       Begin
        New(Data);
        Data^.Symbol := Expr^.Left^.Symbol;
-       Data^.SSA    := Expr^.Left^.SSA.Value[I];
+       Data^.SSA    := Expr^.Left^.SSA.Values[I];
        SSADataList.Add(Data);
       End;
      End;
 
     2:
-     if (Expr^.Typ = mtVariable) Then
+     if (Expr^.Typ = mtIdentifier) Then
      Begin
       I := 0;
-      While (I < Length(Expr^.SSA.Value)) Do
+      While (I < Length(Expr^.SSA.Values)) Do
       Begin
-       if (ShouldBeRemoved(Expr^.Symbol, Expr^.SSA.Value[I])) Then
-        RemoveElement(Expr^.SSA.Value, I) Else
+       if (ShouldBeRemoved(Expr^.Symbol, Expr^.SSA.Values[I])) Then
+        RemoveElement(Expr^.SSA.Values, I) Else
         Inc(I);
       End;
 
-      if (Length(Expr^.SSA.Value) = 0) Then
+      if (Length(Expr^.SSA.Values) = 0) Then
        DevLog(dvWarning, 'RemapSSA', 'SSA remapping may failed: some variable use (at line '+IntToStr(Expr^.Token.Line)+') has been left without a corresponding SSA ID; this may lead to undefined behavior unless optimizer takes care of it.');
-
-      if (Length(Expr^.SSA.Value) = 1) Then
-       Expr^.SSA.Typ := sstSingle Else
-       Expr^.SSA.Typ := sstPhi;
      End;
    End;
 

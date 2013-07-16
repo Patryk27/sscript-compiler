@@ -60,7 +60,7 @@ End;
 (*
  See description of @__variable_getvalue_reg
 *)
-Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpression): TType;
+Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpressionNode): TType;
 Var RegStr: String;
 Begin
  RegStr := 'e'+RegChar+IntToStr(RegID);
@@ -73,7 +73,7 @@ Begin
   if (ArrayElements = nil) Then
    Error(eInternalError, ['ArrayElements = nil']);
 
-  if (ArrayElements^.Typ = mtVariable) Then // @what?!
+  if (ArrayElements^.Typ = mtIdentifier) Then // @what?!
    Exit(_var.Typ); // return variable's type and exit procedure
 
   Result := Parse(ArrayElements);
@@ -93,10 +93,10 @@ End;
 (*
  See description of @__variable_setvalue_reg
 *)
-Function __variable_setvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpression): TType;
+Function __variable_setvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpressionNode): TType;
 Var RegStr    : String;
     TmpType   : TType;
-    TmpExpr   : PExpression;
+    TmpExpr   : PExpressionNode;
     IndexCount: Integer;
     Variable  : TRVariable;
 Begin
@@ -113,7 +113,7 @@ Begin
 
   { find variable }
   TmpExpr := ArrayElements;
-  While (TmpExpr^.Typ <> mtVariable) Do
+  While (TmpExpr^.Typ <> mtIdentifier) Do
    TmpExpr := TmpExpr^.Left;
   Variable := getVariable(TmpExpr);
 
@@ -131,7 +131,7 @@ Begin
 
    ArrayElements := ArrayElements^.Left;
    Inc(IndexCount);
-  Until (ArrayElements^.Typ = mtVariable);
+  Until (ArrayElements^.Typ = mtIdentifier);
 
   { set new value }
   PutOpcode(o_arset, [Variable.PosStr, IndexCount, RegStr]);

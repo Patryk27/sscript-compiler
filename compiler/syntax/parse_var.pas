@@ -36,10 +36,12 @@ Begin
 
   With Variable.RefSymbol do
   Begin
-   DeclToken := next_pnt;
-   mCompiler := Compiler;
-   Range     := getCurrentRange;
-   Name      := read_ident; // [identifier]
+   DeclToken     := next_pnt;
+   DeclNamespace := getCurrentNamespace;
+   DeclFunction  := getCurrentFunction;
+   mCompiler     := Compiler;
+   Range         := getCurrentRange;
+   Name          := read_ident; // [identifier]
 
    RedeclarationCheck(Name); // redeclaration of the variable
   End;
@@ -51,6 +53,7 @@ Begin
    Variable.Attributes += [vaVolatile]; // arrays have to be volatile, because optimizer doesn't support arrays, thus weird things happen when it tries to optimize an array :P
 
   { add variable into the function }
+//  if (inFunction) Then
   getCurrentFunction.SymbolList.Add(TSymbol.Create(stVariable, Variable));
 
   if (next_t = _EQUAL) Then // var(...) name=value;

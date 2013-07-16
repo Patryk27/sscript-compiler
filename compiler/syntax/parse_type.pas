@@ -73,12 +73,14 @@ Begin
 
    With EnumItem.RefSymbol do
    Begin
-    Name       := read_ident; // [identifier]
-    DeclToken  := next_pnt(-1);
-    mCompiler  := Compiler;
-    Visibility := getVisibility;
-    Range      := getCurrentRange;
-    isInternal := False;
+    Name          := read_ident; // [identifier]
+    DeclToken     := next_pnt(-1);
+    DeclNamespace := getCurrentNamespace;
+    DeclFunction  := getCurrentFunction;
+    mCompiler     := Compiler;
+    Visibility    := getVisibility;
+    Range         := getCurrentRange;
+    isInternal    := False;
 
     RedeclarationCheck(Name);
    End;
@@ -112,12 +114,14 @@ Begin
 
   With Typ.RefSymbol do
   Begin
-   Name       := read_ident; // [identifier]
-   DeclToken  := next_pnt(-1);
-   mCompiler  := Compiler;
-   Visibility := getVisibility;
-   Range      := getCurrentRange;
-   isInternal := False;
+   Name          := read_ident; // [identifier]
+   DeclToken     := next_pnt(-1);
+   DeclNamespace := getCurrentNamespace;
+   DeclFunction  := getCurrentFunction;
+   mCompiler     := Compiler;
+   Visibility    := getVisibility;
+   Range         := getCurrentRange;
+   isInternal    := False;
 
    RedeclarationCheck(Name);
   End;

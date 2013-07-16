@@ -25,7 +25,7 @@ Begin
  { compile both sides }
  Result := CompileSimple(TypeLeft, TypeRight, WithAssign);
 
- if (Result = nil) Then
+ if (Result = nil) or (TypeLeft = nil) or (TypeRight = nil) Then
  Begin
   DevLog(dvWarning, 'ParseArithmeticOperator', 'CompileSimple() returned `nil`; leaving function...');
   Exit;

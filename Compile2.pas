@@ -6,7 +6,7 @@
 Unit Compile2;
 
  Interface
- Uses CompilerUnit, Compile1, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
+ Uses CompilerUnit, Compile1, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
 
  Const bytecode_version_major = 0;
        bytecode_version_minor = 41;
@@ -205,7 +205,7 @@ Var OpcodeBegin: LongWord;
     Str: String;
     Int: Integer;
 
-    FuncID, Namespace: Integer;
+    Func: TFunction;
 Begin
  With BytecodeStream do
  Begin
@@ -276,12 +276,11 @@ Begin
        With Compile1.TCompiler(Compiler) do
         if (Int = -1) Then // label not found
         Begin
-         findFunctionByLabel(Str, FuncID, Namespace);
+         Func := findFunctionByLabel(Str);
 
-         if (FuncID <> -1) Then
+         if (Func <> nil) Then
          Begin
-          With NamespaceList[Namespace].SymbolList[FuncID] do
-           CompileError(DeclToken, eFunctionNotFound, [Name, mFunction.LibraryFile]);
+          CompileError(Func.RefSymbol.DeclToken, eFunctionNotFound, [Func.RefSymbol.Name, Func.LibraryFile]);
          End Else
          Begin
           if (Token = nil) Then

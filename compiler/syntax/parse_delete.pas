@@ -13,7 +13,7 @@ Uses Compile1, Expression, ExpressionCompiler, Tokens, cfgraph;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Expr: PExpression;
+Var Expr: PExpressionNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin

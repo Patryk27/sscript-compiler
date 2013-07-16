@@ -2,7 +2,7 @@ Type TVarMap = specialize TFPGMap<Pointer, Integer>; // TFPGMap<TLocalSymbol, In
 Var VarMap: TVarMap;
 
 // IncreaseSSA
-Procedure IncreaseSSA(Expr: PExpression);
+Procedure IncreaseSSA(Expr: PExpressionNode);
 Var Symbol: Pointer;
     ID    : Integer;
 Begin
@@ -12,9 +12,8 @@ Begin
   ID := 0 Else
   ID := VarMap[Symbol]+1;
 
- Expr^.SSA.Typ := sstSingle;
- SetLength(Expr^.SSA.Value, 1);
- Expr^.SSA.Value[0] := ID;
+ SetLength(Expr^.SSA.Values, 1);
+ Expr^.SSA.Values[0] := ID;
 
  if (VarMap.IndexOf(Symbol) = -1) Then
   VarMap.Add(Symbol, 0) Else
@@ -22,8 +21,8 @@ Begin
 End;
 
 (* VisitExpression *)
-Procedure VisitExpression(Expr: PExpression);
-Var Param : PExpression;
+Procedure VisitExpression(Expr: PExpressionNode);
+Var Param : PExpressionNode;
     I     : Integer;
     PList : TParamList;
     Symbol: TSymbol;

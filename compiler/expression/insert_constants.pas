@@ -1,66 +1,40 @@
 Procedure __insert_constants(const ShowErrors: Boolean);
 
 (* Parse *)
-Procedure Parse(Expr: PExpression);
-Var I, VarID, NamespaceID: Integer;
-    Symbol               : TSymbol;
+Procedure Parse(Expr: PExpressionNode);
+Var Param: PExpressionNode;
 Begin
- if (Expr^.Typ = mtArrayElement) Then
+ if (Expr = nil) or (Expr^.Typ = mtArrayElement) Then
   Exit;
 
- { function call }
- if (Expr^.Typ = mtFunctionCall) Then
+ if (Expr^.Typ = mtIdentifier) Then // if identifier
  Begin
-  For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
-   Parse(Expr^.ParamList[I]);
-  Exit;
- End;
-
- if (Expr^.Left = nil) and (Expr^.Right = nil) Then
- Begin
-  { variable }
-  if (Expr^.Typ = mtVariable) Then
+  if (Expr^.Symbol = nil) Then // if unknown symbol
   Begin
-   VarID       := Compiler.findLocalVariable(Expr^.IdentName); // is it a local variable?
-   NamespaceID := -1;
+   if (ShowErrors) Then
+    Compiler.CompileError(Expr^.Token, eUnknownVariable, [Expr^.IdentName]);
+   Exit;
+  End;
 
-   if (VarID = -1) Then // local variable not found
+  With TSymbol(Expr^.Symbol) do
+  Begin
+   if (Typ <> stConstant) Then // is it a constant?
    Begin
-    Compiler.findGlobalVariableCandidate(Expr^.IdentName, Expr^.Namespaces, VarID, NamespaceID, @Expr^.Token); // so - maybe it's a global variable?
-
-    if (VarID = -1) Then
-    Begin
-     if (ShowErrors) Then
-      Compiler.CompileError(Expr^.Token, eUnknownVariable, [Expr^.IdentName]);
-     Exit;
-    End;
-   End;
-
-   if (NamespaceID = -1) Then
-    Symbol := Compiler.getCurrentFunction.SymbolList[VarID] Else
-    Symbol := Compiler.NamespaceList[NamespaceID].SymbolList[VarID];
-
-   With Symbol do
-   Begin
-    if (Typ <> stConstant) Then // is it a constant?
-    Begin
-     if (ShowErrors) Then
-      Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
-     Exit;
-    End;
-
-    AnyChange := True;
-    Expr^     := mVariable.Value^;
+    if (ShowErrors) Then
+     Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
     Exit;
    End;
+
+   AnyChange := True;
+   Expr^     := mVariable.Value^;
+   Exit;
   End;
  End;
 
- if (Expr^.Left <> nil) Then
-  Parse(Expr^.Left);
-
- if (Expr^.Right <> nil) Then
-  Parse(Expr^.Right);
+ Parse(Expr^.Left);
+ Parse(Expr^.Right);
+ For Param in Expr^.ParamList Do
+  Parse(Param);
 End;
 
 Begin

@@ -1,16 +1,16 @@
 Var VisitedParentNodes: TCFGNodeList;
 
 (* FetchSSAVarID *)
-Function FetchSSAVarID(Symbol: Pointer; SearchNode: TCFGNode): TSSAVarID;
+Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
 
   { VisitExpression }
-  Function VisitExpression(Expr: PExpression): TSSAVarID;
-  Var Param: PExpression;
+  Function VisitExpression(Expr: PExpressionNode): TSSAVarID;
+  Var Param: PExpressionNode;
       PList: TParamList;
       I    : Integer;
       Sym  : TSymbol;
   Begin
-   Result.Typ := sstNone;
+   SetLength(Result.Values, 0);
 
    if (Expr = nil) Then
     Exit;
@@ -40,11 +40,11 @@ Function FetchSSAVarID(Symbol: Pointer; SearchNode: TCFGNode): TSSAVarID;
 
    Result := VisitExpression(Expr^.Left);
 
-   if (Result.Typ = sstNone) Then
+   if (Length(Result.Values) = 0) Then
     Result := VisitExpression(Expr^.Right);
 
    For Param in Expr^.ParamList Do
-    if (Result.Typ = sstNone) Then
+    if (Length(Result.Values) = 0) Then
      Result := VisitExpression(Param);
   End;
 
@@ -55,7 +55,7 @@ Function FetchSSAVarID(Symbol: Pointer; SearchNode: TCFGNode): TSSAVarID;
       Can                : Boolean;
       Child              : TCFGNode;
   Begin
-   Result.Typ := sstNone;
+   SetLength(Result.Values, 0);
 
    if (Node = nil) or ((not CheckEndNode) and (Node = EndNode)) or (VisitedParentNodes.IndexOf(Node) <> -1) Then
     Exit;
@@ -64,23 +64,17 @@ Function FetchSSAVarID(Symbol: Pointer; SearchNode: TCFGNode): TSSAVarID;
    if (Node.Typ = cetCondition) Then // if condition...
    Begin
     // -> left
-    Left.Typ := sstNone;
+    Left := VisitNode(Node.Child[0], Node.Child[2], True, True);
 
-    if (Left.Typ = sstNone) Then
-     Left := VisitNode(Node.Child[0], Node.Child[2], True, True);
-
-    if (Left.Typ = sstNone) and
+    if (Length(Left.Values) = 0) and
        (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) and
        (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], SearchNode)) Then // if inside a loop... (see note below)
         Left := VisitNode(SearchNode, Node.Child[2], True, True);
 
     // -> right
-    Right.Typ := sstNone;
+    Right := VisitNode(Node.Child[1], Node.Child[2], True, True);
 
-    if (Right.Typ = sstNone) Then
-     Right := VisitNode(Node.Child[1], Node.Child[2], True, True);
-
-    if (Right.Typ = sstNone) and
+    if (Length(Right.Values) = 0) and
        (AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], Node)) and
        (AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], SearchNode)) Then // if inside a loop... (see note below)
         Right := VisitNode(SearchNode, Node.Child[2], True, True);
@@ -89,7 +83,7 @@ Function FetchSSAVarID(Symbol: Pointer; SearchNode: TCFGNode): TSSAVarID;
     Parent := VisitNode(Node.Parent, EndNode, False, True);
 
     {
-     @Note (about that 4 if-s above):
+     @Note (about that 2 long if-s above):
 
      Let's consider this code:
        for (var<int> i=0; i<=2; i++)
@@ -118,78 +112,73 @@ Function FetchSSAVarID(Symbol: Pointer; SearchNode: TCFGNode): TSSAVarID;
     }
 
     // coalesce left side
-    For I := 0 To High(Left.Value) Do
+    For I := 0 To High(Left.Values) Do
     Begin
-     SetLength(Result.Value, Length(Result.Value)+1);
-     Result.Value[High(Result.Value)] := Left.Value[I];
+     SetLength(Result.Values, Length(Result.Values)+1);
+     Result.Values[High(Result.Values)] := Left.Values[I];
     End;
 
     // coalesce right side checking if there aren't any duplicates
-    For I := 0 To High(Right.Value) Do
+    For I := 0 To High(Right.Values) Do
     Begin
      Can := True;
 
-     For J := 0 To High(Result.Value) Do
-      if (Result.Value[J] = Right.Value[I]) Then
+     For J := 0 To High(Result.Values) Do
+      if (Result.Values[J] = Right.Values[I]) Then
        Can := False;
 
      if (Can) Then
      Begin
-      SetLength(Result.Value, Length(Result.Value)+1);
-      Result.Value[High(Result.Value)] := Right.Value[I];
+      SetLength(Result.Values, Length(Result.Values)+1);
+      Result.Values[High(Result.Values)] := Right.Values[I];
      End;
     End;
 
     // coalesce right side checking if there aren't any duplicates
-    For I := 0 To High(Parent.Value) Do
+    For I := 0 To High(Parent.Values) Do
     Begin
      Can := True;
 
-     For J := 0 To High(Result.Value) Do
-      if (Result.Value[J] = Parent.Value[I]) Then
+     For J := 0 To High(Result.Values) Do
+      if (Result.Values[J] = Parent.Values[I]) Then
        Can := False;
 
      if (Can) Then
      Begin
-      SetLength(Result.Value, Length(Result.Value)+1);
-      Result.Value[High(Result.Value)] := Parent.Value[I];
+      SetLength(Result.Values, Length(Result.Values)+1);
+      Result.Values[High(Result.Values)] := Parent.Values[I];
      End;
 
      // @TODO: too much DRY!
     End;
-
-    if (Length(Result.Value) = 1) Then
-     Result.Typ := sstSingle Else
-     Result.Typ := sstPhi;
    End;
 
    if (CheckChildrenNotParent) Then
    Begin
     For Child in Node.Child Do
-     if (Result.Typ = sstNone) Then
+     if (Length(Result.Values) = 0) Then
       Result := VisitNode(Child, EndNode, True, CheckEndNode);
    End;
 
-   if (Result.Typ = sstNone) Then
+   if (Length(Result.Values) = 0) Then
     Result := VisitExpression(Node.Value);
 
-   if (not CheckChildrenNotParent) and (Result.Typ = sstNone) Then
+   if (not CheckChildrenNotParent) and (Length(Result.Values) = 0) Then
     Result := VisitNode(Node.Parent, EndNode, False, CheckEndNode);
   End;
 
 Var Origin: TCFGNode;
 Begin
- Origin := SearchNode;
-
- VisitedParentNodes.Clear;
-
- Result.Typ := sstNone;
-
  if (Symbol = nil) Then
  Begin
   DevLog(dvError, 'FetchSSAVarID', 'Function called with `Symbol = nil` (shouldn''t happen!)');
   Exit;
  End;
+
+ Origin := SearchNode;
+ VisitedParentNodes.Clear;
+
+ SetLength(Result.Values, 0);
 
  if (SearchNode.Typ = cetCondition) Then
  Begin
@@ -203,10 +192,10 @@ Begin
 
 // SearchNode := SearchNode.Parent;
 
- if (Result.Typ = sstNone) Then
+ if (Length(Result.Values) = 0) Then
   Result := VisitNode(SearchNode.Parent, nil);
 
- if (Result.Typ = sstNone) Then
+ if (Length(Result.Values) = 0) Then
  Begin
   DevLog(dvWarning, 'FetchSSAVarID', 'Couldn''t fetch variable''s SSA ID; var = '+TSymbol(Symbol).Name+', line = '+IntToStr(Origin.getToken^.Line));
 
@@ -217,14 +206,14 @@ Begin
 End;
 
 (* VisitExpression *)
-Procedure VisitExpression(Node: TCFGNode; Expr: PExpression);
-Var Param: PExpression;
+Procedure VisitExpression(Node: TCFGNode; Expr: PExpressionNode);
+Var Param: PExpressionNode;
 Begin
  if (Expr = nil) Then
   Exit;
 
- if (Expr^.Typ = mtVariable) and (Expr^.SSA.Typ = sstNone) Then // if variable
-  Expr^.SSA := FetchSSAVarID(Expr^.Symbol, Node);
+ if (Expr^.Typ = mtIdentifier) and (Length(Expr^.SSA.Values) = 0) Then // if variable with no SSA idenitifer assigned yet
+  Expr^.SSA := FetchSSAVarID(TSymbol(Expr^.Symbol), Node);
 
  VisitExpression(Node, Expr^.Left);
  VisitExpression(Node, Expr^.Right);

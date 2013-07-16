@@ -70,7 +70,7 @@ asArray:
  Index := 0;
 
  { push indexes onto the stack }
- While (Left^.Typ <> mtVariable) do
+ While (Left^.Typ <> mtIdentifier) do
  Begin
   TypeID := Parse(Left^.Right);
   With Compiler do // array subscript must be an integer value

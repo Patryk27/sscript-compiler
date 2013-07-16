@@ -33,6 +33,7 @@ Unit Parser;
 
                 // public methods
                   Constructor Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
+                  Destructor Destroy; override;
 
                   Function getToken(const Index: uint32): TToken_P;
                   Function getTokenPnt(const Index: uint32): PToken_P;
@@ -48,7 +49,7 @@ Unit Parser;
                   Function read_string: String;
                   Function read_int: Integer;
                   Function read_type(const AllowArrays: Boolean=True): TType;
-                  Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpression;
+                  Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
                   Function read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
                   Procedure eat(Token: TToken);
                   Procedure semicolon;
@@ -140,6 +141,15 @@ Begin
  Code.Free;
 End;
 
+(* TParser.Destroy *)
+Destructor TParser.Destroy;
+Var Token: PToken_P;
+Begin
+ For Token in TokenList Do
+  Dispose(Token);
+ TokenList.Free;
+End;
+
 (* TParser.getToken *)
 {
  Returns a token with specified index.
@@ -178,7 +188,7 @@ Begin
   DontFailOnEOF := True; // don't fail on case when brackets are unclosed (it would fail with error `unexpected eof`), as this error will be detected and raised later (eg.when parsing a construction)
 
   TPos          := TokenPos;
-  Result.PBegin := TokenList[TokenPos]^.Position;
+  Result.PBegin := TokenList[TokenPos]^;
 
   With TCompiler(Compiler) do
    if (ParsingFORInitInstruction) Then
@@ -202,39 +212,35 @@ Begin
       read_until(_SEMICOLON);
      End;
 
-     Result.PEnd := TokenList[TokenPos]^.Position;
+     Result.PEnd := TokenList[TokenPos]^;
      TokenPos    := TPos;
      Exit;
     End;
    End;
 
-  Result.PEnd := TokenPos;
-
   While (true) Do
   Begin
-   if (Result.PEnd >= TokenList.Count) Then // ending `}` not found
+   if (TokenPos >= TokenList.Count) Then // ending `}` not found, so symbol must have global reachability
    Begin
-    Dec(Result.PEnd);
-
-    DevLog(dvWarning, 'TParser.getCurrentRange', 'ending `}` not found');
+    Dec(TokenPos);
     Break;
    End;
 
-   Case TokenList[Result.PEnd]^.Token of
+   Case TokenList[TokenPos]^.Token of
     _BRACKET3_OP: Inc(Deep);
     _BRACKET3_CL: Dec(Deep);
    End;
 
-   Inc(Result.PEnd);
+   Inc(TokenPos);
 
    if (Deep = 0) Then
     Break;
   End;
 
-  if (Result.PEnd >= TokenList.Count) Then
-   Dec(Result.PEnd);
+  if (TokenPos >= TokenList.Count) Then
+   Dec(TokenPos);
 
-  Result.PEnd := TokenList[Result.PEnd]^.Position;
+  Result.PEnd := TokenList[TokenPos]^;
 
   TokenPos := TPos;
  Finally
@@ -351,8 +357,7 @@ Var Base, Typ, TmpType: TType;
     RequireDefaultValue               : Boolean = False;
 
     NamespaceName: String;
-    NamespaceID  : Integer;
-    TypeID       : Integer;
+    Namespace    : TNamespace;
 Begin
  With TCompiler(Compiler) do
  Begin
@@ -375,9 +380,9 @@ Begin
      eat(_DOUBLE_COLON);
 
      NamespaceName := Token.Value;
-     NamespaceID   := findNamespace(NamespaceName);
+     Namespace     := findNamespace(NamespaceName);
 
-     if (NamespaceID = -1) Then // namespace not found
+     if (Namespace = nil) Then // namespace not found
      Begin
       CompileError(next(-2), eUnknownNamespace, [NamespaceName]);
       read_ident;
@@ -385,26 +390,16 @@ Begin
      End;
 
      Token := next;
-     Base  := findGlobalType(read_ident, NamespaceID);
+     Base  := findTypeCandidate(read_ident, Namespace, Token);
     End Else // `type name`
     Begin
-     if (inFunction) Then
-      TypeID := findLocalType(Token.Value) Else
-      TypeID := -1;
+     Base := findTypeCandidate(Token.Value, getCurrentNamespace, Token);
 
-     if (TypeID = -1) Then // not a local type
+     if (Base = nil) Then // type not found
      Begin
-      findTypeCandidate(Token.Value, SelectedNamespaces, TypeID, NamespaceID);
-
-      if (TypeID = -1) Then // type not found
-      Begin
-       CompileError(next(-1), eUnknownType, [Token.Value]);
-       Exit;
-      End;
-
-      Base := NamespaceList[NamespaceID].SymbolList[TypeID].mType;
-     End Else // local type
-      Base := getCurrentFunction.SymbolList[TypeID].mType;
+      CompileError(next(-1), eUnknownType, [Token.Value]);
+      Exit;
+     End;
     End;
    End;
 
@@ -471,7 +466,7 @@ Begin
      Begin
       eat(_EQUAL);
       FuncParam^.DefaultValue := read_constant_expr;
-      TmpType                 := getTypeFromExpr(FuncParam^.DefaultValue^);
+      TmpType                 := getTypeFromExpression(FuncParam^.DefaultValue);
       Dec(TokenPos);
 
       if (not TmpType.CanBeAssignedTo(FuncParam^.Typ)) Then
@@ -571,7 +566,7 @@ End;
 {
  Reads and evaluates a constant expression.
 }
-Function TParser.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpression;
+Function TParser.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
 Begin
  Result := MakeExpression(Compiler, Sep, []);
  OptimizeExpression(TCompiler(Compiler), Result, [oInsertConstants, oConstantFolding, oDisplayParseErrors]);
@@ -579,7 +574,7 @@ End;
 
 (* TParser.read_constant_expr_int *)
 Function TParser.read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
-Var Expr: PExpression;
+Var Expr: PExpressionNode;
 Begin
  Expr := read_constant_expr(Sep);
 

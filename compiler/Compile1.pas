@@ -59,9 +59,10 @@ Unit Compile1;
                     Options     : TCompileOptions; // compile options
                     IncludePaths: TStringList; // list of include paths
 
-                    CurrentFunction   : TFunction; // currently parsed (or compiled) function
-                    CurrentNamespace  : Integer; // namespace in which we are (`namespace namespace_ame;`)
-                    SelectedNamespaces: Array of Integer; // selected namespaces (`use namespace1, namespace2 (...);`)
+                    CurrentFunction : TFunction; // currently parsed (or compiled) function
+                    CurrentNamespace: TNamespace; // namespace in which we are (`namespace namespace_ame;`)
+
+                    NamespaceVisibilityList: TNamespaceVisibilityList; // range of selected namespaces, eg.`use xyz;`
 
                     OpcodeList   : TOpcodeList; // output code opcode list
                     IncludeList  : PCompilerArray; // global include list
@@ -106,31 +107,25 @@ Unit Compile1;
 
                     Function findLabel(Name: String): Integer;
 
-                   { types }
-                    Function NewTypeFromFunction(Func: TFunction): TType;
-
-                    Function findLocalType(fName: String; fTokenPos: Int64=-1): Integer;
-                    Function findGlobalType(const TypeName: String; NamespaceID: Integer=-1): TType;
-                    Procedure findTypeCandidate(const TypeName: String; Namespaces: TIntegerArray; out TypeID, NamespaceID: Integer; const Token: PToken_P=nil);
-
-                    Function getTypeFromExpr(Expr: TExpression): TType;
-
                    { scope }
                     Procedure NewScope(const Typ: TScopeType; LoopBegin: TCFGNode=nil; LoopEnd: TCFGNode=nil);
                     Procedure RemoveScope;
                     Function inRange(Range: TRange; Position: Int64=-1): Boolean;
 
+                   { types }
+                    Function CreateFunctionType(Func: TFunction): TType;
+
+                    Function findTypeCandidate(const TypeName: String; const Namespace: TNamespace; const Token: TToken_P): TType;
+
                    { variables }
                     Procedure __variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
 
-                    Function findLocalVariable(fName: String): Integer;
-                    Procedure findGlobalVariableCandidate(const VarName: String; Namespaces: TIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
+                    Function findVariableCandidate(const VarName: String; const Namespace: TNamespace; const Token: TToken_P): TVariable;
 
                    { functions }
-                    Function findFunction(FuncName: String; NamespaceID: Integer=-1): Integer;
-                    Procedure findFunctionByLabel(const LabelName: String; out FuncID, NamespaceID: Integer);
-
-                    Procedure findFunctionCallCandidate(const FuncName: String; Namespaces: TIntegerArray; out FuncID, NamespaceID: Integer; const Token: PToken_P=nil);
+                    Function findFunction(const FuncName: String; Namespace: TNamespace=nil): TFunction;
+                    Function findFunctionByLabel(const LabelName: String): TFunction;
+                    Function findFunctionCallCandidate(const FuncName: String; const Namespace: TNamespace; const Token: TToken_P): TFunction;
 
                     Procedure CFGAddNode(Node: TCFGNode);
 
@@ -138,14 +133,12 @@ Unit Compile1;
                     Function getCurrentNamespace: TNamespace;
                     Function getDefaultNamespace: TNamespace;
 
-                    Function findNamespace(Name: String): Integer;
+                    Function findNamespace(const Name: String): TNamespace;
 
-                   { global-things }
+                   { global things }
                     Function inFunction: Boolean;
 
-                    Function findGlobalVariable(VarName: String; NamespaceID: Integer=-1): Integer;
-                    Procedure findGlobalCandidate(const IdentName: String; Namespaces: TIntegerArray; out IdentID, NamespaceID: Integer; const Token: PToken_P=nil);
-
+                    Function findCandidate(const IdentName: String; const Namespace: TNamespace; const Token: TToken_P): TSymbol;
                     Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 
                    { compiling }
@@ -940,11 +933,15 @@ Begin
    Exit(I);
 End;
 
-(* TCompiler.NewTypeFromFunction *)
+(* TCompiler.CreateFunctionType *)
 {
- Creates new function-pointer-type and adds it into the type list.
+ Creates new function pointer type and adds it into the type list.
+ Eg.: from function
+   function<int> do_something(int[] tab)
+ Creates type:
+   type<function<int>(int[])> ;
 }
-Function TCompiler.NewTypeFromFunction(Func: TFunction): TType;
+Function TCompiler.CreateFunctionType(Func: TFunction): TType;
 Begin
  Result := TType.Create;
 
@@ -955,91 +952,18 @@ Begin
  Result.Attributes := [taFunction];
 End;
 
-(* TCompiler.findLocalType *)
-{
- Searches for a local type with specified name and deep.
-}
-Function TCompiler.findLocalType(fName: String; fTokenPos: Int64=-1): Integer;
-Var I: Integer;
-Begin
- Result := -1;
-
- if (not inFunction) Then
- Begin
-  DevLog(dvInfo, 'TCompiler.findLocalType', 'called outside function');
-  Exit;
- End;
-
- With getCurrentFunction do // in current function
-  For I := 0 To SymbolList.Count-1 Do // each symbol
-   With SymbolList[I] do
-    if (Typ = stType) Then // if type
-     With mType do
-      if (inRange(Range, fTokenPos) and (Name = fName)) Then
-       Exit(I);
-End;
-
-(* TCompiler.findGlobalType *)
-{
- Searches the symbol table for type named `Name` in the global (`self`) and currently parsed namespace.
- If found, returns its ID; if not found, returns -1
-}
-Function TCompiler.findGlobalType(const TypeName: String; NamespaceID: Integer=-1): TType;
-
-  // Search
-  Procedure Search(const Namespace: TNamespace);
-  Var Symbol: TSymbol;
-  Begin
-   For Symbol in Namespace.SymbolList Do
-    if (Symbol.Typ = stType) and (AnsiCompareStr(Symbol.Name, TypeName) = 0) Then
-    Begin
-     Result := Symbol.mType;
-     Exit;
-    End;
-  End;
-
-Begin
- Result := nil;
-
- Search(NamespaceList[0]);
-
- if (Result = nil) Then // if no symbol found so far
-  if (NamespaceID <> -1) Then
-   Search(NamespaceList[NamespaceID]);
-End;
-
 (* TCompiler.findTypeCandidate *)
-Procedure TCompiler.findTypeCandidate(const TypeName: String; Namespaces: TIntegerArray; out TypeID, NamespaceID: Integer; const Token: PToken_P=nil);
-Begin
- findGlobalCandidate(TypeName, Namespaces, TypeID, NamespaceID, Token);
-
- if (TypeID <> -1) Then
-  if (not (NamespaceList[NamespaceID].SymbolList[TypeID].Typ = stType)) Then
-  Begin
-   TypeID      := -1;
-   NamespaceID := -1;
-  End;
-End;
-
-(* TCompiler.getTypeFromExpr *)
 {
- Gets the type from TExpression; works only for constant (already folded) expressions (ie. only a parent without any childrens).
+ See @TCompiler.findCandidate
 }
-Function TCompiler.getTypeFromExpr(Expr: TExpression): TType;
+Function TCompiler.findTypeCandidate(const TypeName: String; const Namespace: TNamespace; const Token: TToken_P): TType;
+Var Candidate: TSymbol;
 Begin
- if (Expr.Left <> nil) or (Expr.Right <> nil) Then
-  CompileError(eInternalError, ['A folded expression was expected!']);
+ Candidate := findCandidate(TypeName, Namespace, Token);
 
- Case Expr.Typ of
-  mtBool  : Exit(TYPE_BOOL);
-  mtChar  : Exit(TYPE_CHAR);
-  mtInt   : Exit(TYPE_INT);
-  mtFloat : Exit(TYPE_FLOAT);
-  mtString: Exit(TYPE_STRING);
-
-  else
-   CompileError(eInternalError, ['Invalid expression type']);
- End;
+ if (Candidate <> nil) and (Candidate.Typ = stType) Then
+  Result := Candidate.mType Else
+  Result := nil;
 End;
 
 (* TCompiler.NewScope *)
@@ -1073,7 +997,7 @@ Begin
  if (Position < 0) Then
   Position := Parser.next(-1).Position;
 
- Exit(Math.inRange(Position, Range.PBegin, Range.PEnd));
+ Exit(Math.inRange(Position, Range.PBegin.Position, Range.PEnd.Position));
 End;
 
 (* TCompiler.__variable_create *)
@@ -1092,116 +1016,76 @@ Begin
 
    With mVariable do
    Begin
-    Typ        := fTyp;
-    MemPos     := fMemPos;
-    Attributes := fAttributes;
-    Range      := Parser.getCurrentRange;
+    Typ           := fTyp;
+    MemPos        := fMemPos;
+    Attributes    := fAttributes;
+    Range         := Parser.getCurrentRange;
+    DeclNamespace := getCurrentNamespace;
+    DeclFunction  := getCurrentFunction;
    End;
   End;
  End;
 End;
 
-(* TCompiler.findLocalVariable *)
+(* TCompiler.findVariableCandidate *)
 {
- Finds a local variable or constant with specified name (`fName`) in specified scope (`fDeep`).
- When `fDeep` equals `-1`, it's set to current scope.
+ See @TCompiler.findCandidate
+ This function searches variables and constants.
 }
-Function TCompiler.findLocalVariable(fName: String): Integer;
-Var I: Integer;
+Function TCompiler.findVariableCandidate(const VarName: String; const Namespace: TNamespace; const Token: TToken_P): TVariable;
+Var Candidate: TSymbol;
 Begin
- Result := -1;
+ Candidate := findCandidate(VarName, Namespace, Token);
 
- if (getCurrentFunction = nil) Then
-  Exit;
-
- With getCurrentFunction do
- Begin
-  For I := 0 To SymbolList.Count-1 Do
-   if (SymbolList[I].Typ in [stVariable, stConstant]) Then
-    With SymbolList[I], mVariable do
-     if (inRange(RefSymbol.Range)) and (RefSymbol.Name = fName) Then
-      Exit(I);
- End;
-End;
-
-(* TCompiler.findGlobalVariableCandidate *)
-{
- See @TCompiler.findGlobalCandidate
- This function searches global constants and variables.
-}
-Procedure TCompiler.findGlobalVariableCandidate(const VarName: String; Namespaces: TIntegerArray; out VarID, NamespaceID: Integer; const Token: PToken_P=nil);
-Begin
- findGlobalCandidate(VarName, Namespaces, VarID, NamespaceID, Token);
-
- if (VarID <> -1) Then
-  if not (NamespaceList[NamespaceID].SymbolList[VarID].Typ in [stVariable, stConstant]) Then
-  Begin
-   VarID       := -1;
-   NamespaceID := -1;
-  End;
+ if (Candidate <> nil) and (Candidate.Typ in [stVariable, stConstant]) Then
+  Result := Candidate.mVariable Else
+  Result := nil;
 End;
 
 (* TCompiler.findFunction *)
 {
- Searches for a function named `Name` in namespace `NamespaceID` and returns its ID (when found), or `-1` (when not found).
+ Searches for a function named `Name` in namespace `Namespace` and returns it (when found), or return `nil` (when not found).
  When `NamespaceID` equals `-1`, it's set to currently parsed namespace.
 }
-Function TCompiler.findFunction(FuncName: String; NamespaceID: Integer=-1): Integer;
-Var I: Integer;
+Function TCompiler.findFunction(const FuncName: String; Namespace: TNamespace=nil): TFunction;
 Begin
- Result := -1;
+ if (Namespace = nil) Then
+  Namespace := CurrentNamespace;
 
- if (NamespaceID = -1) Then
-  NamespaceID := CurrentNamespace;
-
- With NamespaceList[NamespaceID] do
-  For I := 0 To SymbolList.Count-1 Do
-   if (SymbolList[I].Typ = stFunction) and (SymbolList[I].Name = FuncName) Then
-    Exit(I);
+ Result := Namespace.findFunction(FuncName);
 End;
 
 (* TCompiler.findFunctionByLabel *)
 {
- Searches for function with label name `LabelName` and returns that function's ID (when found) and its namespace, or `-1` (when not found).
+ Searches for function with label name `LabelName` and returns that function (when found), or `nil` (when not found).
 }
-Procedure TCompiler.findFunctionByLabel(const LabelName: String; out FuncID, NamespaceID: Integer);
-Var NS, Func: Integer;
+Function TCompiler.findFunctionByLabel(const LabelName: String): TFunction;
+Var Namespace: TNamespace;
+    Symbol   : TSymbol;
 Begin
- FuncID      := -1;
- NamespaceID := -1;
+ Result := nil;
 
- For NS := 0 To NamespaceList.Count-1 Do // each namespace
-  With NamespaceList[NS] do
-   For Func := 0 To SymbolList.Count-1 Do // each symbol in namespace
-    With SymbolList[Func] do
-     if (Typ = stFunction) and (mFunction.MangledName = LabelName) Then
-     Begin
-      FuncID      := Func;
-      NamespaceID := NS;
-      Exit;
-     End;
+ For Namespace in NamespaceList Do
+  For Symbol in Namespace.SymbolList Do
+   if (Symbol.Typ = stFunction) and (Symbol.mFunction.MangledName = LabelName) Then
+    Exit(Symbol.mFunction);
 End;
 
 (* TCompiler.findFunctionCallCandidate *)
 {
  Searches for a function call candidate.
- When a such candidate cannot be found, sets `FuncID` and `NamespaceID` to `-1`.
+ When such candidate cannot be found, returns `nil`.
 
- Detects only 'ambiguous function call', so if function couldn't have been found (`FuncID = -1`), you must display a
- `function not found` error by yourself.
-
- Also, when `Token == nil`, it's automatically set to current token.
+ Detects only 'ambiguous function call', so if function couldn't have been found (`Result = nil`), you must display the `function not found` error by yourself.
 }
-Procedure TCompiler.findFunctionCallCandidate(const FuncName: String; Namespaces: TIntegerArray; out FuncID, NamespaceID: Integer; const Token: PToken_P=nil);
+Function TCompiler.findFunctionCallCandidate(const FuncName: String; const Namespace: TNamespace; const Token: TToken_P): TFunction;
+Var Candidate: TSymbol;
 Begin
- findGlobalCandidate(FuncName, Namespaces, FuncID, NamespaceID, Token);
+ Candidate := findCandidate(FuncName, Namespace, Token);
 
- if (FuncID <> -1) Then
-  if not (NamespaceList[NamespaceID].SymbolList[FuncID].Typ = stFunction) Then
-  Begin
-   FuncID      := -1;
-   NamespaceID := -1;
-  End;
+ if (Candidate <> nil) and (Candidate.Typ = stFunction) Then
+  Result := Candidate.mFunction Else
+  Result := nil;
 End;
 
 (* TCompiler.CFGAddNode *)
@@ -1233,7 +1117,7 @@ End;
 }
 Function TCompiler.getCurrentNamespace: TNamespace;
 Begin
- Result := NamespaceList[CurrentNamespace];
+ Result := CurrentNamespace;
 End;
 
 (* TCompiler.getDefaultNamespace *)
@@ -1242,7 +1126,7 @@ End;
 }
 Function TCompiler.getDefaultNamespace: TNamespace;
 Begin
- Result := NamespaceList[0];
+ Result := NamespaceList[0]; // Result := findNamespace('self');
 End;
 
 (* TCompiler.findNamespace *)
@@ -1250,14 +1134,13 @@ End;
  Searches for a namespace with specified name.
  Returns its ID when found, or `-1` when not found.
 }
-Function TCompiler.findNamespace(Name: String): Integer;
-Var I: Integer;
+Function TCompiler.findNamespace(const Name: String): TNamespace;
 Begin
- Result := -1;
+ For Result in NamespaceList Do
+  if (Result.RefSymbol.Name = Name) Then
+   Exit;
 
- For I := 0 To NamespaceList.Count-1 Do
-  if (NamespaceList[I].RefSymbol.Name = Name) Then
-   Exit(I);
+ Exit(nil);
 End;
 
 (* TCompiler.inFunction *)
@@ -1269,170 +1152,126 @@ Begin
  Result := (Length(Scope) > 0);
 End;
 
-(* TCompiler.findGlobalVariable *)
+(* TCompiler.findCandidate *)
 {
- Searches for a global variable or a constant named `Name` in namespace `NamespaceID` and
- returns its ID (when found), or `-1` when variable doesn't exist.
- When `NamespaceID` equals `-1`, it's set to currently compiled namespace.
+ This function searches for local and global variables, constants, functions and types.
 }
-Function TCompiler.findGlobalVariable(VarName: String; NamespaceID: Integer=-1): Integer;
-Var I: Integer;
+Function TCompiler.findCandidate(const IdentName: String; const Namespace: TNamespace; const Token: TToken_P): TSymbol;
+Var Namespaces         : TNamespaceList;
+    NamespaceVisibility: PNamespaceVisibility;
+    TmpNamespace       : TNamespace;
+    List               : TSymbolList;
+    Symbol, Tmp        : TSymbol;
+    Check              : Boolean;
 Begin
- Result := -1;
+ Result := nil;
 
- if (NamespaceID = -1) Then
-  NamespaceID := CurrentNamespace;
+ // step 1: fetch namespaces reachable at given token
+ Namespaces := TNamespaceList.Create;
+ List       := TSymbolList.Create;
 
- With NamespaceList[NamespaceID] do
-  For I := 0 To SymbolList.Count-1 Do
-   With SymbolList[I] do
-    if (Typ in [stConstant, stVariable]) and (RefSymbol.Name = VarName) Then
-     Exit(I);
-End;
+ Try
+  Namespaces.Add(getDefaultNamespace);
 
-(* TCompiler.findGlobalCandidate *)
-{
- This function searches for global variables, constants, functions and types.
-}
-Procedure TCompiler.findGlobalCandidate(const IdentName: String; Namespaces: TIntegerArray; out IdentID, NamespaceID: Integer; const Token: PToken_P=nil);
-Type TCandidate = Record
-                   ID, Namespace: Integer;
-                   Symbol       : TSymbol;
-                  End;
-Var List  : Array of TCandidate;
-    Tmp, I: Integer;
-    Tok   : PToken_P;
-Begin
- IdentID     := -1;
- NamespaceID := -1;
+  if (Namespaces.IndexOf(getCurrentNamespace) = -1) Then
+   Namespaces.Add(getCurrentNamespace);
 
- { search in namespaces }
- SetLength(List, 0);
- For NamespaceID in Namespaces Do
- Begin
-  // search in namespace
-  Tmp := -1;
+  if (Namespace <> nil) Then
+   if (Namespaces.IndexOf(Namespace) = -1) Then
+    Namespaces.Add(Namespace);
 
-  With NamespaceList[NamespaceID] do
-   For I := 0 To SymbolList.Count-1 Do
-    if (SymbolList[I].Name = IdentName) Then
-     Tmp := I;
+  For NamespaceVisibility in NamespaceVisibilityList Do
+   if (Token in NamespaceVisibility^.Range) Then
+    if (Namespaces.IndexOf(NamespaceVisibility^.Namespace) = -1) Then
+     Namespaces.Add(NamespaceVisibility^.Namespace);
 
-  // found?
-  if (Tmp <> -1) Then
+  // step 2: search for specified identifier in current function
+  if (inFunction) Then
   Begin
-   SetLength(List, Length(List)+1);
-   With List[High(List)] do
-   Begin
-    ID        := Tmp;
-    Namespace := NamespaceID;
-
-    With NamespaceList[NamespaceID] do
-     Symbol := SymbolList[Tmp];
-   End;
+   // @Note: we cannot use `TFunction.findSymbol`, as there can be multiple variables with the same name inside one function, so `findSymbol` would return only the first one, but not the rest.
+   For Tmp in getCurrentFunction.SymbolList Do
+    if (Tmp.Name = IdentName) and (Token in Tmp.Range) Then
+     List.Add(Tmp);
   End;
- End;
 
- { not found }
- if (Length(List) = 0) Then
- Begin
-  IdentID     := -1;
-  NamespaceID := -1;
- End Else
+  // step 3: search for specified identifier in namespaces
+  For TmpNamespace in Namespaces Do
+  Begin
+   Symbol := TmpNamespace.findSymbol(IdentName);
 
- { found }
- if (Length(List) = 1) Then
- Begin
-  IdentID     := List[0].ID;
-  NamespaceID := List[0].Namespace;
- End Else
+   // found?
+   if (Symbol <> nil) Then
+    if (Token in Symbol.Range) Then
+     List.Add(Symbol);
+  End;
 
- { ambiguous reference }
- Begin
-  if (Token = nil) Then
-   Tok := Parser.next_pnt(-1) Else
-   Tok := Token;
+  { symbol not found }
+  if (List.Count = 0) Then
+  Begin
+   Result := nil;
+  End Else
 
-  CompileError(Tok^, eAmbiguousIdentifier, [IdentName]);
-  CompileNote(Tok^, nCandidates, []);
+  { exactly one symbol found }
+  if (List.Count = 1) Then
+  Begin
+   Result := List[0];
+  End Else
 
-  For Tmp := Low(List) To High(List) Do
-   With List[Tmp].Symbol do
-    TCompiler(mCompiler).CompileNote(DeclToken, nCandidate, [NamespaceList[List[Tmp].Namespace].RefSymbol.Name+'::'+Name]);
+  { possibly ambiguous reference (multiple symbols with the same names) }
+  Begin
+   Result := nil;
 
-  NamespaceID := -1;
-  IdentID     := -1;
+   if (inFunction) Then
+   Begin
+    Tmp   := nil;
+    Check := True;
+
+    For Symbol in List Do
+     if (Symbol.DeclFunction <> nil) Then
+     Begin
+      if (Tmp <> nil) Then
+       Check := False;
+      Tmp := Symbol;
+     End;
+
+    if (Check) Then
+     Exit(Tmp);
+   End;
+
+   CompileError(Token, eAmbiguousIdentifier, [IdentName]);
+   CompileNote(Token, nCandidates, []);
+
+   For Symbol in List Do
+    if (Symbol.mCompiler <> nil) and (Symbol.DeclToken <> nil) Then
+     TCompiler(Symbol.mCompiler).CompileNote(Symbol.DeclToken, nCandidate, [Symbol.DeclNamespace.RefSymbol.Name+'::'+Symbol.Name]);
+  End;
+ Finally
+  List.Free;
+  Namespaces.Free;
  End;
 End;
 
 (* TCompiler.RedeclarationCheck *)
 {
- Returns `true`, when an identifier is redeclared.
+ Returns `true` if specified identifier is redeclared.
 }
 Procedure TCompiler.RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
-Var ID : Integer;
-    Typ: TType;
+Var Symbol: TSymbol;
 Begin
- // function
- ID := findFunction(Name);
- if (ID <> -1) Then
- Begin
-  CompileError(eRedeclaration, [Name]);
-  With getCurrentNamespace.SymbolList[ID] do
-   TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
-  Exit;
- End;
-
  if (inFunction) Then
+  Symbol := getCurrentFunction.findSymbol(Name) Else
+  Symbol := getCurrentNamespace.findSymbol(Name);
+
+ if (Symbol <> nil) Then // symbol found?
  Begin
-  // local variable or constant
-  ID := findLocalVariable(Name);
-
-  // local type
-  if (ID = -1) Then
-   ID := findLocalType(Name);
-
-  if (ID <> -1) Then
-  Begin
-   CompileError(eRedeclaration, [Name]);
-   CompileError(getCurrentFunction.SymbolList[ID].DeclToken, ePrevDeclared, []);
+  if (SkipNamespaces) and (Symbol.Typ = stNamespace) Then
    Exit;
-  End;
- End Else
- Begin
-  // global variable or constant
-  ID := findGlobalVariable(Name);
-  if (ID <> -1) Then
-  Begin
-   CompileError(eRedeclaration, [Name]);
-   With getCurrentNamespace.SymbolList[ID] do
-    if (mCompiler <> nil) Then
-     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
-   Exit;
-  End;
 
-  // global type
-  Typ := findGlobalType(Name);
-  if (Typ <> nil) Then
-  Begin
-   CompileError(eRedeclaration, [Name]);
-   With Typ.RefSymbol do
-    if (mCompiler <> nil) Then // `mCompiler = nil` should be true only for internal types (like `bool`, `string` (...))
-     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
-   Exit;
-  End;
-
-  // namespace
-  if (not SkipNamespaces) Then
-  Begin
-   ID := findNamespace(Name);
-   if (ID <> -1) Then
-   Begin
-    CompileError(eRedeclaration, [Name]);
-    With NamespaceList[ID] do
-     TCompiler(RefSymbol.mCompiler).CompileError(RefSymbol.DeclToken, ePrevDeclared, []);
-   End;
-  End;
+  CompileError(eRedeclaration, [Name]);
+  With Symbol do
+   if (mCompiler <> nil) and (DeclToken <> nil) Then
+    TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []); // @TODO: CompileHint/CompileNote?
+  Exit;
  End;
 End;
 
@@ -1466,22 +1305,18 @@ Var Compiler2: Compile2.TCompiler;
 
     // CheckMain
     Function CheckMain: Boolean;
-    Var FuncID: Integer;
+    Var Func: TFunction;
     Begin
-     if (CompileMode <> cmApp) Then
+     if (CompileMode <> cmApp) Then // library or bytecode compile mode do not require the 'main' function to exist.
       Exit(True);
 
-     FuncID := findFunction('main', 0); // search for `main` function in the `self` namespace
+     Func := findFunction('main', findNamespace('self')); // search for `main` function in the `self` namespace
 
-     if (FuncID = -1) Then // not found!
+     if (Func = nil) Then // not found!
       Exit(False);
 
-     With NamespaceList[0].SymbolList[FuncID].mFunction do
-     Begin
-      Result :=
-      (Length(ParamList) = 0) and
-      (type_equal(Return, TYPE_INT));
-     End;
+     With Func do
+      Result := (Length(ParamList) = 0) and (type_equal(Return, TYPE_INT));
     End;
 
     // ParseCommandLine
@@ -1524,7 +1359,7 @@ Var Compiler2: Compile2.TCompiler;
     End;
 
     // CreateGlobalConstant
-    Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PExpression);
+    Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PExpressionNode);
     Begin
      With NamespaceList.Last do
      Begin
@@ -1546,7 +1381,7 @@ Var Compiler2: Compile2.TCompiler;
      End;
     End;
 
-   // CreateSymbols
+    // CreateSymbols
     Procedure CreateSymbols;
     Begin
      { init default namespace }
@@ -1561,10 +1396,10 @@ Var Compiler2: Compile2.TCompiler;
       SymbolList := TSymbolList.Create;
      End;
 
-     CurrentNamespace := 0;
+     CurrentNamespace := getDefaultNamespace;
+     CurrentFunction  := nil;
 
-     SetLength(SelectedNamespaces, 1);
-     SelectedNamespaces[0] := 0;
+     NamespaceVisibilityList := TNamespaceVisibilityList.Create;
 
      { create primary type-table }
      AddPrimaryType(TYPE_ANY);
@@ -1654,7 +1489,6 @@ Begin
 
  PrevRootNodes := TCFGNodeList.Create;
 
- CurrentFunction           := nil;
  DoNotGenerateCode         := False;
  ParsingFORInitInstruction := False;
 

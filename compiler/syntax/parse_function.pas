@@ -49,7 +49,7 @@ Var Func : TFunction; // our new function
   {$I gen_bytecode.pas}
 
   // NewConst (used to create internal constants, if enabled)
-  Procedure NewConst(const cName: String; cTyp: TType; cValue: PExpression);
+  Procedure NewConst(const cName: String; cTyp: TType; cValue: PExpressionNode);
   Var Variable: TVariable;
   Begin
    With TCompiler(Compiler) do
@@ -60,14 +60,16 @@ Var Func : TFunction; // our new function
 
     With Variable.RefSymbol do
     Begin
-     Name      := cName;
-     mCompiler := Compiler;
-     DeclToken := Parser.next_pnt;
+     Name          := cName;
+     mCompiler     := Compiler;
+     DeclToken     := Parser.next_pnt;
+     DeclFunction  := getCurrentFunction;
+     DeclNamespace := getCurrentNamespace;
     End;
 
     Variable.Attributes += [vaConst, vaDontAllocate];
 
-    if (findLocalVariable(cName) = -1) Then // don't duplicate
+    if (getCurrentFunction.findSymbol(cName) = nil) Then // don't duplicate
      With getCurrentFunction do
      Begin
       SymbolList.Add(TSymbol.Create(stConstant, False));
@@ -141,7 +143,7 @@ Var Func : TFunction; // our new function
        Begin
         eat(_EQUAL);
         DefaultValue     := read_constant_expr;
-        DefaultValueType := getTypeFromExpr(DefaultValue^);
+        DefaultValueType := getTypeFromExpression(DefaultValue);
         Dec(TokenPos);
 
         if (not DefaultValueType.CanBeAssignedTo(Typ)) Then
@@ -206,21 +208,12 @@ Var Func : TFunction; // our new function
   End;
 
 // main function block
-Var I: Integer;
-
-    FuncID, NamespaceID: Integer;
-
-    Namespaces: Array of Integer;
-
+Var I      : Integer;
+    TmpFunc: TFunction;
     TmpNode: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- // make a backup of current namespaces (we'll restore them when finish compiling this namespace)
- SetLength(Namespaces, Length(SelectedNamespaces));
- For I := Low(Namespaces) To High(Namespaces) Do
-  Namespaces[I] := SelectedNamespaces[I];
-
  (* if first pass *)
  if (CompilePass = _cp1) Then
  Begin
@@ -236,11 +229,13 @@ Begin
  (* if second pass *)
  if (CompilePass = _cp2) Then
  Begin
-  Func                     := TFunction.Create;
-  CurrentFunction          := Func;
-  Func.RefSymbol.mCompiler := Compiler;
-  Func.RefSymbol.DeclToken := next_pnt(-1); // _FUNCTION
-  Func.NamespaceName       := getCurrentNamespace.RefSymbol.Name;
+  Func                         := TFunction.Create;
+  CurrentFunction              := Func;
+  Func.RefSymbol.mCompiler     := Compiler;
+  Func.RefSymbol.DeclToken     := next_pnt(-1); // _FUNCTION
+  Func.RefSymbol.DeclNamespace := getCurrentNamespace;
+  Func.RefSymbol.DeclFunction  := nil;
+  Func.NamespaceName           := getCurrentNamespace.RefSymbol.Name;
 
   { read function return type }
   eat(_LOWER);
@@ -271,13 +266,13 @@ Begin
   End;
 
   // check for redeclaration by label name
-  findFunctionByLabel(Func.MangledName, FuncID, NamespaceID);
+  TmpFunc := findFunctionByLabel(Func.MangledName);
 
-  if (FuncID <> -1) Then
+  if (TmpFunc <> nil) Then
   Begin
    CompileError(eRedeclaration, [Func.MangledName]);
 
-   With NamespaceList[NamespaceID].SymbolList[FuncID] do
+   With TmpFunc.RefSymbol do
     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
   End;
 
@@ -288,10 +283,12 @@ Begin
 
    With SymbolList.Last do
    Begin
-    mVariable       := TVariable.Create;
-    mVariable.RefSymbol.Name  := Func.RefSymbol.Name;
-    mVariable.Typ   := NewTypeFromFunction(Func);
-    mVariable.Value := MakeIntExpression('@'+Func.MangledName);
+    mVariable                         := TVariable.Create;
+    mVariable.RefSymbol.Name          := Func.RefSymbol.Name;
+    mVariable.RefSymbol.DeclFunction  := nil;
+    mVariable.RefSymbol.DeclNamespace := getCurrentNamespace;
+    mVariable.Typ                     := CreateFunctionType(Func);
+    mVariable.Value                   := MakeIntExpression('@'+Func.MangledName);
 
     mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
    End;
@@ -325,7 +322,7 @@ Begin
  if (CompilePass = _cp3) Then
  Begin
   skip_parenthesis; // return type
-  Func := getCurrentNamespace.SymbolList[findFunction(read_ident)].mFunction;
+  Func := findFunction(read_ident);
   skip_parenthesis; // param list
   While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
    read;
@@ -418,9 +415,7 @@ Begin
   RemoveScope; // ... and - as we finished compiling this function - remove scope
  End;
 
- SetLength(SelectedNamespaces, Length(Namespaces));
- For I := Low(Namespaces) To High(Namespaces) Do
-  SelectedNamespaces[I] := Namespaces[I];
+ CurrentFunction := nil;
 End;
 End;
 End.

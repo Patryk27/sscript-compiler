@@ -13,11 +13,12 @@ Uses Compile1, CompilerUnit, Tokens, Messages, symdef, SysUtils;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var FileName         : String;
-    NewC             : TCompiler;
-    NS, I            : LongWord;
-    Found            : Boolean;
-    TmpNamespace, Tmp: Integer;
+Var FileName: String;
+    NewC    : TCompiler;
+    NS, I   : LongWord;
+    Found   : Boolean;
+
+    PrevNamespace, Tmp: TNamespace;
 
     Symbol, Copy: TSymbol;
     AddSymbol   : Boolean;
@@ -78,7 +79,7 @@ Begin
 
  { for each namespace }
  Log('Including...');
- TmpNamespace := CurrentNamespace;
+ PrevNamespace := CurrentNamespace;
  For NS := 0 To NewC.NamespaceList.Count-1 Do
  Begin
   if (NewC.NamespaceList[NS].RefSymbol.Visibility <> mvPublic) Then
@@ -87,12 +88,12 @@ Begin
   Log('Including namespace: '+NewC.NamespaceList[NS].RefSymbol.Name);
 
   Tmp := findNamespace(NewC.NamespaceList[NS].RefSymbol.Name);
-  if (Tmp = -1) Then // new namespace
+  if (Tmp = nil) Then // new namespace
   Begin
    Log('Included namespace is new in current scope.');
    NamespaceList.Add(TNamespace.Create);
 
-   CurrentNamespace := NamespaceList.Count-1;
+   CurrentNamespace := NamespaceList.Last;
    With NamespaceList.Last do
    Begin
     With RefSymbol do
@@ -142,7 +143,7 @@ Begin
     End;
   End;
  End;
- CurrentNamespace := TmpNamespace;
+ CurrentNamespace := PrevNamespace;
 
  { bytecode }
  if (NewC.OpcodeList.Count > 0) Then

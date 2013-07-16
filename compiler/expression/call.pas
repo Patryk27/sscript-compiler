@@ -1,9 +1,9 @@
 Procedure ParseCall(const isMethodCall: Boolean);
 Var Symbol: Pointer;
 
-// ReverseParamList
+{ ReverseParamList }
 Procedure ReverseParamList;
-Var Tmp: Array of PExpression;
+Var Tmp: Array of PExpressionNode;
     I  : Integer;
 Begin
  SetLength(Tmp, Length(Expr^.ParamList));
@@ -12,7 +12,7 @@ Begin
  Expr^.ParamList := Tmp;
 End;
 
-// RequiredParamCount
+{ RequiredParamCount }
 Function RequiredParamCount(const ParamList: TParamList): Integer;
 Var I: Integer;
 Begin
@@ -24,10 +24,10 @@ Begin
    Inc(Result);
 End;
 
-// ParseParamList
+{ ParseParamList }
 Procedure ParseParamList(const FuncName: String; const ParamList: TParamList);
 Var ParamID: Integer;
-    Param  : PExpression;
+    Param  : PExpressionNode;
     TypeID : TType;
 Begin
  With Compiler do
@@ -44,7 +44,7 @@ Begin
 
    if (ParamList[ParamID].isVar) Then // is variable required?
    Begin
-    if (not (Param^.Typ in [mtVariable, mtArrayElement])) Then // error: expected variable
+    if (not (Param^.Typ in [mtIdentifier, mtArrayElement])) Then // error: expected variable
      Compiler.CompileError(Expr^.ParamList[ParamID]^.Token, eLValueExpected, []);
    End;
 
@@ -59,7 +59,7 @@ Begin
  End;
 End;
 
-// CleanAfterCall
+{ CleanAfterCall }
 Procedure CleanAfterCall(const ParamList: TParamList);
 Var Param: Integer;
     rVar : TRVariable;
@@ -81,6 +81,7 @@ Begin
  Dec(PushedValues, Length(ParamList))
 End;
 
+// -------------------------------------------------------------------------- //
 { CastCall }
 Function CastCall: TType;
 Var TypeID       : TType;
@@ -203,7 +204,7 @@ End;
 Procedure MethodCall; // pseudo-OOP for arrays :P
 
  // magic
- Function magic(Expr: PExpression): TType;
+ Function magic(Expr: PExpressionNode): TType;
  Var method, param: TType;
      name         : String;
 
@@ -269,7 +270,7 @@ Begin
   End;
 
   { local variable call }
-  if (Expr^.isLocal) Then
+  if (TSymbol(Symbol).Typ = stVariable) Then
    Result := LocalVarCall Else
 
   { global function call }

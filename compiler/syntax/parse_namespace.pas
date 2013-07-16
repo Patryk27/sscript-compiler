@@ -9,21 +9,15 @@ Unit Parse_NAMESPACE;
  Procedure Parse(Compiler: Pointer);
 
  Implementation
-Uses Compile1, Expression, symdef, Tokens, Messages;
+Uses Compile1, symdef, Tokens, Messages;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var nName     : String;
-    Deep, I   : Integer;
-    Namespaces: TIntegerArray;
+Var nName: String;
+    Deep : Integer;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- // make a "backup" of current namespaces (as we'll restore them when finished compiling this namespace)
- SetLength(Namespaces, Length(SelectedNamespaces));
- For I := Low(Namespaces) To High(Namespaces) Do
-  Namespaces[I] := SelectedNamespaces[I];
-
  Deep := CurrentDeep;
 
  (* if first pass *)
@@ -34,11 +28,11 @@ Begin
 
   CurrentNamespace := findNamespace(nName);
 
-  if (CurrentNamespace = -1) Then // new namespace
+  if (CurrentNamespace = nil) Then // new namespace
   Begin
    NamespaceList.Add(TNamespace.Create);
 
-   CurrentNamespace := NamespaceList.Count-1;
+   CurrentNamespace := NamespaceList.Last;
    With NamespaceList.Last do
    Begin
     With RefSymbol do
@@ -52,7 +46,7 @@ Begin
    End;
   End;
 
-  NamespaceList[CurrentNamespace].RefSymbol.Visibility := getVisibility;
+  CurrentNamespace.RefSymbol.Visibility := getVisibility;
 
   if (next_t <> _BRACKET3_OP) Then
    CompileError(eExpected, ['{', next.Value]);
@@ -63,8 +57,8 @@ Begin
  Begin
   CurrentNamespace := findNamespace(read_ident);
 
-  if (CurrentNamespace = -1) Then
-   CompileError(eInternalError, ['CurrentNamespace = -1']);
+  if (CurrentNamespace = nil) Then
+   CompileError(eInternalError, ['CurrentNamespace = nil']);
  End Else
 
  (* if third pass *)
@@ -72,15 +66,15 @@ Begin
  Begin
   CurrentNamespace := findNamespace(read_ident);
 
-  if (CurrentNamespace = -1) Then
-   CompileError(eInternalError, ['CurrentNamespace = -1']);
+  if (CurrentNamespace = nil) Then
+   CompileError(eInternalError, ['CurrentNamespace = nil']);
  End;
 
  { set this new namespace as first on the list }
- SetLength(SelectedNamespaces, Length(SelectedNamespaces)+1);
+ {SetLength(SelectedNamespaces, Length(SelectedNamespaces)+1);
  For I := High(SelectedNamespaces) Downto Low(SelectedNamespaces) Do
   SelectedNamespaces[I] := SelectedNamespaces[I-1];
- SelectedNamespaces[0] := CurrentNamespace;
+ SelectedNamespaces[0] := CurrentNamespace; @TODO}
 
  (* for each pass *)
 
@@ -95,12 +89,7 @@ Begin
   ParseToken;
  Until (CurrentDeep = Deep);
 
- CurrentNamespace := 0;
-
- { restore namespaces }
- SetLength(SelectedNamespaces, Length(Namespaces));
- For I := Low(Namespaces) To High(Namespaces) Do
-  SelectedNamespaces[I] := Namespaces[I];
+ CurrentNamespace := getDefaultNamespace;
 End;
 End;
 End.

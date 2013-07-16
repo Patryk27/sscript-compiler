@@ -3,8 +3,8 @@
 Procedure __constant_folding(const ErrorOnInvalidOperator: Boolean);
 
 (* Parse *)
-Procedure Parse(Expr: PExpression);
-Var Left, Right: PExpression;
+Procedure Parse(Expr: PExpressionNode);
+Var Left, Right: PExpressionNode;
     Evaluated  : Boolean = False;
     I          : Integer;
 Begin
@@ -14,7 +14,7 @@ Begin
  Left  := Expr^.Left;
  Right := Expr^.Right;
 
- if (Left = nil) and (Right = nil) Then // nothing to do
+ if (Left = nil) and (Right = nil) Then // nothing to be done
   Exit;
 
  Parse(Left);
@@ -23,14 +23,14 @@ Begin
  For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
   Parse(Expr^.ParamList[I]);
 
- if (Left <> nil) and (Left^.Typ = mtVariable) and (Left^.Value <> null) and (not (Expr^.Typ in MLValueOperators)) Then
+ if (Left <> nil) and (Left^.Typ = mtIdentifier) and (Left^.Value <> null) and (not (Expr^.Typ in MLValueOperators)) Then
  Begin
   Left^.Typ   := Left^.IdentType;
   Left^.Left  := nil;
   Left^.Right := nil;
  End;
 
- if (Right <> nil) and (Right^.Typ = mtVariable) and (Right^.Value <> null) Then
+ if (Right <> nil) and (Right^.Typ = mtIdentifier) and (Right^.Value <> null) Then
  Begin
   Right^.Typ   := Right^.IdentType;
   Right^.Left  := nil;
@@ -139,7 +139,7 @@ Begin
   End Else
 
    if (ErrorOnInvalidOperator) Then
-    Compiler.CompileError(Expr^.Token, eUnsupportedOperator, [ExpressionDisplay[Left^.Typ], ExpressionDisplay[Expr^.Typ], ExpressionDisplay[Right^.Typ]]);
+    Compiler.CompileError(Expr^.Token, eUnsupportedOperator, [ExpressionNodeString[Left^.Typ], ExpressionNodeString[Expr^.Typ], ExpressionNodeString[Right^.Typ]]);
  End;
 
  (* unary operators *)
@@ -191,14 +191,14 @@ Begin
   End Else
 
    if (ErrorOnInvalidOperator) Then
-    Compiler.CompileError(Expr^.Token, eUnsupportedUOperator, [ExpressionDisplay[Expr^.Typ], ExpressionDisplay[Left^.Typ]]);
+    Compiler.CompileError(Expr^.Token, eUnsupportedUOperator, [ExpressionNodeString[Expr^.Typ], ExpressionNodeString[Left^.Typ]]);
  End;
 
  AnyChange := AnyChange or Evaluated;
 End;
 
 Begin
- if (Tree <> nil) and (Tree^.Left = nil) and (Tree^.Right = nil) and (Tree^.Typ = mtVariable) and (Tree^.Value <> null) Then // @TODO: this is ugly
+ if (Tree <> nil) and (Tree^.Left = nil) and (Tree^.Right = nil) and (Tree^.Typ = mtIdentifier) and (Tree^.Value <> null) Then // @TODO: this is ugly
  Begin
   Tree^.Typ := Tree^.IdentType;
  End;

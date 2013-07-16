@@ -7,36 +7,46 @@ Unit symdef;
  Interface
  Uses FGL, Expression, cfgraph, Tokens;
 
+ (* forward declarations *)
+ Type TType      = class;
+      TVariable  = class;
+      TFunction  = class;
+      TNamespace = class;
+      TSymbol    = class;
+
+ (* auxlialiry declarations *)
  Type TVisibility = (mvPublic, mvPrivate);
 
  Type TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized);
  Type TVariableAttributes = Set of (vaConst, vaEnumItem, vaFuncParam, vaDontAllocate, vaVolatile);
  Type TFunctionAttributes = Set of (faNaked);
 
- Type TRange = Record
-                PBegin, PEnd: Int64;
+ Type PRange = ^TRange;
+      TRange = Record
+                PBegin, PEnd: TToken_P;
                End;
+
+ // TNamespaceVisibility
+ Type PNamespaceVisibility = ^TNamespaceVisibility;
+      TNamespaceVisibility = Record
+                              Namespace: TNamespace;
+                              Range    : TRange;
+                             End;
+ Type TNamespaceVisibilityList = specialize TFPGList<PNamespaceVisibility>;
 
  Type TRefSymbol = class;
 
  (* lists *)
- Type TNamespace     = class;
-      TNamespaceList = specialize TFPGList<TNamespace>;
-
- Type TSymbol     = class;
-      TSymbolList = specialize TFPGList<TSymbol>;
-
- Type TVariable     = Class;
-      TVariableList = specialize TFPGList<TVariable>;
+ Type TNamespaceList = specialize TFPGList<TNamespace>;
+      TVariableList  = specialize TFPGList<TVariable>;
+      TSymbolList    = specialize TFPGList<TSymbol>;
 
  (* Type *)
- Type TType = class;
-
  Type PParam = ^TParam;
       TParam = Record
                 Name        : String;
                 Typ         : TType;
-                DefaultValue: PExpression;
+                DefaultValue: PExpressionNode;
                 Attributes  : TVariableAttributes;
                 isConst     : Boolean;
                 isVar       : Boolean; // `isPassByRef`
@@ -97,7 +107,7 @@ Unit symdef;
                     MemPos: int16; // negative values and zero for stack position, positive values for register ID (1..4)
 
                     Typ  : TType;
-                    Value: PExpression;
+                    Value: PExpressionNode; // if constant
 
                     isFreed: Boolean; // used for reference-counted variables; by default equal `false`
 
@@ -138,6 +148,8 @@ Unit symdef;
                     Constructor Create;
 
                     Function isNaked: Boolean;
+
+                    Function findSymbol(const SymName: String): TSymbol;
                    End;
 
  (* Namespace *)
@@ -150,6 +162,9 @@ Unit symdef;
                     Var
                      RefSymbol : TRefSymbol;
                      SymbolList: TSymbolList; // global symbol list
+
+                     Function findSymbol(const SymName: String): TSymbol;
+                     Function findFunction(const FuncName: String): TFunction;
                     End;
 
  (* RefSymbol *)
@@ -164,6 +179,9 @@ Unit symdef;
                      Var
                       Name : String; // symbol name
                       Range: TRange; // accessability range
+
+                      DeclNamespace: TNamespace; // namespace in which identifier has been declared
+                      DeclFunction : TFunction; // function in which identifier has been declared
 
                       Visibility: TVisibility; // visibility
                       mCompiler : Pointer; // compiler in which symbol has been declared
@@ -193,6 +211,7 @@ Unit symdef;
 
  // operators
  Function type_equal(A, B: TType): Boolean;
+ Operator in (Token: TToken_P; Range: TRange): Boolean;
 
  // functions
  Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
@@ -207,24 +226,6 @@ Unit symdef;
 
  Implementation
 Uses CompilerUnit, Compile1, ExpressionCompiler, Messages, SysUtils;
-
-(* CreateFunctionMangledName *)
-{
- Creates a mangled name of function passed in parameter.
-}
-Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
-Var P: TParam;
-Begin
- With Func do
- Begin
-  if (SimplifiedName) Then
-   Exit('__function_'+NamespaceName+'_'+FuncName);
-
-  Result := '__function_'+NamespaceName+'_'+FuncName+'_'+ModuleName+'_'+Return.getBytecodeType;
-  For P in ParamList Do
-   Result += P.Typ.getBytecodeType+'_';
- End;
-End;
 
 (* type_equal *)
 {
@@ -251,6 +252,30 @@ Begin
   Result := Result and type_equal(A.FuncReturn, B.FuncReturn);
 
  Result := Result and (Length(A.FuncParams) = Length(B.FuncParams));
+End;
+
+(* `TToken_P` in `TRange` *)
+Operator in (Token: TToken_P; Range: TRange): Boolean;
+Begin
+ Result := (Token.Position >= Range.PBegin.Position) and (Token.Position <= Range.PEnd.Position);
+End;
+
+(* CreateFunctionMangledName *)
+{
+ Creates a mangled name of function passed in parameter.
+}
+Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
+Var P: TParam;
+Begin
+ With Func do
+ Begin
+  if (SimplifiedName) Then
+   Exit('__function_'+NamespaceName+'_'+FuncName);
+
+  Result := '__function_'+NamespaceName+'_'+FuncName+'_'+ModuleName+'_'+Return.getBytecodeType;
+  For P in ParamList Do
+   Result += P.Typ.getBytecodeType+'_';
+ End;
 End;
 
 (* TYPE_ANY *)
@@ -910,6 +935,19 @@ Begin
  Result := (faNaked in Attributes);
 End;
 
+(* TFunction.findSymbol *)
+{
+ Returns symbol's pointer or `nil`, when symbol couldn't have been found.
+}
+Function TFunction.findSymbol(const SymName: String): TSymbol;
+Begin
+ For Result in SymbolList Do
+  if (Result.Name = SymName) Then
+   Exit;
+
+ Exit(nil);
+End;
+
 (* ---------- TNamespace ---------- *)
 
 (* TNamespace.Create *)
@@ -920,14 +958,35 @@ Begin
  SymbolList := TSymbolList.Create;
 End;
 
+(* TNamespace.findSymbol *)
+Function TNamespace.findSymbol(const SymName: String): TSymbol;
+Begin
+ For Result in SymbolList Do
+  if (Result.Name = SymName) Then
+   Exit;
+
+ Exit(nil);
+End;
+
+(* TNamespace.findFunction *)
+Function TNamespace.findFunction(const FuncName: String): TFunction;
+Var Symbol: TSymbol;
+Begin
+ Symbol := findSymbol(FuncName);
+
+ if (Symbol <> nil) and (Symbol.Typ = stFunction) Then
+  Result := Symbol.mFunction Else
+  Result := nil;
+End;
+
 (* ---------- TRefSymbol ---------- *)
 
 (* TRefSymbol.Create *)
 Constructor TRefSymbol.Create;
 Begin
- Name         := '';
- Range.PBegin := 0;
- Range.PEnd   := 0;
+ Name                  := '';
+ Range.PBegin.Position := 0;
+ Range.PEnd.Position   := High(Integer);
 
  Visibility := mvPrivate;
  mCompiler  := nil;
@@ -952,12 +1011,14 @@ Begin
  if (self = nil) Then
   raise Exception.Create('Invalid method call! `self = nil`');
 
- Symbol.Name       := Name;
- Symbol.Range      := Range;
- Symbol.Visibility := Visibility;
- Symbol.mCompiler  := mCompiler;
- Symbol.DeclToken  := DeclToken;
- Symbol.isInternal := isInternal;
+ Symbol.Name          := Name;
+ Symbol.Range         := Range;
+ Symbol.Visibility    := Visibility;
+ Symbol.mCompiler     := mCompiler;
+ Symbol.DeclToken     := DeclToken;
+ Symbol.DeclNamespace := DeclNamespace;
+ Symbol.DeclFunction  := DeclFunction;
+ Symbol.isInternal    := isInternal;
 End;
 
 (* ---------- TSymbol ---------- *)
@@ -965,6 +1026,8 @@ End;
 (* TSymbol.Create *)
 Constructor TSymbol.Create(const SymbolType: TSymbolType; const CreateInstance: Boolean=True);
 Begin
+ inherited Create;
+
  Typ := SymbolType;
 
  mVariable := nil;

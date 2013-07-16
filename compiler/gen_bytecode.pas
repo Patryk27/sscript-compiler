@@ -22,7 +22,7 @@ End;
 { Generate }
 Procedure Generate(Node: TCFGNode);
 Var Child   : TCFGNode;
-    Expr    : PExpression;
+    Expr    : PExpressionNode;
     ExprType: TType;
 
     LabelName, LabelFalse, LabelOut: String;
@@ -368,7 +368,7 @@ Begin
   PutComment('Variables:');
   For Symbol in Func.SymbolList Do
    if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (not Symbol.mVariable.isFuncParam) Then
-    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(Parser.getToken(Symbol.mVariable.RefSymbol.Range.PBegin).Line)+'-'+IntToStr(Parser.getToken(Symbol.mVariable.RefSymbol.Range.PEnd-1).Line)+' lines');
+    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'-'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines');
 
   PutComment('--------------------------------- ;');
 

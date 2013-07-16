@@ -5,7 +5,7 @@ Var ID, KilledVars: Integer;
   // RemoveVarAssign
   Procedure RemoveVarAssign(Node: TCFGNode);
   Var Child : TCFGNode;
-      Assign: PExpression;
+      Assign: PExpressionNode;
   Begin
    if (Node = nil) Then
     Exit;

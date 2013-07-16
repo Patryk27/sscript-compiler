@@ -39,8 +39,10 @@ Begin
    mCompiler  := Compiler;
    Visibility := getVisibility;
 
-   DeclToken := next_pnt;
-   Name      := read_ident; // [identifier]
+   DeclToken     := next_pnt;
+   DeclNamespace := getCurrentNamespace;
+   DeclFunction  := getCurrentFunction;
+   Name          := read_ident; // [identifier]
 
    RedeclarationCheck(Name); // check for redeclaration of the constant
   End;
@@ -54,7 +56,7 @@ Begin
   Begin
    if (isConstant) Then // is this a constant expression?
    Begin
-    Variable.Typ := getTypeFromExpr(Variable.Value^);
+    Variable.Typ := getTypeFromExpression(Variable.Value);
    End Else // if it's not - show error
    Begin
     CompileError(eExpectedConstant, []);

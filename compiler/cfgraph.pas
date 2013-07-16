@@ -13,14 +13,10 @@ Unit cfgraph;
  Type TVarRecArray = Array of TVarRec;
       PVarRecArray = ^TVarRecArray;
 
- Const NEXT_FALSE = 0;
-       NEXT_TRUE  = 1;
-
  Type TCFGNodeType = (cetNone, cetExpression, cetCondition, cetReturn, cetThrow, cetTryCatch, cetObjDelete, cetBytecode);
 
- Type TCFGNode = Class;
-
- Type TCFGNodeList = specialize TFPGList<TCFGNode>;
+ Type TCFGNode = class;
+      TCFGNodeList = specialize TFPGList<TCFGNode>;
 
  Type TCFGNode = Class
                   Private
@@ -29,7 +25,7 @@ Unit cfgraph;
 
                   Public
                    Typ  : TCFGNodeType;
-                   Value: PExpression;
+                   Value: PExpressionNode;
 
                    Parent: TCFGNode;
                    Child : TCFGNodeList;
@@ -44,7 +40,7 @@ Unit cfgraph;
                    isVolatile: Boolean;
 
                    Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
-                   Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpression; ffToken: PToken_P=nil);
+                   Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpressionNode; ffToken: PToken_P=nil);
 
                    Function isThere(const SearchType: TCFGNodeType): Boolean;
 
@@ -88,19 +84,22 @@ Var Str, Visited: TStringList;
   Function NodeToString(Node: TCFGNode): String;
   Begin
    if (Node.Typ = cetExpression) Then
-    Result := ExpressionToString(PExpression(Node.Value)) Else
+    Result := ExpressionToString(PExpressionNode(Node.Value)) Else
 
    if (Node.Typ = cetCondition) Then
-    Result := 'if ('+ExpressionToString(PExpression(Node.Value))+')' Else
+    Result := 'if ('+ExpressionToString(PExpressionNode(Node.Value))+')' Else
 
    if (Node.Typ = cetReturn) Then
-    Result := 'return '+ExpressionToString(PExpression(Node.Value)) Else
+    Result := 'return '+ExpressionToString(PExpressionNode(Node.Value)) Else
 
    if (Node.Typ = cetThrow) Then
-    Result := 'throw '+ExpressionToString(PExpression(Node.Value)) Else
+    Result := 'throw '+ExpressionToString(PExpressionNode(Node.Value)) Else
 
    if (Node.Typ = cetTryCatch) Then
     Result := 'try' Else
+
+   if (Node.Typ = cetObjDelete) Then
+    Result := 'delete '+ExpressionToString(PExpressionNode(Node.Value)) Else
 
    if (Node.Typ = cetBytecode) Then
     Result := '<bytecode>' Else
@@ -295,13 +294,13 @@ Var Visited : TCFGNodeList;
     VarRange: TRange;
 
     // VisitExpression
-    Procedure VisitExpression(Expr: PExpression);
+    Procedure VisitExpression(Expr: PExpressionNode);
     Var I: Integer;
     Begin
      if (Expr = nil) Then
       Exit;
 
-     if (Expr^.Typ = mtVariable) Then
+     if (Expr^.Typ = mtIdentifier) Then
       if (Expr^.IdentName = VarName) Then
        Inc(Result);
 
@@ -329,7 +328,7 @@ Var Visited : TCFGNodeList;
 
      if (Node.Value <> nil) Then
      Begin
-      Range := inRange(Node.getToken^.Position, VarRange.PBegin, VarRange.PEnd);
+      Range := inRange(Node.getToken^.Position, VarRange.PBegin.Position, VarRange.PEnd.Position);
 
       if (Range) Then
        VisitExpression(Node.Value);
@@ -363,7 +362,7 @@ Var Visited : TStringList;
     VarRange: TRange;
 
     // isUsed
-    Function isUsed(Node: TCFGNode; Expr: PExpression): Boolean;
+    Function isUsed(Node: TCFGNode; Expr: PExpressionNode): Boolean;
     Var I    : Integer;
         Range: Boolean;
     Begin
@@ -372,9 +371,9 @@ Var Visited : TStringList;
      if (Expr = nil) Then
       Exit(False);
 
-     if (Expr^.Typ = mtVariable) Then
+     if (Expr^.Typ = mtIdentifier) Then
      Begin
-      Range := inRange(Expr^.Token.Position, VarRange.PBegin, VarRange.PEnd);
+      Range := inRange(Expr^.Token.Position, VarRange.PBegin.Position, VarRange.PEnd.Position);
 
       if (Range) and (Expr^.IdentName = VarName) Then
        Exit(True);
@@ -451,7 +450,7 @@ Begin
 End;
 
 (* TCFGNode.Create *)
-Constructor TCFGNode.Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpression; ffToken: PToken_P);
+Constructor TCFGNode.Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpressionNode; ffToken: PToken_P);
 Begin
  Name := RandomSymbol;
 
