@@ -5,7 +5,7 @@
 Unit Parse_CODE;
 
  Interface
- Uses SysUtils;
+ Uses SysUtils, Variants;
 
  Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
 
@@ -90,11 +90,20 @@ Begin
       Break;
 
      Case Token.Token of
-      _STRING                  : Arg := '"'+Token.Value+'"';
-      _CHAR                    : Arg := ''''+Token.Value+'''';
-      _INT, _FLOAT, _IDENTIFIER: Arg := Token.Value;
+      _STRING                       : Arg := '"'+Token.Value+'"';
+      _CHAR                         : Arg := ''''+Token.Value+'''';
+      _INT, _FLOAT, _IDENTIFIER, _IF: Arg := VarToStr(Token.Value);
 
       _HASH { # }: Arg += '#'+IntToStr(read_int);
+
+      _MINUS { - }:
+      Begin
+       Token := read;
+
+       if (Token.Token in [_INT, _FLOAT]) Then
+        Arg := '-'+VarToStr(Token.Value) Else
+        CompileError(Token, eExpected, ['int', Token.TokenName]);
+      End;
 
       _BRACKET2_OP { [ }:
       Begin
