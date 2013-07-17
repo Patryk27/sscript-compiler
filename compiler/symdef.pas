@@ -781,11 +781,11 @@ Begin
       );
  End Else
 
- { comparing array with non-array always returns false }
+ { comparing array with non-array almost always returns false except one case: int (eg.null) -> array }
  if (self.isArray and (not T2.isArray)) or
     (T2.isArray and (not self.isArray)) Then
  Begin
-  Exit(False);
+  Exit(self.isInt and T2.isArray);
  End Else
 
  { compare-table for simple (primary) types }
@@ -802,7 +802,7 @@ Begin
   if (self.isChar) and (T2.isInt) Then // char to int => true
    Exit(True);
 
-  if (self.isInt) and (T2.isBool) Then // int to bool => true (it's supported by the VM)
+  if (self.isInt) and (T2.isBool) Then // int to bool => true
    Exit(True);
 
   if (self.isInt) and (T2.isFunctionPointer or T2.isObject) Then // int to pointer/object => true
