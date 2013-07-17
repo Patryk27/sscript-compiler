@@ -317,13 +317,14 @@ End;
 
 (* TCompiler.SaveBytecode *)
 {
- Saves verbal (mnemonic) bytecode into the file specified in parameter
+ Saves verbal (mnemonic) bytecode into the file specified in parameter.
 }
 Procedure TCompiler.SaveBytecode(const FileName: String);
-Var OutputCode: TStringList;
-    Opcode    : PMOpcode;
-    Arg       : TMOpcodeArg;
-    Reg, Str  : String;
+Var OutputCode         : TStringList;
+    Opcode             : PMOpcode;
+    Arg                : TMOpcodeArg;
+    Reg, Line, Str, Tmp: String;
+    Int                : Integer;
 Begin
  OutputCode := TStringList.Create;
 
@@ -338,8 +339,8 @@ Begin
    if (isLabel) Then
    Begin
     Case isPublic of
-     True: OutputCode.Add(Name+': .public');
-     False: OutputCode.Add(Name+':');
+     True : OutputCode.Add(Name+': .public');
+     False: OutputCode.Add(Name+':'); // labels are private by the convention, so there's no need to add the `.private` modifier here.
     End;
     Continue; // proceed to the next opcode
    End;
@@ -352,7 +353,7 @@ Begin
    End;
 
    { opcode }
-   Str := Opcodes.OpcodeList[ord(Opcode)].Name+'('; // fetch current opcode's name
+   Line := Opcodes.OpcodeList[ord(Opcode)].Name+'('; // fetch current opcode's name
 
    { opcode's parameters }
    For Arg in Args Do
@@ -370,7 +371,25 @@ Begin
      ptStackVal    : Reg := '[';
     End;
 
-    Reg += VarToStr(Arg.Value);
+    Str := VarToStr(Arg.Value);
+
+    if (Length(Str) > 2) and (Str[1] in [':', '@']) Then
+    Begin
+     Tmp := Copy(Str, 2, Length(Str));
+     if (Copy(Tmp, 1, 10) = '$function.') Then
+     Begin
+      Delete(Tmp, 1, 10);
+      Int   := StrToInt(Tmp);
+      Tmp   := TSymbol(Int).mFunction.MangledName;
+
+      if (Length(Tmp) = 0) Then
+       Compile1.TCompiler(Compiler).CompileError(eInternalError, ['Couldn''t fetch function''s label name; funcname = '+TSymbol(Int).mFunction.RefSymbol.Name]);
+
+      Str := Str[1] + Tmp;
+     End;
+    End;
+
+    Reg += Str;
 
     // special registers
     Case Arg.Typ of
@@ -386,15 +405,15 @@ Begin
      ptString                : Reg := '"'+Arg.Value+'"';
     End;
 
-    Str += Reg+',';
+    Line += Reg+',';
    End;
 
-   if (Str[Length(Str)] = ',') Then
-    Delete(Str, Length(Str), 1);
+   if (Line[Length(Line)] = ',') Then
+    Delete(Line, Length(Line), 1);
 
-   Str += ')';
+   Line += ')';
 
-   OutputCode.Add(Str);
+   OutputCode.Add(Line);
   End;
 
  OutputCode.Add('}');
@@ -877,6 +896,9 @@ Var Item: PMOpcode;
 Begin
  if (asNode) Then
  Begin
+//  if (DoNotGenerateCode) Then
+//   Exit;
+
   Node                     := TCFGNode.Create(fCurrentNode, cetBytecode, nil, Parser.next_pnt(-1));
   Node.Bytecode.OpcodeName := '';
   Node.Bytecode.LabelName  := fName;
@@ -936,11 +958,13 @@ End;
 
 (* TCompiler.CreateFunctionType *)
 {
- Creates new function pointer type and adds it into the type list.
+ Creates new function pointer type.
+
  Eg.: from function
    function<int> do_something(int[] tab)
- Creates type:
-   type<function<int>(int[])> ;
+
+ creates type:
+   type<function<int>(int[])> you_have_to_name_it_by_yourself;
 }
 Function TCompiler.CreateFunctionType(Func: TFunction): TType;
 Begin
@@ -1077,7 +1101,7 @@ End;
  Searches for a function call candidate.
  When such candidate cannot be found, returns `nil`.
 
- Detects only 'ambiguous function call', so if function couldn't have been found (`Result = nil`), you must display the `function not found` error by yourself.
+ Detects only 'ambiguous function call', so if such function couldn't have been found (`Result = nil`), you must display the `function not found` error by yourself.
 }
 Function TCompiler.findFunctionCallCandidate(const FuncName: String; const Namespace: TNamespace; const Token: TToken_P): TFunction;
 Var Candidate: TSymbol;
@@ -1290,7 +1314,7 @@ End;
    Pass1Only         -> pretty self-explanatory
    fParent           -> parent compiler
    fSupervisor       -> see @Parse_include
-   fPreviousInstance -> see @Parse_include
+   fPreviousInstance -> see @Parse_include and @Parse_FUNCTION
 }
 Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
 Var Compiler2: Compile2.TCompiler;
@@ -1505,7 +1529,7 @@ Begin
 
    if (isIncluded) Then
    Begin
-    DevLog(dvFatal, 'TCompiler.CompileCode', 'no `parent` specified and compiling as an unit!');
+    DevLog(dvFatal, 'TCompiler.CompileCode', 'no `parent` specified and compiling as unit!');
     CompileError(eInternalError, ['Parent = nil']);
    End;
   End;
