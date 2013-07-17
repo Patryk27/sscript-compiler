@@ -43,7 +43,7 @@ Begin
  Begin
   Typ        := TYPE_STRING;
   MemPos     := 0;
-  Attributes := [vaDontAllocate]; // we'll allocate this variable by ourselves
+  Attributes := [vaDontAllocate, vaCatchVar, vaVolatile]; // we'll allocate this variable by ourselves, and also we don't let optimizer touch it - just to be sure.
  End;
 
  getCurrentFunction.SymbolList.Add(Symbol); // add symbol into the function's symbol list

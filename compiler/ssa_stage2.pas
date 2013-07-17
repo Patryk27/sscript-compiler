@@ -3,6 +3,27 @@ Var VisitedParentNodes: TCFGNodeList;
 (* FetchSSAVarID *)
 Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
 
+  { Coalesce }
+  Procedure Coalesce(var Input: TSSAVarID; const What: TSSAVarID);
+  Var I, J: Integer;
+      Can : Boolean;
+  Begin
+   For I := 0 To High(What.Values) Do
+   Begin
+    Can := True;
+
+    For J := 0 To High(Input.Values) Do
+     if (Input.Values[J] = What.Values[I]) Then
+      Can := False;
+
+    if (Can) Then
+    Begin
+     SetLength(Input.Values, Length(Input.Values)+1);
+     Input.Values[High(Input.Values)] := What.Values[I];
+    End;
+   End;
+  End;
+
   { VisitExpression }
   Function VisitExpression(Expr: PExpressionNode): TSSAVarID;
   Var Param: PExpressionNode;
@@ -51,8 +72,6 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
   { VisitNode }
   Function VisitNode(Node, EndNode: TCFGNode; const CheckChildrenNotParent: Boolean=False; const CheckEndNode: Boolean=False): TSSAVarID;
   Var Left, Right, Parent: TSSAVarID;
-      I, J               : Integer;
-      Can                : Boolean;
       Child              : TCFGNode;
   Begin
    SetLength(Result.Values, 0);
@@ -111,46 +130,16 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
      I guess that's all the magic here.
     }
 
-    // coalesce left side
-    For I := 0 To High(Left.Values) Do
-    Begin
-     SetLength(Result.Values, Length(Result.Values)+1);
-     Result.Values[High(Result.Values)] := Left.Values[I];
-    End;
+    Coalesce(Result, Left);
+    Coalesce(Result, Right);
+    Coalesce(Result, Parent);
+   End Else
 
-    // coalesce right side checking if there aren't any duplicates
-    For I := 0 To High(Right.Values) Do
-    Begin
-     Can := True;
-
-     For J := 0 To High(Result.Values) Do
-      if (Result.Values[J] = Right.Values[I]) Then
-       Can := False;
-
-     if (Can) Then
-     Begin
-      SetLength(Result.Values, Length(Result.Values)+1);
-      Result.Values[High(Result.Values)] := Right.Values[I];
-     End;
-    End;
-
-    // coalesce right side checking if there aren't any duplicates
-    For I := 0 To High(Parent.Values) Do
-    Begin
-     Can := True;
-
-     For J := 0 To High(Result.Values) Do
-      if (Result.Values[J] = Parent.Values[I]) Then
-       Can := False;
-
-     if (Can) Then
-     Begin
-      SetLength(Result.Values, Length(Result.Values)+1);
-      Result.Values[High(Result.Values)] := Parent.Values[I];
-     End;
-
-     // @TODO: too much DRY!
-    End;
+   if (Node.Typ = cetTryCatch) Then
+   Begin
+    Coalesce(Result, VisitNode(Node.Child[0], nil, True)); // 'try'
+    Coalesce(Result, VisitNode(Node.Child[1], nil, True)); // 'catch'
+    Coalesce(Result, VisitNode(Node.Parent, EndNode, False, True)); // parent
    End;
 
    if (CheckChildrenNotParent) Then
@@ -190,8 +179,6 @@ Begin
   End;
  End;
 
-// SearchNode := SearchNode.Parent;
-
  if (Length(Result.Values) = 0) Then
   Result := VisitNode(SearchNode.Parent, nil);
 
@@ -200,7 +187,7 @@ Begin
   DevLog(dvWarning, 'FetchSSAVarID', 'Couldn''t fetch variable''s SSA ID; var = '+TSymbol(Symbol).Name+', line = '+IntToStr(Origin.getToken^.Line));
 
   With TSymbol(Symbol).mVariable do
-   if (not isConst) and (not isFuncParam) Then
+   if (not isConst) and (not isFuncParam) and (not isCatchVar) Then
     TCompiler(Compiler).CompileHint(Origin.getToken, hUseOfUninitializedVariable, [RefSymbol.Name]);
  End;
 End;
@@ -215,10 +202,15 @@ Begin
  if (Expr^.Typ = mtIdentifier) and (Length(Expr^.SSA.Values) = 0) Then // if variable with no SSA idenitifer assigned yet
   Expr^.SSA := FetchSSAVarID(TSymbol(Expr^.Symbol), Node);
 
- VisitExpression(Node, Expr^.Left);
- VisitExpression(Node, Expr^.Right);
- For Param in Expr^.ParamList Do
-  VisitExpression(Node, Param);
+ if (Expr^.Typ in [mtFunctionCall, mtMethodCall]) Then
+ Begin
+  For Param in Expr^.ParamList Do
+   VisitExpression(Node, Param);
+ End Else
+ Begin
+  VisitExpression(Node, Expr^.Left);
+  VisitExpression(Node, Expr^.Right);
+ End;
 End;
 
 (* VisitNode *)

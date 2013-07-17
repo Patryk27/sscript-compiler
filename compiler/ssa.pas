@@ -12,7 +12,7 @@ Procedure GenerateSSA;
   End;
 
   { Stage2 }
-  Procedure Stage2; // stage 2: genretae SSA for the rest of the code
+  Procedure Stage2; // stage 2: generate SSA for the rest of the code
   {$I ssa_stage2.pas}
   Begin
    Execute;

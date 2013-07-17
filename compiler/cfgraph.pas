@@ -404,7 +404,7 @@ Var Visited : TStringList;
     Procedure Visit(Node: TCFGNode);
     Var Child: TCFGNode;
     Begin
-     if (Node = rEndNode) Then
+     if (Node = nil) or (Node = rEndNode) Then
       Exit;
 
      if (Visited.IndexOf(Node.Name) <> -1) Then
