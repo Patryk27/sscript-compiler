@@ -264,16 +264,17 @@ Begin
     The "PreviousInstance" pointer points there ^          |
     The current compiler instance ("Compiler") points here ^
 
-    Since this function has been already parsed in the "PreviousInstance", we have to use that symbol pointer.
+    Since this function had been already parsed in the "PreviousInstance", we have to use that symbol pointer.
     Why we have to?
-    Becase when a function is called, it may (and most likely will) not have assigned its "TFunction.MangledName" yet (it's empty), thus
-    call would look like this: `call(:)`, oops! No label name, because it's unknown here!
-    To prevent it, instead of calling label's name, we use a simple trick:
+    Becase when a function is called, it may (and most likely will) not have assigned its "TFunction.MangledName" assigned yet (it's empty), thus
+    call would look like this: `call(:)`, oops: no label name, because it's unknown yet! And as the name is generated in the second pass, for our
+    instance such would never be generated! (because at least double included files are only first-pass parsed)
+    To prevent it we use a simple trick: instead of calling label's name, there's used construction:
     => call(:$function.SYMBOL_POINTER)
     Eg.
-    => call(:$function.23123095) <- this number is a pointer to the "TSymbol" class of that function.
-    The "$function.SYMBOL_POINTER" is a temporary label name resolved inside the bytecode compiler, where everything is already parsed,
-    compiled and known.
+    => call(:$function.23123095) <- this number is an address (pointer) to the "TSymbol" class of the callee function.
+    The "$function.SYMBOL_POINTER" is a temporary label name resolved inside the bytecode compiler, where everything has been already
+    parsed and is known.
 
     I think it's all the magic here ;)
    *)
