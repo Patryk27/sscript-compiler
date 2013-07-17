@@ -75,27 +75,6 @@ Begin
   if (OpcodeList.Count = 0) Then
    Compile1.TCompiler(Compiler).CompileError(eInternalError, ['OpcodeList.Count = 0']);
 
-  // search for strings in opcodes
-  For I := 0 To OpcodeList.Count-1 Do
-   With OpcodeList[I]^ do
-    if (not isComment) and (not isLabel) and (Length(Args) > 0) Then
-     For Q := Low(Args) To High(Args) Do
-      With Args[Q] do
-      Begin
-       Str := VarToStr(Value);
-
-       { string }
-       if (Copy(Str, 1, 1) = '"') Then
-       Begin
-        Typ := ptString;
-
-        Delete(Str, 1, 1);
-        Delete(Str, Length(Str), 1);
-
-        Value := Str;
-       End;
-      End;
-
   // parse opcodes and labels
   OpcodeLen := 0;
 
