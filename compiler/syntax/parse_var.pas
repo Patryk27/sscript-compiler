@@ -18,7 +18,7 @@ Var Variable: TVariable;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- if not ((CompilePass = _cp2) or (inFunction)) Then // variables are parsed in the second pass or inside a function
+ if (not ((CompilePass = _cp1) or (inFunction))) Then // variables are parsed in the first pass or inside a function
  Begin
   read_until(_SEMICOLON);
   Exit;

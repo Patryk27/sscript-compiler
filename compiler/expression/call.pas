@@ -191,7 +191,7 @@ Begin
   ParseParamList(RefSymbol.Name, ParamList);
 
   // call function
-  Compiler.PutOpcode(o_call, [':'+MangledName]);
+  Compiler.PutOpcode(o_call, [':$function.'+IntToStr(LongWord(Symbol))]);
 
   // clean after call
   CleanAfterCall(ParamList);

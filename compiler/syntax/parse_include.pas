@@ -23,7 +23,8 @@ Var FileName: String;
     Symbol, Copy: TSymbol;
     AddSymbol   : Boolean;
 
-    CircRef: Boolean;
+    CircRef    : Boolean;
+    CPrev, CTmp: TCompiler;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
@@ -31,7 +32,7 @@ Begin
  FileName := ReplaceDirSep(read.Value); // [string]
  eat(_BRACKET1_CL); // )
 
- if (CompilePass <> _cp3) Then
+ if (CompilePass <> _cp2) Then
   Exit;
 
  Log('Including file: '+FileName);
@@ -46,8 +47,25 @@ Begin
 
  Log('Found file: '+FileName);
 
- CircRef := (FileName = InputFile) or ((Supervisor <> nil) and (Supervisor.InputFile = FileName)); // is a circular reference?
+ // check for circular reference
+ CircRef := False;
 
+ CPrev := nil;
+ CTmp  := TCompiler(Compiler);
+ Repeat
+  CircRef := CircRef or (CTmp.InputFile = FileName);
+
+  if (CircRef) Then
+   Break;
+
+  CPrev    := CTmp;
+  CTmp     := CTmp.Supervisor;
+ Until (CTmp = nil) or (CTmp = CPrev);
+
+ if (not CircRef) Then
+  CTmp := nil;
+
+ // check if the file hadn't been parsed before
  Found := False;
  if (Length(IncludeList^) > 0) Then
   For I := 0 To High(IncludeList^) Do
@@ -64,7 +82,7 @@ Begin
   { compile file }
   NewC := TCompiler.Create;
 
-  NewC.CompileCode(FileName, FileName+'.ssc', Options, True, CircRef, Parent, TCompiler(Compiler));
+  NewC.CompileCode(FileName, FileName+'.ssc', Options, True, CircRef, Parent, TCompiler(Compiler), CTmp);
 
   if (not CircRef) Then
   Begin
@@ -73,7 +91,7 @@ Begin
   End;
  End Else
  Begin
-  Log('File had been compiled before - using the compiled version...');
+  Log('File had been compiled before - using the already compiled version...');
   NewC := IncludeList^[I];
  End;
 
@@ -117,10 +135,8 @@ Begin
    For Symbol in SymbolList Do // each symbol
     With Symbol do
     Begin
-     if (Visibility = mvPrivate) or (isInternal) Then // skip `private` entries
+     if (Visibility = mvPrivate) or (isInternal) or (getCurrentNamespace.findSymbol(Symbol.Name) <> nil) Then // skip `private`, internal and duplicated entries
       Continue;
-
-     RedeclarationCheck(Name);
 
      AddSymbol := False;
 
@@ -136,7 +152,8 @@ Begin
      End;
 
      Copy            := TSymbol.Create(Symbol);
-     Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't modify the original symbol).
+     Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't affect the original symbol).
+     Copy.Range      := Parser.getCurrentRange;
 
      if (AddSymbol) Then
       getCurrentNamespace.SymbolList.Add(Copy);

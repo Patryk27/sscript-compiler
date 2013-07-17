@@ -6,12 +6,6 @@ Var Name               : String;
 Begin
  With Parser do
  Begin
-  if not ((CompilePass = _cp3) or (inFunction)) Then // `use` is parsed in the third pass or inside function
-  Begin
-   read_until(_SEMICOLON);
-   Exit;
-  End;
-
   Repeat
    // next namespace
    Name := read_ident;

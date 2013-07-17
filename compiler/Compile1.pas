@@ -19,7 +19,7 @@ Unit Compile1;
  Type TCompiler = class;
 
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
- Type TCompilePass = (_cp1, _cp2, _cp3); // fourth pass is the actual function compiling; as it's performed at the end of each function, so there's no need for an additional `cp4` enum
+ Type TCompilePass = (_cp1, _cp2); // third pass is the actual function compiling; as it's performed at the end of each function, so there's no need for an additional `cp3` enum
 
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
@@ -49,15 +49,16 @@ Unit Compile1;
                     PrevRootNodes: TCFGNodeList;
 
                    Public
-                    Parent      : TCompiler;
-                    Supervisor  : TCompiler;
-                    CompileMode : (cmApp, cmLibrary, cmBytecode); // compilation mode
-                    CompilePass : TCompilePass;
-                    InputFile   : String; // input file name
-                    OutputFile  : String; // output file name
-                    ModuleName  : String; // module name
-                    Options     : TCompileOptions; // compile options
-                    IncludePaths: TStringList; // list of include paths
+                    Parent          : TCompiler;
+                    Supervisor      : TCompiler;
+                    PreviousInstance: TCompiler;
+                    CompileMode     : (cmApp, cmLibrary, cmBytecode); // compilation mode
+                    CompilePass     : TCompilePass;
+                    InputFile       : String; // input file name
+                    OutputFile      : String; // output file name
+                    ModuleName      : String; // module name
+                    Options         : TCompileOptions; // compile options
+                    IncludePaths    : TStringList; // list of include paths
 
                     CurrentFunction : TFunction; // currently parsed (or compiled) function
                     CurrentNamespace: TNamespace; // namespace in which we are (`namespace namespace_ame;`)
@@ -142,7 +143,7 @@ Unit Compile1;
                     Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 
                    { compiling }
-                    Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil);
+                    Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
 
                     Procedure CompileError(Token: TToken_P; Error: TCompileError; Args: Array of Const);
                     Procedure CompileError(Token: PToken_P; Error: TCompileError; Args: Array of Const);
@@ -1284,26 +1285,27 @@ End;
    fOutputFile -> output compiled file
    fOptions    -> compiler options
 
- Parameters set automatically (leave them alone):
-   isIncluded  -> when `true`, no output code is saved into any file
-   Pass1Only   -> pretty self-explanatory
-   fParent     -> parent compiler
-   fSupervisor -> see @Parse_include
+ Parameters set automatically during compilation (leave them alone):
+   isIncluded        -> when `true`, no output code is saved into any file
+   Pass1Only         -> pretty self-explanatory
+   fParent           -> parent compiler
+   fSupervisor       -> see @Parse_include
+   fPreviousInstance -> see @Parse_include
 }
-Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil);
+Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
 Var Compiler2: Compile2.TCompiler;
 
     VBytecode        : String = '';
     UnfinishedComment: Boolean = False;
 
-    // AddPrimaryType
+    { AddPrimaryType }
     Procedure AddPrimaryType(Typ: TType);
     Begin
      Typ.RefSymbol.isInternal := True;
      NamespaceList[0].SymbolList.Add(TSymbol.Create(stType, Typ));
     End;
 
-    // CheckMain
+    { CheckMain }
     Function CheckMain: Boolean;
     Var Func: TFunction;
     Begin
@@ -1319,7 +1321,7 @@ Var Compiler2: Compile2.TCompiler;
       Result := (Length(ParamList) = 0) and (type_equal(Return, TYPE_INT));
     End;
 
-    // ParseCommandLine
+    { ParseCommandLine }
     Procedure ParseCommandLine;
     Var I  : Integer;
         Str: String;
@@ -1358,7 +1360,7 @@ Var Compiler2: Compile2.TCompiler;
      VBytecode := getStringOption(opt_bytecode);
     End;
 
-    // CreateGlobalConstant
+    { CreateGlobalConstant }
     Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PExpressionNode);
     Begin
      With NamespaceList.Last do
@@ -1381,7 +1383,7 @@ Var Compiler2: Compile2.TCompiler;
      End;
     End;
 
-    // CreateSymbols
+    { CreateSymbols }
     Procedure CreateSymbols;
     Begin
      { init default namespace }
@@ -1427,8 +1429,8 @@ Var Compiler2: Compile2.TCompiler;
      End;
     End;
 
-   // ResetParser
-    Procedure ResetParser; inline;
+    { ResetParser }
+    Procedure ResetParser;
     Begin
      With Parser do
      Begin
@@ -1437,7 +1439,7 @@ Var Compiler2: Compile2.TCompiler;
      End;
     End;
 
-   // Pass1
+    { Pass1 }
     Procedure Pass1;
     Begin
      Log('Compilation pass 1');
@@ -1449,7 +1451,7 @@ Var Compiler2: Compile2.TCompiler;
        ParseToken;
     End;
 
-   // Pass2
+    { Pass2 }
     Procedure Pass2;
     Begin
      Log('Compilation pass 2');
@@ -1461,31 +1463,20 @@ Var Compiler2: Compile2.TCompiler;
        ParseToken;
     End;
 
-   // Pass3
-    Procedure Pass3;
-    Begin
-     Log('Compilation pass 3');
-     ResetParser;
-     CompilePass := _cp3;
-
-     With Parser do
-      While (Parser.Can) Do
-       ParseToken;
-    End;
-
 Var Str: String;
 Begin
  fInputFile  := ReplaceDirSep(fInputFile);
  fOutputFile := ReplaceDirSep(fOutputFile);
 
- InputFile   := fInputFile;
- OutputFile  := fOutputFile;
- Options     := fOptions;
- SomeCounter := 0;
- ModuleName  := '';
- AnyError    := False;
- Parent      := fParent;
- Supervisor  := fSupervisor;
+ InputFile        := fInputFile;
+ OutputFile       := fOutputFile;
+ Options          := fOptions;
+ SomeCounter      := 0;
+ ModuleName       := '';
+ AnyError         := False;
+ Parent           := fParent;
+ Supervisor       := fSupervisor;
+ PreviousInstance := fPreviousInstance;
 
  PrevRootNodes := TCFGNodeList.Create;
 
@@ -1575,14 +1566,8 @@ Begin
   { compile code }
   Pass1;
 
-  if (not AnyError) Then
+  if (not AnyError) and (not Pass1Only) Then
    Pass2;
-
-  if (not Pass1Only) Then
-  Begin
-   if (not AnyError) Then
-    Pass3;
-  End;
 
   { go next? }
   if (not isIncluded) and (AnyError) Then

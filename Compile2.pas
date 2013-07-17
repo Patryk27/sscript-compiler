@@ -45,7 +45,7 @@ Unit Compile2;
  Implementation
 Uses SSM_parser;
 
-{ TCompiler.getLabelID }
+(* TCompiler.getLabelID *)
 Function TCompiler.getLabelID(const Name: String): Integer;
 Var I: Integer;
 Begin
@@ -55,18 +55,18 @@ Begin
    Exit(I);
 End;
 
-{ TCompiler.CreateReference }
+(* TCompiler.CreateReference *)
 Function TCompiler.CreateReference(const Name: String): LongWord;
 Begin
  Result := ReferenceStream.Position;
  ReferenceStream.write_string(Name);
 End;
 
-{ TCompiler.Preparse }
+(* TCompiler.Preparse *)
 Procedure TCompiler.Preparse;
-Var I, Q: LongWord;
-    Int : Integer;
-    Str : String;
+Var I, Q    : LongWord;
+    Int     : Integer;
+    Str, Tmp: String;
 
     OpcodeLen: LongWord = 0;
 Begin
@@ -97,7 +97,6 @@ Begin
       End;
 
   // parse opcodes and labels
-  SetLength(LabelList, 0);
   OpcodeLen := 0;
 
   For I := 0 To OpcodeList.Count-1 Do
@@ -127,6 +126,23 @@ Begin
 
         if (Typ <> ptString) Then
         Begin
+         if (Length(Str) > 2) and (Str[1] in [':', '@']) Then
+         Begin
+          Tmp := Copy(Str, 2, Length(Str));
+          if (Copy(Tmp, 1, 10) = '$function.') Then
+          Begin
+           Delete(Tmp, 1, 10);
+           Int   := StrToInt(Tmp);
+           Tmp   := TSymbol(Int).mFunction.MangledName;
+
+           if (Length(Tmp) = 0) Then
+            Compile1.TCompiler(Compiler).CompileError(eInternalError, ['Couldn''t fetch function''s label name; funcname = '+TSymbol(Int).mFunction.RefSymbol.Name]);
+
+           Str   := Str[1] + Tmp;
+           Value := Str;
+          End;
+         End;
+
          { label relative address }
          if (Copy(Str, 1, 1) = ':') Then
           Typ := ptInt;
@@ -195,7 +211,7 @@ Begin
  End;
 End;
 
-{ TCompiler.Parse }
+(* TCompiler.Parse *)
 Procedure TCompiler.Parse(const ResolveReferences: Boolean);
 Var OpcodeBegin: LongWord;
     Opcode     : PMOpcode;
@@ -271,6 +287,7 @@ Begin
        Str := VarToStr(Value);
 
        Delete(Str, 1, 1); // remove `:`
+
        Int := getLabelID(Str);
 
        With Compile1.TCompiler(Compiler) do
@@ -314,12 +331,12 @@ Begin
  End;
 End;
 
-{ TCompiler.Compile }
+(* TCompiler.Compile *)
 Procedure TCompiler.Compile(fCompiler: Compile1.TCompiler; SaveAs_SSM: Boolean);
 Var Zip   : TZipper;
     Output: String;
 
-    // AddFile
+    { AddFile }
     Procedure AddFile(const Stream: TStream; FileName: String);
     Begin
      Stream.SaveToFile(Output+FileName);
@@ -365,7 +382,7 @@ Begin
   End;
 
  // if (ReferenceStream.Size <> 0) Then
- //  Compiler.CompileError(eInternalError, ['Output program file contains external references, that was really NOT supposed to happen!']);
+ //  Compiler.CompileError(eInternalError, ['Output program file contains external references!']);
 
   { make zip archive }
   AddFile(HeaderStream, '.header');

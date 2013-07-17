@@ -33,7 +33,7 @@ End;
  Parses and compiles functions.
 }
 Procedure Parse(Compiler: Pointer);
-Var Func : TFunction; // our new function
+Var Func: TFunction; // our new function
 
     NamedParams        : (npNotSetYet, npYes, npNo) = npNotSetYet;
     RequireDefaultValue: Boolean = False;
@@ -208,19 +208,162 @@ Var Func : TFunction; // our new function
   End;
 
 // main function block
-Var I      : Integer;
-    TmpFunc: TFunction;
-    TmpNode: TCFGNode;
+Var I           : Integer;
+    TmpNode     : TCFGNode;
+    TmpType     : TType;
+    TmpSymbol   : TSymbol;
+    TmpNamespace: TNamespace;
+    TmpIdent    : String;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
  (* if first pass *)
  if (CompilePass = _cp1) Then
  Begin
-  skip_parenthesis; // return type
-  skip_parenthesis; // param list
-  While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
-   read;
+  if (PreviousInstance <> nil) Then
+  Begin
+   (*
+    @Note: the situation is a bit messy here.
+
+    Let's say, that we have 3 files:
+
+    -> main.ss
+      @("a.ss")
+
+      function<int> main()
+      {
+       return null;
+      }
+
+    -> a.ss
+      @("b.ss")
+
+      function<void> a()
+      {
+       b();
+      }
+
+    -> b.ss
+      @("a.ss")
+
+      function<void> b()
+      {
+       a();
+      }
+
+    As you can see, here we have circular reference between files `a.ss` and `b.ss`, and also one between functions `a` and `b`.
+    To solve it (as we must support circular references), compiler has two compilation passes (see `doc/multi-pass compilation.txt`).
+    As we are here, we're in the first pass: function's header scanning.
+    And also one more condition is met: the 'include stack' looks like this:
+
+    main.ss -> a.ss -> b.ss -> a.ss |< we are here
+                 ^                ^
+                 |                --------------------------
+                 |                                         |
+                 --------------------------------          |
+    The "PreviousInstance" pointer points there ^          |
+    The current compiler instance ("Compiler") points here ^
+
+    Since this function has been already parsed in the "PreviousInstance", we have to use that symbol pointer.
+    Why we have to?
+    Becase when a function is called, it may (and most likely will) not have assigned its "TFunction.MangledName" yet (it's empty), thus
+    call would look like this: `call(:)`, oops! No label name, because it's unknown here!
+    To prevent it, instead of calling label's name, we use a simple trick:
+    => call(:$function.SYMBOL_POINTER)
+    Eg.
+    => call(:$function.23123095) <- this number is a pointer to the "TSymbol" class of that function.
+    The "$function.SYMBOL_POINTER" is a temporary label name resolved inside the bytecode compiler, where everything is already parsed,
+    compiled and known.
+
+    I think it's all the magic here ;)
+   *)
+
+   skip_parenthesis; // skip function read type
+   TmpIdent := read_ident;
+   skip_parenthesis; // skip function parameter list
+   While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
+    read;
+
+   TmpSymbol := nil;
+
+   For TmpNamespace in PreviousInstance.NamespaceList Do
+    if (TmpNamespace.RefSymbol.Name = getCurrentNamespace.RefSymbol.Name) Then
+    Begin
+     TmpSymbol := TmpNamespace.findSymbol(TmpIdent);
+     Break;
+    End;
+
+   if (TmpSymbol = nil) Then
+    CompileError(eInternalError, ['TmpSymbol = nil']);
+
+   getCurrentNamespace.SymbolList.Add(TmpSymbol);
+  End Else
+  Begin
+   Func                         := TFunction.Create;
+   CurrentFunction              := Func;
+   Func.RefSymbol.mCompiler     := Compiler;
+   Func.RefSymbol.DeclToken     := next_pnt(-1); // _FUNCTION
+   Func.RefSymbol.DeclNamespace := getCurrentNamespace;
+   Func.RefSymbol.DeclFunction  := nil;
+   Func.NamespaceName           := getCurrentNamespace.RefSymbol.Name;
+
+   { skip function return type (it will be read in the second pass) }
+   Func.Return := nil;
+   skip_parenthesis;
+
+   { read function name }
+   Func.RefSymbol.Name       := read_ident; // [identifier]
+   Func.RefSymbol.Visibility := getVisibility;
+   Func.ModuleName           := ModuleName;
+
+   FuncNameLabel := Func.RefSymbol.Name;
+
+   RedeclarationCheck(Func.RefSymbol.Name); // check for redeclaration
+
+   { read parameter list }
+   ReadParamList;
+
+   { read special attributes }
+   ReadAttributes;
+
+   { add this function into the symbol list }
+   With getCurrentNamespace do
+   Begin
+    SymbolList.Add(TSymbol.Create(stFunction, Func));
+
+    With SymbolList.Last do
+    Begin
+     mVariable                         := TVariable.Create;
+     mVariable.RefSymbol.Name          := Func.RefSymbol.Name;
+     mVariable.RefSymbol.DeclFunction  := nil;
+     mVariable.RefSymbol.DeclNamespace := getCurrentNamespace;
+     mVariable.Typ                     := CreateFunctionType(Func);
+     mVariable.Value                   := MakeIntExpression('@'+Func.MangledName);
+
+     mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
+    End;
+   End;
+
+   if (Length(Func.LibraryFile) > 0) Then // if function is external, don't create any bytecode
+   Begin
+    semicolon;
+    Exit;
+   End;
+
+   if (NamedParams = npNo) and (next_t <> _SEMICOLON) Then
+    CompileError(next, eExpected, [';', next.Value]);
+
+   { add parameters }
+   With Func do
+    For I := Low(ParamList) To High(ParamList) Do
+     __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
+
+   { add special constants (if `--internal-const` enabled) }
+   if (getBoolOption(opt_internal_const)) Then
+   Begin
+    NewConst('__self', TYPE_STRING, MakeStringExpression(Func.RefSymbol.Name));
+   End;
+  End;
 
   SkipCodeBlock;
   Exit;
@@ -229,44 +372,17 @@ Begin
  (* if second pass *)
  if (CompilePass = _cp2) Then
  Begin
-  Func                         := TFunction.Create;
-  CurrentFunction              := Func;
-  Func.RefSymbol.mCompiler     := Compiler;
-  Func.RefSymbol.DeclToken     := next_pnt(-1); // _FUNCTION
-  Func.RefSymbol.DeclNamespace := getCurrentNamespace;
-  Func.RefSymbol.DeclFunction  := nil;
-  Func.NamespaceName           := getCurrentNamespace.RefSymbol.Name;
-
-  { read function return type }
   eat(_LOWER);
-  Func.Return := read_type;
+  TmpType := read_type; // return type
   eat(_GREATER);
 
-  { read function name }
-  Func.RefSymbol.Name       := read_ident; // [identifier]
-  Func.RefSymbol.Visibility := getVisibility;
-  Func.ModuleName           := ModuleName;
-
-  FuncNameLabel := Func.RefSymbol.Name;
-
-  RedeclarationCheck(Func.RefSymbol.Name); // check for redeclaration
-
-  { read parameter list }
-  ReadParamList;
-
-  { read special attributes }
-  ReadAttributes;
-
-  { generate label name }
-  if (Func.MangledName = '') Then
-  Begin
-   if (Func.LibraryFile <> '') or ((TCompiler(Compiler).Parent.CompileMode = cmLibrary) and (Pointer(TCompiler(Compiler).Parent) = Compiler)) Then
-    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, True) Else
-    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, False); // create function mangled name
-  End;
+  Func := findFunction(read_ident);
+  skip_parenthesis; // param list
+  While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
+   read;
 
   // check for redeclaration by label name
-  TmpFunc := findFunctionByLabel(Func.MangledName);
+  {TmpFunc := findFunctionByLabel(Func.MangledName);
 
   if (TmpFunc <> nil) Then
   Begin
@@ -274,69 +390,29 @@ Begin
 
    With TmpFunc.RefSymbol do
     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
-  End;
+  End; @TODO}
 
-  { add this function into the symbol list }
-  With getCurrentNamespace do
+  Func.Return := TmpType;
+
+  // generate label name
+  if (Func.MangledName = '') Then
   Begin
-   SymbolList.Add(TSymbol.Create(stFunction, Func));
-
-   With SymbolList.Last do
-   Begin
-    mVariable                         := TVariable.Create;
-    mVariable.RefSymbol.Name          := Func.RefSymbol.Name;
-    mVariable.RefSymbol.DeclFunction  := nil;
-    mVariable.RefSymbol.DeclNamespace := getCurrentNamespace;
-    mVariable.Typ                     := CreateFunctionType(Func);
-    mVariable.Value                   := MakeIntExpression('@'+Func.MangledName);
-
-    mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
-   End;
+   FuncNameLabel := Func.RefSymbol.Name; // @TODO: `[name=]` attribute
+   if (Func.LibraryFile <> '') or ((TCompiler(Compiler).Parent.CompileMode = cmLibrary) and (Pointer(TCompiler(Compiler).Parent) = Compiler)) Then
+    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, True) Else
+    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, False); // create function mangled name
   End;
-
-  if (Func.LibraryFile <> '') Then // if function is external, don't create any bytecode
-  Begin
-   semicolon;
-   Exit;
-  End;
-
-  if (NamedParams = npNo) and (next_t <> _SEMICOLON) Then
-   CompileError(next, eExpected, [';', next.Value]);
-
-  { add parameters }
-  With Func do
-   For I := Low(ParamList) To High(ParamList) Do
-    __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
-
-  { add special constants (if `--internal-const` enabled) }
-  if (getBoolOption(opt_internal_const)) Then
-  Begin
-   NewConst('__self', TYPE_STRING, MakeStringExpression(Func.RefSymbol.Name));
-  End;
-
-  SkipCodeBlock;
-  Exit;
- End Else
-
- (* if third pass *)
- if (CompilePass = _cp3) Then
- Begin
-  skip_parenthesis; // return type
-  Func := findFunction(read_ident);
-  skip_parenthesis; // param list
-  While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
-   read;
 
   CurrentFunction := Func;
 
-  if (Func.LibraryFile <> '') Then { if is an imported function }
+  if (Func.LibraryFile <> '') Then { if it's an imported function, no bytecode is created }
   Begin
    semicolon;
    Exit;
   End;
 
   { new label (function begin) }
-  PutLabel(Func.MangledName)^.isPublic := True;
+  PutLabel(Func.MangledName)^.isPublic := True; // function's begin label has to be bytecode-public
 
   { new scope (because we're in function now) }
   NewScope(sFunction);

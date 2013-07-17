@@ -23,7 +23,7 @@ Begin
  (* if first pass *)
  if (CompilePass = _cp1) Then
  Begin
-  nName := read_ident; // _IDENTIFIER
+  nName := read_ident; // namespace's name
   RedeclarationCheck(nName, True); // redeclaration check
 
   CurrentNamespace := findNamespace(nName);
@@ -59,28 +59,11 @@ Begin
 
   if (CurrentNamespace = nil) Then
    CompileError(eInternalError, ['CurrentNamespace = nil']);
- End Else
-
- (* if third pass *)
- if (CompilePass = _cp3) Then
- Begin
-  CurrentNamespace := findNamespace(read_ident);
-
-  if (CurrentNamespace = nil) Then
-   CompileError(eInternalError, ['CurrentNamespace = nil']);
  End;
 
- { set this new namespace as first on the list }
- {SetLength(SelectedNamespaces, Length(SelectedNamespaces)+1);
- For I := High(SelectedNamespaces) Downto Low(SelectedNamespaces) Do
-  SelectedNamespaces[I] := SelectedNamespaces[I-1];
- SelectedNamespaces[0] := CurrentNamespace; @TODO}
-
- (* for each pass *)
-
- { compile namespace }
+ { parse namespace }
  Repeat
-  if (next_t = _NAMESPACE) Then // for now, it's impossible to declare a namespace inside another one
+  if (next_t = _NAMESPACE) Then // for now it's impossible to declare a namespace inside another one
   Begin
    read;
    CompileError(eNotAllowed, ['namespace']);

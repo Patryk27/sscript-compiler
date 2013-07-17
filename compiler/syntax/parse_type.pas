@@ -21,7 +21,7 @@ Var Base, Typ    : TType;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- if not ((CompilePass = _cp1) or (inFunction)) Then // `type` is parsed in the first pass or inside function
+ if (not ((CompilePass = _cp1) or (inFunction))) Then // `type` is parsed in the first pass or inside function
  Begin
   read_until(_SEMICOLON);
   Exit;
