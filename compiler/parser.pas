@@ -91,7 +91,18 @@ Begin
  Scanner := TScanner.Create(Code);
  if (not Scanner.Can) Then // an empty file
  Begin
-  // TokenList.Add(_EOF);
+  New(PToken);
+  With PToken^ do
+  Begin
+   Char      := 1;
+   Line      := 1;
+   Position  := 0;
+   Value     := 'end-of-file';
+   Token     := _EOF;
+   TokenName := 'EOF';
+  End;
+
+  TokenList.Add(PToken);
   Exit;
  End;
 
