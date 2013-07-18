@@ -13,7 +13,7 @@ Unit cfgraph;
  Type TVarRecArray = Array of TVarRec;
       PVarRecArray = ^TVarRecArray;
 
- Type TCFGNodeType = (cetNone, cetExpression, cetCondition, cetReturn, cetThrow, cetTryCatch, cetObjDelete, cetBytecode);
+ Type TCFGNodeType = (cetNone, cetExpression, cetCondition, cetReturn, cetThrow, cetTryCatch, cetBytecode);
 
  Type TCFGNode = class;
       TCFGNodeList = specialize TFPGList<TCFGNode>;
@@ -97,9 +97,6 @@ Var Str, Visited: TStringList;
 
    if (Node.Typ = cetTryCatch) Then
     Result := 'try' Else
-
-   if (Node.Typ = cetObjDelete) Then
-    Result := 'delete '+ExpressionToString(PExpressionNode(Node.Value)) Else
 
    if (Node.Typ = cetBytecode) Then
     Result := '<bytecode>' Else

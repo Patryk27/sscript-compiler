@@ -7,7 +7,7 @@ Unit Compile1;
  Interface
  Uses Classes, SysUtils, Variants, FGL, Math, cfgraph,
       Parser, Tokens, CompilerUnit, Opcodes, Messages, Expression, symdef,
-      Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include, Parse_DELETE,
+      Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include,
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
 
  { constants }
@@ -592,7 +592,6 @@ Begin
     _USE        : Parse_USE;
     _WHILE      : Parse_WHILE.Parse(self);
     _DO         : Parse_WHILE.Parse_DO_WHILE(self);
-    _DELETE     : Parse_DELETE.Parse(self);
     _BREAK      : ParseBreak;
     _CONTINUE   : ParseContinue;
     _TYPE       : Parse_TYPE.Parse(self);

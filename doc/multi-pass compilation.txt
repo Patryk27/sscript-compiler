@@ -1,0 +1,8 @@
+Multi-pass compilation in SScript Compiler:
+
+Pass 1:
+	- type, variable, constant and functions' headers (functions' bodies are skipped) scan, but in declarations types are ommited.
+
+Pass 2:
+	- scanning of includes, "use" clauses and re-scaning of the aforementioned language's elements, but now including their types.
+	- functions' bodies compiling
