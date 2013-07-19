@@ -13,7 +13,7 @@ Uses Compile1, ExpressionCompiler, Messages, Tokens, symdef;
 
 { Parse }
 Procedure Parse(Compiler: Pointer);
-Var Base, Typ    : TType;
+Var Typ          : TType;
     isEnum       : Boolean = False;
     EnumItem     : TVariable;
     EnumPrevValue: Int64 = -1;
@@ -38,7 +38,7 @@ Begin
   eat(_ENUM);
   isEnum := True;
  End Else
-  Base := read_type; // [type]
+  Typ := read_type; // [type]
 
  eat(_GREATER); // `>`
 
@@ -67,8 +67,10 @@ Begin
   { enum items }
   While (true) Do
   Begin
-   EnumItem     := TVariable.Create;
-   EnumItem.Typ := TYPE_INT;
+   EnumItem              := TVariable.Create;
+   EnumItem.Typ          := TYPE_INT;
+   EnumItem.Typ.EnumBase := Typ;
+
    EnumItem.Attributes += [vaConst, vaEnumItem];
 
    With EnumItem.RefSymbol do
@@ -87,9 +89,9 @@ Begin
 
    SymbolList.Add(TSymbol.Create(stConstant, EnumItem));
 
-   if (next_t = _EQUAL) Then
+   if (next_t = _EQUAL) Then // if next token is `=`
    Begin
-    eat(_EQUAL);
+    eat(_EQUAL); // `=`
     EnumItem.Value := MakeIntExpression(read_constant_expr_int);
     Dec(TokenPos);
    End Else
@@ -110,8 +112,6 @@ Begin
 
  (* not enum *)
  Begin
-  Typ := Base.Clone;
-
   With Typ.RefSymbol do
   Begin
    Name          := read_ident; // [identifier]

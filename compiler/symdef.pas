@@ -60,14 +60,15 @@ Unit symdef;
                 RefSymbol: TRefSymbol;
 
                 RegPrefix : Char;
-                InternalID: Byte;
+                InternalID: uint8;
 
                 ArrayBase    : TType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
-                ArrayDimCount: Byte; // array dimension count
+                ArrayDimCount: uint8; // array dimension count
 
                 FuncReturn: TType;
                 FuncParams: TParamList;
 
+                EnumBase    : TType;
                 EnumItemList: TVariableList;
 
                 Attributes: TTypeAttributes;
@@ -90,6 +91,8 @@ Unit symdef;
                 Function isArray(const RegardStringAsArray: Boolean=True): Boolean;
                 Function isObject: Boolean;
                 Function isFunctionPointer: Boolean;
+                Function isEnum: Boolean;
+                Function isEnumItem: Boolean;
 
                 Function CanBeAssignedTo(T2: TType): Boolean;
                 Function CanBeCastedTo(T2: TType): Boolean;
@@ -235,6 +238,7 @@ Uses CompilerUnit, Compile1, ExpressionCompiler, Messages, SysUtils;
  Compares two TTypes (except their names)
 }
 Function type_equal(A, B: TType): Boolean;
+Var I: Integer;
 Begin
  if (A = nil) or (B = nil) Then
   Exit(False);
@@ -246,15 +250,34 @@ Begin
  (A.RegPrefix     = B.RegPrefix);
 
  if (not Result) Then
-  Exit(False);
+  Exit;
 
+ // array base
  if (A.ArrayBase <> nil) and (B.ArrayBase <> nil) Then
   Result := Result and type_equal(A.ArrayBase, B.ArrayBase);
 
+ // func return
  if (A.FuncReturn <> nil) and (B.FuncReturn <> nil) Then
   Result := Result and type_equal(A.FuncReturn, B.FuncReturn);
 
+ // func parameter list
  Result := Result and (Length(A.FuncParams) = Length(B.FuncParams));
+
+ // enum base
+ if (A.EnumBase <> nil) and (B.EnumBase <> nil) Then
+  Result := Result and type_equal(A.EnumBase, B.EnumBase);
+
+ if ((A.EnumBase = nil) and (B.EnumBase <> nil)) or
+    ((A.EnumBase <> nil) and (B.EnumBase = nil)) Then
+     Exit(False);
+
+ // enum item list
+ Result := Result and (A.EnumItemList.Count = B.EnumItemList.Count);
+ if (not Result) Then
+  Exit;
+
+ For I := 0 To A.EnumItemList.Count-1 Do
+  Result := Result and (A.EnumItemList[I] = B.EnumItemList[I]);
 End;
 
 (* `TToken_P` in `TRange` *)
@@ -391,6 +414,7 @@ Begin
  ArrayBase     := nil;
  InternalID    := 0;
  FuncReturn    := nil;
+ EnumBase      := nil;
  EnumItemList  := TVariableList.Create;
  Attributes    := [];
 
@@ -584,6 +608,30 @@ Begin
  Exit(taFunction in Attributes);
 End;
 
+(* TType.isEnum *)
+{
+ Returns `true` when type passed in parameter is an enumeration type (enum).
+}
+Function TType.isEnum: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(taEnum in Attributes);
+End;
+
+(* TType.isEnumItem *)
+{
+ Returns `true` when type passed in parameter is an enumeration type's item.
+}
+Function TType.isEnumItem: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(EnumBase <> nil);
+End;
+
 (* TType.Clone *)
 {
  Returns a clone of self.
@@ -591,13 +639,10 @@ End;
 Function TType.Clone: TType;
 Var I: Integer;
 Begin
- Result := TType.Create;
-
  if (self = nil) Then
- Begin
-  //DevLog('Info: TType.Clone() called with `self = nil`; returned an empty type');
-  Exit;
- End;
+  Exit(nil);
+
+ Result := TType.Create;
 
  Result.RefSymbol := RefSymbol.Clone;
 
@@ -613,6 +658,9 @@ Begin
   Result.FuncParams[I]     := FuncParams[I];
   Result.FuncParams[I].Typ := FuncParams[I].Typ.Clone;
  End;
+
+ Result.EnumBase     := EnumBase.Clone;
+ Result.EnumItemList := EnumItemList; // @Note: do NOT clone enum items (see `type_equal` routine)
 
  Result.Attributes := Attributes;
 
@@ -673,7 +721,19 @@ Begin
    Result += '[]';
 
   Exit;
- End;
+ End Else
+
+ { is enum? }
+ if (taEnum in Attributes) Then
+ Begin
+  Result := 'enum-item of '+RefSymbol.Name;
+ End Else
+
+ { is enum item? }
+ if (EnumBase <> nil) Then
+ Begin
+  Result := 'enum-item of '+EnumBase.RefSymbol.Name;
+ End Else
 
  { is primary? }
  if (ArrayDimCount = 0) Then
@@ -788,7 +848,45 @@ Begin
  if (self.isArray and (not T2.isArray)) or
     (T2.isArray and (not self.isArray)) Then
  Begin
-  Exit(self.isInt and T2.isArray);
+  Exit(self.isInt and T2.isArray(False));
+ End Else
+
+ { comparing enums }
+ if (self.isEnum and T2.isEnum) Then
+ Begin
+  Exit(type_equal(self, T2));
+ End Else
+
+ { comparing enum with not-enum always returns unless either one of them is enum-item }
+ if (self.isEnum and (not T2.isEnum)) or
+    (T2.isEnum and (not self.isEnum)) Then
+ Begin
+  if (self.isEnumItem) Then
+   Exit(type_equal(self.EnumBase, T2)) Else
+
+  if (T2.isEnumItem) Then
+   Exit(type_equal(self, T2.EnumBase)) Else
+
+   Exit(False);
+ End Else
+
+ { comparing enum items }
+ if (self.isEnumItem and T2.isEnumItem) Then
+ Begin
+  Exit(type_equal(self.EnumBase, T2.EnumBase));
+ End Else
+
+ { comparing enum-item with not enum-item returns false unless either one of them is enum }
+ if (self.isEnumItem and (not T2.isEnumItem)) or
+    (T2.isEnumItem and (not self.isEnumItem)) Then
+ Begin
+  if (self.isEnum) Then
+   Exit(type_equal(self, T2.EnumBase)) Else
+
+  if (T2.isEnum) Then
+   Exit(type_equal(self.EnumBase, T2)) Else
+
+   Exit(False);
  End Else
 
  { compare-table for simple (primary) types }
@@ -831,7 +929,7 @@ Begin
   Exit(False);
  End;
 
- if (type_equal(self, T2)) Then
+ if (type_equal(self, T2)) Then // cast is always valid if types are the same
   Exit(True);
 
  if (self.isFunctionPointer) Then // `function pointer` can be casted to: int
@@ -843,8 +941,8 @@ Begin
  if (self.isChar) Then // `char` can be casted to: bool, int, string
   Exit(T2.isBool or T2.isInt or T2.isString);
 
- if (self.isInt) Then // `int` can be casted to: bool, char, float, pointer, object
-  Exit(T2.isBool or T2.isChar or T2.isFloat or T2.isFunctionPointer or T2.isObject);
+ if (self.isInt) Then // `int` can be casted to: bool, char, float, pointer, object, enum, enum item
+  Exit(T2.isBool or T2.isChar or T2.isFloat or T2.isFunctionPointer or T2.isObject or T2.isEnum or T2.isEnumItem);
 
  if (self.isFloat) Then // `float` can be casted to: bool, int
   Exit(T2.isBool or T2.isInt);
@@ -854,6 +952,9 @@ Begin
 
  if (self.isVoid) or (T2.isVoid) Then // void to anything => false
   Exit(False);
+
+ if (self.isEnum) or (self.isEnumItem) Then // `enum` can be casted to: int
+  Exit(T2.isInt);
 
  Exit(False);
 End;
