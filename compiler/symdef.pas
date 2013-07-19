@@ -151,6 +151,7 @@ Unit symdef;
                     Function isNaked: Boolean;
 
                     Function findSymbol(const SymName: String): TSymbol;
+                    Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
                    End;
 
  (* Namespace *)
@@ -165,6 +166,7 @@ Unit symdef;
                      SymbolList: TSymbolList; // global symbol list
 
                      Function findSymbol(const SymName: String): TSymbol;
+                     Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
                      Function findFunction(const FuncName: String): TFunction;
                     End;
 
@@ -944,12 +946,25 @@ End;
 
 (* TFunction.findSymbol *)
 {
- Returns symbol's pointer or `nil`, when symbol couldn't have been found.
+ Returns symbol with specified name or `nil` when such couldn't have been found.
 }
 Function TFunction.findSymbol(const SymName: String): TSymbol;
 Begin
  For Result in SymbolList Do
   if (Result.Name = SymName) Then
+   Exit;
+
+ Exit(nil);
+End;
+
+(* TFunction.findSymbol *)
+{
+ Returns symbol with specified name and scope or `nil` when such couldn't have been found.
+}
+Function TFunction.findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
+Begin
+ For Result in SymbolList Do
+  if (Result.Name = SymName) and (SymScope in Result.Range) Then
    Exit;
 
  Exit(nil);
@@ -966,6 +981,9 @@ Begin
 End;
 
 (* TNamespace.findSymbol *)
+{
+ Returns symbol with specified name or `nil` when such couldn't have been found.
+}
 Function TNamespace.findSymbol(const SymName: String): TSymbol;
 Begin
  For Result in SymbolList Do
@@ -975,7 +993,23 @@ Begin
  Exit(nil);
 End;
 
+(* TNamespace.findSymbol *)
+{
+ Returns symbol with specified name and scope or `nil` when such couldn't have been found.
+}
+Function TNamespace.findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
+Begin
+ For Result in SymbolList Do
+  if (Result.Name = SymName) and (SymScope in Result.Range) Then
+   Exit;
+
+ Exit(nil);
+End;
+
 (* TNamespace.findFunction *)
+{
+ Returns function with specified name or `nil` when such couldn't have been found.
+}
 Function TNamespace.findFunction(const FuncName: String): TFunction;
 Var Symbol: TSymbol;
 Begin

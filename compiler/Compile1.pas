@@ -1277,14 +1277,14 @@ End;
 
 (* TCompiler.RedeclarationCheck *)
 {
- Returns `true` if specified identifier is redeclared.
+ Returns `true` if specified identifier is redeclared **in current scope**.
 }
 Procedure TCompiler.RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 Var Symbol: TSymbol;
 Begin
  if (inFunction) Then
-  Symbol := getCurrentFunction.findSymbol(Name) Else
-  Symbol := getCurrentNamespace.findSymbol(Name);
+  Symbol := getCurrentFunction.findSymbol(Name, Parser.next(-1)) Else
+  Symbol := getCurrentNamespace.findSymbol(Name, Parser.next(-1));
 
  if (Symbol <> nil) Then // symbol found?
  Begin
