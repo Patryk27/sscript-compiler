@@ -47,7 +47,7 @@ Begin
 
  TCompiler(Compiler).fCurrentNode := Node;
 
- if ({AnythingFromNodePointsAt(Func.FlowGraph.Root, nil, Node)} Node.Typ <> cetBytecode) Then
+ if (AnythingFromNodePointsAt(Func.FlowGraph.Root, nil, Node) and (Node.Typ <> cetBytecode)) Then
   TCompiler(Compiler).PutLabel(Node.getName);
 
  Try
@@ -338,9 +338,9 @@ Begin
  End;
 End;
 
+{$I dead_code.pas}
 {$I opt_expressions.pas}
 {$I opt_branches.pas}
-{$I remove_unused_vars.pas}
 {$I variable_allocation.pas}
 
 (* AddPrologCode *)

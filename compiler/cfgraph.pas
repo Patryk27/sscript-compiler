@@ -252,7 +252,7 @@ End;
 Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 Var Visited: TStringList;
 
-    // Visit
+    { Visit }
     Procedure Visit(Node: TCFGNode);
     Var Child: TCFGNode;
     Begin
@@ -290,7 +290,7 @@ Var Visited : TCFGNodeList;
     VarName : String;
     VarRange: TRange;
 
-    // VisitExpression
+    { VisitExpression }
     Procedure VisitExpression(Expr: PExpressionNode);
     Var I: Integer;
     Begin
@@ -311,7 +311,7 @@ Var Visited : TCFGNodeList;
       VisitExpression(Expr^.ParamList[I]);
     End;
 
-    // VisitNode
+    { VisitNode }
     Procedure VisitNode(Node: TCFGNode);
     Var Child: TCFGNode;
         Range: Boolean;
@@ -351,14 +351,14 @@ End;
 
 (* isVariableUsed *)
 {
- Returns `true` if the variable is used in any expression between specified nodes.
+ Returns `true` if the variable is used in any expression between specified nodes, excluding assignments and operators like `*=` (!)
 }
 Function isVariableUsed(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
 Var Visited : TStringList;
     VarName : String;
     VarRange: TRange;
 
-    // isUsed
+    { isUsed }
     Function isUsed(Node: TCFGNode; Expr: PExpressionNode): Boolean;
     Var I    : Integer;
         Range: Boolean;
@@ -379,7 +379,7 @@ Var Visited : TStringList;
      if (Expr^.Typ = mtAssign) Then
      Begin
       {
-       in expression "x = 10;", don't count "x" as an "used variable"
+       in expressions like "x = 10;" don't count "x" as an "used variable"
       }
       Result := isUsed(Node, Expr^.Right);
      End Else
@@ -397,7 +397,7 @@ Var Visited : TStringList;
      End;
     End;
 
-    // Visit
+    { Visit }
     Procedure Visit(Node: TCFGNode);
     Var Child: TCFGNode;
     Begin

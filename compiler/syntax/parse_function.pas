@@ -303,7 +303,7 @@ Begin
    Func                         := TFunction.Create;
    CurrentFunction              := Func;
    Func.RefSymbol.mCompiler     := Compiler;
-   Func.RefSymbol.DeclToken     := next_pnt(-1); // _FUNCTION
+   Func.RefSymbol.DeclToken     := next_pnt(-1); // `_FUNCTION`
    Func.RefSymbol.DeclNamespace := getCurrentNamespace;
    Func.RefSymbol.DeclFunction  := nil;
    Func.NamespaceName           := getCurrentNamespace.RefSymbol.Name;
@@ -440,11 +440,8 @@ Begin
    if (getBoolOption(opt__dump_cfg)) Then
     SaveGraph(Func.FlowGraph, 'not_optimized/'+Func.RefSymbol.Name+'.d');
 
-   if (getBoolOption(opt__constant_folding)) Then
-   Begin
-    DevLog(dvInfo, 'Parse', 'Optimizing expressions...');
-    OptimizeExpressions;
-   End;
+   DevLog(dvInfo, 'Parse', 'Optimizing expressions...');
+   OptimizeExpressions;
 
    if (getBoolOption(opt__optimize_branches)) Then
    Begin
@@ -454,7 +451,8 @@ Begin
 
    if (getBoolOption(opt__remove_dead)) Then
    Begin
-    DevLog(dvInfo, 'Parse', 'Removing unused variables...');
+    DevLog(dvInfo, 'Parse', 'Removing dead code...');
+    RemoveUnusedAssigns;
     RemoveUnusedVariables;
    End;
 

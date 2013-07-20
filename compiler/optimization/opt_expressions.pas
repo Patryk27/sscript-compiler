@@ -52,8 +52,6 @@ Var VarList: TVarList;
     End;
    End;
 
-   // @TODO: `i++;`, `i += constant_value` and so on
-
    VisitExpression(Expr^.Left);
    VisitExpression(Expr^.Right);
 
@@ -117,68 +115,22 @@ Begin
  Visit(Func.FlowGraph.Root);
 End;
 
-{ RemoveUnusedAssigns }
-Procedure RemoveUnusedAssigns;
+{ TreeSimplify }
+Procedure TreeSimplify;
   Procedure Visit(Node: TCFGNode);
-  Var Child, Back : TCFGNode;
-      CanBeRemoved: Boolean;
-      Symbol      : TSymbol;
-      Second      : PExpressionNode;
+  Var Child: TCFGNode;
   Begin
    if (Node = nil) Then
     Exit;
 
-   if (VisitedNodes.IndexOf(Node) <> -1) Then
+   if (VisitedNodes.IndexOf(Node) <> -1) Then // if node has been visited more than once, don't check it again
     Exit;
    VisitedNodes.Add(Node);
 
    TCompiler(Compiler).fCurrentNode := Node;
 
-   if (Node.Value <> nil) and (Node.Value^.Typ = mtAssign) Then // @TODO: assigns can be nested!
-   Begin
-    CanBeRemoved := False; // can currently checked assignment be removed?
-
-    Back := Node.Parent;
-
-    // get last variable's assign node
-    While (Back <> nil) Do
-    Begin
-     if (Back.Value <> nil) Then
-     Begin
-      Second := Back.Value^.FindAssignment(Node.Value^.Left^.IdentName);
-
-      if (Second <> nil) Then // if assign found...
-      Begin
-       Symbol := TSymbol(Second^.Left^.Symbol);
-
-       if (Symbol = nil) Then
-        Symbol := TSymbol(Second^.Left^.Symbol);
-
-       if (Symbol = nil) Then // can happen when operating on array elements
-       Begin
-        Back := Back.Parent;
-        Continue;
-       End;
-
-       if (not isVariableUsed(TSymbol(Second^.Left^.Symbol).mVariable, Back, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
-       Begin
-        CanBeRemoved := True;
-        Break;
-       End;
-      End;
-     End;
-
-     Back := Back.Parent;
-    End;
-
-    if (CanBeRemoved) Then
-    Begin
-     RemapSSA(Back, Back, Func.FlowGraph.Root, True);
-     Back.Typ   := cetNone;
-     Back.Value := nil; // @TODO: Dispose?
-     AnyChange  := True;
-    End;
-   End;
+   if (Node.Value <> nil) Then
+    AnyChange := AnyChange or ExpressionCompiler.OptimizeExpression(TCompiler(Compiler), Node.Value, [oTreeSimplification]);
 
    For Child in Node.Child Do
     Visit(Child);
@@ -189,11 +141,21 @@ Begin
  Visit(Func.FlowGraph.Root);
 End;
 
+Var Comp: TCompiler absolute Compiler;
 Begin
  Repeat
   AnyChange := False;
-  ConstantPropagation;
-  ConstantFolding;
-  RemoveUnusedAssigns;
+
+  if (Comp.getBoolOption(opt__remove_dead)) Then
+   RemoveUnusedAssigns;
+
+  if (Comp.getBoolOption(opt__constant_propagation)) Then
+   ConstantPropagation;
+
+  if (Comp.getBoolOption(opt__constant_folding)) Then
+   ConstantFolding;
+
+  if (Comp.getBoolOption(opt__tree_simplify)) Then
+   TreeSimplify;
  Until (not AnyChange); // repeat these two steps until no change is done.
 End;

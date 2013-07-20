@@ -15,7 +15,7 @@ Unit ExpressionCompiler;
 
  Const _UNARY_MINUS = #01;
 
- Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oConstantPropagation, oDisplayParseErrors);
+ Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oTreeSimplification, oDisplayParseErrors);
       TOptions = Set of TOption;
 
       TShortCircuit = (scNone, scOR, scAND);
@@ -62,7 +62,7 @@ Unit ExpressionCompiler;
                        Function MakeTree: PExpressionNode;
                       End;
 
- Function OptimizeExpression(const Compiler: TCompiler; const Tree: PExpressionNode; const Options: TOptions): Boolean;
+ Function OptimizeExpression(const Compiler: TCompiler; var Tree: PExpressionNode; const Options: TOptions): Boolean;
 
  Function EmptyExpression: PExpressionNode;
 
@@ -89,11 +89,29 @@ Uses SysUtils,
  Optimizes expression with given options.
  Returns `true` if anything has been optimized.
 }
-Function OptimizeExpression(const Compiler: TCompiler; const Tree: PExpressionNode; const Options: TOptions): Boolean;
+Function OptimizeExpression(const Compiler: TCompiler; var Tree: PExpressionNode; const Options: TOptions): Boolean;
 Var AnyChange: Boolean = False;
+
+Type TSimplify1Data = Record
+                       Pre, Post: TExpressionNodeType;
+                      End;
+
+Const Simplify1Data: Array[0..8] of TSimplify1Data =
+(
+ (Pre: mtAdd; Post: mtAddEq),
+ (Pre: mtSub; Post: mtSubEq),
+ (Pre: mtMul; Post: mtMulEq),
+ (Pre: mtDiv; Post: mtDivEq),
+ (Pre: mtShl; Post: mtShlEq),
+ (Pre: mtShr; Post: mtShrEq),
+ (Pre: mtBitwiseAND; Post: mtAndEq),
+ (Pre: mtBitwiseOR; Post: mtOrEq),
+ (Pre: mtXor; Post: mtXorEq)
+);
 
 {$I insert_constants.pas}
 {$I constant_folding.pas}
+{$I tree_simplification.pas}
 
 Begin
  if (oInsertConstants in Options) Then
@@ -101,6 +119,9 @@ Begin
 
  if (oConstantFolding in Options) Then
   __constant_folding(oDisplayParseErrors in Options);
+
+ if (oTreeSimplification in Options) Then
+  __tree_simplification(oDisplayParseErrors in Options);
 
  Result := AnyChange;
 End;
@@ -249,8 +270,20 @@ Begin
 
  if (Expr^.Typ = mtIdentifier) Then
  Begin
-  Result := Expr^.IdentName+'$';
+  Result := Expr^.IdentName;
 
+  if (Length(Expr^.PostSSA.Values) > 0) Then
+  Begin
+   Result += '.(';
+
+   For I := 0 To High(Expr^.PostSSA.Values) Do
+    Result += IntToStr(Expr^.PostSSA.Values[I])+', ';
+
+   Delete(Result, Length(Result)-1, 2);
+   Result += ')';
+  End;
+
+  Result += '$';
   if (Length(Expr^.SSA.Values) = 0) Then
   Begin
    Result += 'unknown';

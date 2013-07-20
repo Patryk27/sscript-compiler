@@ -3,6 +3,15 @@ Var VisitedParentNodes: TCFGNodeList;
 (* FetchSSAVarID *)
 Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
 
+  { Clone }
+  Function Clone(const Input: TSSAVarID): TSSAVarID;
+  Var I: Integer;
+  Begin
+   SetLength(Result.Values, Length(Input.Values));
+   For I := 0 To High(Result.Values) Do
+    Result.Values[I] := Input.Values[I];
+  End;
+
   { Coalesce }
   Procedure Coalesce(var Input: TSSAVarID; const What: TSSAVarID);
   Var I, J: Integer;
@@ -36,8 +45,15 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
    if (Expr = nil) Then
     Exit;
 
-   if (Expr^.Typ in MLValueOperators) and (Expr^.Left^.Symbol = Symbol) Then
+   if (Expr^.Typ = mtAssign) and (Expr^.Left^.Symbol = Symbol) Then
+   Begin
     Exit(Expr^.Left^.SSA);
+   End Else
+
+   if (Expr^.Typ in MLValueOperators) and (Expr^.Left^.Symbol = Symbol) Then
+   Begin
+    Exit(Expr^.Left^.PostSSA);
+   End;
 
    if (Expr^.Typ = mtFunctionCall) and (Expr^.Symbol <> nil) Then
    Begin
@@ -83,20 +99,20 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
    if (Node.Typ = cetCondition) Then // if condition...
    Begin
     // -> left
-    Left := VisitNode(Node.Child[0], Node.Child[2], True, True);
+    Left := VisitNode(Node.Child[0], Node.Child[2], True, False);
 
     if (Length(Left.Values) = 0) and
        (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) and
        (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], SearchNode)) Then // if inside a loop... (see note below)
-        Left := VisitNode(SearchNode, Node.Child[2], True, True);
+        Left := VisitNode(SearchNode, Node.Child[2], True, False);
 
     // -> right
-    Right := VisitNode(Node.Child[1], Node.Child[2], True, True);
+    Right := VisitNode(Node.Child[1], Node.Child[2], True, False);
 
     if (Length(Right.Values) = 0) and
        (AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], Node)) and
        (AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], SearchNode)) Then // if inside a loop... (see note below)
-        Right := VisitNode(SearchNode, Node.Child[2], True, True);
+        Right := VisitNode(SearchNode, Node.Child[2], True, False);
 
     // -> parent
     Parent := VisitNode(Node.Parent, EndNode, False, True);
@@ -130,8 +146,12 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
      I guess that's all the magic here.
     }
 
-    Coalesce(Result, Left);
-    Coalesce(Result, Right);
+    if (not AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], SearchNode)) Then
+     Coalesce(Result, Left);
+
+    if (not AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], SearchNode)) Then
+     Coalesce(Result, Right);
+
     Coalesce(Result, Parent);
    End Else
 

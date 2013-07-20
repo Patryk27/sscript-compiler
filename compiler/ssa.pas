@@ -77,11 +77,11 @@ Var Stage      : 1..2;
     1:
      if (Expr^.Typ in MLValueOperators) Then
      Begin
-      For I := 0 To High(Expr^.Left^.SSA.Values) Do
+      For I := 0 To High(Expr^.Left^.PostSSA.Values) Do
       Begin
        New(Data);
        Data^.Symbol := Expr^.Left^.Symbol;
-       Data^.SSA    := Expr^.Left^.SSA.Values[I];
+       Data^.SSA    := Expr^.Left^.PostSSA.Values[I];
        SSADataList.Add(Data);
       End;
      End;

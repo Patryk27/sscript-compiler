@@ -19,21 +19,22 @@ By default, all switches are disabled.
 3.Optimizations
 	--register-alloc / -Or		allows to allocate variables in registers (when possible)
 	--constant-folding / -Of	enables constant expression folding
-	--bytecode-optimize / -Op	optimizes bytecode
-	--remove-dead / -Ou		tries to remove unreachable (dead) parts of code (eg.code after `return`) and unused variables; it works the best with `--optimize-branches`
+	--tree-simplify / -Ot		simplifies expression trees (eg.`x = x+y;` is simplified to `x += y;`)
+	--bytecode-optimize / -Op	optimizes output bytecode
+	--remove-dead / -Ou		tries to remove unreachable (dead) parts of code (eg.code after `return`) and unused variables; it works the best combined with `--optimize-branches`
 	--short-circuit	/ -Os		enables/disables short-circuit-evalution. It is implicitly **enabled** and most likely you don't want to turn it off.
 
-	--constant-propagation / -Oc	enables constant propagation (it's an a bit expensive operation)
+	--constant-propagation / -Oc	enables constant propagation (it's a bit expensive operation)
 
-	--optimize-branches / -Ob	optimizes condition jumps (it's an expensive optimization)
+	--optimize-branches / -Ob	optimizes condition jumps (it's an expensive optimization; it works the best combined with `--constant-folding` and `--remove-dead`, otherwise it's almost unusable)
 
-	-O1	enables `--register-alloc`, `--constant-folding`, `--bytecode-optimize`
+	-O1	enables `--register-alloc`, `--constant-folding`, `--tree-simplify` and `--bytecode-optimize`
 	-O2	enables `-O1`, `--remove-dead` and `--constant-propagation`
 	-O3	enables `-O2` and `--optimize-branches`
 
 4.Debug
 	--strip-debug / -Sd	strips debug symbols from the file (but do not removes debug symbols from eg.linked libraries)
-	--dump-cfg		dumps CFG graphs in 'DOT' file format into 2 directories: `optimized` and `not_optimized`. Use only for compiler debugging, as it can generate a lots of files (2*number of functions)!
+	--dump-cfg		dumps CFG graphs in 'DOT' file format into 2 directories: `optimized` and `not_optimized`. Use only for compiler debugging, as it will generate a lots of files (2*number of functions)!
 
 5.Libraries only
 	-header / -h  <file>	generates and saves header file

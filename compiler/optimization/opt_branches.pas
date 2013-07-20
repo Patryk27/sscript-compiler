@@ -98,7 +98,7 @@ Begin
    Inc(OptBranches);
   End;
 
-  if (OptBranches > 1000) Then // probably the optimizer has entered an infinite loop
+  if (OptBranches > 2000) Then // probably the optimizer has entered an infinite loop
    TCompiler(Compiler).CompileError(eInternalError, ['It seems that your code somehow crashes the branch optimizer (it stays in infinite loop), sorry...']);
  Until (not AnythingOptimized);
 

@@ -61,13 +61,13 @@ Var Pos, Pos2            : LongWord;
     Optimized            : Boolean;
     TmpArg               : TMOpcodeArg;
 
-    // isArgumentChanging
+    { isArgumentChanging }
     Function isArgumentChanging(Param: Byte): Boolean;
     Begin
      Result := (oTmp.Args[Param] = oCurrent.Args[0]) or (oTmp.Args[Param] = oCurrent.Args[1]);
     End;
 
-    // __optimize1
+    { __optimize1 }
     Procedure __optimize1(Param: Byte);
     Begin
      if (oTmp.Args[Param] = oCurrent.Args[0]) Then
@@ -338,7 +338,7 @@ Begin
      {
       the first `mov` is unusable.
       Like in this code:
-       mov(ei1, 10) // current `ei1` in unused, so this `mov` can be removed and it won't affect anything
+       mov(ei1, 10) <- this ei1's value in unused, so this `mov` can be removed as it won't affect anything
        mov(ei1, 20)
      }
      Begin

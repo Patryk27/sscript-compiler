@@ -1,8 +1,8 @@
 Type TVarMap = specialize TFPGMap<Pointer, Integer>; // TFPGMap<TLocalSymbol, Integer>;
 Var VarMap: TVarMap;
 
-// IncreaseSSA
-Procedure IncreaseSSA(Expr: PExpressionNode);
+{ IncreaseSSA }
+Procedure IncreaseSSA(const Expr: PExpressionNode; const PostSSAOnly: Boolean);
 Var Symbol: Pointer;
     ID    : Integer;
 Begin
@@ -12,8 +12,16 @@ Begin
   ID := 0 Else
   ID := VarMap[Symbol]+1;
 
- SetLength(Expr^.SSA.Values, 1);
- Expr^.SSA.Values[0] := ID;
+ if (PostSSAOnly) Then
+ Begin
+  SetLength(Expr^.PostSSA.Values, 1);
+  Expr^.PostSSA.Values[0] := ID;
+ End Else
+ Begin
+  SetLength(Expr^.SSA.Values, 1);
+  Expr^.SSA.Values[0] := ID;
+  Expr^.PostSSA       := Expr^.SSA;
+ End;
 
  if (VarMap.IndexOf(Symbol) = -1) Then
   VarMap.Add(Symbol, 0) Else
@@ -30,9 +38,14 @@ Begin
  if (Expr = nil) Then
   Exit;
 
+ if (Expr^.Typ = mtAssign) Then
+ Begin
+  IncreaseSSA(Expr^.Left, False);
+ End Else
+
  if (Expr^.Typ in MLValueOperators) Then
  Begin
-  IncreaseSSA(Expr^.Left);
+  IncreaseSSA(Expr^.Left, True);
  End Else
 
  if (Expr^.Typ = mtFunctionCall) Then // we need to check for potential pass-by-ref (as it increases the SSA var's ID as well)
@@ -52,7 +65,7 @@ Begin
     if (PList[I].isVar) Then
     Begin
      if (I <= High(Expr^.ParamList)) Then
-      IncreaseSSA(Expr^.ParamList[I]);
+      IncreaseSSA(Expr^.ParamList[I], False);
     End;
   End;
  End;

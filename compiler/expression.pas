@@ -58,12 +58,12 @@ Unit Expression;
                          IdentType: TExpressionNodeType; // used in expression folding
                          ParamList: Array of PExpressionNode; // for mtFunctionCall
 
-                         Symbol: TObject;
-                         SSA   : TSSAVarID;
+                         Symbol      : TObject;
+                         SSA, PostSSA: TSSAVarID;
 
                          ResultOnStack: Boolean; // equal 'true' if expression's result is left on the stack
 
-                         Function FindAssignment(const VarName: String): PExpressionNode;
+                         Function FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
                          Procedure RemoveAssignments(const VarName: String);
 
                          Function HasCall: Boolean;
@@ -116,10 +116,11 @@ End;
 (* TExpressionNode.FindAssignment *)
 {
  Finds the first assignment to a variable named `VarName` and returns it, otherwise returns `nil`.
+ When `CheckAllLValueOperators` is `true`, returns first MLValueOperators occurence.
 
  @TODO: arrays!
 }
-Function TExpressionNode.FindAssignment(const VarName: String): PExpressionNode;
+Function TExpressionNode.FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
 Var I: Integer;
 Begin
  Result := nil;
@@ -127,15 +128,19 @@ Begin
  if (Typ = mtAssign) and (Left^.IdentName = VarName) Then
   Exit(@self);
 
+ if (CheckAllLValueOperators) Then
+  if (Typ in MLValueOperators) and (Left^.IdentName = VarName) Then
+   Exit(@self);
+
  if (Result = nil) and (Left <> nil) Then
-  Result := Left^.FindAssignment(VarName);
+  Result := Left^.FindAssignment(VarName, CheckAllLValueOperators);
 
  if (Result = nil) and (Right <> nil) Then
-  Result := Right^.FindAssignment(VarName);
+  Result := Right^.FindAssignment(VarName, CheckAllLValueOperators);
 
  For I := Low(ParamList) To High(ParamList) Do
   if (Result = nil) Then
-   Result := ParamList[I]^.FindAssignment(VarName);
+   Result := ParamList[I]^.FindAssignment(VarName, CheckAllLValueOperators);
 End;
 
 (* TExpressionNode.RemoveAssignments *)

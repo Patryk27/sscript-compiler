@@ -5,4 +5,4 @@ Pass 1:
 
 Pass 2:
 	- scanning of includes, "use" clauses and re-scaning of the aforementioned language's elements, but now including their types.
-	- functions' bodies compiling
+	- compiling functions' bodies

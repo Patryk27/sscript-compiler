@@ -3,10 +3,10 @@
 Procedure __constant_folding(const ErrorOnInvalidOperator: Boolean);
 
 (* Parse *)
-Procedure Parse(Expr: PExpressionNode);
-Var Left, Right: PExpressionNode;
-    Evaluated  : Boolean = False;
-    I          : Integer;
+Procedure Parse(var Expr: PExpressionNode);
+Var Tmp, Tmp2, Left, Right: PExpressionNode;
+    Evaluated             : Boolean = False;
+    I                     : Integer;
 Begin
  if (Expr = nil) Then // nothing to do
   Exit;
@@ -134,8 +134,8 @@ Begin
    Expr^.Left  := nil;
    Expr^.Right := nil;
 
-   Dispose(Left);
-   Dispose(Right);
+//   Dispose(Left);
+//   Dispose(Right);
   End Else
 
    if (ErrorOnInvalidOperator) Then
@@ -187,21 +187,56 @@ Begin
    Expr^.Left := nil;
    Expr^.Typ  := Left^.Typ;
 
-   Dispose(Left);
+//   Dispose(Left);
   End Else
 
    if (ErrorOnInvalidOperator) Then
     Compiler.CompileError(Expr^.Token, eUnsupportedUOperator, [ExpressionNodeString[Expr^.Typ], ExpressionNodeString[Left^.Typ]]);
  End;
 
+ // ----------------------------------------- //
+
+ { try to compute expressions like `x *= 5;` at compile-time (if `x` is known) }
+ For I := Low(Simplify1Data) To High(Simplify1Data) Do
+  if (Expr^.Typ = Simplify1Data[I].Post) Then
+  Begin
+   New(Tmp);
+   Tmp^ := Expr^;
+
+   New(Left);
+   Left^ := Expr^.Left^;
+
+   New(Right);
+   Right^ := Expr^.Right^;
+
+   Expr^.Typ := Simplify1Data[I].Pre;
+   Parse(Expr);
+
+   if (Expr^.Left = nil) and (Expr^.Right = nil) Then // if optimization succeeded
+   Begin
+    Left^.SSA := Left^.PostSSA;
+
+    New(Tmp2);
+    Tmp2^.Left  := Left;
+    Tmp2^.Right := Expr;
+    Tmp2^.Token := Expr^.Token;
+    Tmp2^.Typ   := mtAssign;
+
+    Expr := Tmp2;
+   End Else
+   Begin // couldn't optimize
+    Expr^.Typ   := Simplify1Data[I].Post;
+    Expr^.Left  := Left;
+    Expr^.Right := Right;
+   End;
+  End;
+
  AnyChange := AnyChange or Evaluated;
 End;
 
 Begin
  if (Tree <> nil) and (Tree^.Left = nil) and (Tree^.Right = nil) and (Tree^.Typ = mtIdentifier) and (Tree^.Value <> null) Then // @TODO: this is ugly
- Begin
   Tree^.Typ := Tree^.IdentType;
- End;
 
  Parse(Tree);
 End;

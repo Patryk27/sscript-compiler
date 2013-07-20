@@ -12,7 +12,7 @@ Unit CompilerUnit;
  (
   opt_bytecode, opt_output, opt_initcode, opt_includepath,
   opt_Cm, opt_internal_const,
-  opt__register_alloc, opt__constant_folding, opt__bytecode_optimize, opt__remove_dead, opt__short_circuit,
+  opt__register_alloc, opt__constant_folding, opt__tree_simplify, opt__bytecode_optimize, opt__remove_dead, opt__short_circuit,
   opt__constant_propagation,
   opt__optimize_branches,
   opt__strip_debug, opt__dump_cfg,
@@ -37,6 +37,7 @@ Unit CompilerUnit;
 
   (Names: ('--register-alloc', '-Or');       Typ: pBool),
   (Names: ('--constant-folding', '-Of');     Typ: pBool),
+  (Names: ('--tree-simplify', '-Ot');        Typ: pBool),
   (Names: ('--bytecode-optimize', '-Op');    Typ: pBool),
   (Names: ('--remove-dead', '-Ou');          Typ: pBool),
   (Names: ('--short-circuit', '-Os');        Typ: pBool),

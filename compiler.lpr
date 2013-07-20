@@ -54,6 +54,7 @@ Procedure _O1;
 Begin
  AddOption(opt__register_alloc, True);
  AddOption(opt__constant_folding, True);
+ AddOption(opt__tree_simplify, True);
  AddOption(opt__bytecode_optimize, True);
 End;
 
