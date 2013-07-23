@@ -61,6 +61,9 @@ Begin
  Dec(CurrentDeep);
  RemoveScope;
 
+ if (Step <> nil) Then
+  Step.Parent := fCurrentNode;
+
  if (Step <> nil) Then // add step instruction
   CFGAddNode(Step);
 
@@ -72,7 +75,6 @@ Begin
 
  (* do some control-flow-graph magic *)
  Content.Parent := Condition;
-// Step.Parent    := Content;
 
  if (Condition = nil) Then
   CFGAddNode(Content) Else
@@ -85,7 +87,7 @@ Begin
  Begin
   Condition.Child.Add(Content); // on true
   Condition.Child.Add(EndingNode); // on false
-  Condition.Child.Add(EndingNode);
+  Condition.Child.Add(nil);
  End;
 End;
 End;

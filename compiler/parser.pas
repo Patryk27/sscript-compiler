@@ -223,6 +223,9 @@ Begin
       read_until(_SEMICOLON);
      End;
 
+     While (TokenPos >= TokenList.Count) Do
+      Dec(TokenPos);
+
      Result.PEnd := TokenList[TokenPos]^;
      TokenPos    := TPos;
      Exit;
@@ -248,7 +251,7 @@ Begin
     Break;
   End;
 
-  if (TokenPos >= TokenList.Count) Then
+  While (TokenPos >= TokenList.Count) Do
    Dec(TokenPos);
 
   Result.PEnd := TokenList[TokenPos]^;
