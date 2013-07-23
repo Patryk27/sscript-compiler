@@ -327,8 +327,7 @@ Begin
   End;
 
  { 'x += x' -> 'x *= 2' }
- if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and
-    (Left^.Symbol = Right^.Left^.Symbol) Then
+ if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (Right^.Left <> nil) and (Left^.Symbol = Right^.Left^.Symbol) Then
  Begin
   Expr^.Typ   := mtMulEq;
   Expr^.Right := MakeIntExpression(2);
