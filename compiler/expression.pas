@@ -66,7 +66,8 @@ Unit Expression;
                          Function FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
                          Procedure RemoveAssignments(const VarName: String);
 
-                         Function HasCall: Boolean;
+                         Function hasCall: Boolean;
+                         Function hasValue: Boolean;
                          Function isConstant: Boolean;
                         End;
 
@@ -176,6 +177,19 @@ Begin
 
  if (Right <> nil) Then
   Result := Result or Right^.Hascall;
+End;
+
+(* TExpressionNode.hasValue *)
+{
+ Returns `true` when this expression has a value (directly or not).
+ These are: function and method calls, variables and constants.
+}
+Function TExpressionNode.hasValue: Boolean;
+Begin
+ if (@self = nil) Then
+  Exit(False);
+
+ Result := (Typ in [mtFunctionCall, mtMethodCall, mtIdentifier, mtBool, mtChar, mtInt, mtFloat, mtString]);
 End;
 
 (* TExpressionNode.isConstant *)

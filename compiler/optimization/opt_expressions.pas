@@ -1,3 +1,33 @@
+(* TreeSimplify *)
+Function TreeSimplify: Boolean;
+
+  { Visit }
+  Procedure Visit(Node: TCFGNode);
+  Var Child: TCFGNode;
+  Begin
+   if (Node = nil) Then
+    Exit;
+
+   if (VisitedNodes.IndexOf(Node) <> -1) Then // if node has been visited more than once, don't check it again
+    Exit;
+   VisitedNodes.Add(Node);
+
+   TCompiler(Compiler).fCurrentNode := Node;
+
+   if (Node.Value <> nil) Then
+    Result := Result or ExpressionCompiler.OptimizeExpression(TCompiler(Compiler), Node.Value, [oTreeSimplification]);
+
+   For Child in Node.Child Do
+    Visit(Child);
+  End;
+
+Begin
+ Result := False;
+
+ VisitedNodes.Clear;
+ Visit(Func.FlowGraph.Root);
+End;
+
 (* OptimizeExpressions *)
 Procedure OptimizeExpressions;
 Var AnyChange: Boolean;
@@ -115,32 +145,6 @@ Begin
  Visit(Func.FlowGraph.Root);
 End;
 
-{ TreeSimplify }
-Procedure TreeSimplify;
-  Procedure Visit(Node: TCFGNode);
-  Var Child: TCFGNode;
-  Begin
-   if (Node = nil) Then
-    Exit;
-
-   if (VisitedNodes.IndexOf(Node) <> -1) Then // if node has been visited more than once, don't check it again
-    Exit;
-   VisitedNodes.Add(Node);
-
-   TCompiler(Compiler).fCurrentNode := Node;
-
-   if (Node.Value <> nil) Then
-    AnyChange := AnyChange or ExpressionCompiler.OptimizeExpression(TCompiler(Compiler), Node.Value, [oTreeSimplification]);
-
-   For Child in Node.Child Do
-    Visit(Child);
-  End;
-
-Begin
- VisitedNodes.Clear;
- Visit(Func.FlowGraph.Root);
-End;
-
 Var Comp: TCompiler absolute Compiler;
 Begin
  Repeat
@@ -154,8 +158,5 @@ Begin
 
   if (Comp.getBoolOption(opt__constant_folding)) Then
    ConstantFolding;
-
-  if (Comp.getBoolOption(opt__tree_simplify)) Then
-   TreeSimplify;
  Until (not AnyChange); // repeat these two steps until no change is done.
 End;

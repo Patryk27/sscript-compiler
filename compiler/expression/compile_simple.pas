@@ -16,13 +16,12 @@ Var Variable   : TRVariable;
     isComparing: Boolean;
 
     I              : Integer;
-    SCOpcodes      : Array[0..4] of PMOpcode;
+    SCOpcodes      : Array[0..4] of PMOpcode = (nil, nil, nil, nil, nil);
     SCCannotPredict: String;
     SCResultOnStack: Boolean = False;
 Begin
  isComparing := Expr^.Typ in [mtEqual, mtDifferent, mtGreater, mtLower, mtGreaterEqual, mtLowerEqual];
 
- SCOpcodes[0]    := nil;
  SCCannotPredict := ShortCircuitLabel+'_cannotpredict';
 
  if (isLeftVariable) Then // if the left side is a variable

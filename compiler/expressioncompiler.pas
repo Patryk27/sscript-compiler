@@ -3,7 +3,7 @@
  All rights reserved.
 *)
 
-{.$DEFINE DISPLAY_TREE} // debug only
+{.$DEFINE DISPLAY_TREE} // compiler debug only
 {$MODESWITCH ADVANCEDRECORDS}
 
 Unit ExpressionCompiler;
@@ -64,7 +64,7 @@ Unit ExpressionCompiler;
 
  Function OptimizeExpression(const Compiler: TCompiler; var Tree: PExpressionNode; const Options: TOptions): Boolean;
 
- Function EmptyExpression: PExpressionNode;
+ Function EmptyExpression(const Token: PToken_P=nil): PExpressionNode;
 
  Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpressionNode;
  Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpressionNode;
@@ -127,7 +127,7 @@ Begin
 End;
 
 (* EmptyExpression *)
-Function EmptyExpression: PExpressionNode;
+Function EmptyExpression(const Token: PToken_P=nil): PExpressionNode;
 Begin
  New(Result);
 
@@ -139,68 +139,59 @@ Begin
   Typ   := mtNothing;
   Value := 0;
 
+  ResultOnStack := False;
+
   SetLength(SSA.Values, 0);
+  SetLength(PostSSA.Values, 0);
  End;
+
+ if (Token <> nil) Then
+  Result^.Token := Token^;
 End;
 
 (* MakeBoolExpression *)
 Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression;
+ Result := EmptyExpression(Token);
 
  Result^.Typ   := mtBool;
  Result^.Value := Value;
-
- if (Token <> nil) Then
-  Result^.Token := Token^;
 End;
 
 (* MakeIntExpression *)
 Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression;
+ Result := EmptyExpression(Token);
 
  Result^.Typ   := mtInt;
  Result^.Value := Value;
-
- if (Token <> nil) Then
-  Result^.Token := Token^;
 End;
 
 (* MakeIntExpression *)
 Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression;
+ Result := EmptyExpression(Token);
 
  Result^.Typ   := mtInt;
  Result^.Value := Value;
-
- if (Token <> nil) Then
-  Result^.Token := Token^;
 End;
 
 (* MakeFloatExpression *)
 Function MakeFloatExpression(const Value: Extended; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression;
+ Result := EmptyExpression(Token);
 
  Result^.Typ   := mtFloat;
  Result^.Value := Value;
-
- if (Token <> nil) Then
-  Result^.Token := Token^;
 End;
 
 (* MakeStringExpression *)
 Function MakeStringExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression;
+ Result := EmptyExpression(Token);
 
  Result^.Typ   := mtString;
  Result^.Value := Value;
-
- if (Token <> nil) Then
-  Result^.Token := Token^;
 End;
 
 (* getValueFromExpression *)

@@ -6,7 +6,7 @@ Var TypeLeft, TypeRight: TType;
 Begin
  (*
   `WithAssign` operators are `+=`, `-=` and so on.
-  `not WithAssign` operators are just `+`, `-` (...)
+  `not WithAssign` operators are just pure `+`, `-` (...)
  *)
  if (WithAssign) Then
  Begin

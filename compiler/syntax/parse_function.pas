@@ -434,6 +434,17 @@ Begin
    DevLog(dvInfo, 'Parse', 'Validing graph for function `'+Func.RefSymbol.Name+'`...');
    ValidateGraph;
 
+   if (TCompiler(Compiler).getBoolOption(opt__tree_simplify)) Then
+   Begin
+    {
+     @Note:
+     Tree simplification can be done before generating the SSA form, because it doesn't use the SSA, and as it changes the whole expression trees, after
+     this optimization new SSA had to be generated anyway.
+    }
+    DevLog(dvInfo, 'Parse', 'Simplifing expression trees...');
+    While (TreeSimplify) do;
+   End;
+
    DevLog(dvInfo, 'Parse', 'Generating SSA form...');
    GenerateSSA;
 
