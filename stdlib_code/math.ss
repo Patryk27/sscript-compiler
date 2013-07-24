@@ -88,6 +88,11 @@ function<float> log2(float n)
  return log(2, n);
 }
 
+function<float> hypot(float x, float y)
+{
+ return sqrt(x*x + y*y);
+}
+
 function<int> iabs(int i)
 {
  if (i < 0)
