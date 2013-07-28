@@ -2,15 +2,16 @@
 
 namespace std
 {
- function<float> sqrt(float) [library="math.ssm"];
- function<float> sin(float) [library="math.ssm"];
  function<float> cos(float) [library="math.ssm"];
+ function<float> sin(float) [library="math.ssm"];
+ function<float> sqrt(float) [library="math.ssm"];
  function<float> log(float, float) [library="math.ssm"];
  function<float> ln(float) [library="math.ssm"];
  function<float> exp(float) [library="math.ssm"];
  function<float> log10(float) [library="math.ssm"];
  function<float> log2(float) [library="math.ssm"];
  function<float> hypot(float, float) [library="math.ssm"];
+ function<void> modf(float, var int, var float) [library="math.ssm"];
  function<int> iabs(int) [library="math.ssm"];
  function<float> fabs(float) [library="math.ssm"];
  function<float> power(float, int) [library="math.ssm"];

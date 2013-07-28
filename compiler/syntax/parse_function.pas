@@ -357,7 +357,7 @@ Begin
    { add parameters }
    With Func do
     For I := Low(ParamList) To High(ParamList) Do
-     __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-2, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
+     __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-1-uint8(not Func.isNaked), [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
 
    { add special constants (if `--internal-const` enabled) }
    if (getBoolOption(opt_internal_const)) Then
@@ -439,7 +439,7 @@ Begin
     {
      @Note:
      Tree simplification can be done before generating the SSA form, because it doesn't use the SSA, and as it changes the whole expression trees, after
-     this optimization new SSA had to be generated anyway.
+     this optimization new SSA had to be generated again anyway.
     }
     DevLog(dvInfo, 'Parse', 'Simplifing expression trees...');
     While (TreeSimplify) do;
