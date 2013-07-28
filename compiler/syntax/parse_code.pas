@@ -148,13 +148,13 @@ Begin
         Arg := 'ei1';
        End Else { var found }
        Begin
-        if (Variable.RefSymbol.DeclFunction = nil) Then
+        if (Variable.RefSymbol.DeclFunction <> nil) Then
         Begin
          With Variable do
           if (isConst) and (Value <> nil) Then // if constant...
            Arg := getValueFromExpression(Value) Else
            Begin
-            Attributes += [vaVolatile]; // optimizer could remove this variable or do any other optimization to it, which could break the user's bytecode
+            Attributes += [vaVolatile]; // optimizer could remove this variable or do any other optimization to it, which could break the user's bytecode, so we're just letting optimizer know, that it mustn't do anything with this variable
             Arg        := 'localvar.'+IntToStr(LongWord(Variable)); // a bit lame solution, but I have no idea how to make it work in a better way
            End;
         End Else
