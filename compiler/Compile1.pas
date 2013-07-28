@@ -1186,7 +1186,6 @@ Var Namespaces         : TNamespaceList;
     TmpNamespace       : TNamespace;
     List               : TSymbolList;
     Symbol, Tmp        : TSymbol;
-    Check              : Boolean;
 Begin
  Result := nil;
 
@@ -1247,19 +1246,24 @@ Begin
 
    if (inFunction) Then
    Begin
-    Tmp   := nil;
-    Check := True;
+    (*
+     @Note: there can happen a situation where (at least) two different identifiers with the same name are visible from the same scope and it's not an ambiguous reference, eg:
+
+     function<void> foo()
+     {
+     }
+
+     function<void> do_something()
+     {
+      var<int> foo;
+
+      foo = 10; // this is an "ambiguous" reference, which really should be resolved to the local variable "foo", not error (because 'local scope' > 'global scope'). That's what this code below does.
+     }
+    *)
 
     For Symbol in List Do
-     if (Symbol.DeclFunction <> nil) Then
-     Begin
-      if (Tmp <> nil) Then
-       Check := False;
-      Tmp := Symbol;
-     End;
-
-    if (Check) Then
-     Exit(Tmp);
+     if (Symbol.DeclFunction = getCurrentFunction) Then
+      Exit(Symbol);
    End;
 
    CompileError(Token, eAmbiguousIdentifier, [IdentName]);

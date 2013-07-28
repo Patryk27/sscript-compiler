@@ -1050,17 +1050,17 @@ Var Pos, I: Integer;
     Begin
      Tmp := Result^.Left;
 
-     if (Tmp^.Typ = mtIdentifier) Then // calling an identifier (i.e. variable or function)
+     if (Tmp^.Typ = mtIdentifier) Then // calling an identifier (ie. variable or function)
      Begin
       Name := Tmp^.IdentName;
 
       if (Name <> '') Then
       Begin
-       Symbol := Compiler.findCandidate(Name, Value.Namespace, Tmp^.Token); // find candidate
+       Symbol         := TSymbol(Tmp^.Symbol); // symbol should be already fetched, see end of this function
+       Result^.Symbol := Symbol;
 
        if (Symbol = nil) or not (Symbol.Typ in [stVariable, stFunction]) Then
-        Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]) Else
-        Result^.Symbol := Symbol;
+        Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]);
       End;
      End Else // calling not an identifier (cast-call, like: `(cast<function<void>()>(somevar))()` )
       Result^.Value := 'cast-call';
@@ -1073,7 +1073,7 @@ Var Pos, I: Integer;
    Result      := CreateNode(nil, nil, mtNothing, Value.Value, Value.Token);
    Result^.Typ := Value.Typ;
 
-   { variable or constant }
+   { identifier (variable, constant or function name) }
    if (Value.Typ = mtIdentifier) Then
    Begin
     Result^.IdentName := VarToStr(Result^.Value);
