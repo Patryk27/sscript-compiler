@@ -20,7 +20,6 @@ namespace std
  function<float> log10(float) [library="math.ssm"];
  function<float> log2(float) [library="math.ssm"];
  function<float> ln(float) [library="math.ssm"];
- function<void> modf(float, var int, var float) [library="math.ssm"];
  function<float> power(float, int) [library="math.ssm"];
  function<int> ipower(int, int) [library="math.ssm"];
  function<float> sqrt(float) [library="math.ssm"];
@@ -30,15 +29,16 @@ namespace std
  function<int> round_down(float) [library="math.ssm"];
  function<int> round_trunc(float) [library="math.ssm"];
  function<float> round_to(float, int) [library="math.ssm"];
+ function<int> imax(int, int) [library="math.ssm"];
+ function<float> fmax(float, float) [library="math.ssm"];
+ function<int> imin(int, int) [library="math.ssm"];
+ function<float> fmin(float, float) [library="math.ssm"];
  function<int> factorial(int) [library="math.ssm"];
  function<int> iabs(int) [library="math.ssm"];
  function<float> fabs(float) [library="math.ssm"];
  function<bool> is_even(int) [library="math.ssm"];
  function<bool> is_odd(int) [library="math.ssm"];
- function<int> imax(int, int) [library="math.ssm"];
- function<float> fmax(float, float) [library="math.ssm"];
- function<int> imin(int, int) [library="math.ssm"];
- function<float> fmin(float, float) [library="math.ssm"];
  function<int> gcd(int, int) [library="math.ssm"];
  function<bool> in_range(float, float, float) [library="math.ssm"];
+ function<void> modf(float, var int, var float) [library="math.ssm"];
 }

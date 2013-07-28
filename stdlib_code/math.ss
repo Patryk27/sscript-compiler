@@ -73,9 +73,10 @@ function<float> atan2(float y, float x) naked
 {
  :CODE
  {
-  push(%x)
+  sub(stp, 1)
   icall("math.atan2")
   pop(ef1)
+  add(stp, 3)
  }
 }
 
@@ -182,12 +183,6 @@ function<float> ln(float x) naked
  }
 }
 
-function<void> modf(float number, var int int_part, var float float_part)
-{
- int_part   = round_trunc(number);
- float_part = number-int_part;
-}
-
 /* Power functions */
 function<float> power(float base, int exp) // fast power algorithm (non-recursive version)
 {
@@ -269,6 +264,33 @@ function<float> round_to(float x, int digit)
 }
 
 /* Minimum, maximum, difference functions */
+function<int> imax(int a, int b)
+{
+ if (a > b)
+  return a; else
+  return b;
+}
+
+function<float> fmax(float a, float b)
+{
+ if (a > b)
+  return a; else
+  return b;
+}
+
+function<int> imin(int a, int b)
+{
+ if (a < b)
+  return a; else
+  return b;
+}
+
+function<float> fmin(float a, float b)
+{
+ if (a < b)
+  return a; else
+  return b;
+}
 
 /* Other functions */
 function<int> factorial(int num)
@@ -303,34 +325,6 @@ function<bool> is_even(int n)
 function<bool> is_odd(int n)
 {
  return (n&1); // (n%2) != 0
-}
-
-function<int> imax(int a, int b)
-{
- if (a > b)
-  return a; else
-  return b;
-}
-
-function<float> fmax(float a, float b)
-{
- if (a > b)
-  return a; else
-  return b;
-}
-
-function<int> imin(int a, int b)
-{
- if (a < b)
-  return a; else
-  return b;
-}
-
-function<float> fmin(float a, float b)
-{
- if (a < b)
-  return a; else
-  return b;
 }
 
 /* http://en.wikipedia.org/wiki/Binary_GCD_algorithm#Iterative_version_in_C */
@@ -377,5 +371,11 @@ function<int> gcd(int u, int v)
 function<bool> in_range(float num, float lower, float upper)
 {
  return (num >= lower) && (num <= upper);
+}
+
+function<void> modf(float number, var int int_part, var float float_part)
+{
+ int_part   = round_trunc(number);
+ float_part = number-int_part;
 }
 }
