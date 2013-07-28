@@ -1081,7 +1081,6 @@ Var Pos, I: Integer;
 
     if (Value.Namespace = nil) Then
      Result^.Symbol := Compiler.findCandidate(Result^.IdentName, Value.Namespace, Value.Token) Else
-     Result^.Symbol := Value.Namespace.findSymbol(Result^.IdentName);
    End;
   End;
 
@@ -1134,7 +1133,7 @@ Begin
    Node := CreateNode(nil, nil, mtFunctionCall, Value.Value, Value.Token);
 
    SetLength(Node^.ParamList, Value.ParamCount);
-   For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
+   For I := High(Node^.ParamList) Downto Low(Node^.ParamList) Do
     Node^.ParamList[I] := CreateNodeFromStack;
 
    Node^.Left := CreateNodeFromStack;
@@ -1148,7 +1147,7 @@ Begin
    Node := CreateNode(nil, nil, mtMethodCall, Value.Value, Value.Token);
 
    SetLength(Node^.ParamList, Value.ParamCount);
-   For I := Low(Node^.ParamList) To High(Node^.ParamList) Do
+   For I := High(Node^.ParamList) Downto Low(Node^.ParamList) Do
     Node^.ParamList[I] := CreateNodeFromStack;
 
    Node^.Right := CreateNodeFromStack;
