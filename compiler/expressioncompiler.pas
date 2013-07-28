@@ -1078,7 +1078,10 @@ Var Pos, I: Integer;
    Begin
     Result^.IdentName := VarToStr(Result^.Value);
     Result^.Value     := null;
-    Result^.Symbol    := Compiler.findCandidate(Result^.IdentName, Value.Namespace, Value.Token);
+
+    if (Value.Namespace = nil) Then
+     Result^.Symbol := Compiler.findCandidate(Result^.IdentName, Value.Namespace, Value.Token) Else
+     Result^.Symbol := Value.Namespace.findSymbol(Result^.IdentName);
    End;
   End;
 
