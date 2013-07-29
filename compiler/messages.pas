@@ -16,7 +16,7 @@ Unit Messages;
   eLinker_UnknownReference);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedString,
-                                           eExpectedInt, eUnknownType, eUnknownNamespace, eFileNotFound,
+                                           eExpectedInt, eUnknownType, eUnknownNamespace, eFileNotFound, eDivByZero,
                                            eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
                                            eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidIntegerValue, eInvalidFloatValue];
 
