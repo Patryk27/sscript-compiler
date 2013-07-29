@@ -99,6 +99,14 @@ Begin
   AnyChange := True;
  End;
 
+ { '0 - expr' -> '-expr' }
+ if (Expr^.Typ = mtSub) and (isEqual(Left, 0)) Then
+ Begin
+  Expr^.Typ  := mtNeg;
+  Expr^.Left := nil;
+  AnyChange  := True;
+ End;
+
  { 'x - x' -> '0' }
  if (Expr^.Typ = mtSub) and (isVariable(Left)) and (isVariable(Right)) and (Left^.Symbol = Right^.Symbol) Then
  Begin
@@ -316,7 +324,7 @@ Begin
   End;
 
  { 'x = expr op x' -> 'x op= expr' }
- For Simplify1 in Simplify1Data Do
+ For Simplify1 in Simplify2Data Do
   if (Expr^.Typ = mtAssign) and (isVariable(Left)) and
      (Right^.Typ = Simplify1.Pre) and (Right^.Right^.Symbol = Left^.Symbol) and (Right^.Left^.hasValue) Then
   Begin

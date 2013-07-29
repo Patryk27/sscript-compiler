@@ -96,6 +96,7 @@ Type TSimplify1Data = Record
                        Pre, Post: TExpressionNodeType;
                       End;
 
+{ x = x op expr -> x op= expr }
 Const Simplify1Data: Array[0..8] of TSimplify1Data =
 (
  (Pre: mtAdd; Post: mtAddEq),
@@ -107,6 +108,13 @@ Const Simplify1Data: Array[0..8] of TSimplify1Data =
  (Pre: mtBitwiseAND; Post: mtAndEq),
  (Pre: mtBitwiseOR; Post: mtOrEq),
  (Pre: mtXor; Post: mtXorEq)
+);
+
+{ x = expr op x -> x op= expr }
+Const Simplify2Data: Array[0..1] of TSimplify1Data =
+(
+ (Pre: mtAdd; Post: mtAddEq),
+ (Pre: mtMul; Post: mtMulEq)
 );
 
 {$I insert_constants.pas}
