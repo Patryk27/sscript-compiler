@@ -197,6 +197,22 @@ Begin
   AnyChange := True;
  End;
 
+ { 'i += 1' -> '++i' }
+ if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (isEqual(Right, 1)) Then
+ Begin
+  Expr^.Typ   := mtPreInc;
+  Expr^.Right := nil;
+  AnyChange   := True;
+ End;
+
+ { 'i -= 1' -> '--i' }
+ if (Expr^.Typ = mtSubEq) and (isVariable(Left)) and (isEqual(Right, 1)) Then
+ Begin
+  Expr^.Typ   := mtPreDec;
+  Expr^.Right := nil;
+  AnyChange   := True;
+ End;
+
  { 'i+i+i+i+....+i' -> 'i * x' }
  if (Expr^.Typ = mtAdd) and (isVariable(Right)) Then
   TryToOptimizeSum(Expr);
@@ -335,12 +351,36 @@ Begin
   End;
 
  { 'x += x' -> 'x *= 2' }
- if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (Right^.Left <> nil) and (Left^.Symbol = Right^.Left^.Symbol) Then
+ if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (Left^.Symbol = Right^.Symbol) Then
  Begin
   Expr^.Typ   := mtMulEq;
   Expr^.Right := MakeIntExpression(2);
 
   AnyChange := True;
+ End;
+
+ { 'x += -expr' -> 'x -= expr' }
+ if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (Right^.Typ = mtNeg) Then
+ Begin
+  Expr^.Typ   := mtSubEq;
+  Expr^.Right := Right^.Left;
+  AnyChange   := True;
+ End;
+
+ { 'x -= -expr' -> 'x += expr' }
+ if (Expr^.Typ = mtSubEq) and (isVariable(Left)) and (Right^.Typ = mtNeg) Then
+ Begin
+  Expr^.Typ   := mtAddEq;
+  Expr^.Right := Right^.Left;
+  AnyChange   := True;
+ End;
+
+ { '-const' -> 'negative value of const' }
+ if (Expr^.Typ = mtNeg) and (Expr^.Left^.Typ in [mtInt, mtFloat]) Then
+ Begin
+  Expr        := Expr^.Left;
+  Expr^.Value := -Expr^.Value;
+  AnyChange   := True;
  End;
 
  Parse(Expr^.Left);
