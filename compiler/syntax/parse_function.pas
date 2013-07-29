@@ -270,10 +270,10 @@ Begin
     call would look like this: `call(:)`, oops: no label name, because it's unknown yet! And as the name is generated in the second pass, for our
     instance such would never be generated! (because at least double included files are only first-pass parsed)
     To prevent it we use a simple trick: instead of calling label's name, there's used construction:
-    => call(:$function.SYMBOL_POINTER)
+    => call(:$function.FUNCTION_CLASS_POINTER)
     Eg.
-    => call(:$function.23123095) <- this number is an address (pointer) to the "TSymbol" class of the callee function.
-    The "$function.SYMBOL_POINTER" is a temporary label name resolved inside the bytecode compiler, where everything has been already
+    => call(:$function.23123095) <- this number is an address (pointer) to the "TFunction" class of the callee function.
+    The "$function.FUNCTION_CLASS_POINTER" is a temporary label name resolved inside the bytecode compiler, where everything has been already
     parsed and is known.
 
     I think it's all the magic here ;)
@@ -339,9 +339,11 @@ Begin
      mVariable.RefSymbol.DeclFunction  := nil;
      mVariable.RefSymbol.DeclNamespace := getCurrentNamespace;
      mVariable.Typ                     := CreateFunctionType(Func);
-     mVariable.Value                   := MakeIntExpression('@'+Func.MangledName);
+     mVariable.Value                   := MakeIntExpression('@$function.'+IntToStr(uint64(Pointer(Func))));
 
      mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
+
+     Func.RefVar := mVariable;
     End;
    End;
 
@@ -393,7 +395,8 @@ Begin
     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
   End; @TODO}
 
-  Func.Return := TmpType;
+  Func.Return     := TmpType;
+  Func.RefVar.Typ := TmpType;
 
   // generate label name
   if (Func.MangledName = '') Then

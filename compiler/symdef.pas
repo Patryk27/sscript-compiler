@@ -134,6 +134,7 @@ Unit symdef;
                    Public
                    // public fields
                     RefSymbol: TRefSymbol;
+                    RefVar   : TVariable;
 
                     ModuleName   : String; // module name in which function has been declared
                     MangledName  : String; // function mangled (label) name
@@ -1022,6 +1023,7 @@ End;
 Constructor TFunction.Create;
 Begin
  RefSymbol := TRefSymbol.Create;
+ RefVar    := nil;
 
  ModuleName    := '';
  NamespaceName := '';

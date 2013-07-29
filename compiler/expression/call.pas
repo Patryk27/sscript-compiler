@@ -180,7 +180,7 @@ Begin
   ParseParamList(RefSymbol.Name, ParamList);
 
   // call function
-  Compiler.PutOpcode(o_call, [':$function.'+IntToStr(LongWord(Symbol))]);
+  Compiler.PutOpcode(o_call, [':$function.'+IntToStr(uint64(Pointer(mFunction)))]);
 
   // clean after call
   CleanAfterCall(ParamList);

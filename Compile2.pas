@@ -112,7 +112,7 @@ Begin
           Begin
            Delete(Tmp, 1, 10);
            Int := StrToInt(Tmp);
-           Tmp := TSymbol(Int).mFunction.MangledName;
+           Tmp := TFunction(Int).MangledName;
 
            if (Length(Tmp) = 0) Then
             Compile1.TCompiler(Compiler).CompileError(eInternalError, ['Couldn''t fetch function''s label name; funcname = '+TSymbol(Int).mFunction.RefSymbol.Name]);
