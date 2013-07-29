@@ -4,10 +4,10 @@ Var AnyChange: Boolean;
 
   { Visit }
   Procedure Visit(Node: TCFGNode);
-  Var Child, Back : TCFGNode;
-      CanBeRemoved: Boolean;
-      Symbol      : TSymbol;
-      Second      : PExpressionNode;
+  Var Child, Back, Tmp: TCFGNode;
+      CanBeRemoved    : Boolean;
+      Symbol          : TSymbol;
+      Second          : PExpressionNode;
   Begin
    if (Node = nil) Then
     Exit;
@@ -57,9 +57,14 @@ Var AnyChange: Boolean;
 
     if (CanBeRemoved) Then
     Begin
+     Tmp       := TCFGNode.Create(nil, nil);
+     Tmp.Typ   := cetExpression;
+     Tmp.Value := Back.Value;
+     RemovedNodes.Add(Tmp);
+
      RemapSSA(Back, Back, Func.FlowGraph.Root, True);
      Back.Typ   := cetNone;
-     Back.Value := nil; // @TODO: Dispose?
+     Back.Value := nil;
      AnyChange  := True;
     End;
    End;
@@ -83,8 +88,8 @@ Var ID, KilledVars: Integer;
 
   { RemoveVarAssign }
   Procedure RemoveVarAssign(Node: TCFGNode);
-  Var Child : TCFGNode;
-      Assign: PExpressionNode;
+  Var Child, TmpNode : TCFGNode;
+      Assign, TmpExpr: PExpressionNode;
   Begin
    if (Node = nil) Then
     Exit;
@@ -99,6 +104,13 @@ Var ID, KilledVars: Integer;
 
     if (Assign <> nil) Then
     Begin
+     New(TmpExpr);
+     TmpExpr^      := Assign^;
+     TmpNode       := TCFGNode.Create(nil, nil);
+     TmpNode.Typ   := cetExpression;
+     TmpNode.Value := TmpExpr;
+     RemovedNodes.Add(TmpNode);
+
      if (Node.Value^.HasCall) Then // if right side of the asignment is a call, remove the assignment, but leave the call
      Begin
       Node.Value^.RemoveAssignments(Func.SymbolList[ID].Name);
