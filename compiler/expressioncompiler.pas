@@ -111,10 +111,13 @@ Const Simplify1Data: Array[0..8] of TSimplify1Data =
 );
 
 { x = expr op x -> x op= expr }
-Const Simplify2Data: Array[0..1] of TSimplify1Data =
+Const Simplify2Data: Array[0..4] of TSimplify1Data =
 (
  (Pre: mtAdd; Post: mtAddEq),
- (Pre: mtMul; Post: mtMulEq)
+ (Pre: mtMul; Post: mtMulEq),
+ (Pre: mtBitwiseAND; Post: mtAndEq),
+ (Pre: mtBitwiseOR; Post: mtOrEq),
+ (Pre: mtXor; Post: mtXorEq)
 );
 
 {$I insert_constants.pas}
