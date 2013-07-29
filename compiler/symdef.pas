@@ -409,7 +409,7 @@ Constructor TType.Create;
 Begin
  RefSymbol := TRefSymbol.Create;
 
- RegPrefix     := #0;
+ RegPrefix     := 'i';
  ArrayDimCount := 0;
  ArrayBase     := nil;
  InternalID    := 0;

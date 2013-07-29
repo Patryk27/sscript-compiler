@@ -1335,6 +1335,9 @@ Var Left, Right: PExpressionNode; // left and right side of current expression
   // RePop
   Procedure RePop(Expr: PExpressionNode; TypeID: TType; Reg: Byte);
   Begin
+   if (TypeID = nil) Then
+    Exit;
+
    if (Expr^.ResultOnStack) Then
    Begin
     if not (Reg in [1..4]) Then

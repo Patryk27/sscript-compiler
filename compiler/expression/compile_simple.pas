@@ -193,7 +193,7 @@ Begin
   if (not TypeRight.CanBeAssignedTo(TypeLeft)) Then
   Begin
    Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
-   Exit;
+   Exit(nil);
   End;
  End;
 

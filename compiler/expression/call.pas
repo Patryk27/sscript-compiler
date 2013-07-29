@@ -248,7 +248,7 @@ Begin
 
   // is it any of internal functions?
   Case VarToStr(Left^.Value) of
-   { @Note: when changing internal functions, modify also TInterpreter.MakeTree->CreateNodeFromStack and Parse_FUNCTION }
+   { @Note: when changing internal functions, modify also TInterpreter.MakeTree->CreateNodeFromStack and TCompiler.RedeclarationCheck }
    '':
   End;
 
