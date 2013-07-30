@@ -308,6 +308,10 @@ Var Compiler2: Compile2.TCompiler;
 Begin
  Log('-> Compiling as bytecode');
 
+ With Parser do
+  if (next_t <> _BRACKET3_OP) Then
+   CompileError(eExpected, ['{', next.Value]);
+
  Parse_CODE.Parse(self, True); // parse bytecode
 
  Compiler2 := Compile2.TCompiler.Create;
