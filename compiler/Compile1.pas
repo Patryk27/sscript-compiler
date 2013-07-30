@@ -315,7 +315,7 @@ Begin
  Parse_CODE.Parse(self, True); // parse bytecode
 
  Compiler2 := Compile2.TCompiler.Create;
- Compiler2.Compile(self, True);
+ Compiler2.Compile(self, False);
  Compiler2.Free;
 End;
 
