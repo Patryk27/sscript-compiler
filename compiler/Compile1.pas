@@ -803,7 +803,7 @@ Begin
       if (Length(Str) <> 1) Then
        CompileError(eInternalError, ['Char literals must have ''length = 1''']);
 
-      Typ   := ptInt;
+      Typ   := ptChar;
       Value := ord(Str[1]);
      End Else
 
