@@ -20,7 +20,7 @@ Bytecode version: 0.41
 		10 bytes - extended - floating-point value
 
 	[if `type` is `string` or `label reference`]
-		x bytes - byte/char - subsequent ASCII chars; string is null-terminated (it means, it ends with char `0x00`)
+		x bytes - byte/char - subsequent ASCII chars; string is null-terminated (it means it ends with char `0x00`)
 
 	[if `type` is anything else]
 		4 bytes - integer - signed integer value

@@ -794,11 +794,25 @@ Begin
       Typ   := ptString;
       Value := Str;
      End Else
+
+     if (Str[1] = '''') Then
+     Begin
+      Delete(Str, 1, 1);
+      Delete(Str, Length(Str), 1);
+
+      if (Length(Str) <> 1) Then
+       CompileError(eInternalError, ['Char literals must have ''length = 1''']);
+
+      Typ   := ptInt;
+      Value := ord(Str[1]);
+     End Else
+
      if (Str[1] = '[') Then
      Begin
       Typ   := ptStackVal;
       Value := StrToInt(Copy(Str, 2, Length(Str)-2));
      End Else
+
      if (Str[1] = '#') Then
      Begin
       Delete(Str, 1, 1);
@@ -808,6 +822,7 @@ Begin
        Value := iTmp Else
        CompileError(Token^, eBytecode_InvalidOpcode, []);
      End Else
+
      if (Str[1] = ':') Then
      Begin
       Value := Str;
