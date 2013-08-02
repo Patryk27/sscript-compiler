@@ -330,7 +330,7 @@ function<bool> is_odd(int n)
 /* http://en.wikipedia.org/wiki/Binary_GCD_algorithm#Iterative_version_in_C */
 function<int> gcd(int u, int v)
 {
- if ((u < 0) || (v < -0))
+ if ((u < 0) || (v < 0))
   return 0;
 
  var<int> shift;
