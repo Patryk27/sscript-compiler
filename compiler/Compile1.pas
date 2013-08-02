@@ -801,7 +801,7 @@ Begin
       Delete(Str, Length(Str), 1);
 
       if (Length(Str) <> 1) Then
-       CompileError(eInternalError, ['Char literals must have ''length = 1''']);
+       CompileError(eInternalError, ['Char literals must have ''length'' = ''1''']);
 
       Typ   := ptChar;
       Value := ord(Str[1]);

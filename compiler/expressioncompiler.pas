@@ -1092,6 +1092,7 @@ Var Pos, I: Integer;
 
     if (Value.Namespace = nil) Then
      Result^.Symbol := Compiler.findCandidate(Result^.IdentName, Value.Namespace, Value.Token) Else
+     Result^.Symbol := Value.Namespace.findSymbol(Result^.IdentName);
    End;
   End;
 
