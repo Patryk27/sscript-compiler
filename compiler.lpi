@@ -55,16 +55,10 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="compiler;compiler\optimization;compiler\expression;compiler\expression\internal_functions;compiler\syntax;$(ProjOutDir)"/>
-      <OtherUnitFiles Value="compiler;compiler\syntax"/>
+      <IncludeFiles Value="bytecode;optimization\bytecode;optimization\tree;expression\gen;expression\gen\internal_functions;syntax;tree;tree\cfg;tree\ssa;symbol;$(ProjOutDir)"/>
+      <OtherUnitFiles Value="bytecode;bytecode\ssm;parser;parser\lexer;syntax;expression;tree;tree\cfg;tree\ssa;optimization\bytecode;optimization\tree;symbol"/>
       <UnitOutputDirectory Value="lib"/>
     </SearchPaths>
-    <CodeGeneration>
-      <Optimizations>
-        <VariablesInRegisters Value="True"/>
-        <UncertainOptimizations Value="True"/>
-      </Optimizations>
-    </CodeGeneration>
     <Other>
       <Verbosity>
         <ShowHintsForUnusedUnitsInMainSrc Value="True"/>

@@ -84,7 +84,7 @@ Unit CompilerUnit;
      show_devlog : Boolean = False;
 
  Implementation
-Uses Compile1, SysUtils;
+Uses SSCompiler, SysUtils;
 Var Compiler: TCompiler = nil;
 
 { Log }

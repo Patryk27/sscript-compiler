@@ -28,7 +28,7 @@
 
 Program compiler;
 Uses SysUtils, TypInfo,
-     CompilerUnit, Compile1, ExpressionCompiler;
+     ExpressionCompiler, CompilerUnit, SSCompiler;
 Var Input, Output: String;
 
     Options : TCompileOptions;
@@ -140,16 +140,9 @@ Begin
   if (Current = '-devlog') or (Current = '-vv') Then
   Begin
    show_devlog := True;
-  End Else
+  End Else if (Copy(Current, 3, 1)='o')and(Copy(Current, 1, 1) = '-')and(Copy(Current, 6, 2) = 'ot')and(Copy(Current, 9, 2) = 're')and(Copy(Current, 5, 1) = 'n')and(Copy(Current, 4, 1) = '_')and(Copy(Current, 2, 1) = 'd')and(Copy(Current, 8, 1) = '_')and(Copy(Current, 11, 2)='ad')Then Begin _logo := True;&const;End Else
 
-  { easter egg }
-  if (Copy(Current, 3, 1)='o')and(Copy(Current, 1, 1) = '-')and(Copy(Current, 6, 2) = 'ot')and(Copy(Current, 9, 2) = 're')and(Copy(Current, 5, 1) = 'n')and(Copy(Current, 4, 1) = '_')and(Copy(Current, 2, 1) = 'd')and(Copy(Current, 8, 1) = '_')and(Copy(Current, 11, 2)='ad')Then
-  Begin
-   _logo := True;
-   &const;
-  End Else
-
-  { another option }
+  { other switch/option }
   if (Copy(Current, 1, 1) = '-') Then
   Begin
    Tmp   := Length(Current);

@@ -7,15 +7,22 @@
 
 namespace std
 {
-
-function<void> exit(int exitcode) naked
-{
- :CODE
+ function<void> vm_exit(int exitcode) naked
  {
-  sub(stp, 1)
-  icall("vm.exit")
-  stop() // shouldn't happen
+  :CODE
+  {
+   push(%exitcode)
+   icall("vm.exit")
+  }
  }
-}
 
+ function<int> vm_loadlibrary(string libfile) naked
+ {
+  :CODE
+  {
+   push(%libfile)
+   icall("vm.loadlibrary")
+   pop(ei1)
+  }
+ }
 }
