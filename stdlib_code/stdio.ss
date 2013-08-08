@@ -182,9 +182,8 @@ function<void> set_buffered(bool buffered) naked
 {
  :CODE
  {
-  sub(stp, 1)
+  push(%buffered)
   icall("output.set_buffered")
-  add(stp, 2)
  }
 }
 
@@ -200,12 +199,12 @@ function<void> clear() naked
 
 function<void> show_cursor() naked
 {
- :CODE icall("output.cursor.show")
+ :CODE icall("output.cursor_show")
 }
 
 function<void> hide_cursor() naked
 {
- :CODE icall("output.cursor.hide")
+ :CODE icall("output.cursor_hide")
 }
 
 }
