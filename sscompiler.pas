@@ -352,7 +352,7 @@ Begin
    { comment }
    if (isComment) Then
    Begin
-    OutputCode.Add('; '+Name);
+    OutputCode.Add('// '+Name);
     Continue;
    End;
 
