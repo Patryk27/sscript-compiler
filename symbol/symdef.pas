@@ -26,6 +26,14 @@ Unit symdef;
                 PBegin, PEnd: TToken_P;
                End;
 
+ Type PStackSavedReg = ^TStackSavedReg;
+      TStackSavedReg = Record
+                        RegChar: Char;
+                        RegID  : uint8;
+                       End;
+
+ Type TStackSavedRegs = specialize TFPGList<PStackSavedReg>;
+
  // TNamespaceVisibility
  Type PNamespaceVisibility = ^TNamespaceVisibility;
       TNamespaceVisibility = Record
@@ -145,7 +153,10 @@ Unit symdef;
 
                     ParamList : TParamList; // parameter list
                     SymbolList: TSymbolList; // local symbol list
-                    FlowGraph : TCFGraph; // flow graph
+                    FlowGraph : TCFGraph; // control flowgraph
+
+                    StackSize: uint8;
+                    StackRegs: TStackSavedRegs;
 
                     Attributes: TFunctionAttributes;
 
@@ -1034,6 +1045,9 @@ Begin
 
  FlowGraph  := TCFGraph.Create;
  SymbolList := TSymbolList.Create;
+
+ StackSize := 0;
+ StackRegs := TStackSavedRegs.Create;
 
  Attributes := [];
 End;

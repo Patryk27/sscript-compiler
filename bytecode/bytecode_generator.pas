@@ -340,20 +340,18 @@ End;
 
 {$I deadcode_removal.pas}
 {$I expression_optimization.pas}
-{$I branches_simplification.pas}
+{$I branch_simplification.pas}
 {$I variable_allocation.pas}
 
 (* AddPrologCode *)
 Procedure AddPrologCode;
-Var SavedRegs  : uint16 = 0;
-    Symbol     : TSymbol;
+Var Symbol  : TSymbol;
+    StackReg: PStackSavedReg;
 Begin
- VarsOnStack := 0;
-
  With TCompiler(Compiler) do
  Begin
   { function info }
-  PutComment('--------------------------------- ;');
+  PutComment('--------------------------------- //');
   PutComment('Function name   : '+Func.RefSymbol.Name);
   PutComment('Declared at line: '+IntToStr(Func.RefSymbol.DeclToken^.Line));
   PutComment('--------------------');
@@ -368,59 +366,42 @@ Begin
   PutComment('Variables:');
   For Symbol in Func.SymbolList Do
    if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (not Symbol.mVariable.isFuncParam) Then
-    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'-'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines');
+    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'-'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines, CFG cost: '+IntToStr(getVariableCFGCost(Symbol, Func.FlowGraph.Root, nil)));
 
-  PutComment('--------------------------------- ;');
+  PutComment('--------------------------------- //');
 
   PutOpcode(o_loc_func, ['"'+Func.RefSymbol.Name+'"']);
 
   { allocate local stack variables }
   if (not Func.isNaked) Then
-  Begin
-   With Func do
-    For Symbol in SymbolList Do // each symbol
-     if (Symbol.Typ = stVariable) Then // if variable
-      With Symbol.mVariable do
-       if (MemPos <= 0) and (not DontAllocate) Then
-        Inc(VarsOnStack); // next variable to allocate
-
-   PutOpcode(o_add, ['stp', VarsOnStack+1]); // `+1`, because `stack[stp]` is the caller's IP (instruction pointer)
-  End;
+   PutOpcode(o_add, ['stp', Func.StackSize]);
 
   { if register is occupied by variable, we need to at first save this register's value (and restore it at the end of the function) }
-  SavedRegs := 0;
   With Func do
   Begin
-   For Symbol in SymbolList Do // each symbol
-    if (Symbol.Typ = stVariable) Then // if variable
-     With Symbol.mVariable do
-      if (MemPos > 0) Then // if allocated in register
-      Begin
-       PutOpcode(o_push, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
-       Inc(SavedRegs);
-      End;
+   For StackReg in StackRegs Do
+    PutOpcode(o_push, ['e'+StackReg^.RegChar+IntToStr(StackReg^.RegID)]);
 
    For Symbol in SymbolList Do // each symbol
     if (Symbol.Typ = stVariable) Then // if variable
      With Symbol.mVariable do
       if (MemPos <= 0) Then // if allocated on the stack
       Begin
-       MemPos -= SavedRegs;
+       MemPos -= StackRegs.Count; // move variable back
 
        if (isFuncParam) Then
-        MemPos -= VarsOnStack;
+        MemPos -= Func.StackSize;
       End;
   End;
 
-  { new label (main function's body; nothing should jump here, it's just facilitation for optimizerm, so it doesn't touch the epilog code) }
+  { new label (main function's body; nothing should jump here - it's just facilitation for optimizer so it doesn't possibly remove the epilog code) }
   PutLabel(Func.MangledName+'_body');
  End;
 End;
 
 (* AddEpilogCode *)
 Procedure AddEpilogCode;
-Var I     : int32;
-    Symbol: TSymbol;
+Var I: int32;
 Begin
  With TCompiler(Compiler) do
  Begin
@@ -429,18 +410,12 @@ Begin
 
   With Func do
   Begin
-   For I := SymbolList.Count-1 Downto 0 Do
-   Begin
-    Symbol := SymbolList[I];
-    if (Symbol.Typ = stVariable) Then // if variable
-     With Symbol.mVariable do
-      if (MemPos > 0) Then // if allocated in register
-       PutOpcode(o_pop, ['e'+Typ.RegPrefix+IntToStr(MemPos)]);
-   End;
-  End;
+   For I := StackRegs.Count-1 Downto 0 Do
+    PutOpcode(o_pop, ['e'+StackRegs[I]^.RegChar+IntToStr(StackRegs[I]^.RegID)]);
 
-  if (not Func.isNaked) Then
-   PutOpcode(o_sub, ['stp', VarsOnStack+1]);
+   if (not isNaked) Then
+    PutOpcode(o_sub, ['stp', Func.StackSize]);
+  End;
 
   PutOpcode(o_ret);
  End;

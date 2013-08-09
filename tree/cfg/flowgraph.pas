@@ -59,7 +59,7 @@ Unit FlowGraph;
 
  Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 
- Function getVariableUseCount(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): uint32;
+ Function getVariableCFGCost(Symbol: TObject; rBeginNode, rEndNode: TCFGNode): uint32;
  Function isVariableUsed(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
 
  Implementation
@@ -284,11 +284,22 @@ Begin
  End;
 End;
 
-(* getVariableUseCount *)
-Function getVariableUseCount(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): uint32;
-Var Visited : TCFGNodeList;
-    VarName : String;
-    VarRange: TRange;
+(* getVariableCFGCost *)
+{
+ Returns cost of operations on passed variable.
+
+ Basically:
+ var += expr; <- cost = 2 (var read + var write)
+ var = expr <- cost = 1 (var write)
+ var = var*var; <- cost = 3 (var read + var read + var write)
+ xyz = var; <- cost = 1 ('var' is read once)
+ xyz = 10*var; <- cost = 1
+ etc. etc.
+
+ Passing by reference is not counted to cost.
+}
+Function getVariableCFGCost(Symbol: TObject; rBeginNode, rEndNode: TCFGNode): uint32;
+Var Visited: TCFGNodeList;
 
     { VisitExpression }
     Procedure VisitExpression(Expr: PExpressionNode);
@@ -297,15 +308,25 @@ Var Visited : TCFGNodeList;
      if (Expr = nil) Then
       Exit;
 
-     if (Expr^.Typ = mtIdentifier) Then
-      if (Expr^.IdentName = VarName) Then
-       Inc(Result);
+     if (Expr^.Typ = mtIdentifier) and (Expr^.Symbol = Symbol) Then
+      Inc(Result); // var read
 
-     if (Expr^.Left <> nil) Then
-      VisitExpression(Expr^.Left);
-
-     if (Expr^.Right <> nil) Then
+     if (Expr^.Typ = mtAssign) and (Expr^.Left^.Symbol = Symbol) Then
+     Begin
+      Inc(Result); // var write
       VisitExpression(Expr^.Right);
+     End Else
+
+     if (Expr^.Typ in MLValueOperators) and (Expr^.Left^.Symbol = Symbol) Then
+     Begin
+      Inc(Result, 2); // var read + var write
+      VisitExpression(Expr^.Right);
+     End Else
+
+     Begin
+      VisitExpression(Expr^.Left);
+      VisitExpression(Expr^.Right);
+     End;
 
      For I := 0 To High(Expr^.ParamList) Do
       VisitExpression(Expr^.ParamList[I]);
@@ -314,7 +335,6 @@ Var Visited : TCFGNodeList;
     { VisitNode }
     Procedure VisitNode(Node: TCFGNode);
     Var Child: TCFGNode;
-        Range: Boolean;
     Begin
      if (Node = rEndNode) Then
       Exit;
@@ -323,13 +343,7 @@ Var Visited : TCFGNodeList;
       Exit;
      Visited.Add(Node);
 
-     if (Node.Value <> nil) Then
-     Begin
-      Range := inRange(Node.getToken^.Position, VarRange.PBegin.Position, VarRange.PEnd.Position);
-
-      if (Range) Then
-       VisitExpression(Node.Value);
-     End;
+     VisitExpression(Node.Value);
 
      For Child in Node.Child Do
       VisitNode(Child);
@@ -337,9 +351,6 @@ Var Visited : TCFGNodeList;
 
 Begin
  Result := 0;
-
- VarName  := TVariable(VariablePnt).RefSymbol.Name;
- VarRange := TVariable(VariablePnt).RefSymbol.Range;
 
  Visited := TCFGNodeList.Create;
  Try

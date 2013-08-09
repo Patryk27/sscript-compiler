@@ -55,8 +55,8 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="bytecode;optimization\bytecode;optimization\tree;expression\gen;expression\gen\internal_functions;syntax;tree;tree\cfg;tree\ssa;symbol;$(ProjOutDir)"/>
-      <OtherUnitFiles Value="bytecode;bytecode\ssm;parser;parser\lexer;syntax;expression;tree;tree\cfg;tree\ssa;optimization\bytecode;optimization\tree;symbol"/>
+      <IncludeFiles Value="bytecode;optimization\bytecode;optimization\code;expression\gen;expression\gen\internal_functions;syntax;tree;tree\cfg;tree\ssa;symbol;$(ProjOutDir)"/>
+      <OtherUnitFiles Value="bytecode;bytecode\ssm;parser;parser\lexer;syntax;expression;tree;tree\cfg;tree\ssa;optimization\bytecode;optimization\code;symbol"/>
       <UnitOutputDirectory Value="lib"/>
     </SearchPaths>
     <Other>

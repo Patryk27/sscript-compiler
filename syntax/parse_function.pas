@@ -14,16 +14,16 @@ Uses SysUtils, Classes, FGL, SSCompiler, Messages, Opcodes, ExpressionCompiler, 
 
 Type PVar = ^TVar;
      TVar = Record
-             mVar    : TVariable;
-             UseCount: uint32;
+             mVar   : TVariable;
+             CFGCost: uint32;
             End;
 
 // SortVarRec
 Function SortVarRec(const A, B: PVar): Integer;
 Begin
- if (A^.UseCount > B^.UseCount) Then
+ if (A^.CFGCost > B^.CFGCost) Then
   Result := -1 Else
- if (A^.UseCount < B^.UseCount) Then
+ if (A^.CFGCost < B^.CFGCost) Then
   Result := 1 Else
   Result := 0;
 End;
@@ -40,15 +40,13 @@ Var Func: TFunction; // our new function
     DefaultValueType   : TType;
     FuncNameLabel      : String;
 
-    VarsOnStack: uint16 = 0; // number of variables allocated on the stack
-
     VisitedNodes: TCFGNodeList;
     RemovedNodes: TCFGNodeList; // list of removed nodes
 
   {$I tree_ssa.pas}
-  {$I bytecode_gen.pas}
+  {$I bytecode_generator.pas}
 
-  // NewConst (used to create internal constants, if enabled)
+  { NewConst } // (used to create internal constants, if enabled)
   Procedure NewConst(const cName: String; cTyp: TType; cValue: PExpressionNode);
   Var Variable: TVariable;
   Begin
@@ -78,7 +76,7 @@ Var Func: TFunction; // our new function
    End;
   End;
 
-  // ReadParamList
+  { ReadParamList }
   Procedure ReadParamList;
   Var I: Integer;
   Label SkipParamName;
@@ -165,7 +163,7 @@ Var Func: TFunction; // our new function
    End;
   End;
 
-  // ReadAttributes
+  { ReadAttributes }
   Procedure ReadAttributes;
   Var Token        : TToken_P;
       Option, Value: String;
@@ -359,7 +357,7 @@ Begin
    { add parameters }
    With Func do
     For I := Low(ParamList) To High(ParamList) Do
-     __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-1-uint8(not Func.isNaked), [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
+     __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-1, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
 
    { add special constants (if `--internal-const` enabled) }
    if (getBoolOption(opt_internal_const)) Then
@@ -484,7 +482,7 @@ Begin
    DoNotGenerateCode := False;
 
    (* @Note:
-    We're compiling removed nodes, to avoid situations like this:
+    We're compiling removed nodes to avoid situations like this:
 
     if (true)
      main(); else
