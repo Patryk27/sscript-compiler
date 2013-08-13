@@ -56,12 +56,7 @@ function<bool> isspace(char ch)
 function<int> strlen(string str) naked 
 {
  :CODE
- {
-  sub(stp, 1)
-  icall("string.length")
-  pop(ei1)
-  add(stp, 2)
- }
+   strlen(%str, ei1)
 }
 
 function<int> strcount(string text, char sep)

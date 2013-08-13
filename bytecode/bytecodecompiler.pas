@@ -9,7 +9,7 @@ Unit BytecodeCompiler;
  Uses CompilerUnit, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
 
  Const bytecode_version_major = 0;
-       bytecode_version_minor = 41;
+       bytecode_version_minor = 42;
 
  // TLabel
  Type TLabel = Record

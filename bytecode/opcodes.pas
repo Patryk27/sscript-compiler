@@ -80,7 +80,7 @@ Unit Opcodes;
                    o_strjoin,
                    o_not, o_or, o_xor, o_and, o_shl, o_shr,
                    o_mod,
-                   o_arset, o_arget, o_arcrt, o_arlen,
+                   o_arset, o_arget, o_arcrt, o_arlen, o_strlen,
                    o_loc_file, o_loc_func, o_loc_line,
                    o_byte, o_word, o_integer, o_extended);
 
@@ -198,6 +198,9 @@ Unit Opcodes;
 
   (* ===== ARLEN (refreg, dimension, out reg) ===== *)
   (Name: 'arlen'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptIntReg)),
+
+  (* ===== STRLEN (strreg, out int reg) ===== *)
+  (Name: 'strlen'; ParamC: 2; ParamT: (ptStringReg, ptIntReg, ptNone)),
 
   (* ===== LOC_FILE (string) ===== *)
   (Name: 'loc_file'; ParamC: 1; ParamT: (ptString, ptNone, ptNone)),

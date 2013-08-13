@@ -72,15 +72,15 @@ Unit Expression;
                         End;
 
  // primary types; order (those numbers) is important, as it is the same in the virtual machine!
- Const PrimaryTypeNames: Array[0..7] of String = ('any', 'null', 'void', 'bool', 'char', 'int', 'float', 'string');
- Const TYPE_ANY_id    = 0;
-       unused_0       = 1;
-       TYPE_VOID_id   = 2;
-       TYPE_BOOL_id   = 3;
-       TYPE_CHAR_id   = 4;
-       TYPE_INT_id    = 5;
-       TYPE_FLOAT_id  = 6;
-       TYPE_STRING_id = 7;
+ Const PrimaryTypeNames: Array[0..6] of String = ('bool', 'char', 'int', 'float', 'string', 'any', 'void');
+ Const TYPE_BOOL_id   = 0;
+       TYPE_CHAR_id   = 1;
+       TYPE_INT_id    = 2;
+       TYPE_FLOAT_id  = 3;
+       TYPE_STRING_id = 4;
+
+       TYPE_ANY_id  = 5;
+       TYPE_VOID_id = 6;
 
  Operator = (A, B: TSSAVarID): Boolean;
  Operator in (A: Integer; B: Array of LongWord): Boolean;
