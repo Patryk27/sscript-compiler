@@ -74,9 +74,11 @@ Begin
   { cetExpression }
     cetExpression:
     Begin
-     ExpressionCompiler.CompileExpression(Compiler, Node.Value);
-
-     RemoveRedundantMovPush(Node.Value);
+     if (Node.Value <> nil) Then
+     Begin
+      ExpressionCompiler.CompileExpression(Compiler, Node.Value);
+      RemoveRedundantMovPush(Node.Value);
+     End;
 
      if (Node.Child.Count <> 0) Then
       Generate(Node.Child.First);
