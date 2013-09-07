@@ -66,6 +66,8 @@ Unit Expression;
                          Function FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
                          Procedure RemoveAssignments(const VarName: String);
 
+                         Function getType: TExpressionNodeType;
+
                          Function hasCall: Boolean;
                          Function hasValue: Boolean;
                          Function isConstant: Boolean;
@@ -86,7 +88,7 @@ Unit Expression;
  Operator in (A: Integer; B: Array of LongWord): Boolean;
 
  Implementation
-Uses SysUtils;
+Uses SysUtils, symdef;
 
 (* TSSAVarID = TSSAVarID *)
 Operator = (A, B: TSSAVarID): Boolean;
@@ -159,6 +161,68 @@ Begin
 
   Assign^ := Assign^.Right^;
  End;
+End;
+
+(* TExpressionNode.getType *)
+{
+ Returns either 'mtNothing' or value from 'mtBool'..'mtString', depending on expression type.
+ Does a small expression evaluation thus it shouldn't be called often.
+
+ @TODO: function and method calls
+}
+Function TExpressionNode.getType: TExpressionNodeType;
+Var LT, RT: TExpressionNodeType;
+    mVar  : TVariable;
+Begin
+ Result := mtNothing;
+
+ if (@self = nil) Then
+  Exit;
+
+ if (Typ in [mtFunctionCall, mtMethodCall]) Then // @TODO: unsupported
+  Exit;
+
+ if (Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]) Then
+  Exit(Typ);
+
+ if (Typ = mtIdentifier) Then
+ Begin
+  if (Symbol = nil) Then
+   Exit;
+
+  mVar := (Symbol as TSymbol).mVariable;
+
+  if (mVar.Typ.isBool) Then
+   Exit(mtBool);
+
+  if (mVar.Typ.isChar) Then
+   Exit(mtChar);
+
+  if (mVar.Typ.isInt) Then
+   Exit(mtInt);
+
+  if (mVar.Typ.isFloat) Then
+   Exit(mtFloat);
+
+  if (mVar.Typ.isString) Then
+   Exit(mtString);
+
+  Exit;
+ End;
+
+ LT := Left^.getType;
+ RT := Right^.getType;
+
+ if (Typ in [mtLogicalNOT, mtBitwiseNOT, mtNEG]) Then
+  Exit(LT);
+
+ if (LT in [mtInt, mtFloat]) and (RT in [mtInt, mtFloat]) and (LT <> RT) Then
+  Exit(mtFloat);
+
+ if (LT = RT) Then
+  Exit(LT);
+
+ Exit(mtNothing);
 End;
 
 (* TExpressionNode.HasCall *)

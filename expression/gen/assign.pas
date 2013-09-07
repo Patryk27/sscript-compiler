@@ -43,13 +43,16 @@ Begin
    __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
   End;
 
+  if (Right^.Symbol = Left^.Symbol) Then // eg.: "foo = foo;"
+   Hint(hExpressionHasNoEffect, []);
+
   if (TypeID = nil) Then
   Begin
    DevLog(dvError, 'ParseAssign', 'TypeID = nil; leaving function...');
    Exit;
   End;
 
-//  Variable.mVariable.State += [vsWrite];
+//  Variable.mVariable.State += [vsWrite]; @TODO
 
   Compiler.PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', Variable.PosStr]);
 

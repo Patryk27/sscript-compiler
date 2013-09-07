@@ -99,13 +99,16 @@ Unit Messages;
 
  { hints }
  Type TCompileHint =
- (hDidntYouMean, hUnreachableCode, hUseOfUninitializedVariable);
+ (hDidntYouMean, hUnreachableCode, hUseOfUninitializedVariable, hExpressionHasNoEffect, hExpressionAlwaysTrue, hExpressionAlwaysFalse);
 
  Const CompileHint_fmt: Array[TCompileHint] of String =
  (
   'Didn''t you mean: `%s`?',
   'Unreachable code',
-  'Use of a possibly uninitialized variable `%s`'
+  'Use of a possibly uninitialized variable `%s`',
+  'Expression has no effect',
+  'Expression always evaluates to ''true''',
+  'Expression always evaluates to ''false'''
  );
 
  { notes }

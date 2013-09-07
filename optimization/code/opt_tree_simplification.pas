@@ -21,6 +21,33 @@ Begin
   Result := isEqual(Node^.Left, -Value);
 End;
 
+{ isEqual }
+Function isEqual(const Node: PExpressionNode; const Value: Boolean): Boolean;
+Begin
+ Result := (Node^.Typ = mtBool) and (Node^.Value = Value);
+End;
+
+{ isNumeric }
+Function isNumeric(const Node: PExpressionNode): Boolean;
+Begin
+ Result := (Node^.getType in [mtInt, mtFloat]);
+End;
+
+{ isNumericVar }
+Function isNumericVar(const Symbol: TObject): Boolean;
+Begin
+ if (Symbol = nil) Then
+  Result := False Else
+  Result := (Symbol as TSymbol).mVariable.Typ.isNumerical;
+End;
+
+{ isNumericVar }
+Function isNumericVar(const Expr: PExpressionNode): Boolean;
+Begin
+ Result := isNumericVar(Expr^.Symbol);
+End;
+
+// -------------------------------------------------------------------------- //
 { TryToOptimizeSum }
 Procedure TryToOptimizeSum(const Expr: PExpressionNode);
 Var Count: Integer = 0;
@@ -75,283 +102,338 @@ End;
 // -------------------------------------------------------------------------- //
 (* Parse *)
 Procedure Parse(var Expr: PExpressionNode);
-Var Tmp, Left, Right, Param: PExpressionNode;
-    Simplify1              : TSimplify1Data;
+Var Tmp, Param: PExpressionNode;
+    Simplify1 : TSimplify1Data;
 Begin
  if (Expr = nil) Then
   Exit;
 
- Left  := Expr^.Left;
- Right := Expr^.Right;
-
- { 'expr + 0' -> 'expr' }
- { 'expr - 0' -> 'expr' }
- if (Expr^.Typ in [mtAdd, mtSub]) and (isEqual(Right, 0)) Then
+ { 'numexpr + 0' -> 'numexpr' }
+ { 'numexpr - 0' -> 'numexpr' }
+ if (Expr^.Typ in [mtAdd, mtSub]) and (isEqual(Expr^.Right, 0)) and (isNumeric(Expr^.Left)) Then
  Begin
   Expr      := Expr^.Left;
   AnyChange := True;
  End;
 
- { '0 + expr' -> 'expr' }
- if (Expr^.Typ = mtAdd) and (isEqual(Left, 0)) Then
+ { '0 + numexpr' -> 'numexpr' }
+ if (Expr^.Typ = mtAdd) and (isEqual(Expr^.Left, 0)) and (isNumeric(Expr^.Right)) Then
  Begin
   Expr      := Expr^.Right;
   AnyChange := True;
  End;
 
- { '0 - expr' -> '-expr' }
- if (Expr^.Typ = mtSub) and (isEqual(Left, 0)) Then
+ { '0 - numexpr' -> '-numexpr' }
+ if (Expr^.Typ = mtSub) and (isEqual(Expr^.Left, 0)) and (isNumeric(Expr^.Left)) Then
  Begin
-  Expr^.Typ  := mtNeg;
-  Expr^.Left := nil;
-  AnyChange  := True;
+  Expr^.Typ   := mtNeg;
+  Expr^.Left  := Expr^.Right;
+  Expr^.Right := nil;
+  AnyChange   := True;
  End;
 
- { 'x - x' -> '0' }
- if (Expr^.Typ = mtSub) and (isVariable(Left)) and (isVariable(Right)) and (Left^.Symbol = Right^.Symbol) Then
+ { 'numvar - numvar' -> '0' }
+ if (Expr^.Typ = mtSub) and (isVariable(Expr^.Left)) and (isVariable(Expr^.Right)) and (Expr^.Left^.Symbol = Expr^.Right^.Symbol) and (isNumericVar(Expr^.Left^.Symbol)) Then
  Begin
   Expr      := MakeIntExpression(0, @Expr^.Token);
   AnyChange := True;
  End;
 
- { '(-x)+y' -> 'y-x' }
- if (Expr^.Typ = mtAdd) and (Left^.Typ = mtNeg) and (isVariableOrCall(Left^.Left)) and (isVariableOrCall(Right)) Then
+ { '(-numexprA)+numexprB' -> 'numexprB-numexprA' }
+ if (Expr^.Typ = mtAdd) and (Expr^.Left^.Typ = mtNeg) and (isNumeric(Expr^.Left)) and (isNumeric(Expr^.Right)) Then
  Begin
   Tmp := EmptyExpression(@Expr^.Token);
 
   Tmp^.Typ   := mtSub;
-  Tmp^.Left  := Right;
-  Tmp^.Right := Left^.Left;
+  Tmp^.Left  := Expr^.Right;
+  Tmp^.Right := Expr^.Left^.Left;
 
   Expr      := Tmp;
   AnyChange := True;
  End;
 
- { 'x+(-y)' -> 'x-y' }
- if (Expr^.Typ = mtAdd) and (Right^.Typ = mtNeg) and (isVariableOrCall(Right^.Left)) and (isVariableOrCall(Left)) Then
+ { 'numexprA+(-numexprB)' -> 'numexprA-numexprB' }
+ if (Expr^.Typ = mtAdd) and (Expr^.Right^.Typ = mtNeg) and (isNumeric(Expr^.Left)) and (isNumeric(Expr^.Right)) Then
  Begin
   Tmp := EmptyExpression(@Expr^.Token);
 
   Tmp^.Typ   := mtSub;
-  Tmp^.Left  := Left;
-  Tmp^.Right := Right^.Left;
+  Tmp^.Left  := Expr^.Left;
+  Tmp^.Right := Expr^.Right^.Left;
 
   Expr      := Tmp;
   AnyChange := True;
  End;
 
- { 'expr*1' -> 'expr' }
- if (Expr^.Typ = mtMul) and (isEqual(Right, 1)) Then
- Begin
-  Expr      := Left;
-  AnyChange := True;
- End;
-
- { '1*expr' -> 'expr' }
- if (Expr^.Typ = mtMul) and (isEqual(Left, 1)) Then
- Begin
-  Expr      := Right;
-  AnyChange := True;
- End;
-
- { 'expr*(-1)' -> '-expr' }
- if (Expr^.Typ = mtMul) and (isEqual(Right, -1)) Then
- Begin
-  Tmp := EmptyExpression(@Expr^.Token);
-
-  Tmp^.Typ  := mtNeg;
-  Tmp^.Left := Left;
-
-  Expr      := Tmp;
-  AnyChange := True;
- End;
-
- { '(-1)*expr' -> '-expr' }
- if (Expr^.Typ = mtMul) and (isEqual(Left, -1)) Then
- Begin
-  Tmp := EmptyExpression(@Expr^.Token);
-
-  Tmp^.Typ  := mtNeg;
-  Tmp^.Left := Right;
-
-  Expr      := Tmp;
-  AnyChange := True;
- End;
-
- { 'expr/1' -> 'expr' }
- if (Expr^.Typ = mtDiv) and (isEqual(Right, 1)) Then
+ { 'numexpr*1' -> 'numexpr' }
+ if (Expr^.Typ = mtMul) and (isEqual(Expr^.Right, 1)) and (isNumeric(Expr^.Left)) Then
  Begin
   Expr      := Expr^.Left;
   AnyChange := True;
  End;
 
- { 'expr/(-1)' -> '-expr' }
- if (Expr^.Typ = mtDiv) and (isEqual(Right, -1)) Then
+ { '1*numexpr' -> 'numexpr' }
+ if (Expr^.Typ = mtMul) and (isEqual(Expr^.Left, 1)) and (isNumeric(Expr^.Right)) Then
+ Begin
+  Expr      := Expr^.Right;
+  AnyChange := True;
+ End;
+
+ { 'numexpr*(-1)' -> '-numexpr' }
+ if (Expr^.Typ = mtMul) and (isEqual(Expr^.Right, -1)) and (isNumeric(Expr^.Left)) Then
  Begin
   Tmp := EmptyExpression(@Expr^.Token);
 
   Tmp^.Typ  := mtNeg;
-  Tmp^.Left := Left;
+  Tmp^.Left := Expr^.Left;
 
   Expr      := Tmp;
   AnyChange := True;
  End;
 
- { 'i += 1' -> '++i' }
- if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (isEqual(Right, 1)) Then
+ { '(-1)*numexpr' -> '-numexpr' }
+ if (Expr^.Typ = mtMul) and (isEqual(Expr^.Left, -1)) and (isNumeric(Expr^.Right)) Then
+ Begin
+  Tmp := EmptyExpression(@Expr^.Token);
+
+  Tmp^.Typ  := mtNeg;
+  Tmp^.Left := Expr^.Right;
+
+  Expr      := Tmp;
+  AnyChange := True;
+ End;
+
+ { 'numexpr/1' -> 'numexpr' }
+ if (Expr^.Typ = mtDiv) and (isEqual(Expr^.Right, 1)) and (isNumeric(Expr^.Left)) Then
+ Begin
+  Expr      := Expr^.Left;
+  AnyChange := True;
+ End;
+
+ { 'numexpr/(-1)' -> '-numexpr' }
+ if (Expr^.Typ = mtDiv) and (isEqual(Expr^.Right, -1)) and (isNumeric(Expr^.Left)) Then
+ Begin
+  Tmp := EmptyExpression(@Expr^.Token);
+
+  Tmp^.Typ  := mtNeg;
+  Tmp^.Left := Expr^.Left;
+
+  Expr      := Tmp;
+  AnyChange := True;
+ End;
+
+ { 'numvar += 1' -> '++i' }
+ if (Expr^.Typ = mtAddEq) and (isVariable(Expr^.Left)) and (isNumericVar(Expr^.Left^.Symbol)) and (isEqual(Expr^.Right, 1)) Then
  Begin
   Expr^.Typ   := mtPreInc;
   Expr^.Right := nil;
   AnyChange   := True;
  End;
 
- { 'i -= 1' -> '--i' }
- if (Expr^.Typ = mtSubEq) and (isVariable(Left)) and (isEqual(Right, 1)) Then
+ { 'numvar -= 1' -> '--i' }
+ if (Expr^.Typ = mtSubEq) and (isVariable(Expr^.Left)) and (isNumericVar(Expr^.Left^.Symbol)) and (isEqual(Expr^.Right, 1)) Then
  Begin
   Expr^.Typ   := mtPreDec;
   Expr^.Right := nil;
   AnyChange   := True;
  End;
 
- { 'i+i+i+i+....+i' -> 'i * x' }
- if (Expr^.Typ = mtAdd) and (isVariable(Right)) Then
+ { 'numvar+numvar+numvar+numvar+....+numvar' -> 'numvar * amount' }
+ if (Expr^.Typ = mtAdd) and (isVariable(Expr^.Right)) Then
   TryToOptimizeSum(Expr);
 
- { 'x*i - i' -> 'i * (x-1)' }
- if (Expr^.Typ = mtSub) and (Left^.Typ = mtMul) and (Left^.Left^.HasValue) and (Left^.Right^.hasValue) and (Right^.hasValue) and
-    (isVariable(Left^.Right)) and (isVariable(Right)) and (Left^.Right^.Symbol = Right^.Symbol) Then
+ { 'numvarA*numvarB - numvarB' -> 'numvarB * (numvarA-1)' }
+ if (Expr^.Typ = mtSub) and (Expr^.Left^.Typ = mtMul) and (Expr^.Left^.Left^.hasValue) and (Expr^.Left^.Right^.hasValue) and (Expr^.Right^.hasValue) and
+    (isVariable(Expr^.Left^.Right)) and (isVariable(Expr^.Right)) and (isNumericVar(Expr^.Right^.Symbol)) and
+    (Expr^.Left^.Right^.Symbol = Expr^.Right^.Symbol) Then
  Begin
   Tmp := EmptyExpression(@Expr^.Token);
 
   Tmp^.Typ   := mtMul;
-  Tmp^.Left  := Left^.Right;
+  Tmp^.Left  := Expr^.Left^.Right;
   Tmp^.Right := EmptyExpression;
 
   Tmp^.Right^.Typ   := mtSub;
-  Tmp^.Right^.Left  := Left^.Left;
+  Tmp^.Right^.Left  := Expr^.Left^.Left;
   Tmp^.Right^.Right := MakeIntExpression(1);
 
   Expr      := Tmp;
   AnyChange := True;
  End;
 
- { 'i*x + i' -> 'i * (x+1)' }
- { 'i*x - i' -> 'i * (x-1)' }
- if (Expr^.Typ in [mtAdd, mtSub]) and (Left^.Typ = mtMul) and (Left^.Left^.hasValue) and (Left^.Right^.hasValue) and (Right^.hasValue) and
-    (isVariable(Left^.Left)) and (isVariable(Right)) and (Left^.Left^.Symbol = Right^.Symbol) Then
+ { 'numvarA*numvarB + numvarA' -> 'numvarA * (numvarB+1)' }
+ { 'numvarA*numvarB - numvarA' -> 'numvarA * (numvarB-1)' }
+ if (Expr^.Typ in [mtAdd, mtSub]) and (Expr^.Left^.Typ = mtMul) and (Expr^.Left^.Left^.hasValue) and (Expr^.Left^.Right^.hasValue) and (Expr^.Right^.hasValue) and
+    (isVariable(Expr^.Left^.Left)) and (isVariable(Expr^.Right)) and (isNumericVar(Expr^.Right^.Symbol)) and
+    (Expr^.Left^.Left^.Symbol = Expr^.Right^.Symbol) Then
  Begin
   Tmp := EmptyExpression(@Expr^.Token);
 
   Tmp^.Typ   := mtMul;
-  Tmp^.Left  := Left^.Left;
-  Tmp^.Right := EmptyExpression(@Right^.Token);
+  Tmp^.Left  := Expr^.Left^.Left;
+  Tmp^.Right := EmptyExpression(@Expr^.Right^.Token);
 
   Tmp^.Right^.Typ   := Expr^.Typ;
-  Tmp^.Right^.Left  := Left^.Right;
+  Tmp^.Right^.Left  := Expr^.Left^.Right;
   Tmp^.Right^.Right := MakeIntExpression(1);
 
   Expr      := Tmp;
   AnyChange := True;
  End;
 
- { 'i*x + i*y' -> 'i * (x+y)' }
- { 'i*x - i*y' -> 'i * (x-y)' }
+ { 'numvarA*numvarB + numvarA*numvarC' -> 'numvarA * (numvarB+numvarC)' }
+ { 'numvarA*numvarB - numvarA*numvarC' -> 'numvarA * (numvarB-numvarC)' }
 
- { 'x*i + y*i' -> 'i * (x+y)' }
- { 'x*i - y*i' -> 'i * (x-y)' }
+ { 'numvarB*numvarA + numvarC*numvarA' -> 'numvarA * (numvarB+numvarC)' }
+ { 'numvarB*numvarA - numvarC*numvarA' -> 'numvarA * (numvarB-numvarC)' }
 
- { 'i*x + y*i' -> 'i * (x+y)' }
- { 'i*x - y*i' -> 'i * (x-y)' }
+ { 'numvarA*numvarB + numvarC*numvarA' -> 'numvarA * (numvarB+numvarC)' }
+ { 'numvarA*numvarB - numvarC*numvarA' -> 'numvarA * (numvarB-numvarC)' }
 
- { 'x*i + i*y' -> 'i * (x+y)' }
- { 'x*i - i*y' -> 'i * (x-y)' }
+ { 'numvarB*numvarA + numvarA*numvarC' -> 'numvarA * (numvarB+numvarC)' }
+ { 'numvarB*numvarA - numvarA*numvarC' -> 'numvarA * (numvarB-numvarC)' }
  if (Expr^.Typ in [mtAdd, mtSub]) and
-    (Left^.Typ = mtMul) and (Left^.Left^.hasValue) and (Left^.Right^.hasValue) and
-    (Right^.Typ = mtMul) and (Right^.Left^.hasValue) and (Right^.Right^.hasValue) Then
+    (Expr^.Left^.Typ = mtMul) and (Expr^.Left^.Left^.hasValue) and (Expr^.Left^.Right^.hasValue) and
+    (Expr^.Right^.Typ = mtMul) and (Expr^.Right^.Left^.hasValue) and (Expr^.Right^.Right^.hasValue) Then
  Begin
   Tmp := EmptyExpression(@Expr^.Token);
 
   Tmp^.Typ        := mtMul;
-  Tmp^.Right      := EmptyExpression(@Right^.Token);
+  Tmp^.Right      := EmptyExpression(@Expr^.Right^.Token);
   Tmp^.Right^.Typ := Expr^.Typ;
 
-  if (isVariable(Left^.Left)) and (isVariable(Right^.Left)) and (Left^.Left^.Symbol = Right^.Left^.Symbol) Then // first and second case
+  if (isNumericVar(Expr^.Left^.Left)) and (isNumericVar(Expr^.Right^.Left)) and (Expr^.Left^.Left^.Symbol = Expr^.Right^.Left^.Symbol) Then // first and second case
   Begin
-   Tmp^.Left         := Left^.Left;
-   Tmp^.Right^.Left  := Left^.Right;
-   Tmp^.Right^.Right := Right^.Right;
+   Tmp^.Left         := Expr^.Left^.Left;
+   Tmp^.Right^.Left  := Expr^.Left^.Right;
+   Tmp^.Right^.Right := Expr^.Right^.Right;
 
    Expr      := Tmp;
    AnyChange := True;
   End;
 
-  if (isVariable(Left^.Right)) and (isVariable(Right^.Right)) and (Left^.Right^.Symbol = Right^.Right^.Symbol) Then // third and fourth case
+  if (isNumericVar(Expr^.Left^.Right)) and (isNumericVar(Expr^.Right^.Right)) and (Expr^.Left^.Right^.Symbol = Expr^.Right^.Right^.Symbol) Then // third and fourth case
   Begin
-   Tmp^.Left         := Left^.Right;
-   Tmp^.Right^.Left  := Left^.Left;
-   Tmp^.Right^.Right := Right^.Left;
+   Tmp^.Left         := Expr^.Left^.Right;
+   Tmp^.Right^.Left  := Expr^.Left^.Left;
+   Tmp^.Right^.Right := Expr^.Right^.Left;
 
    Expr      := Tmp;
    AnyChange := True;
   End;
 
-  if (isVariable(Left^.Left)) and (isVariable(Right^.Right)) and (Left^.Left^.Symbol = Right^.Right^.Symbol) Then // fifth and sixth case
+  if (isNumericVar(Expr^.Left^.Left)) and (isNumericVar(Expr^.Right^.Right)) and (Expr^.Left^.Left^.Symbol = Expr^.Right^.Right^.Symbol) Then // fifth and sixth case
   Begin
-   Tmp^.Left         := Left^.Left;
-   Tmp^.Right^.Left  := Left^.Right;
-   Tmp^.Right^.Right := Right^.Left;
+   Tmp^.Left         := Expr^.Left^.Left;
+   Tmp^.Right^.Left  := Expr^.Left^.Right;
+   Tmp^.Right^.Right := Expr^.Right^.Left;
 
    Expr      := Tmp;
    AnyChange := True;
   End;
 
-  if (isVariable(Left^.Right)) and (isVariable(Right^.Left)) and (Left^.Right^.Symbol = Right^.Left^.Symbol) Then // seventh and eighth case
+  if (isNumericVar(Expr^.Left^.Right)) and (isNumericVar(Expr^.Right^.Left)) and (Expr^.Left^.Right^.Symbol = Expr^.Right^.Left^.Symbol) Then // seventh and eighth case
   Begin
-   Tmp^.Left         := Left^.Right;
-   Tmp^.Right^.Left  := Left^.Left;
-   Tmp^.Right^.Right := Right^.Right;
+   Tmp^.Left         := Expr^.Left^.Right;
+   Tmp^.Right^.Left  := Expr^.Left^.Left;
+   Tmp^.Right^.Right := Expr^.Right^.Right;
 
    Expr      := Tmp;
    AnyChange := True;
   End;
  End;
 
- { 'i = i' -> nothing }
- if (Expr^.Typ = mtAssign) and (isVariable(Left)) and (isVariable(Right)) and (Right^.Symbol = Left^.Symbol) Then
+ { 'var = var' -> nothing }
+ if (Expr^.Typ = mtAssign) and (isVariable(Expr^.Left)) and (Expr^.Right^.Symbol = Expr^.Left^.Symbol) Then
  Begin
+  Compiler.CompileHint(Expr^.Token, hExpressionHasNoEffect, []);
+
   Expr      := nil;
   AnyChange := True;
   Exit;
  End;
 
- { 'i+i+i+i+....+i' -> 'i * x' }
- if (Expr^.Typ = mtAdd) and (isVariable(Right)) Then
+ { 'var == var', 'var <= var', 'var >= var' -> true } // @TODO: these operators are not defined for every types (basically do simple type-check)
+ if (Expr^.Typ in [mtEqual, mtLowerEqual, mtGreaterEqual]) and (isVariable(Expr^.Left)) and (Expr^.Left^.Symbol = Expr^.Right^.Symbol) Then
+ Begin
+  Compiler.CompileHint(Expr^.Token, hExpressionAlwaysTrue, []);
+
+  Expr      := MakeBoolExpression(True, @Expr^.Token);
+  AnyChange := True;
+ End;
+
+ { 'var != var', 'var < var', 'var < var' -> false }
+ if (Expr^.Typ in [mtDifferent, mtLower, mtGreater]) and (isVariable(Expr^.Left)) and (Expr^.Left^.Symbol = Expr^.Right^.Symbol) Then
+ Begin
+  Compiler.CompileHint(Expr^.Token, hExpressionAlwaysFalse, []);
+
+  Expr      := MakeBoolExpression(False, @Expr^.Token);
+  AnyChange := True;
+ End;
+
+ { 'numvar+numvar+numvar+numvar+....+numvar' -> 'numvar * amount' }
+ if (Expr^.Typ = mtAdd) and (isNumericVar(Expr^.Right)) Then
   TryToOptimizeSum(Expr);
 
- { 'x = x op expr' -> 'x op= expr' }
+ { 'var = var op expr' -> 'var op= expr' }
  For Simplify1 in Simplify1Data Do
-  if (Expr^.Typ = mtAssign) and (isVariable(Left)) and
-     (Right^.Typ = Simplify1.Pre) and (Right^.Left^.Symbol = Left^.Symbol) Then
+  if (Expr^.Typ = mtAssign) and (isVariable(Expr^.Left)) and
+     (Expr^.Right^.Typ = Simplify1.Pre) and (Expr^.Right^.Left^.Symbol = Expr^.Left^.Symbol) Then
   Begin
    Expr^.Typ   := Simplify1.Post;
-   Expr^.Right := Right^.Right;
+   Expr^.Right := Expr^.Right^.Right;
    AnyChange   := True;
    Break;
   End;
 
- { 'x = expr op x' -> 'x op= expr' }
+ { 'var = expr op var' -> 'var op= expr' }
  For Simplify1 in Simplify2Data Do
-  if (Expr^.Typ = mtAssign) and (isVariable(Left)) and
-     (Right^.Typ = Simplify1.Pre) and (Right^.Right^.Symbol = Left^.Symbol) and (Right^.Left^.hasValue) Then
+  if (Expr^.Typ = mtAssign) and (isVariable(Expr^.Left)) and
+     (Expr^.Right^.Typ = Simplify1.Pre) and (Expr^.Right^.Right^.Symbol = Expr^.Left^.Symbol) and (Expr^.Right^.Left^.hasValue) Then
   Begin
    Expr^.Typ   := Simplify1.Post;
-   Expr^.Right := Right^.Left;
+   Expr^.Right := Expr^.Right^.Left;
    AnyChange   := True;
    Break;
   End;
 
- { 'x += x' -> 'x *= 2' }
- if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (Left^.Symbol = Right^.Symbol) Then
+ { '!(exprA op exprB)' -> 'exprA !op exprB'; like '!(a==b)' -> '(a!=b) }
+ For Simplify1 in Simplify3Data Do
+  if (Expr^.Typ = mtLogicalNOT) and (Expr^.Left^.Typ = Simplify1.Pre) Then
+  Begin
+   Expr            := Expr^.Left;
+   Expr^.Left^.Typ := Simplify1.Post;
+   AnyChange       := True;
+   Break;
+  End;
+
+ { '!!expr' -> 'expr' }
+ if (Expr^.Typ = mtLogicalNOT) and (Expr^.Left^.Typ = mtLogicalNOT) Then
+ Begin
+  Expr      := Expr^.Left^.Left;
+  AnyChange := True;
+ End;
+
+ { 'boolexpr || true' -> 'true' }
+ if (Expr^.Typ = mtLogicalOR) and (isEqual(Expr^.Right, True)) and (Expr^.Left^.getType = mtBool) Then
+ Begin
+  Compiler.CompileHint(Expr^.Token, hExpressionAlwaysTrue, []);
+
+  Expr      := MakeBoolExpression(True, @Expr^.Token);
+  AnyChange := True;
+ End;
+
+ { 'boolexpr && false' -> 'false' }
+ if (Expr^.Typ = mtLogicalAND) and (isEqual(Expr^.Right, False)) and (Expr^.Left^.getType = mtBool) Then
+ Begin
+  Compiler.CompileHint(Expr^.Token, hExpressionAlwaysFalse, []);
+
+  Expr      := MakeBoolExpression(False, @Expr^.Token);
+  AnyChange := True;
+ End;
+
+ { 'numvar += numvar' -> 'numvar *= 2' (read+read+add+write -> read+mul+write) }
+ if (Expr^.Typ = mtAddEq) and (isNumericVar(Expr^.Left)) and (Expr^.Left^.Symbol = Expr^.Right^.Symbol) Then
  Begin
   Expr^.Typ   := mtMulEq;
   Expr^.Right := MakeIntExpression(2);
@@ -359,19 +441,19 @@ Begin
   AnyChange := True;
  End;
 
- { 'x += -expr' -> 'x -= expr' }
- if (Expr^.Typ = mtAddEq) and (isVariable(Left)) and (Right^.Typ = mtNeg) Then
+ { 'numvar += -numexpr' -> 'numvar -= numexpr' }
+ if (Expr^.Typ = mtAddEq) and (isNumericVar(Expr^.Left)) and (Expr^.Right^.Typ = mtNeg) and (isNumeric(Expr^.Right)) Then
  Begin
   Expr^.Typ   := mtSubEq;
-  Expr^.Right := Right^.Left;
+  Expr^.Right := Expr^.Right^.Left;
   AnyChange   := True;
  End;
 
- { 'x -= -expr' -> 'x += expr' }
- if (Expr^.Typ = mtSubEq) and (isVariable(Left)) and (Right^.Typ = mtNeg) Then
+ { 'numvar -= -numexpr' -> 'numvar += numexpr' }
+ if (Expr^.Typ = mtSubEq) and (isNumericVar(Expr^.Left)) and (Expr^.Right^.Typ = mtNeg) and (isNumeric(Expr^.Right)) Then
  Begin
   Expr^.Typ   := mtAddEq;
-  Expr^.Right := Right^.Left;
+  Expr^.Right := Expr^.Right^.Left;
   AnyChange   := True;
  End;
 

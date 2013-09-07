@@ -120,6 +120,17 @@ Const Simplify2Data: Array[0..4] of TSimplify1Data =
  (Pre: mtXor; Post: mtXorEq)
 );
 
+{ !(boolA op boolB) -> (boolA not-op boolB) }
+Const Simplify3Data: Array[0..5] of TSimplify1Data =
+(
+ (Pre: mtEqual; Post: mtDifferent),
+ (Pre: mtDifferent; Post: mtEqual),
+ (Pre: mtLower; Post: mtGreaterEqual),
+ (Pre: mtGreater; Post: mtLowerEqual),
+ (Pre: mtLowerEqual; Post: mtGreater),
+ (Pre: mtGreaterEqual; Post: mtLower)
+);
+
 {$I insert_constants.pas}
 {$I opt_constant_folding.pas}
 {$I opt_tree_simplification.pas}
