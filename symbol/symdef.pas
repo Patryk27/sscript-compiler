@@ -195,6 +195,9 @@ Unit symdef;
                      Function Clone: TRefSymbol;
                      Procedure CopyTo(const Symbol: TRefSymbol);
 
+                     Function isLocal: Boolean;
+                     Function isGlobal: Boolean;
+
                      // public fields
                      Var
                       Name : String; // symbol name
@@ -1226,6 +1229,20 @@ Begin
  Symbol.DeclNamespace := DeclNamespace;
  Symbol.DeclFunction  := DeclFunction;
  Symbol.isInternal    := isInternal;
+End;
+
+(* TRefSymbol.isLocal *)
+{ Returns 'true' if symbol's been declared in local scope (inside a function) }
+Function TRefSymbol.isLocal: Boolean;
+Begin
+ Result := (DeclFunction <> nil);
+End;
+
+(* TRefSymbol.isGlobal *)
+{ Returns 'true' if symbol's been declared outside a function }
+Function TRefSymbol.isGlobal: Boolean;
+Begin
+ Result := (DeclFunction = nil);
 End;
 
 (* ---------- TSymbol ---------- *)

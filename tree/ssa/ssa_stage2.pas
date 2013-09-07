@@ -260,7 +260,7 @@ Begin
   DevLog(dvWarning, 'FetchSSAVarID', 'Couldn''t fetch variable''s SSA id; var = '+TSymbol(Symbol).Name+', line = '+IntToStr(Origin.getToken^.Line));
 
   With TSymbol(Symbol).mVariable do
-   if (not isConst) and (not isFuncParam) and (not isCatchVar) Then
+   if (not isConst) and (not isFuncParam) and (not isCatchVar) and (RefSymbol.isLocal) Then
     TCompiler(Compiler).CompileHint(Origin.getToken, hUseOfUninitializedVariable, [RefSymbol.Name]);
  End;
 End;
