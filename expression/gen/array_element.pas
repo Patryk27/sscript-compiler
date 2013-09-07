@@ -28,18 +28,20 @@ Begin
 
   Dec(Typ.ArrayDimCount);
   Inc(IndexCount);
- Until (not (TmpExpr^.Typ = mtArrayElement));
+ Until (TmpExpr^.Typ <> mtArrayElement);
 
  { type change }
  if (Typ.ArrayDimCount = 0) Then
-  Typ.RegPrefix := Typ.ArrayBase.RegPrefix Else
+ Begin
+  Typ.RegPrefix := Typ.ArrayBase.RegPrefix;
+ End; {Else
   Begin // invalid conversion (except strings)
    if not ((Typ.isString) and (Typ.ArrayDimCount = 1)) Then
    Begin
     Error(eInvalidConversion, [Typ.asString, Typ.ArrayBase.asString]);
     Exit;
    End;
-  End;
+  End;}
 
  if (Typ{.ArrayBase}.isString and (Typ.ArrayDimCount = 1)) Then // `string`
   Typ := TYPE_STRING;

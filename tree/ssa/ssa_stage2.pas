@@ -1,6 +1,6 @@
 Var VisitedParentNodes: TCFGNodeList;
 
-// DumpGraph | debug only
+{ DumpGraph } // debug only
 Procedure DumpGraph(Node: TCFGNode; Deep: uint8=0);
 Var I, Q: Integer;
     P   : String;
@@ -108,14 +108,18 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
   Var Left, Right, Parent    : TSSAVarID;
       PointsLeft, PointsRight: Boolean;
       Child                  : TCFGNode;
+      Foreach                : TSSAVarID;
   Begin
+  // Writeln(Node.Typ, ' :: ', ExpressionToString(Node.Value));
+
    SetLength(Result.Values, 0);
 
    if (Node = nil) or ((not CheckEndNode) and (Node = EndNode)) or (VisitedParentNodes.IndexOf(Node) <> -1) Then
     Exit;
    VisitedParentNodes.Add(Node);
 
-   if (Node.Typ = cetCondition) Then // if condition...
+   { condition }
+   if (Node.Typ = cetCondition) Then
    Begin
     PointsLeft  := AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], SearchNode);
     PointsRight := AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], SearchNode);
@@ -182,6 +186,7 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
     End;
    End Else
 
+   { try..catch }
    if (Node.Typ = cetTryCatch) Then
    Begin
     if (AnythingFromNodePointsAt(Node.Child[0], nil, SearchNode)) Then // when we came from the "try" block, parse "try" and parent
@@ -199,6 +204,18 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
     End;
 
     Coalesce(Result, VisitNode(Node.Parent, EndNode, False, True)); // parent
+   End Else
+
+   { foreach }
+   if (Node.Typ = cetForeach) Then
+   Begin
+    SetLength(Foreach.Values, 1);
+    Foreach.Values[0] := Node.Foreach.LoopVarSSAID;
+
+    if (Symbol.mVariable = Node.Foreach.LoopVar) Then
+     Coalesce(Result, Foreach);
+
+    Coalesce(Result, VisitNode(Node.Child[0], nil));
    End;
 
    if (CheckChildrenNotParent) Then
@@ -256,7 +273,12 @@ Begin
   Exit;
 
  if (Expr^.Typ = mtIdentifier) and (Length(Expr^.SSA.Values) = 0) Then // if variable with no SSA idenitifer assigned yet
+ Begin
+//  Writeln(ExpressionToString(Expr));
   Expr^.SSA := FetchSSAVarID(TSymbol(Expr^.Symbol), Node);
+//  Writeln(ExpressionToString(Expr));
+//  Writeln;
+ End;
 
  if (Expr^.Typ in [mtFunctionCall, mtMethodCall]) Then
  Begin

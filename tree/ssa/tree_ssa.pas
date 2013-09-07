@@ -42,7 +42,7 @@ Type TSSADataList = specialize TFPGList<PSSAData>;
 Var Stage      : 1..2;
     SSADataList: TSSADataList;
 
-  // ShouldBeRemoved
+  { ShouldBeRemoved }
   Function ShouldBeRemoved(const Symbol: Pointer; const SSA: Integer): Boolean;
   Var Data: PSSAData;
   Begin
@@ -53,7 +53,7 @@ Var Stage      : 1..2;
      Exit(True);
   End;
 
-  // RemoveElement
+  { RemoveElement }
   Type TArray = Array of LongWord;
   Procedure RemoveElement(var A: TArray; Index: Integer);
   Var Len, I: Integer;
@@ -64,7 +64,7 @@ Var Stage      : 1..2;
    SetLength(A, Len);
   End;
 
-  // VisitExpression
+  { VisitExpression }
   Procedure VisitExpression(const Expr: PExpressionNode);
   Var Param: PExpressionNode;
       I    : Integer;
@@ -108,7 +108,7 @@ Var Stage      : 1..2;
     VisitExpression(Param);
   End;
 
-  // VisitNode
+  { VisitNode }
   Procedure VisitNode(const Node, EndNode: TCFGNode);
   Var Child: TCFGNode;
   Begin
@@ -118,16 +118,9 @@ Var Stage      : 1..2;
 
    if (Node = EndNode) Then
    Begin
-    Case VisitEndNode of
-     True:
-     Begin
+    if (VisitEndNode) Then
       VisitExpression(Node.Value);
-      Exit;
-     End;
-
-     False:
-      Exit;
-    End;
+    Exit;
    End Else
     VisitExpression(Node.Value);
 

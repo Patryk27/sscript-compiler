@@ -88,7 +88,9 @@ Unit symdef;
                 Function isStrict: Boolean;
 
                 Function getBytecodeType: String;
+                Function getLowerArray: TType;
 
+                Function isAny: Boolean;
                 Function isVoid: Boolean;
                 Function isBool: Boolean;
                 Function isChar: Boolean;
@@ -133,7 +135,7 @@ Unit symdef;
                     Function isCatchVar: Boolean;
                     Function DontAllocate: Boolean;
 
-                    Function getBytecodePos: String;
+                    Function getAllocationPos: String;
                    End;
  Type TMVariableList = Array of TVariable;
 
@@ -497,6 +499,53 @@ Begin
  End;
 End;
 
+(* TType.getLowerArray *)
+{
+ Returns 'lower' type of array type.
+ When type is 'int[][]', it returns 'int[]',
+ When type is 'string' it returns 'char', and so on.
+}
+Function TType.getLowerArray: TType;
+Begin
+ if (not isArray) Then
+  raise Exception.Create('TType.getLowerArray() called on non-array type');
+
+ if (ArrayDimCount = 1) Then
+ Begin
+  Result := ArrayBase;
+ End Else
+ Begin
+  Result               := TType.Create;
+  Result.ArrayDimCount := ArrayDimCount-1;
+  Result.RefSymbol     := RefSymbol;
+  Result.Attributes    := Attributes;
+
+  if (isString) Then
+  Begin
+   Result.ArrayBase  := ArrayBase.ArrayBase;
+   Result.RegPrefix  := ArrayBase.RegPrefix;
+   Result.InternalID := ArrayBase.InternalID;
+  End Else
+  Begin
+   Result.ArrayBase  := ArrayBase;
+   Result.RegPrefix  := RegPrefix;
+   Result.InternalID := InternalID;
+  End;
+ End;
+End;
+
+(* TType.isAny *)
+{
+ Returns `true` when type passed in parameter is `any`.
+}
+Function TType.isAny: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(InternalID = TYPE_ANY_id);
+End;
+
 (* TType.isVoid *)
 {
  Returns `true` when type passed in parameter is `void`.
@@ -506,7 +555,7 @@ Begin
  if (self = nil) Then
   Exit(False);
 
- Exit(InternalID in [TYPE_VOID_id]);
+ Exit(InternalID = TYPE_VOID_id);
 End;
 
 (* TType.isBool *)
@@ -1017,11 +1066,11 @@ Begin
  Result := vaDontAllocate in Attributes;
 End;
 
-(* TVariable.getBytecodePos *)
+(* TVariable.getAllocationPos *)
 {
  Returns variable's position on stack or register; eg.`[-1]` or `ei3`
 }
-Function TVariable.getBytecodePos: String;
+Function TVariable.getAllocationPos: String;
 Begin
  if (MemPos <= 0) Then
   Result := '['+IntToStr(MemPos)+']' Else

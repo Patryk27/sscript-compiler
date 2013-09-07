@@ -4,7 +4,7 @@ Var I   : Integer;
     Node: TCFGNode;
 Begin
  For I := High(Scope) Downto Low(Scope) Do
-  if (Scope[I].Typ in [sFOR, sWHILE]) Then
+  if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
   Begin
    Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
    Node.Child.Add(Scope[I].LoopEnd);
@@ -23,7 +23,7 @@ Var I   : Integer;
     Node: TCFGNode;
 Begin
  For I := High(Scope) Downto Low(Scope) Do
-  if (Scope[I].Typ in [sFOR, sWHILE]) Then
+  if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
   Begin
    Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
    Node.Child.Add(Scope[I].LoopBegin);

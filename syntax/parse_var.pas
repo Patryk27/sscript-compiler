@@ -50,11 +50,17 @@ Begin
    CompileError(eVoidVar, [Variable.RefSymbol.Name]);
 
   if (Variable.Typ.isArray(False)) Then
-   Variable.Attributes += [vaVolatile]; // arrays have to be volatile, because optimizer doesn't support arrays, thus weird things happen when it tries to optimize an array :P
+   Variable.Attributes += [vaVolatile]; // arrays have to be volatile, because optimizer doesn't support arrays, thus weird things happen when it tries to optimize them :P
 
   { add variable into the function }
-//  if (inFunction) Then
   getCurrentFunction.SymbolList.Add(TSymbol.Create(stVariable, Variable));
+
+  if (ParsingForeachHeader) Then
+  Begin
+   eat(_IN);
+   Dec(TokenPos);
+   Break;
+  End;
 
   if (next_t = _EQUAL) Then // var(...) name=value;
   Begin
@@ -64,11 +70,13 @@ Begin
   End;
 
   if (next_t = _COMMA) Then // var(...) name1, name2, name3...
-   read Else
-   Begin
-    semicolon;
-    Break;
-   End;
+  Begin
+   eat(_COMMA);
+  End Else
+  Begin
+   semicolon;
+   Break;
+  End;
  End;
 End;
 End;

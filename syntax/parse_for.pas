@@ -18,7 +18,7 @@ Var Content, Condition, Step, EndingNode: TCFGNode;
 Begin
 With TCompiler(Compiler), Parser do
 Begin
- eat(_BRACKET1_OP); // (
+ eat(_BRACKET1_OP); // `(`
 
  Content    := TCFGNode.Create(nil, next_pnt);
  EndingNode := TCFGNode.Create(nil, next_pnt);

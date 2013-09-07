@@ -1,16 +1,19 @@
-Type TVarMap = specialize TFPGMap<Pointer, Integer>; // TFPGMap<TLocalSymbol, Integer>;
+Type TVarMap = specialize TFPGMap<Pointer, uint32>; // TFPGMap<TSymbol, uint32>;
 Var VarMap: TVarMap;
 
 { IncreaseSSA }
 Procedure IncreaseSSA(const Expr: PExpressionNode; const PostSSAOnly: Boolean);
-Var Symbol: Pointer;
-    ID    : Integer;
+Var mVar: TVariable;
+    ID  : Integer;
 Begin
- Symbol := Expr^.Symbol;
+ if (Expr^.Symbol = nil) Then // probably shouldn't happen
+  Exit;
 
- if (VarMap.IndexOf(Symbol) = -1) Then
+ mVar := TSymbol(Expr^.Symbol).mVariable;
+
+ if (VarMap.IndexOf(mVar) = -1) Then
   ID := 0 Else
-  ID := VarMap[Symbol]+1;
+  ID := VarMap[mVar]+1;
 
  if (PostSSAOnly) Then
  Begin
@@ -23,9 +26,9 @@ Begin
   Expr^.PostSSA       := Expr^.SSA;
  End;
 
- if (VarMap.IndexOf(Symbol) = -1) Then
-  VarMap.Add(Symbol, 0) Else
-  VarMap[Symbol] := VarMap[Symbol]+1;
+ if (VarMap.IndexOf(mVar) = -1) Then
+  VarMap.Add(mVar, 0) Else
+  VarMap[mVar] := VarMap[mVar]+1;
 End;
 
 (* VisitExpression *)
@@ -79,12 +82,24 @@ End;
 (* VisitNode *)
 Procedure VisitNode(Node, EndNode: TCFGNode);
 Var Child: TCFGNode;
+    mVar : TVariable;
 Begin
  if (Node = nil) or (Node = EndNode) or (VisitedNodes.IndexOf(Node) <> -1) Then
   Exit;
  VisitedNodes.Add(Node);
 
  VisitExpression(Node.Value); // visit node's expression
+
+ if (Node.Typ = cetForeach) Then
+ Begin
+  mVar := Node.Foreach.LoopVar as TVariable;
+
+  if (VarMap.IndexOf(mVar) = -1) Then
+   VarMap.Add(mVar, 0) Else
+   VarMap[mVar] := VarMap[mVar]+1;
+
+  Node.Foreach.LoopVarSSAID := VarMap[mVar];
+ End;
 
  For Child in Node.Child Do
   VisitNode(Child, EndNode);

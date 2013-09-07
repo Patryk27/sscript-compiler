@@ -457,8 +457,7 @@ Begin
 
      if (Token.Token = _VAR) Then // var-param
      Begin
-      Token := read;
-
+      Token            := read;
       FuncParam^.isVar := True;
      End;
 
@@ -489,7 +488,7 @@ Begin
       RequireDefaultValue := True;
      End Else
       if (RequireDefaultValue) Then
-       CompileError(next, eDefaultValueRequired, [FuncParam^.Name]) Else
+       CompileError(next, eDefaultParamValueRequired, [FuncParam^.Name]) Else
        FuncParam^.DefaultValue := nil;
 
      if (next_t = _BRACKET1_CL) Then // end of parameter list?
@@ -541,7 +540,7 @@ Begin
 
    if (Base.InternalID = TYPE_ANY_id) Then // ... as well, as `any`-typed array
    Begin
-    CompileError(next, eInternalError, ['Cannot create an `any`-typed array!']);
+    CompileError(next, eInternalError, ['Cannot create an ''any''-typed array!']);
     Exit;
    End;
   End;
@@ -563,12 +562,11 @@ Begin
    Typ.RegPrefix := 'r';
    Typ.ArrayBase := Base;
 
-   With Typ do
-    While (ArrayBase.isArray(False)) Do // :>
-     ArrayBase := ArrayBase.ArrayBase;
-
    if (isStringBased) Then
+   Begin
     Typ.RegPrefix := 's';
+    Typ.ArrayBase := Typ.ArrayBase.ArrayBase;
+   End;
   End;
 
   { set result }

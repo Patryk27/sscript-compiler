@@ -121,8 +121,8 @@ Const Simplify2Data: Array[0..4] of TSimplify1Data =
 );
 
 {$I insert_constants.pas}
-{$I constant_folding.pas}
-{$I tree_simplification.pas}
+{$I opt_constant_folding.pas}
+{$I opt_tree_simplification.pas}
 
 Begin
  if (oInsertConstants in Options) Then

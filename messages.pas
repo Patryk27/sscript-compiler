@@ -1,3 +1,7 @@
+(*
+ Copyright © by Patryk Wychowaniec, 2013
+ All rights reserved.
+*)
 Unit Messages;
 
  Interface
@@ -11,7 +15,7 @@ Unit Messages;
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
-  eUnknownAttribute, eFileNotFound, eDefaultValueRequired,
+  eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference);
 
@@ -74,6 +78,7 @@ Unit Messages;
   'Unknown attribute: `%s`',
   'File not found: %s',
   'Default parameter value required for `%s`',
+  'Invalid foreach construction (foreach-var and foreach-expr have the same types)',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

@@ -13,7 +13,7 @@ Unit FlowGraph;
  Type TVarRecArray = Array of TVarRec;
       PVarRecArray = ^TVarRecArray;
 
- Type TCFGNodeType = (cetNone, cetExpression, cetCondition, cetReturn, cetThrow, cetTryCatch, cetBytecode);
+ Type TCFGNodeType = (cetNone, cetExpression, cetCondition, cetReturn, cetThrow, cetTryCatch, cetForeach, cetBytecode);
 
  Type TCFGNode = class;
       TCFGNodeList = specialize TFPGList<TCFGNode>;
@@ -37,6 +37,11 @@ Unit FlowGraph;
                               LabelName: String;
                              End;
 
+                   Foreach: Record
+                             LoopVar, LoopIterVar, LoopExprHolder, LoopSizeHolder: TObject; // TVariable
+                             LoopVarSSAID                                        : uint32;
+                            End;
+
                    isVolatile: Boolean;
 
                    Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
@@ -53,6 +58,9 @@ Unit FlowGraph;
 
                   Constructor Create;
                   Procedure AddNode(Node: TCFGNode);
+
+                  Procedure Validate;
+                  Procedure CheckReturns(const CompilerPnt: Pointer; const isVoidOrNaked: Boolean);
                  End;
 
  Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
@@ -60,10 +68,10 @@ Unit FlowGraph;
  Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 
  Function getVariableCFGCost(Symbol: TObject; rBeginNode, rEndNode: TCFGNode): uint32;
- Function isVariableUsed(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
+ Function isVariableUsed(VariablePnt: TObject; rBeginNode, rEndNode: TCFGNode): Boolean;
 
  Implementation
-Uses Math, Classes, SysUtils, symdef, ExpressionCompiler;
+Uses Math, Classes, SysUtils, SSCompiler, Messages, symdef, ExpressionCompiler;
 
 { RandomSymbol }
 Function RandomSymbol: String;
@@ -72,7 +80,7 @@ Begin
  Result := '';
 
  For I := 0 To 10 Do
-  Result += chr(ord('a')+Random(20));
+  Result += chr(ord('a')+Random(24));
 End;
 
 // -------------------------------------------------------------------------- //
@@ -81,7 +89,7 @@ Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
 Var Str, Visited: TStringList;
 
   { NodeToString }
-  Function NodeToString(Node: TCFGNode): String;
+  Function NodeToString(const Node: TCFGNode): String;
   Begin
    if (Node.Typ = cetExpression) Then
     Result := ExpressionToString(PExpressionNode(Node.Value)) Else
@@ -97,6 +105,9 @@ Var Str, Visited: TStringList;
 
    if (Node.Typ = cetTryCatch) Then
     Result := 'try' Else
+
+   if (Node.Typ = cetForeach) Then
+    Result := 'foreach('+TVariable(Node.Foreach.LoopVar).RefSymbol.Name+' in '+ExpressionToString(PExpressionNode(Node.Value))+')' Else
 
    if (Node.Typ = cetBytecode) Then
     Result := '<bytecode>' Else
@@ -184,6 +195,18 @@ Var Str, Visited: TStringList;
     Result += #13#10+Node.Name+' -> '+Parse(Node.Child[2]);
    End Else
 
+   { foreach }
+   if (Node.Typ = cetForeach) Then
+   Begin
+    Result := Node.Name;
+
+    Str := Parse(Node.Child[0]);
+
+    Result += #13#10+Node.Name+' -> '+Str;
+    Result += #13#10+Str+' -> '+Node.Name;
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[1]);
+   End Else
+
    { bytecode }
    if (Node.Typ = cetBytecode) Then
    Begin
@@ -193,7 +216,7 @@ Var Str, Visited: TStringList;
      Result += ' -> '+Parse(Node.Child[0]);
    End Else
 
-    raise Exception.Create('DrawGraph::Parse() -> invalid Node.Typ');
+    raise Exception.CreateFmt('DrawGraph::Parse() -> invalid Node.Typ = %d', [ord(Node.Typ)]);
   End;
 
   { ParseF }
@@ -364,7 +387,7 @@ End;
 {
  Returns `true` if the variable is used in any expression between specified nodes, excluding assignments and operators like `*=` (!)
 }
-Function isVariableUsed(VariablePnt: Pointer; rBeginNode, rEndNode: TCFGNode): Boolean;
+Function isVariableUsed(VariablePnt: TObject; rBeginNode, rEndNode: TCFGNode): Boolean;
 Var Visited : TStringList;
     VarName : String;
     VarRange: TRange;
@@ -420,6 +443,12 @@ Var Visited : TStringList;
      Visited.Add(Node.Name);
 
      if (isUsed(Node, Node.Value)) Then
+     Begin
+      Result := True;
+      Exit;
+     End;
+
+     if (Node.Typ = cetForeach) and (Node.Foreach.LoopVar = VariablePnt) Then
      Begin
       Result := True;
       Exit;
@@ -534,6 +563,164 @@ Begin
 
   Last.Child.Add(Node);
   Last := Node;
+ End;
+End;
+
+(* TCFGraph.Validate *)
+{ Validates the graph and - if needed - fixes things, that could break code generator or optimizers (like missing nodes etc.) }
+Procedure TCFGraph.Validate;
+Var VisitedNodes: TCFGNodeList;
+
+  { FixTryCatch }
+  Procedure FixTryCatch(const Node: TCFGNode);
+  Var Child: TCFGNode;
+  Begin
+   if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
+    Exit;
+   VisitedNodes.Add(Node);
+
+   if (Node.Typ = cetTryCatch) and (Node.Child.Count = 2) Then
+   Begin
+    (* @Note:
+
+      In some specific cases, "try..catch" construction has only 2 children, not 3; like here:
+
+      function<void> foo()
+      {
+       try
+       {
+        a();
+       } catch(msg)
+       {
+        b();
+       }
+      }
+      (because no code appears after the try..catch construction)
+
+      This could crash optimizer as well as the code generator (as they expect 'cetTryCatch'-typed nodes to have exactly 3 children), so we're just inserting a `nil` child-node into this node.
+    *)
+
+    Node.Child.Add(nil);
+   End;
+
+   For Child in Node.Child Do
+    FixTryCatch(Child);
+  End;
+
+  { FixForeach }
+  Procedure FixForeach(const Node: TCFGNode);
+  Var Child: TCFGNode;
+  Begin
+   if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
+    Exit;
+   VisitedNodes.Add(Node);
+
+   if (Node.Typ = cetForeach) and (Node.Child.Count < 2) Then
+    Node.Child.Add(nil);
+
+   For Child in Node.Child Do
+    FixForeach(Child);
+  End;
+
+Begin
+ VisitedNodes := TCFGNodeList.Create;
+
+ Try
+  FixTryCatch(Root);
+
+  VisitedNodes.Clear;
+  FixForeach(Root);
+ Finally
+  VisitedNodes.Free;
+ End;
+End;
+
+(* TCFGraph.CheckReturns *)
+{
+ Checks if every code path leads to a corresponding "return" statement; if not, displays appropiate compiler hint.
+ Also displays "unreachable code" messages when a code appears after some 'return' construction.
+}
+Procedure TCFGraph.CheckReturns(const CompilerPnt: Pointer; const isVoidOrNaked: Boolean);
+Var Compiler        : TCompiler absolute CompilerPnt;
+    isThereAnyReturn: Boolean = False;
+    VisitedNodes    : TCFGNodeList;
+
+  { Visit }
+  Procedure Visit(Node, EndNode: TCFGNode);
+  Var Child: TCFGNode;
+  Begin
+   if (Node = nil) or (Node = EndNode) or (VisitedNodes.IndexOf(Node) <> -1) Then // if encountered nil node, end node or we're visiting one node for the second time, stop.
+    Exit;
+   VisitedNodes.Add(Node); // add node to the visited list
+
+   { if 'return' }
+   if (Node.Typ = cetReturn) Then
+   Begin
+    isThereAnyReturn := True;
+
+    if (Node.Child.Count = 1) Then // any code appearing after 'return' is 'unreachable'...
+     if (Node.Child[0] <> EndNode) and // ...if it isn't ending node
+        (VisitedNodes.IndexOf(Node.Child[0]) = -1) and // ...and if it hasn't been already visited
+        (Node.Child[0].Value <> nil) Then // ...and ofc. - if it's an expression
+     Begin
+      Compiler.CompileHint(Node.Child[0].getToken, hUnreachableCode, []);
+      VisitedNodes.Add(Node.Child[0]);
+     End;
+
+    Exit;
+   End;
+
+   if (Node.Child.Count = 0) and (Node.Value <> nil) Then // if it's an edge node with some expression and it isn't 'return', show warning
+   Begin
+    isThereAnyReturn := True; // otherwise the message below would be shown 2 times instead of one
+
+    if (not isVoidOrNaked) Then
+     Compiler.CompileWarning(Compiler.Parser.next_pnt(-1), wNotEveryPathReturnsAValue, []);
+   End;
+
+   { if condition }
+   if (Node.Typ = cetCondition) Then
+   Begin
+    Visit(Node.Child[0], Node.Child[2]);
+    Visit(Node.Child[1], Node.Child[2]);
+    Visit(Node.Child[2], nil);
+   End Else
+
+   { if 'try..catch' }
+   if (Node.Typ = cetTryCatch) Then
+   Begin
+    if (Node.Child[0].isThere(cetReturn)) and (Node.Child[1].isThere(cetReturn)) Then // if both nodes ("try" and "catch") return a value...
+    Begin
+     isThereAnyReturn := True;
+
+     Node := Node.Child[2];
+
+     if (Node <> nil) and (Node.Value <> nil) Then
+      Compiler.CompileHint(Node.getToken, hUnreachableCode, []);
+    End Else
+     Visit(Node.Child[2], EndNode);
+   End Else
+
+   { if 'foreach' }
+   if (Node.Typ = cetForeach) Then
+   Begin
+    Visit(Node.Child[1], EndNode);
+   End Else
+
+    For Child in Node.Child Do // visit every child
+     Visit(Child, EndNode);
+  End;
+
+Begin
+ VisitedNodes := TCFGNodeList.Create;
+
+ Try
+  Visit(Root, nil);
+
+  if (not isVoidOrNaked) and (not isThereAnyReturn) Then
+   Compiler.CompileWarning(Compiler.Parser.next_pnt(-1), wNotEveryPathReturnsAValue, []);
+ Finally
+  VisitedNodes.Free;
  End;
 End;
 End.

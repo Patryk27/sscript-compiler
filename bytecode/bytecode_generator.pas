@@ -10,13 +10,22 @@ Begin
  End;
 End;
 
-{ RemoveRedundantPush }
-Procedure RemoveRedundantPush;
+{ RemoveRedundantMovPush }
+Procedure RemoveRedundantMovPush(const Expr: PExpressionNode);
+Var Opcode: PMOpcode;
 Begin
  With TCompiler(Compiler) do
-  if (OpcodeList.Last^.Opcode = o_push) Then
-   With OpcodeList.Last^ do
+  if (Expr^.ResultOnStack) Then
+   if (OpcodeList.Last^.Opcode = o_push) Then
+   Begin
+    Opcode := OpcodeList.Last;
+
     OpcodeList.Remove(OpcodeList.Last);
+
+    if (OpcodeList.Last^.Opcode = o_mov) and
+       (OpcodeList.Last^.Args[0] = Opcode^.Args[0]) Then
+        OpcodeList.Remove(OpcodeList.Last);
+   End;
 End;
 
 { Generate }
@@ -25,13 +34,15 @@ Var Child   : TCFGNode;
     Expr    : PExpressionNode;
     ExprType: TType;
 
-    LabelName, LabelFalse, LabelOut: String;
+    LabelName, LabelFalse, LabelOut, Pos1, Pos2: String;
 
     PrevDoNotGenerateCode: Boolean;
 
     ArgList: PVarRecArray;
     I      : Integer;
     Symbol : TSymbol;
+
+    ForeachVar, ForeachIterator, ForeachExprHolder, ForeachSizeHolder: TVariable;
 Begin
  if (Node = nil) Then
   Exit;
@@ -64,13 +75,8 @@ Begin
     cetExpression:
     Begin
      ExpressionCompiler.CompileExpression(Compiler, Node.Value);
-     RemoveRedundantPush;
 
-     //With TCompiler(Compiler) do
-     // if (OpcodeList.Last^.Opcode = o_mov) and
-     //    (OpcodeList.Last^.Args[0].Typ in [ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg]) and
-     //    (OpcodeList.Last^.Args[0].Value = 1) Then
-     //     OpcodeList.Remove(OpcodeList.Last); // kinda ugly hack, but let's not talk about it...
+     RemoveRedundantMovPush(Node.Value);
 
      if (Node.Child.Count <> 0) Then
       Generate(Node.Child.First);
@@ -190,6 +196,75 @@ Begin
     Generate(Node.Child[2]);
    End;
 
+ { cetForeach }
+   cetForeach:
+   Begin
+    LabelName         := Node.getName+'_foreach_loop_';
+    ForeachVar        := Node.Foreach.LoopVar as TVariable;
+    ForeachIterator   := Node.Foreach.LoopIterVar as TVariable;
+    ForeachExprHolder := Node.Foreach.LoopExprHolder as TVariable;
+    ForeachSizeHolder := Node.Foreach.LoopSizeHolder as TVariable;
+
+    { compile foreach expression }
+    Expr     := Node.Value;
+    ExprType := CompileExpression(Compiler, Expr);
+
+    if (type_equal(ForeachVar.Typ, ExprType)) Then
+    Begin
+     CompileError(Expr^.Token, eInvalidForeach, []);
+    End Else
+    if (not ExprType.isArray) Then
+    Begin
+     CompileError(Expr^.Token, eWrongType, [ExprType.asString, 'array']); // error: array is required for a foreach-expression
+    End Else
+    Begin
+     if (not type_equal(ForeachVar.Typ, ExprType.getLowerArray)) Then
+      CompileError(Node.getToken, eWrongType, [ForeachVar.Typ.asString, ExprType.getLowerArray.asString]);
+    End;
+
+    { get and save foreach expression length }
+    if (Expr^.ResultOnStack) Then
+     PutOpcode(o_pop, [ForeachExprHolder.getAllocationPos]) Else
+     PutOpcode(o_mov, [ForeachExprHolder.getAllocationPos, 'e'+ExprType.RegPrefix+'1']);
+
+    if (ExprType.RegPrefix = 's') Then
+    Begin
+     PutOpcode(o_strlen, [ForeachExprHolder.getAllocationPos, ForeachSizeHolder.getAllocationPos]);
+     PutOpcode(o_mov, [ForeachIterator.getAllocationPos, 1]); // strings are iterated from 1
+    End Else
+    Begin
+     PutOpcode(o_arlen, [ForeachExprHolder.getAllocationPos, 1, ForeachSizeHolder.getAllocationPos]);
+     PutOpcode(o_mov, [ForeachIterator.getAllocationPos, 0]);
+    End;
+
+    PutLabel(LabelName+'content');
+
+    if (ExprType.RegPrefix = 's') Then
+     PutOpcode(o_if_le, [ForeachIterator.getAllocationPos, ForeachSizeHolder.getAllocationPos]) Else
+     PutOpcode(o_if_l, [ForeachIterator.getAllocationPos, ForeachSizeHolder.getAllocationPos]);
+    PutOpcode(o_fjmp, [':'+LabelName+'end']);
+
+    PutOpcode(o_push, [ForeachIterator.getAllocationPos]);
+
+    if (ForeachExprHolder.MemPos <= 0) Then
+     Pos1 := '['+IntToStr(ForeachExprHolder.MemPos-1)+']' Else
+     Pos1 := ForeachExprHolder.getAllocationPos;
+
+    if (ForeachVar.MemPos <= 0) Then
+     Pos2 := '['+IntToStr(ForeachVar.MemPos-1)+']' Else
+     Pos2 := ForeachVar.getAllocationPos;
+
+    PutOpcode(o_arget, [Pos1, 1, Pos2]); // arget(ForeachExprHolder, 1, ForeachVar)
+
+    Generate(Node.Child[0]);
+
+    PutOpcode(o_add, [ForeachIterator.getAllocationPos, 1]); // ForeachIterator++
+    PutOpcode(o_jmp, [':'+LabelName+'content']); // jump to the beginning
+
+    PutLabel(LabelName+'end');
+    Generate(Node.Child[1]);
+   End;
+
  { cetBytecode }
    cetBytecode:
    Begin
@@ -204,7 +279,7 @@ Begin
         For Symbol in Func.SymbolList Do
          With Symbol do
           if (Typ = stVariable) Then
-           ArgList^[I].VPChar := CopyStringToPChar(StringReplace(ArgList^[I].VPChar, 'localvar.'+IntToStr(LongWord(mVariable)), mVariable.getBytecodePos, [rfReplaceAll]));
+           ArgList^[I].VPChar := CopyStringToPChar(StringReplace(ArgList^[I].VPChar, 'localvar.'+IntToStr(LongWord(mVariable)), mVariable.getAllocationPos, [rfReplaceAll]));
       End;
 
       PutOpcode(Node.Bytecode.OpcodeName, ArgList^, Node.getToken);
@@ -223,125 +298,14 @@ Begin
 End;
 
 // -------------------------------------------------------------------------- //
-(* ValidateGraph *)
-Procedure ValidateGraph;
-Var isThereAnyReturn: Boolean = False;
+{ tree optimizations }
+{$I opt_deadcode.pas}
+{$I opt_expressions.pas}
+{$I opt_branch_simplification.pas}
 
-  // CheckTryCatch
-  Procedure CheckTryCatch(Node: TCFGNode);
-  Var Child: TCFGNode;
-  Begin
-   if (Node = nil) Then
-    Exit;
-
-   if (VisitedNodes.IndexOf(Node) <> -1) Then
-    Exit;
-   VisitedNodes.Add(Node);
-
-   if (Node.Typ = cetTryCatch) and (Node.Child.Count = 2) Then
-   Begin
-    (* @Note:
-
-      In some specific cases, "try..catch" construction has only 2 children, not 3; like here:
-
-      function<void> foo()
-      {
-       try
-       {
-        a();
-       } catch(msg)
-       {
-        b();
-       }
-      }
-      (because no code appears after the try..catch construction)
-
-      This could crash optimizer as well as the code generator (as they expect 'cetTryCatch'-typed nodes to have exactly 3 children), so we're just inserting a `nil` child-node into this node.
-    *)
-
-    Node.Child.Add(nil);
-   End;
-
-   For Child in Node.Child Do
-    CheckTryCatch(Child);
-  End;
-
-  // CheckReturn
-  Procedure CheckReturn(Node, EndNode: TCFGNode);
-  Var Child: TCFGNode;
-  Begin
-   if (Node = nil) or (Node = EndNode) Then // if encountered nil or end node...
-    Exit;
-
-   if (VisitedNodes.IndexOf(Node) <> -1) Then
-    Exit;
-   VisitedNodes.Add(Node); // add node to the visited list
-
-   if (Node.Typ = cetReturn) Then // if 'return'
-   Begin
-    isThereAnyReturn := True;
-
-    if (Node.Child.Count = 1) Then // any code appearing after 'return' is 'unreachable'...
-     if (Node.Child[0] <> EndNode) and // ...if it isn't ending node
-        (VisitedNodes.IndexOf(Node.Child[0]) = -1) and // ...and if it hasn't been already visited
-        (Node.Child[0].Value <> nil) Then // ...and ofc. - if it's an expression
-     Begin
-      TCompiler(Compiler).CompileHint(Node.Child[0].getToken, hUnreachableCode, []);
-      VisitedNodes.Add(Node.Child[0]);
-     End;
-
-    Exit;
-   End;
-
-   if (Node.Child.Count = 0) and (Node.Value <> nil) Then // if it's an edge node with some expression and it isn't 'return', show warning
-   Begin
-    isThereAnyReturn := True; // otherwise the message below would be shown 2 times instead of one
-    TCompiler(Compiler).CompileWarning(TCompiler(Compiler).Parser.next_pnt(-1), wNotEveryPathReturnsAValue, []);
-   End;
-
-   if (Node.Typ = cetCondition) Then
-   Begin
-    CheckReturn(Node.Child[0], Node.Child[2]);
-    CheckReturn(Node.Child[1], Node.Child[2]);
-    CheckReturn(Node.Child[2], nil);
-   End Else
-
-   if (Node.Typ = cetTryCatch) Then
-   Begin
-    if (Node.Child[0].isThere(cetReturn)) and (Node.Child[1].isThere(cetReturn)) Then // if both nodes ("try" and "catch") return a value...
-    Begin
-     isThereAnyReturn := True;
-
-     Node := Node.Child[2];
-
-     if (Node <> nil) and (Node.Value <> nil) Then
-      TCompiler(Compiler).CompileHint(Node.getToken, hUnreachableCode, []);
-    End Else
-     CheckReturn(Node.Child[2], EndNode);
-   End Else
-
-    For Child in Node.Child Do
-     CheckReturn(Child, EndNode);
-  End;
-
-Begin
- VisitedNodes.Clear;
- CheckTryCatch(Func.FlowGraph.Root);
-
- if (not Func.Return.isVoid) and (not Func.isNaked) Then
- Begin
-  VisitedNodes.Clear;
-  CheckReturn(Func.FlowGraph.Root, nil);
-
-  if (not isThereAnyReturn) Then
-   TCompiler(Compiler).CompileWarning(TCompiler(Compiler).Parser.next_pnt(-1), wNotEveryPathReturnsAValue, []);
- End;
-End;
-
-{$I deadcode_removal.pas}
-{$I expression_optimization.pas}
-{$I branch_simplification.pas}
-{$I variable_allocation.pas}
+{ variable allocator }
+{$I variable_allocator.pas}
+// -------------------------------------------------------------------------- //
 
 (* AddPrologCode *)
 Procedure AddPrologCode;
@@ -359,39 +323,29 @@ Begin
   PutComment('Parameters:');
   For Symbol in Func.SymbolList Do
    if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (Symbol.mVariable.isFuncParam) Then
-    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos);
+    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getAllocationPos);
 
   PutComment('');
 
   PutComment('Variables:');
   For Symbol in Func.SymbolList Do
    if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (not Symbol.mVariable.isFuncParam) Then
-    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getBytecodePos+', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'-'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines, CFG cost: '+IntToStr(getVariableCFGCost(Symbol, Func.FlowGraph.Root, nil)));
+    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getAllocationPos+', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'-'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines, CFG cost: '+IntToStr(getVariableCFGCost(Symbol, Func.FlowGraph.Root, nil)));
 
   PutComment('--------------------------------- //');
 
   PutOpcode(o_loc_func, ['"'+Func.RefSymbol.Name+'"']);
 
-  { allocate local stack variables }
-  if (not Func.isNaked) Then
-   PutOpcode(o_add, ['stp', Func.StackSize]);
-
-  { if register is occupied by variable, we need to at first save this register's value (and restore it at the end of the function) }
   With Func do
   Begin
-   For StackReg in StackRegs Do
-    PutOpcode(o_push, ['e'+StackReg^.RegChar+IntToStr(StackReg^.RegID)]);
+   { if register is occupied by a variable, we need to at first save this register's value (and restore it at the end of the function) }
+   if (not isNaked) Then
+    For StackReg in StackRegs Do
+     PutOpcode(o_push, ['e'+StackReg^.RegChar+IntToStr(StackReg^.RegID)]);
 
-   For Symbol in SymbolList Do // each symbol
-    if (Symbol.Typ = stVariable) Then // if variable
-     With Symbol.mVariable do
-      if (MemPos <= 0) Then // if allocated on the stack
-      Begin
-       MemPos -= StackRegs.Count; // move variable back
-
-       if (isFuncParam) Then
-        MemPos -= Func.StackSize;
-      End;
+   { allocate local stack variables }
+   if (not isNaked) Then
+    PutOpcode(o_add, ['stp', StackSize]);
   End;
 
   { new label (main function's body; nothing should jump here - it's just facilitation for optimizer so it doesn't possibly remove the epilog code) }
@@ -410,11 +364,11 @@ Begin
 
   With Func do
   Begin
-   For I := StackRegs.Count-1 Downto 0 Do
-    PutOpcode(o_pop, ['e'+StackRegs[I]^.RegChar+IntToStr(StackRegs[I]^.RegID)]);
-
    if (not isNaked) Then
     PutOpcode(o_sub, ['stp', Func.StackSize]);
+
+   For I := StackRegs.Count-1 Downto 0 Do
+    PutOpcode(o_pop, ['e'+StackRegs[I]^.RegChar+IntToStr(StackRegs[I]^.RegID)]);
   End;
 
   PutOpcode(o_ret);

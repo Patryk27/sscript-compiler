@@ -71,8 +71,8 @@ Var FreeRegs: Array[reg_eb..reg_er] of Set of uint8 = // variables can be alloca
 
           Thus:
           "a2" would be directly but into 'ei3'
-          "b1" would be put into 'ei3', as it liveness doesn't collide with "a2"
-          "a1" would be put into 'ei3', because the compiler visites the list from the beginning. And here is the 'ooops': "a1" and "b1" share the same register!
+          "b1" would be put into 'ei3', as it liveness doesn't overwrite "a2"
+          "a1" would also be put into 'ei3', because the compiler visites the list from the beginning. And here we have the 'ooops': "a1" and "b1" share the same register!
          *)
          Can := True;
 
@@ -99,26 +99,29 @@ Var FreeRegs: Array[reg_eb..reg_er] of Set of uint8 = // variables can be alloca
 
      mVar.MemPos := 0;
 
-     Case RegChar of
-      'b': FRIndex := reg_eb;
-      'c': FRIndex := reg_ec;
-      'i': FRIndex := reg_ei;
-      'f': FRIndex := reg_ef;
-      's': FRIndex := reg_es;
-      'r': FRIndex := reg_er;
-     End;
-
-     For Reg in FreeRegs[FRIndex] Do
+     if (not mVar.Typ.isAny) Then // 'any'-typed variables must be allocated on the stack
      Begin
-      mVar.MemPos := Reg;
-      Exclude(FreeRegs[FRIndex], Reg);
+      Case RegChar of
+       'b': FRIndex := reg_eb;
+       'c': FRIndex := reg_ec;
+       'i': FRIndex := reg_ei;
+       'f': FRIndex := reg_ef;
+       's': FRIndex := reg_es;
+       'r': FRIndex := reg_er;
+      End;
 
-      New(StackReg);
-      StackReg^.RegChar := RegChar;
-      StackReg^.RegID   := Reg;
-      Func.StackRegs.Add(StackReg);
+      For Reg in FreeRegs[FRIndex] Do
+      Begin
+       mVar.MemPos := Reg;
+       Exclude(FreeRegs[FRIndex], Reg);
 
-      Break;
+       New(StackReg);
+       StackReg^.RegChar := RegChar;
+       StackReg^.RegID   := Reg;
+       Func.StackRegs.Add(StackReg);
+
+       Break;
+      End;
      End;
 
      if (mVar.MemPos = 0) Then // we have to allocate it on the stack

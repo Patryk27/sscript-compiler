@@ -150,7 +150,7 @@ Var Func: TFunction; // our new function
         RequireDefaultValue := True;
        End Else
         if (RequireDefaultValue) Then
-         CompileError(eDefaultValueRequired, [Name]) Else
+         CompileError(eDefaultParamValueRequired, [Name]) Else
          DefaultValue := nil;
       End;
 
@@ -432,8 +432,11 @@ Begin
   VisitedNodes := TCFGNodeList.Create;
   RemovedNodes := TCFGNodeList.Create;
   Try
-   DevLog(dvInfo, 'Parse', 'Validing graph for function `'+Func.RefSymbol.Name+'`...');
-   ValidateGraph;
+   With Func.FlowGraph do
+   Begin
+    Validate;
+    CheckReturns(Compiler, Func.Return.isVoid or Func.isNaked);
+   End;
 
    if (TCompiler(Compiler).getBoolOption(opt__tree_simplify)) Then
    Begin

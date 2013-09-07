@@ -8,7 +8,7 @@ Unit SSCompiler;
  Uses Classes, SysUtils, Variants, FGL, Math, FlowGraph,
       Parser, Tokens, CompilerUnit, Opcodes, Messages, Expression, symdef,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include,
-      Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW;
+      Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW, Parse_FOREACH;
 
  { constants }
  Const Version = '2.2.4 nightly';
@@ -24,7 +24,7 @@ Unit SSCompiler;
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
 
- Type TScopeType = (sFunction, sFOR, sIF, sWHILE, sTryCatch);
+ Type TScopeType = (sFunction, sFOR, sFOREACH, sIF, sWHILE, sTRYCATCH);
 
  Type TScope = Record
                 Typ               : TScopeType;
@@ -74,7 +74,7 @@ Unit SSCompiler;
 
                     DoNotGenerateCode: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
 
-                    ParsingFORInitInstruction: Boolean; // don't even ask...
+                    ParsingFORInitInstruction, ParsingForeachHeader: Boolean;
 
                { -> properties }
                     Property getCurrentRoot: TCFGNode read fCurrentRoot;
@@ -173,7 +173,7 @@ Unit SSCompiler;
  Function CopyStringToPChar(const Str: String): PChar;
 
  Implementation
-Uses BytecodeCompiler, ExpressionCompiler, SSMParser, Peephole_Optimization;
+Uses BytecodeCompiler, ExpressionCompiler, SSMParser, opt_peephole;
 
 (* ReplaceDirSep *)
 {
@@ -601,8 +601,9 @@ Begin
     _TYPE       : Parse_TYPE.Parse(self);
     _THROW      : Parse_THROW.Parse(self);
     _TRY        : Parse_TRY_CATCH.Parse(self);
+    _FOREACH    : Parse_FOREACH.Parse(self);
 
-    _ELSE, _NAMESPACE, _CATCH: CompileError(eNotAllowed, [Token.Value]);
+    _ELSE, _FUNCTION, _NAMESPACE, _CATCH: CompileError(eNotAllowed, [Token.Value]);
 
     _SEMICOLON: ; // at semicolon, don't do anything
 
@@ -1632,7 +1633,7 @@ Begin
    if (getBoolOption(opt__bytecode_optimize)) Then
    Begin
     Log('-> Optimizing bytecode.');
-    Peephole_Optimization.OptimizeBytecode(self);
+    opt_peephole.OptimizeBytecode(self);
    End;
   End;
 
