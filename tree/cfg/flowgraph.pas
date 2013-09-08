@@ -13,55 +13,74 @@ Unit FlowGraph;
  Type TVarRecArray = Array of TVarRec;
       PVarRecArray = ^TVarRecArray;
 
- Type TCFGNodeType = (cetNone, cetExpression, cetCondition, cetReturn, cetThrow, cetTryCatch, cetForeach, cetBytecode);
+ Type TCFGNodeType = (cetNone, cetExpression, cetCondition, cetReturn, cetThrow, cetTryCatch, cetForeach, cetArrayInitializer, cetBytecode);
 
  Type TCFGNode = class;
       TCFGNodeList = specialize TFPGList<TCFGNode>;
 
- Type TCFGNode = Class
-                  Private
-                   Name  : String;
-                   fToken: PToken_P;
+ { TCFGNode }
+ Type TCFGNode =
+      Class
+       Private
+        // -- private fields -- //
+        Name  : String;
+        fToken: PToken_P;
 
-                  Public
-                   Typ  : TCFGNodeType;
-                   Value: PExpressionNode;
+       Public
+        // -- public fields -- //
+        Typ  : TCFGNodeType;
+        Value: PExpressionNode;
 
-                   Parent: TCFGNode;
-                   Child : TCFGNodeList;
+        Parent: TCFGNode;
+        Child : TCFGNodeList;
 
-                   Bytecode: Record // if `Typ = cetBytecode`
-                              OpcodeName   : String;
-                              OpcodeArgList: PVarRecArray;
+        Bytecode: // if `Typ` is `cetBytecode`
+        Record
+         OpcodeName   : String;
+         OpcodeArgList: PVarRecArray;
 
-                              LabelName: String;
-                             End;
+         LabelName: String;
+        End;
 
-                   Foreach: Record
-                             LoopVar, LoopIterVar, LoopExprHolder, LoopSizeHolder: TObject; // TVariable
-                             LoopVarSSAID                                        : uint32;
-                            End;
+        Foreach: // if `Typ` is `cetForeach`
+        Record
+         LoopVar, LoopIterVar, LoopExprHolder, LoopSizeHolder: TObject; // TVariable
+         LoopVarSSAID                                        : uint32;
+        End;
 
-                   isVolatile: Boolean;
+        ArrayInitializer: // if `Typ` is `cetArrayInitializer`
+        Record
+         VarSymbol: TObject; // TSymbol
+         Values   : Array of PExpressionNode; // consecutive array values
+         DimSizes : Array of uint32; // size of each array dimension
+        End;
 
-                   Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
-                   Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpressionNode; ffToken: PToken_P=nil);
+        isVolatile: Boolean; // is node volatile (information for optimizers)?
 
-                   Function isThere(const SearchType: TCFGNodeType): Boolean;
+        // -- public methods -- //
+        Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
+        Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpressionNode; ffToken: PToken_P=nil);
 
-                   Function getToken: PToken_P;
-                   Property getName: String read Name;
-                  End;
+        Function isThere(const SearchType: TCFGNodeType): Boolean;
 
- Type TCFGraph = Class
-                  Root, Last: TCFGNode;
+        Function getToken: PToken_P;
+        Property getName: String read Name;
+       End;
 
-                  Constructor Create;
-                  Procedure AddNode(Node: TCFGNode);
+ { TCFGraph }
+ Type TCFGraph =
+      Class
+       Public // @TODO: private?
+        // -- public fields -- //
+        Root, Last: TCFGNode;
 
-                  Procedure Validate;
-                  Procedure CheckReturns(const CompilerPnt: Pointer; const isVoidOrNaked: Boolean);
-                 End;
+        // -- public methods -- //
+        Constructor Create;
+        Procedure AddNode(Node: TCFGNode);
+
+        Procedure Validate;
+        Procedure CheckReturns(const CompilerPnt: Pointer; const isVoidOrNaked: Boolean);
+       End;
 
  Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
 

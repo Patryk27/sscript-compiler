@@ -1040,6 +1040,9 @@ Begin
 
  if (FinalExprPos = 0) Then
   FinalExpr[0].Token.Token := noToken;
+
+ if (Bracket <> 0) or (Bracket2 <> 0) Then
+  CompileError(eInvalidExpression);
 End;
 End;
 

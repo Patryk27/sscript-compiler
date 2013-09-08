@@ -6,6 +6,7 @@ Procedure __constant_folding(const ErrorOnInvalidOperator: Boolean);
 Procedure Parse(var Expr: PExpressionNode);
 Var Tmp, Tmp2, Left, Right: PExpressionNode;
     Evaluated             : Boolean = False;
+    mVar                  : TVariable;
     I                     : Integer;
 Begin
  if (Expr = nil) Then // nothing to do
@@ -196,7 +197,7 @@ Begin
 
  // ----------------------------------------- //
 
- { try to compute expressions like `x *= 5;` at compile-time (if `x` is known) }
+ { try to compute expressions like `numvar *= 5;` at compile-time (if `numvar` is known) }
  For I := Low(Simplify1Data) To High(Simplify1Data) Do
   if (Expr^.Typ = Simplify1Data[I].Post) Then
   Begin
@@ -230,6 +231,12 @@ Begin
     Expr^.Right := Right;
    End;
   End;
+
+ { try to compute "numvar++", "++numvar", "numvar--" and "--numvar" at compile time, if "numvar" is known }
+ {if (Expr^.Typ in [mtPostInc, mtPostDec, mtPreInc, mtPreDec]) and (TSymbol(Expr^.Symbol).mVariable.Typ.isNumerical) Then
+ Begin
+  @TODO
+ End;}
 
  AnyChange := AnyChange or Evaluated;
 End;

@@ -135,7 +135,7 @@ Unit symdef;
                     Function isCatchVar: Boolean;
                     Function DontAllocate: Boolean;
 
-                    Function getAllocationPos: String;
+                    Function getAllocationPos(const StackShift: int8=0): String;
                    End;
  Type TMVariableList = Array of TVariable;
 
@@ -1071,12 +1071,15 @@ End;
 
 (* TVariable.getAllocationPos *)
 {
- Returns variable's position on stack or register; eg.`[-1]` or `ei3`
+ Returns variable's position on stack or register; eg.`[-1]` or `ei3`.
+ The "StackShift" value is respected, if variable is allocated on the stack.
+
+ @Note: when a variable is allocated on the stack (let's say on "[-3]") and the "StackShift" value is equal eg."-2", the returned value will be "-5".
 }
-Function TVariable.getAllocationPos: String;
+Function TVariable.getAllocationPos(const StackShift: int8): String;
 Begin
  if (MemPos <= 0) Then
-  Result := '['+IntToStr(MemPos)+']' Else
+  Result := '['+IntToStr(MemPos + StackShift)+']' Else
   Result := 'e'+Typ.RegPrefix+IntToStr(MemPos);
 End;
 

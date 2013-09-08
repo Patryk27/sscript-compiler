@@ -15,14 +15,16 @@ Unit Messages;
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
-  eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach,
+  eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
+  eInvalidArrayInitializer,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference);
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedString,
                                            eExpectedInt, eUnknownType, eUnknownNamespace, eFileNotFound, eDivByZero,
                                            eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
-                                           eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidIntegerValue, eInvalidFloatValue];
+                                           eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidIntegerValue, eInvalidFloatValue,
+                                           eExpectedFewerElements, eExpectedMoreElements];
 
  Const CompileError_fmt: Array[TCompileError] of String =
  (
@@ -79,6 +81,10 @@ Unit Messages;
   'File not found: %s',
   'Default parameter value required for `%s`',
   'Invalid foreach construction (foreach-var and foreach-expr have the same types)',
+  'Array required',
+  'Expected %d fewer element(s)',
+  'Expected %d more element(s)',
+  'Invalid array initializer; got %dD array, expecting %d-dimensional',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

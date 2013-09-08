@@ -42,7 +42,49 @@ Var Child   : TCFGNode;
     I      : Integer;
     Symbol : TSymbol;
 
+    { foreach }
     ForeachVar, ForeachIterator, ForeachExprHolder, ForeachSizeHolder: TVariable;
+
+    { array initializer }
+    ArrayVar        : TVariable;
+    ArrayElementType: TType;
+    ArrayValues     : Array of PExpressionNode;
+    ArrayDimSizes   : Array of uint32;
+    ArrayTmpDims    : Array of uint32;
+    ArrayElementID  : uint32;
+
+    // CompileArrayInitializer
+    Procedure CompileArrayInitializer(const Dim: uint8);
+    Var I: uint8;
+    Begin
+     With TCompiler(Compiler) do
+     Begin
+      if (ArrayDimSizes[Dim] = 0) Then
+      Begin
+       ExprType := CompileExpression(Compiler, ArrayValues[ArrayElementID]); // compile expression
+
+       if (not (type_equal(ExprType, ArrayElementType))) Then // check types
+        CompileError(eWrongType, [ExprType.asString, ArrayElementType.asString]);
+
+ //      if (ArrayValues[ArrayElementID].ResultOnStack) Then
+       PutOpcode(o_pop, ['e'+ExprType.RegPrefix+'1']);
+
+       For I := Dim-1 Downto 0 Do
+        PutOpcode(o_push, [ArrayTmpDims[I]]);
+
+       PutOpcode(o_arset, [ArrayVar.getAllocationPos(-ArrayVar.Typ.ArrayDimCount), ArrayVar.Typ.ArrayDimCount, 'e'+ExprType.RegPrefix+'1']);
+
+       Inc(ArrayElementID);
+      End Else
+      Begin
+       For I := 0 To ArrayDimSizes[Dim]-1 Do
+       Begin
+        ArrayTmpDims[Dim] := I;
+        CompileArrayInitializer(Dim+1);
+       End;
+      End;
+     End;
+    End;
 Begin
  if (Node = nil) Then
   Exit;
@@ -261,10 +303,41 @@ Begin
     Generate(Node.Child[0]);
 
     PutOpcode(o_add, [ForeachIterator.getAllocationPos, 1]); // ForeachIterator++
-    PutOpcode(o_jmp, [':'+LabelName+'content']); // jump to the beginning
+    PutOpcode(o_jmp, [':'+LabelName+'content']); // jump to the beginning of the loop
 
     PutLabel(LabelName+'end');
     Generate(Node.Child[1]);
+   End;
+
+ { cetArrayInitializer }
+   cetArrayInitializer:
+   Begin
+    ArrayVar         := (Node.ArrayInitializer.VarSymbol as TSymbol).mVariable;
+    ArrayElementType := ArrayVar.Typ.ArrayBase;
+    ArrayValues      := Node.ArrayInitializer.Values;
+    ArrayDimSizes    := Node.ArrayInitializer.DimSizes;
+
+    SetLength(ArrayTmpDims, 256);
+
+    { allocate array (in bytecode) }
+    For I := High(ArrayDimSizes) Downto Low(ArrayDimSizes) Do
+    Begin
+     if (ArrayDimSizes[I] = 0) Then
+      Continue;
+
+     PutOpcode(o_push, [ArrayDimSizes[I]]);
+    End;
+
+    PutOpcode(o_arcrt, ['er1', ArrayVar.Typ.InternalID, ArrayVar.Typ.ArrayDimCount]);
+    PutOpcode(o_mov, [ArrayVar.getAllocationPos, 'er1']);
+
+    { compile initializer }
+    ArrayElementID := 0;
+    CompileArrayInitializer(0);
+
+    { compile further nodes }
+    if (Node.Child.Count > 0) Then
+     Generate(Node.Child[0]);
    End;
 
  { cetBytecode }
