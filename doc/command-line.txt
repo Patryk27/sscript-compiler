@@ -4,7 +4,6 @@ By default, all switches are disabled.
 1.Compiler
 	-bytecode / -b =<file>	saves generated verbal bytecode into specified file
 	-output / -o =<file>	changes output file name
-	-initcode		includes `init.sm` into the program (programs only)
 
 	-includepath <path>	changes the include path; default: `$file;$compiler`
 

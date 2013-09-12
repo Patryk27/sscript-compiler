@@ -18,7 +18,7 @@ goto :begin
 :compile
 	set outputfile=..\stdlib\%~1.ssm
 
-	echo --] '%~1.ss' :: '%outputfile%'
+	echo --] '%~1.ss' ^-^> '%outputfile%'
 
 	if exist %outputfile% del /Q %outputfile% > nul
 	..\compiler %~1.ss -o %outputfile% -h ..\stdlib\%~1.ss -Cm lib -O3
@@ -29,10 +29,6 @@ goto :begin
 :begin
 if not exist "..\compiler.exe" goto :compiler_not_found
 
-echo -] init code
-call :compile "init"
-
-echo.
 echo -] STRING
 call :compile "string"
 

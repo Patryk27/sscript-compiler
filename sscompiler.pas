@@ -19,7 +19,7 @@ Unit SSCompiler;
  Type TCompiler = class;
 
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
- Type TCompilePass = (_cp1, _cp2); // third pass is the actual function compiling; as it's performed at the end of each function, so there's no need for an additional `cp3` enum
+ Type TCompilePass = (_cp1, _cp2); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `cp3` enum
 
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
@@ -244,25 +244,6 @@ Var SSM          : TSSM;
 
     Namespace: TNamespace;
 Begin
- { if `-initcode` specified }
- if (getBoolOption(opt_initcode)) Then
- Begin
-  SSM := TSSM.Create;
-
-  FileName := SearchFile('init.ssm', Found);
-
-  if (not Found) Then
-   FileName := SearchFile('stdlib\init.ssm', Found);
-
-  if (not Found) Then
-   CompileError(eFileNotFound, ['init.ssm']) Else
-   Begin
-    if (not SSM.Load(FileName, FileName, self, False)) Then
-     CompileError(eCorruptedSSMFile, ['init.ssm']);
-   End;
-  SSM.Free;
- End;
-
  For Namespace in NamespaceList Do // each namespace
   With Namespace do
   Begin
@@ -1592,10 +1573,7 @@ Begin
 
    { compiling as a program }
    Begin
-    // the beginning of the program must be the "init" and "main" call
-    if (getBoolOption(opt_initcode)) Then
-     PutOpcode(o_call, [':__init']);
-
+    // the beginning of the program must be the "main" call
     PutOpcode(o_call, [':__function_self_main_'+ModuleName+'_int_']);
     PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
    End;

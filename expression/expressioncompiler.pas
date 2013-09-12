@@ -927,7 +927,7 @@ Begin
     End;
    End;
 
-   Case Token.Token of // translate token into the operator
+   Case Token.Token of // translate token into an operator
     _PLUS   : StackPush(mtAdd, Token); // +
     _MINUS  : if (Str = _UNARY_MINUS) Then StackPush(mtNeg, Token) Else StackPush(mtSub, Token); // -
     _STAR   : StackPush(mtMul, Token); // *

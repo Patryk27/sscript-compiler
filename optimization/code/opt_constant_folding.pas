@@ -6,7 +6,6 @@ Procedure __constant_folding(const ErrorOnInvalidOperator: Boolean);
 Procedure Parse(var Expr: PExpressionNode);
 Var Tmp, Tmp2, Left, Right: PExpressionNode;
     Evaluated             : Boolean = False;
-    mVar                  : TVariable;
     I                     : Integer;
 Begin
  if (Expr = nil) Then // nothing to do

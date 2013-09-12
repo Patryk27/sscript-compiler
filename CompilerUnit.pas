@@ -10,7 +10,7 @@ Unit CompilerUnit;
  // TCommandLineOption
  Type TCommandLineOption =
  (
-  opt_bytecode, opt_output, opt_initcode, opt_includepath,
+  opt_bytecode, opt_output, opt_includepath,
   opt_Cm, opt_internal_const,
   opt__register_alloc, opt__constant_folding, opt__tree_simplify, opt__bytecode_optimize, opt__remove_dead, opt__short_circuit,
   opt__constant_propagation,
@@ -29,7 +29,6 @@ Unit CompilerUnit;
  (
   (Names: ('-bytecode',       '-b'); Typ: pString),
   (Names: ('-output',         '-o'); Typ: pString),
-  (Names: ('-initcode',       '');   Typ: pBool),
   (Names: ('-includepath',    '');   Typ: pString),
 
   (Names: ('-Cm', '');                    Typ: pString),
