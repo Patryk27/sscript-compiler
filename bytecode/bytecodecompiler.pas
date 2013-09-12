@@ -11,36 +11,41 @@ Unit BytecodeCompiler;
  Const bytecode_version_major = 0;
        bytecode_version_minor = 42;
 
- // TLabel
- Type TLabel = Record
-                Name    : String;
-                Position: LongWord;
+ { TLabel }
+ Type TLabel =
+      Record
+       Name    : String;
+       Position: LongWord;
 
-                isPublic: Boolean;
-               End;
+       isPublic: Boolean;
+      End;
 
- // TCompiler
- Type TCompiler = Class
-                   Public
-                    BytecodeStream : TStream;
-                    HeaderStream   : TStream;
-                    ReferenceStream: TStream;
+ { TCompiler }
+ Type TCompiler =
+      Class
+       Public
+        // public fields
+        BytecodeStream : TStream;
+        HeaderStream   : TStream;
+        ReferenceStream: TStream;
 
-                    Compiler: SSCompiler.TCompiler;
-                    Bytecode: TWriter;
+        Compiler: SSCompiler.TCompiler;
+        Bytecode: TWriter;
 
-                    LabelList: Array of TLabel;
+        LabelList: Array of TLabel;
 
-                   Private
-                    Function getLabelID(const Name: String): Integer;
-                    Function CreateReference(const Name: String): LongWord;
+       Private
+        // private methods
+        Function getLabelID(const Name: String): Integer;
+        Function CreateReference(const Name: String): LongWord;
 
-                    Procedure Preparse;
-                    Procedure Parse(const ResolveReferences: Boolean);
+        Procedure Preparse;
+        Procedure Parse(const ResolveReferences: Boolean);
 
-                   Public
-                    Procedure Compile(fCompiler: SSCompiler.TCompiler; SaveAs_SSM: Boolean);
-                   End;
+       Public
+        // public methods
+        Procedure Compile(fCompiler: SSCompiler.TCompiler; SaveAs_SSM: Boolean);
+       End;
 
  Implementation
 Uses SSMParser;

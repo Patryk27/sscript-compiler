@@ -31,142 +31,141 @@ Unit SSCompiler;
                 LoopBegin, LoopEnd: TCFGNode;
                End;
 
- (* TCompiler *)
- Type TCompiler = Class
-                   Private
-                    Procedure MakeImports;
-                    Procedure CompileAsBytecode;
-                    Procedure SaveBytecode(const FileName: String);
+ { TCompiler }
+ Type TCompiler =
+      Class
+       Private { methods }
+        Procedure MakeImports;
+        Procedure CompileAsBytecode;
+        Procedure SaveBytecode(const FileName: String);
 
-                   Public
-                    Parser: TParser; // code parser
+       Public { fields }
+        Parser: TParser; // code parser; @TODO: getParser() property?
 
-                    AnyError: Boolean; // 'true' if any error (`CompileError()`) was raised, 'false' otherwise.
+        AnyError: Boolean; // 'true' if any error (`CompileError()`) was raised, 'false' otherwise.
 
-                    fCurrentRoot: TCFGNode; // when equal 'nil', nodes added by `CFGAddNode` will be added to current function's flow graph. Otherwise - to this.
-                    fCurrentNode: TCFGNode;
+        fCurrentRoot: TCFGNode; // when equal 'nil', nodes added by `CFGAddNode` will be added to current function's flow graph. Otherwise - to this.
+        fCurrentNode: TCFGNode;
 
-                    PrevRootNodes: TCFGNodeList;
+        PrevRootNodes: TCFGNodeList;
 
-                   Public
-                    Parent          : TCompiler;
-                    Supervisor      : TCompiler;
-                    PreviousInstance: TCompiler;
-                    CompileMode     : (cmApp, cmLibrary, cmBytecode); // compilation mode
-                    CompilePass     : TCompilePass;
-                    InputFile       : String; // input file name
-                    OutputFile      : String; // output file name
-                    ModuleName      : String; // module name
-                    Options         : TCompileOptions; // compile options
-                    IncludePaths    : TStringList; // list of include paths
+       Public { fields }
+        Parent          : TCompiler;
+        Supervisor      : TCompiler;
+        PreviousInstance: TCompiler;
+        CompileMode     : (cmApp, cmLibrary, cmBytecode); // compilation mode
+        CompilePass     : TCompilePass;
+        InputFile       : String; // input file name
+        OutputFile      : String; // output file name
+        ModuleName      : String; // module name
+        Options         : TCompileOptions; // compile options
+        IncludePaths    : TStringList; // list of include paths
 
-                    CurrentFunction : TFunction; // currently parsed (or compiled) function
-                    CurrentNamespace: TNamespace; // namespace in which we are (`namespace namespace_ame;`)
+        CurrentFunction : TFunction; // currently parsed (or compiled) function
+        CurrentNamespace: TNamespace; // namespace in which we are (`namespace namespace_ame;`)
 
-                    NamespaceVisibilityList: TNamespaceVisibilityList; // range of selected namespaces, eg.`use xyz;`
+        NamespaceVisibilityList: TNamespaceVisibilityList; // range of selected namespaces, eg.`use xyz;`
 
-                    OpcodeList   : TOpcodeList; // output code opcode list
-                    IncludeList  : PCompilerArray; // global include list
-                    NamespaceList: TNamespaceList; // namespace list
-                    Scope        : Array of TScope; // current function scopes
+        OpcodeList   : TOpcodeList; // output code opcode list
+        IncludeList  : PCompilerArray; // global include list
+        NamespaceList: TNamespaceList; // namespace list
+        Scope        : Array of TScope; // current function scopes
 
-                    SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>_begin`, so they don't overwrite each other
+        SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>_begin`, so they don't overwrite each other
 
-                    DoNotGenerateCode: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
+        DoNotGenerateCode: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
 
-                    ParsingFORInitInstruction, ParsingForeachHeader: Boolean;
+        ParsingFORInitInstruction, ParsingForeachHeader: Boolean;
 
-               { -> properties }
-                    Property getCurrentRoot: TCFGNode read fCurrentRoot;
-                   // Property getCurrentNode: TCFGNode read fCurrentNode;
-                    Function getCurrentNode: TCFGNode;
+       Public { properties }
+        Property getCurrentRoot: TCFGNode read fCurrentRoot;
+     // Property getCurrentNode: TCFGNode read fCurrentNode;
+        Function getCurrentNode: TCFGNode;
 
-                    Property getCurrentFunction: TFunction read CurrentFunction;
+         Property getCurrentFunction: TFunction read CurrentFunction;
 
-               { -> methods }
-                    Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
-                    Function getStringOption(const Name: TCommandLineOption; oDefault: String=''): String; inline;
-                    Function getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer; inline;
+        Public { methods }
+         Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
+         Function getStringOption(const Name: TCommandLineOption; oDefault: String=''): String; inline;
+         Function getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer; inline;
 
-                    Function SearchFile(const FileName: String; out Found: Boolean): String;
+         Function SearchFile(const FileName: String; out Found: Boolean): String;
 
-                   { control flow graph }
-                    Procedure setNewRootNode(NewRoot: TCFGNode; const SavePrevious: Boolean=True);
-                    Procedure restorePrevRootNode;
+        { control flow graph }
+         Procedure setNewRootNode(NewRoot: TCFGNode; const SavePrevious: Boolean=True);
+         Procedure restorePrevRootNode;
 
-                   { parser }
-                    Procedure ParseToken;
-                    Procedure SkipCodeBlock;
-                    Procedure ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
+        { parser }
+         Procedure ParseToken;
+         Procedure SkipCodeBlock;
+         Procedure ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
 
-                   { bytecode }
-                    Function PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
-                    Function PutOpcode(Opcode: TOpcode_E): PMOpcode;
-                    Function PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
-                    Function PutLabel(fName: String; const asNode: Boolean=False): PMOpcode;
-                    Procedure PutComment(fComment: String);
+        { bytecode }
+         Function PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
+         Function PutOpcode(Opcode: TOpcode_E): PMOpcode;
+         Function PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
+         Function PutLabel(fName: String; const asNode: Boolean=False): PMOpcode;
+         Procedure PutComment(fComment: String);
 
-                    Function findLabel(Name: String): Integer;
+         Function findLabel(Name: String): Integer;
 
-                   { scope }
-                    Procedure NewScope(const Typ: TScopeType; LoopBegin: TCFGNode=nil; LoopEnd: TCFGNode=nil);
-                    Procedure RemoveScope;
-                    Function inRange(Range: TRange; Position: Int64=-1): Boolean;
+        { scope }
+         Procedure NewScope(const Typ: TScopeType; LoopBegin: TCFGNode=nil; LoopEnd: TCFGNode=nil);
+         Procedure RemoveScope;
+         Function inRange(Range: TRange; Position: Int64=-1): Boolean;
 
-                   { types }
-                    Function CreateFunctionType(Func: TFunction): TType;
+        { types }
+         Function CreateFunctionType(Func: TFunction): TType;
+         Function findTypeCandidate(const TypeName: String; const Namespace: TNamespace; const Token: TToken_P): TType;
 
-                    Function findTypeCandidate(const TypeName: String; const Namespace: TNamespace; const Token: TToken_P): TType;
+        { variables }
+         Procedure __variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
+         Function findVariableCandidate(const VarName: String; const Namespace: TNamespace; const Token: TToken_P): TVariable;
 
-                   { variables }
-                    Procedure __variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
+        { functions }
+         Function findFunction(const FuncName: String; Namespace: TNamespace=nil): TFunction;
+         Function findFunctionByLabel(const LabelName: String): TFunction;
+         Function findFunctionCallCandidate(const FuncName: String; const Namespace: TNamespace; const Token: TToken_P): TFunction;
 
-                    Function findVariableCandidate(const VarName: String; const Namespace: TNamespace; const Token: TToken_P): TVariable;
+         Procedure CFGAddNode(Node: TCFGNode);
 
-                   { functions }
-                    Function findFunction(const FuncName: String; Namespace: TNamespace=nil): TFunction;
-                    Function findFunctionByLabel(const LabelName: String): TFunction;
-                    Function findFunctionCallCandidate(const FuncName: String; const Namespace: TNamespace; const Token: TToken_P): TFunction;
+        { namespaces }
+         Function getCurrentNamespace: TNamespace;
+         Function getDefaultNamespace: TNamespace;
 
-                    Procedure CFGAddNode(Node: TCFGNode);
+         Function findNamespace(const Name: String): TNamespace;
 
-                   { namespaces }
-                    Function getCurrentNamespace: TNamespace;
-                    Function getDefaultNamespace: TNamespace;
+        { global things }
+         Function inFunction: Boolean;
 
-                    Function findNamespace(const Name: String): TNamespace;
+         Function findCandidate(const IdentName: String; const Namespace: TNamespace; const Token: TToken_P): TSymbol;
+         Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 
-                   { global things }
-                    Function inFunction: Boolean;
+        { compiling }
+         Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
 
-                    Function findCandidate(const IdentName: String; const Namespace: TNamespace; const Token: TToken_P): TSymbol;
-                    Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
+         Procedure CompileError(Token: TToken_P; Error: TCompileError; Args: Array of Const);
+         Procedure CompileError(Token: PToken_P; Error: TCompileError; Args: Array of Const);
+         Procedure CompileError(Error: TCompileError; Args: Array of Const);
+         Procedure CompileError(Error: TCompileError);
 
-                   { compiling }
-                    Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
+         Procedure CompileWarning(Token: TToken_P; Warning: TCompileWarning; Args: Array of Const);
+         Procedure CompileWarning(Token: PToken_P; Warning: TCompileWarning; Args: Array of Const);
+         Procedure CompileWarning(Warning: TCompileWarning; Args: Array of Const);
+         Procedure CompileWarning(Warning: TCompileWarning);
 
-                    Procedure CompileError(Token: TToken_P; Error: TCompileError; Args: Array of Const);
-                    Procedure CompileError(Token: PToken_P; Error: TCompileError; Args: Array of Const);
-                    Procedure CompileError(Error: TCompileError; Args: Array of Const);
-                    Procedure CompileError(Error: TCompileError);
+         Procedure CompileHint(Token: TToken_P; Hint: TCompileHint; Args: Array of Const);
+         Procedure CompileHint(Token: PToken_P; Hint: TCompileHint; Args: Array of Const);
+         Procedure CompileHint(Hint: TCompileHint; Args: Array of Const);
+         Procedure CompileHint(Hint: TCompileHint);
 
-                    Procedure CompileWarning(Token: TToken_P; Warning: TCompileWarning; Args: Array of Const);
-                    Procedure CompileWarning(Token: PToken_P; Warning: TCompileWarning; Args: Array of Const);
-                    Procedure CompileWarning(Warning: TCompileWarning; Args: Array of Const);
-                    Procedure CompileWarning(Warning: TCompileWarning);
+         Procedure CompileNote(Token: TToken_P; Note: TCompileNote; Args: Array of Const);
+         Procedure CompileNote(Token: PToken_P; Note: TCompileNote; Args: Array of Const);
+         Procedure CompileNote(Note: TCompileNote; Args: Array of Const);
+         Procedure CompileNote(Note: TCompileNote);
 
-                    Procedure CompileHint(Token: TToken_P; Hint: TCompileHint; Args: Array of Const);
-                    Procedure CompileHint(Token: PToken_P; Hint: TCompileHint; Args: Array of Const);
-                    Procedure CompileHint(Hint: TCompileHint; Args: Array of Const);
-                    Procedure CompileHint(Hint: TCompileHint);
-
-                    Procedure CompileNote(Token: TToken_P; Note: TCompileNote; Args: Array of Const);
-                    Procedure CompileNote(Token: PToken_P; Note: TCompileNote; Args: Array of Const);
-                    Procedure CompileNote(Note: TCompileNote; Args: Array of Const);
-                    Procedure CompileNote(Note: TCompileNote);
-
-                    Procedure GenerateHeaderFile(const fOutputFile: String);
-                   End;
+         Procedure GenerateHeaderFile(const fOutputFile: String);
+        End;
 
  Function ReplaceDirSep(FileName: String): String;
  Function makeModuleName(FileName: String): String;
@@ -556,7 +555,7 @@ Begin
     _NAMESPACE: Parse_NAMESPACE.Parse(self);
     _USE      : Parse_USE;
     _CONST    : Parse_CONST.Parse(self);
-    _VAR      : CompileError(eUnimplemented, ['global/namespace variables']);
+    _VAR      : Parse_VAR.Parse(self);
     _FUNCTION : Parse_Function.Parse(self);
     _AT       : ParseMacro_Outside;
     _TYPE     : Parse_TYPE.Parse(self);

@@ -2,7 +2,6 @@
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
 
- flowgraph.pas
  Control flow graph.
 *)
 Unit FlowGraph;
@@ -21,13 +20,11 @@ Unit FlowGraph;
  { TCFGNode }
  Type TCFGNode =
       Class
-       Private
-        // -- private fields -- //
+       Private { fields }
         Name  : String;
         fToken: PToken_P;
 
-       Public
-        // -- public fields -- //
+       Public { fields }
         Typ  : TCFGNodeType;
         Value: PExpressionNode;
 
@@ -57,7 +54,7 @@ Unit FlowGraph;
 
         isVolatile: Boolean; // is node volatile (information for optimizers)?
 
-        // -- public methods -- //
+       Public { methods }
         Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
         Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpressionNode; ffToken: PToken_P=nil);
 
@@ -70,11 +67,10 @@ Unit FlowGraph;
  { TCFGraph }
  Type TCFGraph =
       Class
-       Public // @TODO: private?
-        // -- public fields -- //
+       Public { fields }
         Root, Last: TCFGNode;
 
-        // -- public methods -- //
+       Public { methods }
         Constructor Create;
         Procedure AddNode(Node: TCFGNode);
 

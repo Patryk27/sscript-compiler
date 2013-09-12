@@ -14,18 +14,20 @@ Unit symdef;
       TNamespace = class;
       TSymbol    = class;
 
- (* auxlialiry declarations *)
+ (* auxiliary declarations *)
  Type TVisibility = (mvPublic, mvPrivate);
 
  Type TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized);
  Type TVariableAttributes = Set of (vaConst, vaEnumItem, vaFuncParam, vaDontAllocate, vaVolatile, vaCatchVar);
  Type TFunctionAttributes = Set of (faNaked);
 
+ { TRange }
  Type PRange = ^TRange;
       TRange = Record
                 PBegin, PEnd: TToken_P;
                End;
 
+ { TStackSavedReg }
  Type PStackSavedReg = ^TStackSavedReg;
       TStackSavedReg = Record
                         RegChar: Char;
@@ -34,7 +36,7 @@ Unit symdef;
 
  Type TStackSavedRegs = specialize TFPGList<PStackSavedReg>;
 
- // TNamespaceVisibility
+ { TNamespaceVisibility }
  Type PNamespaceVisibility = ^TNamespaceVisibility;
       TNamespaceVisibility = Record
                               Namespace: TNamespace;
@@ -49,7 +51,7 @@ Unit symdef;
       TVariableList  = specialize TFPGList<TVariable>;
       TSymbolList    = specialize TFPGList<TSymbol>;
 
- (* Type *)
+ { TParam }
  Type PParam = ^TParam;
       TParam = Record
                 Name        : String;
@@ -57,180 +59,177 @@ Unit symdef;
                 DefaultValue: PExpressionNode;
                 Attributes  : TVariableAttributes;
                 isConst     : Boolean;
-                isVar       : Boolean; // `isPassByRef`
+                isVar       : Boolean; // `isPassedByRef`
                End;
       TParamList = Array of TParam;
 
-   // TType
- Type TType = Class
-               Public
-               // public fields
-                RefSymbol: TRefSymbol;
+ { TType }
+ Type TType =
+      Class
+       Public { fields }
+        RefSymbol: TRefSymbol;
 
-                RegPrefix : Char;
-                InternalID: uint8;
+        RegPrefix : Char; // bytecode register prefix, any of: b, c, i, f, s, r
+        InternalID: uint8;
 
-                ArrayBase    : TType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
-                ArrayDimCount: uint8; // array dimension count
+        ArrayBase    : TType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
+        ArrayDimCount: uint8; // array dimension count
 
-                FuncReturn: TType;
-                FuncParams: TParamList;
+        // for function types
+        FuncReturn: TType;
+        FuncParams: TParamList;
 
-                EnumBase    : TType;
-                EnumItemList: TVariableList;
+        // for enumeration types
+        EnumBase    : TType;
+        EnumItemList: TVariableList;
 
-                Attributes: TTypeAttributes;
+        // global
+        Attributes: TTypeAttributes;
 
-               // public methods
-                Constructor Create;
+       Public { methods }
+        Constructor Create;
 
-                Function isUnspecialized: Boolean;
-                Function isStrict: Boolean;
+        Function isUnspecialized: Boolean;
+        Function isStrict: Boolean;
 
-                Function getBytecodeType: String;
-                Function getLowerArray: TType;
+        Function getBytecodeType: String;
+        Function getLowerArray: TType;
 
-                Function isAny: Boolean;
-                Function isVoid: Boolean;
-                Function isBool: Boolean;
-                Function isChar: Boolean;
-                Function isInt: Boolean;
-                Function isFloat: Boolean;
-                Function isString: Boolean;
-                Function isNumerical: Boolean;
-                Function isArray(const RegardStringAsArray: Boolean=True): Boolean;
-                Function isObject: Boolean;
-                Function isFunctionPointer: Boolean;
-                Function isEnum: Boolean;
-                Function isEnumItem: Boolean;
+        Function isAny: Boolean;
+        Function isVoid: Boolean;
+        Function isBool: Boolean;
+        Function isChar: Boolean;
+        Function isInt: Boolean;
+        Function isFloat: Boolean;
+        Function isString: Boolean;
+        Function isNumerical: Boolean;
+        Function isArray(const RegardStringAsArray: Boolean=True): Boolean;
+        Function isObject: Boolean;
+        Function isFunctionPointer: Boolean;
+        Function isEnum: Boolean;
+        Function isEnumItem: Boolean;
 
-                Function CanBeAssignedTo(T2: TType): Boolean;
-                Function CanBeCastedTo(T2: TType): Boolean;
+        Function CanBeAssignedTo(T2: TType): Boolean;
+        Function CanBeCastedTo(T2: TType): Boolean;
 
-                Function Clone: TType;
-                Function asString: String;
-               End;
+        Function Clone: TType;
+        Function asString: String;
+       End;
 
- (* Variable *)
- Type TVariable = Class
-                   Public
-                   // public fields
-                    RefSymbol: TRefSymbol;
+ { TVariable }
+ Type TVariable =
+      Class
+       Public { fields }
+        RefSymbol: TRefSymbol;
 
-                    MemPos: int16; // negative values and zero for stack position, positive values for register ID (1..4)
+        MemPos: int16; // negative values and zero for stack position, positive values for register ID (1..4)
 
-                    Typ  : TType;
-                    Value: PExpressionNode; // if constant
+        Typ  : TType;
+        Value: PExpressionNode; // if it's a constant
 
-                    isFreed: Boolean; // used for reference-counted variables; by default equal `false`
+        Attributes: TVariableAttributes;
 
-                    Attributes: TVariableAttributes;
+       Public { methods }
+        Constructor Create;
 
-                   // public methods
-                    Constructor Create;
+        Function isConst: Boolean;
+        Function isFuncParam: Boolean;
+        Function isVolatile: Boolean;
+        Function isCatchVar: Boolean;
+        Function DontAllocate: Boolean;
 
-                    Function isConst: Boolean;
-                    Function isFuncParam: Boolean;
-                    Function isVolatile: Boolean;
-                    Function isCatchVar: Boolean;
-                    Function DontAllocate: Boolean;
+        Function getAllocationPos(const StackShift: int8=0): String;
+       End;
 
-                    Function getAllocationPos(const StackShift: int8=0): String;
-                   End;
- Type TMVariableList = Array of TVariable;
+ { TFunction }
+ Type TFunction =
+      Class
+       Public { fields }
+        RefSymbol: TRefSymbol;
+        RefVar   : TVariable;
 
- (* Function *)
- Type TFunction = Class
-                   Public
-                   // public fields
-                    RefSymbol: TRefSymbol;
-                    RefVar   : TVariable;
+        ModuleName   : String; // module name in which function has been declared
+        MangledName  : String; // function mangled (label) name
+        NamespaceName: String; // namespace name in which function has been declared
+        LibraryFile  : String; // only for library-imported functions - library file name
 
-                    ModuleName   : String; // module name in which function has been declared
-                    MangledName  : String; // function mangled (label) name
-                    NamespaceName: String; // namespace name in which function has been declared
-                    LibraryFile  : String; // only for library-imported functions - library file name
+        Return: TType; // return type
 
-                    Return: TType; // return type
+        ParamList : TParamList; // parameter list
+        SymbolList: TSymbolList; // local symbol list
+        FlowGraph : TCFGraph; // control flowgraph
 
-                    ParamList : TParamList; // parameter list
-                    SymbolList: TSymbolList; // local symbol list
-                    FlowGraph : TCFGraph; // control flowgraph
+        StackSize: uint8;
+        StackRegs: TStackSavedRegs;
 
-                    StackSize: uint8;
-                    StackRegs: TStackSavedRegs;
+        Attributes: TFunctionAttributes;
 
-                    Attributes: TFunctionAttributes;
+       Public { methods }
+        Constructor Create;
 
-                   // public methods
-                    Constructor Create;
+        Function findSymbol(const SymName: String): TSymbol;
+        Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
 
-                    Function isNaked: Boolean;
+        Function isNaked: Boolean;
+       End;
 
-                    Function findSymbol(const SymName: String): TSymbol;
-                    Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
-                   End;
+ { TNamespace }
+ Type TNamespace =
+      Class
+       Public { fields }
+        RefSymbol : TRefSymbol;
+        SymbolList: TSymbolList; // global symbol list
 
- (* Namespace *)
- Type TNamespace = Class
-                    Public
-                    // methods
-                     Constructor Create;
+       Public { methods }
+        Constructor Create;
 
-                    // fields
-                    Var
-                     RefSymbol : TRefSymbol;
-                     SymbolList: TSymbolList; // global symbol list
+        Function findSymbol(const SymName: String): TSymbol;
+        Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
+        Function findFunction(const FuncName: String): TFunction;
+       End;
 
-                     Function findSymbol(const SymName: String): TSymbol;
-                     Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
-                     Function findFunction(const FuncName: String): TFunction;
-                    End;
+ { TRefSymbol }
+ Type TRefSymbol =
+      Class
+       Public { fields }
+        Name : String; // symbol name
+        Range: TRange; // accessibility range
 
- (* RefSymbol *)
- Type TRefSymbol = Class
-                    Public
-                     // public methods
-                     Constructor Create;
-                     Function Clone: TRefSymbol;
-                     Procedure CopyTo(const Symbol: TRefSymbol);
+        DeclNamespace: TNamespace; // namespace in which identifier has been declared
+        DeclFunction : TFunction; // function in which identifier has been declared
 
-                     Function isLocal: Boolean;
-                     Function isGlobal: Boolean;
+        Visibility: TVisibility; // visibility
+        mCompiler : Pointer; // compiler in which symbol has been declared
+        DeclToken : PToken_P; // declaration token pointer
 
-                     // public fields
-                     Var
-                      Name : String; // symbol name
-                      Range: TRange; // accessability range
+        isInternal: Boolean; // eg.`null` is an internal symbol
 
-                      DeclNamespace: TNamespace; // namespace in which identifier has been declared
-                      DeclFunction : TFunction; // function in which identifier has been declared
+       Public { methods }
+        Constructor Create;
+        Function Clone: TRefSymbol;
+        Procedure CopyTo(const Symbol: TRefSymbol);
 
-                      Visibility: TVisibility; // visibility
-                      mCompiler : Pointer; // compiler in which symbol has been declared
-                      DeclToken : PToken_P; // declaration token pointer
+        Function isLocal: Boolean;
+        Function isGlobal: Boolean;
+       End;
 
-                      isInternal: Boolean; // eg.`null` is internal
-                     End;
-
- (* Symbol *)
+ { TSymbol }
  Type TSymbolType = (stNamespace,  stFunction, stVariable, stConstant, stType);
- Type TSymbol = Class (TRefSymbol)
-                 Public
-                 // methods
-                  Constructor Create(const SymbolType: TSymbolType; const CreateInstance: Boolean=True);
-                  Constructor Create(const SymbolType: TSymbolType; const Instance: Pointer);
-                  Constructor Create(const CloneOf: TSymbol);
+ Type TSymbol =
+      Class (TRefSymbol)
+       Public { fields }
+        Typ: TSymbolType;
 
-                 // fields
-                 Var
-                  Typ: TSymbolType;
+        mNamespace: TNamespace;
+        mVariable : TVariable;
+        mFunction : TFunction;
+        mType     : TType;
 
-                  mNamespace: TNamespace;
-                  mVariable : TVariable;
-                  mFunction : TFunction;
-                  mType     : TType;
-                 End;
+       Public { methods }
+        Constructor Create(const SymbolType: TSymbolType; const CreateInstance: Boolean=True);
+        Constructor Create(const SymbolType: TSymbolType; const Instance: Pointer);
+        Constructor Create(const CloneOf: TSymbol);
+       End;
 
  // operators
  Function type_equal(A, B: TType): Boolean;
@@ -1034,8 +1033,6 @@ Begin
  Typ    := nil;
  Value  := nil;
 
- isFreed := False;
-
  Attributes := [];
 End;
 
@@ -1107,15 +1104,6 @@ Begin
  Attributes := [];
 End;
 
-(* TFunction.isNaked *)
-{
- Returns true if function has attribute `faNaked`
-}
-Function TFunction.isNaked: Boolean;
-Begin
- Result := (faNaked in Attributes);
-End;
-
 (* TFunction.findSymbol *)
 {
  Returns symbol with specified name or `nil` when such couldn't have been found.
@@ -1140,6 +1128,15 @@ Begin
    Exit;
 
  Exit(nil);
+End;
+
+(* TFunction.isNaked *)
+{
+ Returns true if function has attribute `faNaked`
+}
+Function TFunction.isNaked: Boolean;
+Begin
+ Result := (faNaked in Attributes);
 End;
 
 (* ---------- TNamespace ---------- *)
