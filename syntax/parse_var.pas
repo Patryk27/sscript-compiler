@@ -98,9 +98,10 @@ End;
 // -------------------------------------------------------------------------- //
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
-Var Compiler: TCompiler absolute CompilerPnt;
-    Variable: TVariable;
-    VarType : TType;
+Var Compiler  : TCompiler absolute CompilerPnt;
+    SymbolList: TSymbolList;
+    Variable  : TVariable;
+    VarType   : TType;
 Begin
  With Compiler, Parser do
  Begin
@@ -109,6 +110,10 @@ Begin
    read_until(_SEMICOLON);
    Exit;
   End;
+
+  if (inFunction) Then // choose the symbol list - either current function's or namespace's.
+   SymbolList := getCurrentFunction.SymbolList Else
+   SymbolList := getCurrentNamespace.SymbolList;
 
   eat(_LOWER); // <
   VarType := read_type; // [type]
@@ -128,6 +133,7 @@ Begin
     mCompiler     := Compiler;
     Range         := getCurrentRange;
     Name          := read_ident; // [identifier]
+    Visibility    := getVisibility;
 
     RedeclarationCheck(Name); // check for redeclaration of the variable
    End;
@@ -138,8 +144,14 @@ Begin
    if (Variable.Typ.isArray(False)) Then
     Variable.Attributes += [vaVolatile]; // arrays have to be volatile because - as optimizer doesn't support arrays - weird things happen when it tries to optimize them; @TODO
 
+   if (not inFunction) Then // if it's a global variable, we have to do a bit more magic
+   Begin
+    Variable.LocationData.Location      := vlMemory;
+    Variable.LocationData.MemSymbolName := Variable.getSerializedForm;
+   End;
+
    { add variable into the function }
-   getCurrentFunction.SymbolList.Add(TSymbol.Create(stVariable, Variable));
+   SymbolList.Add(TSymbol.Create(stVariable, Variable));
 
    if (ParsingForeachHeader) Then
    Begin
@@ -151,15 +163,21 @@ Begin
    if (next_t = _BRACKET1_OP) { ( } Then // optional array initializer
    Begin
     if (Variable.Typ.isArray(False)) Then
-     ReadArrayInitializer(Compiler, getCurrentFunction.SymbolList.Last) Else
-     CompileError(eArrayRequired);
+     ReadArrayInitializer(Compiler, SymbolList.Last) Else
+     CompileError(eVarArrayRequired);
    End Else
 
    if (next_t = _EQUAL) { = } Then // or optional default initializer
    Begin
-    Dec(TokenPos);
-    CFGAddNode(TCFGNode.Create(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA])));
-    Dec(TokenPos); // ExpressionCompiler 'eats' comma.
+    if (inFunction) Then // local var initializer
+    Begin
+     Dec(TokenPos);
+     CFGAddNode(TCFGNode.Create(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA])));
+     Dec(TokenPos); // ExpressionCompiler 'eats' comma.
+    End Else // global var initializer
+    Begin
+     CompileError(eUnimplemented, ['global variable initializers']);
+    End;
    End;
 
    if (next_t = _COMMA) Then // var(...) name1, name2, name3...

@@ -154,10 +154,13 @@ Var Str, Visited: TStringList;
 
    Visited.Add(Node.Name);
 
+   { none }
    if (Node.Typ = cetNone) Then
+   Begin
     if (Node.Child.Count = 0) Then
-     Exit('nil') Else
-     Exit(Parse(Node.Child[0]));
+     Result := 'nil' Else
+     Result := {Node.Name+' -> '+}Parse(Node.Child[0]);
+   End Else
 
    { expression }
    if (Node.Typ = cetExpression) Then
@@ -324,7 +327,7 @@ End;
 
 (* getVariableCFGCost *)
 {
- Returns cost of operations on passed variable.
+ Returns cost of operations on the passed variable.
 
  Basically:
  var += expr; <- cost = 2 (var read + var write)
@@ -653,7 +656,7 @@ End;
 (* TCFGraph.CheckReturns *)
 {
  Checks if every code path leads to a corresponding "return" statement; if not, displays appropiate compiler hint.
- Also displays "unreachable code" messages when a code appears after some 'return' construction.
+ Displays "unreachable code" messages as well when a code appears after some 'return' construction.
 }
 Procedure TCFGraph.CheckReturns(const CompilerPnt: Pointer; const isVoidOrNaked: Boolean);
 Var Compiler        : TCompiler absolute CompilerPnt;

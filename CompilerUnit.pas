@@ -6,8 +6,9 @@ Unit CompilerUnit;
 
  Interface
 
- { types }
- // TCommandLineOption
+ (* -- types -- *)
+
+ { TCommandLineOption }
  Type TCommandLineOption =
  (
   opt_bytecode, opt_output, opt_includepath,
@@ -16,15 +17,17 @@ Unit CompilerUnit;
   opt__constant_propagation,
   opt__optimize_branches,
   opt__strip_debug, opt__dump_cfg,
-  opt_header,
   opt_logo, opt_version, opt_wait, opt_verbose
  );
 
- Type TCommandLineName = Record
-                          Names: Array[0..1] of String;
-                          Typ  : (pBool, pInt, pString);
-                         End;
+ { TCommandLineName }
+ Type TCommandLineName =
+      Record
+       Names: Array[0..1] of String;
+       Typ  : (pBool, pInt, pString);
+      End;
 
+ { CommandLineNames }
  Const CommandLineNames: Array[TCommandLineOption] of TCommandLineName =
  (
   (Names: ('-bytecode',       '-b'); Typ: pString),
@@ -46,25 +49,23 @@ Unit CompilerUnit;
   (Names: ('--strip-debug', '-Sd'); Typ: pBool),
   (Names: ('--dump-cfg', '');       Typ: pBool),
 
-  (Names: ('-header', '-h'); Typ: pString),
-
   (Names: ('-logo', '');      Typ: pBool),
   (Names: ('-version', '');   Typ: pBool),
   (Names: ('-wait', '');      Typ: pBool),
   (Names: ('-verbose', '-v'); Typ: pBool)
  );
 
- // TCompileOption
+ { TCompileOption }
  Type TCompileOption = Record
                         Option: TCommandLineOption;
                         Value : Variant;
                        End;
  Type TCompileOptions = Array of TCompileOption;
 
- // TDevlogVerbosity
+ { TDevlogVerbosity }
  Type TDevlogVerbosity = (dvInfo, dvWarning, dvError, dvFatal);
 
- { functions }
+ (* -- functions -- *)
  Procedure Log(const Text: String);
  Procedure Log;
 
@@ -86,20 +87,20 @@ Unit CompilerUnit;
 Uses SSCompiler, SysUtils;
 Var Compiler: TCompiler = nil;
 
-{ Log }
+(* Log *)
 Procedure Log(const Text: String);
 Begin
  if (verbose_mode) Then
   Writeln(Text);
 End;
 
-{ Log }
+(* Log *)
 Procedure Log;
 Begin
  Log('');
 End;
 
-{ DevLog }
+(* DevLog *)
 Procedure DevLog(const Verbosity: TDevlogVerbosity; const FuncName, Text: String);
 Const VerbosityStr: Array[TDevlogVerbosity] of String = ('info', 'warning', 'error', 'fatal');
 Begin
@@ -107,7 +108,7 @@ Begin
   Writeln('[', VerbosityStr[Verbosity], '] ', FuncName, '() -> ', Text);
 End;
 
-{ DevLog }
+(* DevLog *)
 Procedure DevLog;
 Begin
  if (show_devlog) Then

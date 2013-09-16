@@ -5,7 +5,7 @@ Function GenerateLabelName: String;
 Begin
  With TCompiler(Compiler) do
  Begin
-  Result := getCurrentFunction.MangledName+'_l_'+IntToStr(SomeCounter);
+  Result := getCurrentFunction.LabelName+'_l_'+IntToStr(SomeCounter);
   Inc(SomeCounter);
  End;
 End;
@@ -89,7 +89,7 @@ Begin
  if (Node = nil) Then
   Exit;
 
- if (VisitedNodes.IndexOf(Node) <> -1) Then // if node has been visited more than once, don't compile it again
+ if (VisitedNodes.IndexOf(Node) <> -1) Then // if node has been visited more than once, don't compile it again - place a jump instead
  Begin
   TCompiler(Compiler).PutOpcode(o_jmp, [':'+Node.getName]);
   Exit;
@@ -170,7 +170,10 @@ Begin
     Begin
      if (not Func.Return.isVoid) Then
       CompileError(Node.getToken, eWrongType, ['void', Func.Return.asString]);
-     PutOpcode(o_ret);
+
+     if (not Func.isNaked) Then
+      PutOpcode(o_jmp, [':'+Func.LabelName+'_end']) Else
+      PutOpcode(o_ret);
     End Else // return expression;
     Begin
      Expr     := Node.Value;
@@ -183,7 +186,7 @@ Begin
       PutOpcode(o_pop, ['e'+Func.Return.RegPrefix+'1']);
 
      if (not Func.isNaked) Then
-      PutOpcode(o_jmp, [':'+Func.MangledName+'_end']) Else
+      PutOpcode(o_jmp, [':'+Func.LabelName+'_end']) Else
       PutOpcode(o_ret);
     End;
 
@@ -290,13 +293,8 @@ Begin
 
     PutOpcode(o_push, [ForeachIterator.getAllocationPos]);
 
-    if (ForeachExprHolder.MemPos <= 0) Then
-     Pos1 := '['+IntToStr(ForeachExprHolder.MemPos-1)+']' Else
-     Pos1 := ForeachExprHolder.getAllocationPos;
-
-    if (ForeachVar.MemPos <= 0) Then
-     Pos2 := '['+IntToStr(ForeachVar.MemPos-1)+']' Else
-     Pos2 := ForeachVar.getAllocationPos;
+    Pos1 := ForeachExprHolder.getAllocationPos(-1);
+    Pos2 := ForeachVar.getAllocationPos(-1);
 
     PutOpcode(o_arget, [Pos1, 1, Pos2]); // arget(ForeachExprHolder, 1, ForeachVar)
 
@@ -386,6 +384,7 @@ End;
 Procedure AddPrologCode;
 Var Symbol  : TSymbol;
     StackReg: PStackSavedReg;
+    StDec   : uint16 = 0;
 Begin
  With TCompiler(Compiler) do
  Begin
@@ -403,9 +402,9 @@ Begin
   PutComment('');
 
   PutComment('Variables:');
-  For Symbol in Func.SymbolList Do
+  For Symbol in Func.SymbolList Do // @TODO: StDec?
    if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (not Symbol.mVariable.isFuncParam) Then
-    PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getAllocationPos+', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'-'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines, CFG cost: '+IntToStr(getVariableCFGCost(Symbol, Func.FlowGraph.Root, nil)));
+    PutComment('`'+Symbol.Name+'` allocated in: '''+Symbol.mVariable.getAllocationPos+''', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'..'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines, CFG cost: '+IntToStr(getVariableCFGCost(Symbol, Func.FlowGraph.Root, nil)));
 
   PutComment('--------------------------------- //');
 
@@ -413,18 +412,32 @@ Begin
 
   With Func do
   Begin
-   { if register is occupied by a variable, we need to at first save this register's value (and restore it at the end of the function) }
+   StDec := StackSize;
+
+   { if register is taken by (a) variable(s), we need to at first save this register's value (and restore it at the end of the function) }
    if (not isNaked) Then
     For StackReg in StackRegs Do
+    Begin
      PutOpcode(o_push, ['e'+StackReg^.RegChar+IntToStr(StackReg^.RegID)]);
+     Inc(StDec);
+    End;
 
    { allocate local stack variables }
    if (not isNaked) Then
     PutOpcode(o_add, ['stp', StackSize]);
+
+   { fix some variables' positions }
+   if (not isNaked) Then
+    For Symbol in SymbolList Do
+     if (Symbol.Typ = stVariable) and (Symbol.mVariable.LocationData.Location = vlStack) and
+        (Symbol.mVariable.isFuncParam) Then
+     Begin
+      Symbol.mVariable.LocationData.StackPosition -= StDec;
+     End;
   End;
 
   { new label (main function's body; nothing should jump here - it's just facilitation for optimizer so it doesn't possibly remove the epilog code) }
-  PutLabel(Func.MangledName+'_body');
+  PutLabel(Func.LabelName+'_body');
  End;
 End;
 
@@ -435,7 +448,7 @@ Begin
  With TCompiler(Compiler) do
  Begin
   { function end code }
-  PutLabel(Func.MangledName+'_end');
+  PutLabel(Func.LabelName+'_end');
 
   With Func do
   Begin

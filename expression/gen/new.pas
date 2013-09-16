@@ -1,5 +1,6 @@
 Procedure ParseNEW;
 Var BaseType, TmpType, Typ: TType;
+    Reg                   : String;
 Begin
  { get the array's primary (base) type (int, char, (...) }
  BaseType := getType(Left^.Value);
@@ -55,7 +56,16 @@ Begin
  Dec(PushedValues, Typ.ArrayDimCount);
 
  { put opcode }
- Compiler.PutOpcode(o_arcrt, ['er1', BaseType.InternalID, Typ.ArrayDimCount]);
+ if (FinalRegID > 0) and (FinalRegChar <> #0) Then
+ Begin
+  Reg          := 'e'+FinalRegChar+IntToStr(FinalRegID);
+  FinalRegDone := True;
+ End Else
+ Begin
+  Reg := 'er1';
+ End;
+
+ Compiler.PutOpcode(o_arcrt, [Reg, BaseType.InternalID, Typ.ArrayDimCount]);
 
  { return type }
  if (Typ.isString) Then

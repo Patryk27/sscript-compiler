@@ -1,11 +1,34 @@
 (* OptimizeBranches *)
 Procedure OptimizeBranches;
 Var AnythingOptimized: Boolean = False;
-  { Remap }
-  Procedure Remap(Parent, Node, nFrom, nTo, nFromParent, nToParent: TCFGNode);
-  Var I: Integer;
+
+  { RemapBytecode }
+  Procedure RemapBytecode(const Node: TCFGNode; const LabelFrom, LabelTo: String);
+  Var Child: TCFGNode;
+      I    : uint8;
   Begin
-   if (VisitedNodes.IndexOf(Node) <> -1) Then
+   if (VisitedNodes.IndexOf(Node) <> -1) or (Node = nil) Then
+    Exit;
+   VisitedNodes.Add(Node);
+
+   if (Node.Typ = cetBytecode) Then
+    With Node.Bytecode do
+     For I := Low(OpcodeArgList^) To High(OpcodeArgList^) Do
+      if (OpcodeArgList^[I].VType = vtPChar) and (OpcodeArgList^[I].VPChar = ':'+LabelFrom) Then
+      Begin
+       // FreeMem(OpcodeArgList^[I].VPChar); // @TODO (?)
+       OpcodeArgList^[I].VPChar := CopyStringToPChar(':'+LabelTo);
+      End;
+
+   For Child in Node.Child Do
+    RemapBytecode(Child, LabelFrom, LabelTo);
+  End;
+
+  { Remap }
+  Procedure Remap(const Root, Parent, Node, nFrom, nTo, nFromParent, nToParent: TCFGNode);
+  Var I: int32;
+  Begin
+   if (VisitedNodes.IndexOf(Node) <> -1) or (Node = nil) Then
     Exit;
    VisitedNodes.Add(Node);
 
@@ -19,13 +42,13 @@ Var AnythingOptimized: Boolean = False;
      Node.Child[I]        := nTo;
      Node.Child[I].Parent := Parent;
     End Else
-     Remap(Node, Node.Child[I], nFrom, nTo, nFromParent, nToParent);
+     Remap(Root, Node, Node.Child[I], nFrom, nTo, nFromParent, nToParent);
    End;
   End;
 
   { Visit }
-  Procedure Visit(Parent, Node: TCFGNode; ChildID: Integer);
-  Var I        : Integer;
+  Procedure Visit(const Parent, Node: TCFGNode; const ChildID: int32);
+  Var I        : int32;
       Value    : Boolean;
       NewParent: TCFGNode;
   Begin
@@ -45,10 +68,13 @@ Var AnythingOptimized: Boolean = False;
     Begin
      Value := Node.Value^.Value;
 
-     DevLog(dvInfo, 'OptimizeBranches', 'Branch at line '+IntToStr(Node.Value^.Token.Line)+' has been removed (it always evaluates to '+BoolToStr(Value, 'true', 'false')+')!');
+     DevLog(dvInfo, 'OptimizeBranches', 'Branch at line '+IntToStr(Node.Value^.Token.Line)+' has been removed (it always evaluates to '+BoolToStr(Value, 'true', 'false')+').');
 
      NewParent := Node.Child[ord(not Value)]; // taken (true) = left child, not taken (false) = right child
      RemovedNodes.Add(Node.Child[ord(Value)]);
+
+     VisitedNodes.Clear;
+     RemapBytecode(Func.FlowGraph.Root, Node.Child[ord(Value)].getName, Node.getName);
 
      While (NewParent.Typ = cetNone) Do
      Begin
@@ -65,10 +91,10 @@ Var AnythingOptimized: Boolean = False;
      RemapSSA(Node.Child[ord(Value)], Node.Child[2], Node.Child[2]);
 
      VisitedNodes.Clear;
-     Remap(Parent, Node.Child[ord(not Value)], Node, NewParent, Node, NewParent);
+     Remap(Func.FlowGraph.Root, Parent, Node.Child[ord(not Value)], Node, NewParent, Node, NewParent);
 
      VisitedNodes.Clear;
-     Remap(Parent, Node.Child[ord(Value)], Node, NewParent, Node, NewParent);
+     Remap(Func.FlowGraph.Root, Parent, Node.Child[ord(Value)], Node, NewParent, Node, NewParent);
 
      NewParent.Parent := Parent;
 

@@ -38,7 +38,6 @@ Var Func: TFunction; // our new function
     NamedParams        : (npNotSetYet, npYes, npNo) = npNotSetYet;
     RequireDefaultValue: Boolean = False;
     DefaultValueType   : TType;
-    FuncNameLabel      : String;
 
     VisitedNodes: TCFGNodeList;
     RemovedNodes: TCFGNodeList; // list of removed nodes
@@ -165,8 +164,7 @@ Var Func: TFunction; // our new function
 
   { ReadAttributes }
   Procedure ReadAttributes;
-  Var Token        : TToken_P;
-      Option, Value: String;
+  Var Token: TToken_P;
   Begin
    With TCompiler(Compiler), Parser do
    Begin
@@ -177,25 +175,6 @@ Var Func: TFunction; // our new function
      Token := read;
      Case Token.Token of
       _NAKED: Include(Func.Attributes, faNaked);
-
-      _BRACKET2_OP:
-      Begin
-       Option := read_ident;
-       eat(_EQUAL);
-       Value := read_string;
-
-       Case Option of
-        'library'  : Func.LibraryFile := Value;
-        'namespace': Func.NamespaceName := Value;
-        'name'     : FuncNameLabel := Value;
-        'label'    : Func.MangledName := Value;
-
-        else
-         CompileError(eUnknownAttribute, [Option]);
-       End;
-
-       eat(_BRACKET2_CL);
-      End;
 
       else
        Break;
@@ -304,7 +283,6 @@ Begin
    Func.RefSymbol.DeclToken     := next_pnt(-1); // `_FUNCTION`
    Func.RefSymbol.DeclNamespace := getCurrentNamespace;
    Func.RefSymbol.DeclFunction  := nil;
-   Func.NamespaceName           := getCurrentNamespace.RefSymbol.Name;
 
    { skip function return type (it will be read in the second pass) }
    Func.Return := nil;
@@ -314,8 +292,6 @@ Begin
    Func.RefSymbol.Name       := read_ident; // [identifier]
    Func.RefSymbol.Visibility := getVisibility;
    Func.ModuleName           := ModuleName;
-
-   FuncNameLabel := Func.RefSymbol.Name;
 
    RedeclarationCheck(Func.RefSymbol.Name); // check for redeclaration
 
@@ -337,18 +313,12 @@ Begin
      mVariable.RefSymbol.DeclFunction  := nil;
      mVariable.RefSymbol.DeclNamespace := getCurrentNamespace;
      mVariable.Typ                     := CreateFunctionType(Func);
-     mVariable.Value                   := MakeIntExpression('@$function.'+IntToStr(uint64(Pointer(Func))));
+     mVariable.Value                   := MakeIntExpression('@$function.'+IntToStr(uint32(Pointer(Func))));
 
      mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
 
      Func.RefVar := mVariable;
     End;
-   End;
-
-   if (Length(Func.LibraryFile) > 0) Then // if function is external, don't create any bytecode
-   Begin
-    semicolon;
-    Exit;
    End;
 
    if (NamedParams = npNo) and (next_t <> _SEMICOLON) Then
@@ -357,7 +327,7 @@ Begin
    { add parameters }
    With Func do
     For I := Low(ParamList) To High(ParamList) Do
-     __variable_create(ParamList[I].Name, ParamList[I].Typ, -I-1, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
+     __variable_create_stackpos(ParamList[I].Name, ParamList[I].Typ, -I-1, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
 
    { add special constants (if `--internal-const` enabled) }
    if (getBoolOption(opt_internal_const)) Then
@@ -382,39 +352,26 @@ Begin
   While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
    read;
 
-  // check for redeclaration by label name
-  {TmpFunc := findFunctionByLabel(Func.MangledName);
+  Func.Return                := TmpType;
+  Func.RefVar.Typ.FuncReturn := TmpType;
 
-  if (TmpFunc <> nil) Then
+  // do some type-checks
+  if (Func.RefSymbol.Visibility = mvPublic) Then
   Begin
-   CompileError(eRedeclaration, [Func.MangledName]);
-
-   With TmpFunc.RefSymbol do
-    TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []);
-  End; @TODO}
-
-  Func.Return     := TmpType;
-  Func.RefVar.Typ := TmpType;
-
-  // generate label name
-  if (Func.MangledName = '') Then
-  Begin
-   FuncNameLabel := Func.RefSymbol.Name; // @TODO: `[name=]` attribute
-   if (Func.LibraryFile <> '') or ((TCompiler(Compiler).Parent.CompileMode = cmLibrary) and (Pointer(TCompiler(Compiler).Parent) = Compiler)) Then
-    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, True) Else
-    Func.MangledName := CreateFunctionMangledName(Func, FuncNameLabel, False); // create function mangled name
+   if (Func.Return.RefSymbol.Visibility = mvPrivate) and (not Func.Return.RefSymbol.isInternal) Then
+    CompileWarning(next(-1), wPublicFunctionUsesPrivateSymbol, [Func.RefSymbol.Name, Func.Return.RefSymbol.Name]);
   End;
 
+  // generate mangled label name
+  Func.LabelName  := Func.getSerializedForm;
   CurrentFunction := Func;
 
-  if (Func.LibraryFile <> '') Then { if it's an imported function, no bytecode is created }
-  Begin
-   semicolon;
-   Exit;
-  End;
-
   { new label (function begin) }
-  PutLabel(Func.MangledName)^.isPublic := True; // function's begin label has to be bytecode-public
+  With PutLabel(Func.LabelName)^ do
+  Begin
+   isPublic   := (Func.RefSymbol.Visibility = mvPublic);
+   isFunction := True;
+  End;
 
   { new scope (because we're in function now) }
   NewScope(sFunction);

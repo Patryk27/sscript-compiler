@@ -281,7 +281,7 @@ function<string> strinsert(string text, string what, int at)
  if (at > len2) // too far
   at = len2;
   
- if (at == len2) // a little optimization ;>
+ if (at == len2) // a small optimization ;)
   return text+what;
 
  return strcopy(text, 1, at-1)+
@@ -343,7 +343,9 @@ function<string> strright(string text, int count)
 function<bool> strcmp(string c1, string c2, bool case_sensitive=true)
 {
  if (case_sensitive)
-  return (c1 == c2); else
+ {
+  return (c1 == c2);
+ } else
  {
   var<int> len1 = strlen(c1);
   var<int> len2 = strlen(c2); 

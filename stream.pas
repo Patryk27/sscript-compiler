@@ -13,20 +13,26 @@ Unit Stream;
       Class (Classes.TMemoryStream)
        Public { methods }
        // `write` functions
-        Procedure write_byte(const V: Byte);
-        Procedure write_word(const V: Word);
-        Procedure write_integer(const V: Integer);
-        Procedure write_longword(const V: Longword);
-        Procedure write_int64(const V: Int64);
+        Procedure write_int8(const V: int8);
+        Procedure write_uint8(const V: uint8);
+        Procedure write_int16(const V: int16);
+        Procedure write_uint16(const V: uint16);
+        Procedure write_int32(const V: int32);
+        Procedure write_uint32(const V: uint32);
+        Procedure write_int64(const V: int64);
+        Procedure write_uint64(const V: uint64);
         Procedure write_float(const V: Extended);
         Procedure write_string(const V: String);
 
        // `read` functions
-        Function read_byte: Byte;
-        Function read_word: Word;
-        Function read_integer: Integer;
-        Function read_longword: Longword;
-        Function read_int64: Int64;
+        Function read_int8: int8;
+        Function read_uint8: uint8;
+        Function read_int16: int16;
+        Function read_uint16: uint16;
+        Function read_int32: int32;
+        Function read_uint32: uint32;
+        Function read_int64: int64;
+        Function read_uint64: uint64;
         Function read_float: Extended;
         Function read_string: String;
 
@@ -36,32 +42,50 @@ Unit Stream;
 
  Implementation
 
-(* TStream.write_byte *)
-Procedure TStream.write_byte(const V: Byte);
+(* TStream.write_int8 *)
+Procedure TStream.write_int8(const V: int8);
 Begin
  Write(V, sizeof(V));
 End;
 
-(* TStream.write_word *)
-Procedure TStream.write_word(const V: Word);
+(* TStream.write_uint8 *)
+Procedure TStream.write_uint8(const V: uint8);
+Begin
+ Write(V, sizeof(V));
+End;
+
+(* TStream.write_int16 *)
+Procedure TStream.write_int16(const V: int16);
 Begin
  Write(NtoBE(V), sizeof(V));
 End;
 
-(* TStream.write_integer *)
-Procedure TStream.write_integer(const V: Integer);
+(* TStream.write_uint16 *)
+Procedure TStream.write_uint16(const V: uint16);
 Begin
  Write(NtoBE(V), sizeof(V));
 End;
 
-(* TStream.write_longword *)
-Procedure TStream.write_longword(const V: Longword);
+(* TStream.write_int32 *)
+Procedure TStream.write_int32(const V: int32);
+Begin
+ Write(NtoBE(V), sizeof(V));
+End;
+
+(* TStream.write_uint32 *)
+Procedure TStream.write_uint32(const V: uint32);
 Begin
  Write(NtoBE(V), sizeof(V));
 End;
 
 (* TStream.write_int64 *)
-Procedure TStream.write_int64(const V: Int64);
+Procedure TStream.write_int64(const V: int64);
+Begin
+ Write(NtoBE(V), sizeof(V));
+End;
+
+(* TStream.write_uint64 *)
+Procedure TStream.write_uint64(const V: uint64);
 Begin
  Write(NtoBE(V), sizeof(V));
 End;
@@ -81,43 +105,48 @@ Begin
   if (Ch = #0) Then
    raise Exception.Create('TStream.write_string: terminator char (0x00) found in string content!');
 
-  write_byte(ord(Ch));
+  write_uint8(ord(Ch));
  End;
 
- write_byte(0);
+ write_uint8(0);
 End;
 
-(* TStream.read_byte *)
-Function TStream.read_byte: Byte;
+(* TStream.read_int8 *)
+Function TStream.read_int8: int8;
 Begin
- if (not Can) Then
-  Exit(0);
  Read(Result, sizeof(Result));
 End;
 
-(* TStream.read_word *)
-Function TStream.read_word: Word;
+(* TStream.read_uint8 *)
+Function TStream.read_uint8: uint8;
 Begin
- if (not Can) Then
-  Exit(0);
  Read(Result, sizeof(Result));
- Result := BEtoN(Result);
 End;
 
-(* TStream.read_integer *)
-Function TStream.read_integer: Integer;
+(* TStream.read_int16 *)
+Function TStream.read_int16: int16;
 Begin
- if (not Can) Then
-  Exit(0);
  Read(Result, sizeof(Result));
  Result := BEtoN(Result);
 End;
 
-(* TStream.read_longword *)
-Function TStream.read_longword: Longword;
+(* TStream.read_uint16 *)
+Function TStream.read_uint16: uint16;
 Begin
- if (not Can) Then
-  Exit(0);
+ Read(Result, sizeof(Result));
+ Result := BEtoN(Result);
+End;
+
+(* TStream.read_int32 *)
+Function TStream.read_int32: int32;
+Begin
+ Read(Result, sizeof(Result));
+ Result := BEtoN(Result);
+End;
+
+(* TStream.read_uint32 *)
+Function TStream.read_uint32: uint32;
+Begin
  Read(Result, sizeof(Result));
  Result := BEtoN(Result);
 End;
@@ -125,8 +154,13 @@ End;
 (* TStream.read_int64 *)
 Function TStream.read_int64: Int64;
 Begin
- if (not Can) Then
-  Exit(0);
+ Read(Result, sizeof(Result));
+ Result := BEtoN(Result);
+End;
+
+(* TStream.read_uint64 *)
+Function TStream.read_uint64: uint64;
+Begin
  Read(Result, sizeof(Result));
  Result := BEtoN(Result);
 End;
@@ -147,7 +181,7 @@ Begin
 
  While (true) Do
  Begin
-  Ch := read_byte;
+  Ch := read_uint8;
 
   if (Ch = 0) Then // stop on terminator char (0x00)
    Break;

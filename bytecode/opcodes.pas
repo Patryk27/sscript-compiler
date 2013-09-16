@@ -7,16 +7,18 @@ Unit Opcodes;
  Interface
  Uses Tokens;
 
- Type TPrimaryType = (ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited into bytecode (only for compiler internal usage)
+ Type TPrimaryType = (ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited to output bytecode (only for compiler internal usage)
+
                       ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg,
-                      ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal,
-                      ptLabelAbsoluteReference);
+                      ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal, ptConstantMemRef,
+
+                      ptLabelAbsoluteReference, ptSymbolMemRef); // also for internal usage
 
  Const PrimaryTypeNames: Array[TPrimaryType] of String =
                      ('none', 'any', 'any reg',
                       'bool reg', 'char reg', 'int reg', 'float reg', 'string reg', 'reference reg',
-                      'bool', 'char', 'int', 'float', 'string', 'stackval',
-                      'label absolute reference');
+                      'bool', 'char', 'int', 'float', 'string', 'stackval', 'constant memory reference',
+                      'label absolute reference', 'relocatable symbol memory reference');
 
  Type TRegister = Record
                    Name: String;
@@ -66,46 +68,55 @@ Unit Opcodes;
   (Name: 'er4'; ID: 4; Typ: ptInt)
  );
 
- Type TOpcode = Record
-                 Name  : String;
-                 ParamC: Integer;
-                 ParamT: Array[0..2] of TPrimaryType;
-                End;
+ { TOpcode }
+ Type TOpcode =
+      Record
+       Name  : String;
+       ParamC: Integer;
+       ParamT: Array[0..2] of TPrimaryType;
+      End;
 
- Type TOpcode_E = (o_nop, o_stop,
-                   o_push, o_pop,
-                   o_add, o_sub, o_mul, o_div, o_neg, o_mov,
-                   o_jmp, o_tjmp, o_fjmp, o_call, o_icall, o_acall, o_ret,
-                   o_if_e, o_if_ne, o_if_g, o_if_l, o_if_ge, o_if_le,
-                   o_strjoin,
-                   o_not, o_or, o_xor, o_and, o_shl, o_shr,
-                   o_mod,
-                   o_arset, o_arget, o_arcrt, o_arlen, o_strlen,
-                   o_loc_file, o_loc_func, o_loc_line,
-                   o_byte, o_word, o_integer, o_extended);
+ { TOpcode_E }
+ Type TOpcode_E =
+      (
+       o_nop, o_stop,
+       o_push, o_pop,
+       o_add, o_sub, o_mul, o_div, o_neg, o_mov,
+       o_jmp, o_tjmp, o_fjmp, o_call, o_icall, o_acall, o_ret,
+       o_if_e, o_if_ne, o_if_g, o_if_l, o_if_ge, o_if_le,
+       o_strjoin,
+       o_not, o_or, o_xor, o_and, o_shl, o_shr,
+       o_mod,
+       o_arset, o_arget, o_arcrt, o_arlen, o_strlen,
+       o_loc_file, o_loc_func, o_loc_line,
+       o_byte, o_word, o_integer, o_extended
+      );
 
- // TMOpcodeArg
- Type TMOpcodeArg = Record
-                     Typ  : TPrimaryType; // parameter type (register, integer value etc.)
-                     Value: Variant;
-                    End;
+ { TMOpcodeArg }
+ Type TMOpcodeArg = // a single opcode argument
+      Record
+       Typ  : TPrimaryType; // parameter type (register, integer value etc.)
+       Value: Variant;
+      End;
 
- // TMOpcode
+ { TMOpcode }
  Type PMOpcode = ^TMOpcode;
-      TMOpcode = Record
-                  Name  : String;
-                  Opcode: TOpcode_E;
-                  Args  : Array of TMOpcodeArg;
+      TMOpcode =
+      Record
+       Name  : String;
+       Opcode: TOpcode_E;
+       Args  : Array of TMOpcodeArg;
 
-                  isLabel  : Boolean;
-                  isComment: Boolean;
+       isLabel  : Boolean;
+       isComment: Boolean;
 
-                  isPublic: Boolean;
+       isPublic, isFunction: Boolean;
 
-                  Token   : PToken_P;
-                  Compiler: Pointer;
-                 End;
+       Token   : PToken_P;
+       Compiler: Pointer;
+      End;
 
+ { OpcodeList }
  Const OpcodeList: Array[0..ord(High(TOpcode_E))] of TOpcode =
  (
   (* ====== NOP ====== *)
@@ -226,12 +237,13 @@ Unit Opcodes;
 
  Implementation
 
+(* TMOpcodeArg = TMOpcodeArg *)
 Operator = (A, B: TMOpcodeArg): Boolean;
 Begin
  Result := (A.Typ = B.Typ) and (A.Value = B.Value);
 End;
 
-{ OpcodeTypeCheck }
+(* OpcodeTypeCheck *)
 Function OpcodeTypeCheck(A, B: TPrimaryType): Boolean;
 Begin
  Result := (A=B);
@@ -241,24 +253,26 @@ Begin
 
  Case A of
   ptAny, ptStackVal    : Result := True;
-  ptAnyReg             : Result := B in [ptStackVal, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg];
-  ptBool, ptBoolReg    : Result := B in [ptStackVal, ptBool, ptBoolReg, ptInt, ptIntReg];
-  ptChar               : Result := B in [ptStackVal, ptChar, ptCharReg, ptInt, ptIntReg];
-  ptCharReg            : Result := B in [ptStackVal, ptChar, ptCharReg, ptInt, ptIntReg, ptString, ptStringReg];
-  ptInt, ptIntReg      : Result := B in [ptStackVal, ptInt, ptIntReg, ptChar, ptCharReg, ptFloat, ptFloatReg];
-  ptFloat, ptFloatReg  : Result := B in [ptStackVal, ptInt, ptIntReg, ptFloat, ptFloatReg];
-  ptString, ptStringReg: Result := B in [ptStackVal, ptString, ptStringReg, ptChar, ptCharReg];
-  ptReferenceReg       : Result := B in [ptStackVal, ptInt, {ptString,} ptStringReg, ptReferenceReg];
+  ptAnyReg             : Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg];
+  ptBool, ptBoolReg    : Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptBool, ptBoolReg, ptInt, ptIntReg];
+  ptChar               : Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptChar, ptCharReg, ptInt, ptIntReg];
+  ptCharReg            : Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptChar, ptCharReg, ptInt, ptIntReg, ptString, ptStringReg];
+  ptInt, ptIntReg      : Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptInt, ptIntReg, ptChar, ptCharReg, ptFloat, ptFloatReg];
+  ptFloat, ptFloatReg  : Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptInt, ptIntReg, ptFloat, ptFloatReg];
+  ptString, ptStringReg: Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptString, ptStringReg, ptChar, ptCharReg];
+  ptReferenceReg       : Result := B in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptInt, {ptString,} ptStringReg, ptReferenceReg];
+
+  ptConstantMemRef, ptSymbolMemRef: Result := B in [ptBool, ptBoolReg, ptChar, ptCharReg, ptInt, ptIntReg, ptFloat, ptFloatReg, ptString, ptStringReg, ptReferenceReg];
  End;
 End;
 
-{ CheckMOV }
+(* CheckMOV *)
 Function CheckMOV(A, B: TPrimaryType): Boolean;
 Begin
  Result := OpcodeTypeCheck(A, B);
 End;
 
-{ isValidOpcode }
+(* isValidOpcode *)
 Function isValidOpcode(O: TMOpcode): Boolean;
 Var ID, I : Integer;
 Begin
@@ -268,15 +282,33 @@ Begin
  Result := False;
  ID     := ord(O.Opcode);
 
- if (ID < 0) or (ID > High(OpcodeList)) Then // invalid opcode
+ if (ID < 0) or (ID > High(OpcodeList)) Then // invalid opcode ID
   Exit;
 
  if (Length(O.Args) <> OpcodeList[ID].ParamC) Then // wrong param count
   Exit;
 
+ if (O.Opcode in [o_jmp, o_tjmp, o_fjmp, o_call]) Then // jumps and calls have to be constant
+ Begin
+  if (O.Args[0].Typ <> ptInt) Then
+   Exit(False);
+ End;
+
+ if (O.Opcode in [o_push, o_pop, o_neg, o_not]) Then // check a few one-parameter opcodes
+ Begin
+  if (O.Args[0].Typ in [ptConstantMemRef, ptSymbolMemRef]) Then // opcode(memref) is invalid
+   Exit(False);
+ End;
+
+ if (O.Opcode in [o_add, o_sub, o_mul, o_div, o_mov, o_or, o_xor, o_and, o_shl, o_shr, o_mod, o_strjoin]) Then // check a few two-parameter opcodes
+ Begin
+  if (O.Args[0].Typ in [ptConstantMemRef, ptSymbolMemRef]) and (O.Args[1].Typ in [ptConstantMemRef, ptSymbolMemRef]) Then // opcode(memref, memref) is invalid
+   Exit(False);
+ End;
+
  if (O.Opcode = o_mov) Then
  Begin
-  Exit(CheckMOV(O.Args[0].Typ, O.Args[1].Typ) and (O.Args[0].Typ in [ptStackVal, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg]));
+  Exit(CheckMOV(O.Args[0].Typ, O.Args[1].Typ) and (O.Args[0].Typ in [ptStackVal, ptConstantMemRef, ptSymbolMemRef, ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg]));
  End Else
  Begin
   For I := 0 To High(O.Args) Do
@@ -287,7 +319,7 @@ Begin
  Exit(True);
 End;
 
-{ GetOpcodeID }
+(* GetOpcodeID *)
 Function GetOpcodeID(Name: String): Integer;
 Var I: Integer;
 Begin
@@ -300,7 +332,7 @@ Begin
   End;
 End;
 
-{ isRegisterName }
+(* isRegisterName *)
 Function isRegisterName(Name: String): Boolean;
 Var I: Integer;
 Begin
@@ -313,7 +345,7 @@ Begin
   End;
 End;
 
-{ getRegister }
+(* getRegister *)
 Function getRegister(Name: String): TRegister;
 Var I: Integer;
 Begin

@@ -98,13 +98,20 @@ Begin
     mtMul { * }: Expr^.Value := Left^.Value * Right^.Value;
     mtDiv { / }:
      if (Right^.Value = 0) Then
-      Compiler.CompileError(Expr^.Token, eDivByZero, []) Else
+     Begin
+      Compiler.CompileError(Expr^.Token, eDivByZero, []);
+     End Else
+     Begin
       Expr^.Value := Left^.Value / Right^.Value;
+
+      if (Left^.Typ = mtInt) and (Right^.Typ = mtInt) Then
+       Expr^.Value := Round(Expr^.Value);
+     End;
 
     mtLower        { <  }: Expr^.Value := Left^.Value < Right^.Value;
     mtLowerEqual   { <= }: Expr^.Value := Left^.Value <= Right^.Value;
     mtEqual        { == }: Expr^.Value := Left^.Value = Right^.Value;
-    mtGreater      { > }: Expr^.Value := Left^.Value > Right^.Value;
+    mtGreater      { >  }: Expr^.Value := Left^.Value > Right^.Value;
     mtGreaterEqual { >= }: Expr^.Value := Left^.Value >= Right^.Value;
 
     else

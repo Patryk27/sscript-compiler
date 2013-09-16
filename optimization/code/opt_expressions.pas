@@ -54,13 +54,14 @@ Var VarList: TVarList;
   End;
 
   // VisitExpression
-  Procedure VisitExpression(Expr: PExpressionNode);
+  Procedure VisitExpression(var Expr: PExpressionNode);
   Var Param  : PExpressionNode;
       VarData: PVarData;
   Begin
    if (Expr = nil) Then
     Exit;
 
+   { var = constant }
    if (Expr^.Typ = mtAssign) and (Expr^.Right^.isConstant) Then
    Begin
     New(VarData);
@@ -70,6 +71,7 @@ Var VarList: TVarList;
     VarList.Add(VarData);
    End Else
 
+   { var }
    if (Expr^.Typ = mtIdentifier) and (Expr^.IdentType = mtNothing) Then
    Begin
     VarData := FindVarData(Expr^.Symbol, Expr^.SSA);
@@ -78,11 +80,14 @@ Var VarList: TVarList;
     Begin
      Expr^.Value     := VarData^.Value^.Value;
      Expr^.IdentType := VarData^.Value^.Typ;
+     Expr^.Typ       := Expr^.IdentType;
      AnyChange       := True;
     End;
    End;
 
-   VisitExpression(Expr^.Left);
+   if (not (Expr^.Typ in MLValueOperators)) Then
+    VisitExpression(Expr^.Left);
+
    VisitExpression(Expr^.Right);
 
    For Param in Expr^.ParamList Do
@@ -121,6 +126,8 @@ End;
 
 { ConstantFolding }
 Procedure ConstantFolding;
+
+  // Visit
   Procedure Visit(Node: TCFGNode);
   Var Child: TCFGNode;
   Begin

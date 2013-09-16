@@ -35,12 +35,11 @@ Unit SSCompiler;
  Type TCompiler =
       Class
        Private { methods }
-        Procedure MakeImports;
         Procedure CompileAsBytecode;
         Procedure SaveBytecode(const FileName: String);
 
        Public { fields }
-        Parser: TParser; // code parser; @TODO: getParser() property?
+        Parser: TParser; // code parser instance; @TODO: getParser() property?
 
         AnyError: Boolean; // 'true' if any error (`CompileError()`) was raised, 'false' otherwise.
 
@@ -119,7 +118,7 @@ Unit SSCompiler;
          Function findTypeCandidate(const TypeName: String; const Namespace: TNamespace; const Token: TToken_P): TType;
 
         { variables }
-         Procedure __variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
+         Procedure __variable_create_stackpos(fName: String; fTyp: TType; fStackPos: int8; fAttributes: TVariableAttributes);
          Function findVariableCandidate(const VarName: String; const Namespace: TNamespace; const Token: TToken_P): TVariable;
 
         { functions }
@@ -163,8 +162,6 @@ Unit SSCompiler;
          Procedure CompileNote(Token: PToken_P; Note: TCompileNote; Args: Array of Const);
          Procedure CompileNote(Note: TCompileNote; Args: Array of Const);
          Procedure CompileNote(Note: TCompileNote);
-
-         Procedure GenerateHeaderFile(const fOutputFile: String);
         End;
 
  Function ReplaceDirSep(FileName: String): String;
@@ -172,7 +169,7 @@ Unit SSCompiler;
  Function CopyStringToPChar(const Str: String): PChar;
 
  Implementation
-Uses BytecodeCompiler, ExpressionCompiler, SSMParser, opt_peephole;
+Uses BCCompiler, ExpressionCompiler, opt_peephole;
 
 (* ReplaceDirSep *)
 {
@@ -230,61 +227,13 @@ Begin
   Result := fCurrentNode;
 End;
 
-(* TCompiler.MakeImports *)
-{
- Creates import list (loads *.ssm files and adds them into the bytecode)
-}
-Procedure TCompiler.MakeImports;
-Var SSM          : TSSM;
-    I, Q         : Integer;
-    Can, Found   : Boolean;
-    FileName, Tmp: String;
-    Comp         : SSCompiler.TCompiler;
-
-    Namespace: TNamespace;
-Begin
- For Namespace in NamespaceList Do // each namespace
-  With Namespace do
-  Begin
-   For I := 0 To SymbolList.Count-1 Do // each symbol
-    if (SymbolList[I].Typ = stFunction) and (SymbolList[I].mFunction.LibraryFile <> '') Then // is it an imported function?
-    Begin
-     Can := True;
-
-     For Q := 0 To I-1 Do // we don't want some file to be loaded eg.10 times instead of 1 time (it just skips multiple imports from same file)
-      if (SymbolList[Q].Typ = stFunction) Then
-       if (SymbolList[Q].mFunction.LibraryFile = SymbolList[I].mFunction.LibraryFile) Then
-        Can := False;
-
-     if (not Can) Then
-      Continue; // proceed to the next file
-
-     FileName := SymbolList[I].mFunction.LibraryFile;
-     Comp     := TCompiler(SymbolList[I].mCompiler);
-
-     FileName := SearchFile(FileName, Found); // search file
-
-     if (not Found) Then // not found
-     Begin
-      Tmp := ExtractFilePath(Comp.InputFile)+FileName;
-      if (FileExists(Tmp)) Then
-       FileName := Tmp;
-     End;
-
-     SSM := TSSM.Create;
-     if (not SSM.Load(FileName, Comp.ModuleName, self)) Then // try to load SSM
-      Comp.CompileError(SymbolList[I].DeclToken, eCorruptedSSMFile, [SymbolList[I].mFunction.LibraryFile]);
-     SSM.Free;
-    End;
-  End;
-End;
 
 (* TCompiler.CompileAsBytecode *)
 {
  Compiles input file as a bytecode
 }
 Procedure TCompiler.CompileAsBytecode;
-Var Compiler2: BytecodeCompiler.TCompiler;
+Var Compiler2: BCCompiler.TCompiler;
 Begin
  Log('-> Compiling as bytecode');
 
@@ -294,7 +243,7 @@ Begin
 
  Parse_CODE.Parse(self, True); // parse bytecode
 
- Compiler2 := BytecodeCompiler.TCompiler.Create;
+ Compiler2 := BCCompiler.TCompiler.Create;
  Compiler2.Compile(self, False);
  Compiler2.Free;
 End;
@@ -312,7 +261,7 @@ Var OutputCode         : TStringList;
 Begin
  OutputCode := TStringList.Create;
 
- Log('-> Saving bytecode into file: '+FileName);
+ Log('-> Saving bytecode to file: '+FileName);
 
  // save bytecode
  OutputCode.Add('{');
@@ -324,7 +273,7 @@ Begin
    Begin
     Case isPublic of
      True : OutputCode.Add(Name+': .public');
-     False: OutputCode.Add(Name+':'); // labels are private by the convention, so there's no need to add the `.private` modifier here.
+     False: OutputCode.Add(Name+':'); // labels are private by the convention so there's no need to add the `.private` modifier here.
     End;
     Continue; // proceed to the next opcode
    End;
@@ -344,27 +293,28 @@ Begin
    Begin
     Reg := '';
 
-    // normal registers
     Case Arg.Typ of
-     ptBoolReg     : Reg := 'eb';
-     ptCharReg     : Reg := 'ec';
-     ptIntReg      : Reg := 'ei';
-     ptFloatReg    : Reg := 'ef';
-     ptStringReg   : Reg := 'es';
-     ptReferenceReg: Reg := 'er';
-     ptStackVal    : Reg := '[';
+     ptBoolReg       : Reg := 'eb';
+     ptCharReg       : Reg := 'ec';
+     ptIntReg        : Reg := 'ei';
+     ptFloatReg      : Reg := 'ef';
+     ptStringReg     : Reg := 'es';
+     ptReferenceReg  : Reg := 'er';
+     ptStackVal      : Reg := '[';
+     ptConstantMemRef: Reg := '&';
+     ptSymbolMemRef  : Reg := '&$';
     End;
 
     Str := VarToStr(Arg.Value);
 
-    if (Length(Str) > 2) and (Str[1] in [':', '@']) Then
+    if (Length(Str) > 2) and (Str[1] in [':', '@']) Then // check for function-label references
     Begin
      Tmp := Copy(Str, 2, Length(Str));
      if (Copy(Tmp, 1, 10) = '$function.') Then
      Begin
       Delete(Tmp, 1, 10);
       Int   := StrToInt(Tmp);
-      Tmp   := TFunction(Int).MangledName;
+      Tmp   := TFunction(Int).LabelName;
 
       if (Length(Tmp) = 0) Then
        SSCompiler.TCompiler(Compiler).CompileError(eInternalError, ['Couldn''t fetch function''s label name; funcname = '+TSymbol(Int).mFunction.RefSymbol.Name]);
@@ -640,11 +590,12 @@ Begin
     if (next_t in [_VAR, _CONST]) Then
     Begin
      {
-      eg.if (true)
-       var<int> a; else
-       var<int> b;
+      eg.:
+       if (true)
+        var<int> a; else
+        var<int> b;
 
-      is an invalid construction
+      is an invalid construction.
      }
      CompileError(next, eUnexpected, [next.Value]);
     End;
@@ -686,9 +637,10 @@ Begin
  New(Item);
  With Item^ do
  Begin
-  isLabel   := False; // opcode cannot be a label
-  isComment := False; // nor a comment
-  Token     := fToken;
+  isLabel    := False; // opcode cannot be a label
+  isComment  := False; // nor a comment
+  isFunction := False; // nor a function label
+  Token      := fToken;
 
   Opcode := fOpcode;
   SetLength(Args, Length(fArgs)); // save args
@@ -768,7 +720,7 @@ Begin
     // string value
     if (T in [vtString, vtAnsiString, vtPChar]) Then
     Begin
-     if (Str[1] = '"') Then
+     if (Str[1] = '"') and (Str[Length(Str)] = '"') Then // string literal
      Begin
       Delete(Str, 1, 1); // remove quote chars
       Delete(Str, Length(Str), 1);
@@ -776,7 +728,7 @@ Begin
       Value := Str;
      End Else
 
-     if (Str[1] = '''') Then
+     if (Str[1] = '''') and (Str[Length(Str)] = '''') Then // char literal
      Begin
       Delete(Str, 1, 1);
       Delete(Str, Length(Str), 1);
@@ -788,13 +740,13 @@ Begin
       Value := ord(Str[1]);
      End Else
 
-     if (Str[1] = '[') Then
+     if (Str[1] = '[') and (Str[Length(Str)] = ']') Then // stackval
      Begin
       Typ   := ptStackVal;
       Value := StrToInt(Copy(Str, 2, Length(Str)-2));
      End Else
 
-     if (Str[1] = '#') Then
+     if (Str[1] = '#') Then // char
      Begin
       Delete(Str, 1, 1);
       Typ := ptChar;
@@ -804,16 +756,38 @@ Begin
        CompileError(Token^, eBytecode_InvalidOpcode, []);
      End Else
 
-     if (Str[1] = ':') Then
+     if (Str[1] = ':') Then // label
      Begin
       Value := Str;
       Typ   := ptInt;
      End Else
+
+     if (Str[1] = '&') Then // constant memory/memory symbol reference
      Begin
+      Delete(Str, 1, 1);
+
+      if (Str[1] = '$') Then // memory symbol reference
+      Begin
+       Delete(Str, 1, 1);
+
+       Typ   := ptSymbolMemRef;
+       Value := Str;
+      End Else // memory reference
+      Begin
+       Typ := ptConstantMemRef;
+
+       if (TryStrToInt64(Str, iTmp)) Then
+        Value := iTmp Else
+        CompileError(Token^, eBytecode_InvalidOpcode, []);
+      End;
+     End Else
+
+     Begin // something other, possibly a constant int/float value
       Value := Str;
 
       if (TryStrToInt64(Value, iTmp)) Then
        Typ := ptInt Else
+
       if (TryStrToFloat(Value, fTmp)) Then
        Typ := ptFloat;
      End;
@@ -910,9 +884,10 @@ Begin
   New(Item);
   With Item^ do
   Begin
-   Name      := fName;
-   isLabel   := True;
-   isComment := False;
+   Name       := fName;
+   isLabel    := True;
+   isComment  := False;
+   isFunction := False;
 
    isPublic := False;
   End;
@@ -1024,11 +999,11 @@ Begin
  Exit(Math.inRange(Position, Range.PBegin.Position, Range.PEnd.Position));
 End;
 
-(* TCompiler.__variable_create *)
+(* TCompiler.__variable_create_stackpos *)
 {
  Creates a variable in current function
 }
-Procedure TCompiler.__variable_create(fName: String; fTyp: TType; fMemPos: Integer; fAttributes: TVariableAttributes);
+Procedure TCompiler.__variable_create_stackpos(fName: String; fTyp: TType; fStackPos: int8; fAttributes: TVariableAttributes);
 Begin
  With getCurrentFunction do
  Begin
@@ -1041,11 +1016,13 @@ Begin
    With mVariable do
    Begin
     Typ           := fTyp;
-    MemPos        := fMemPos;
     Attributes    := fAttributes;
     Range         := Parser.getCurrentRange;
     DeclNamespace := getCurrentNamespace;
     DeclFunction  := getCurrentFunction;
+
+    LocationData.Location      := vlStack;
+    LocationData.StackPosition := fStackPos;
    End;
   End;
  End;
@@ -1091,7 +1068,7 @@ Begin
 
  For Namespace in NamespaceList Do
   For Symbol in Namespace.SymbolList Do
-   if (Symbol.Typ = stFunction) and (Symbol.mFunction.MangledName = LabelName) Then
+   if (Symbol.Typ = stFunction) and (Symbol.mFunction.LabelName = LabelName) Then
     Exit(Symbol.mFunction);
 End;
 
@@ -1320,7 +1297,7 @@ End;
    fPreviousInstance -> see @Parse_include and @Parse_FUNCTION
 }
 Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
-Var Compiler2: BytecodeCompiler.TCompiler;
+Var Compiler2: BCCompiler.TCompiler;
 
     VBytecode        : String = '';
     UnfinishedComment: Boolean = False;
@@ -1490,7 +1467,6 @@ Var Compiler2: BytecodeCompiler.TCompiler;
        ParseToken;
     End;
 
-Var Str: String;
 Begin
  fInputFile  := ReplaceDirSep(fInputFile);
  fOutputFile := ReplaceDirSep(fOutputFile);
@@ -1568,13 +1544,6 @@ Begin
    Begin
     Log('-> Compiling as a library');
     ModuleName := '_';
-   End Else
-
-   { compiling as a program }
-   Begin
-    // the beginning of the program must be the "main" call
-    PutOpcode(o_call, [':__function_self_main_'+ModuleName+'_int_']);
-    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
    End;
   End Else // if included (not the main file)
   Begin
@@ -1602,9 +1571,6 @@ Begin
 
   if (not isIncluded) Then
   Begin
-   // make imports
-   MakeImports;
-
    Log('-> Bytecode generated.');
 
    if (getBoolOption(opt__bytecode_optimize)) Then
@@ -1614,6 +1580,22 @@ Begin
    End;
   End;
 
+  { check for valid "main" function existence and add prolog code }
+  if (CompileMode = cmApp) and (not isIncluded) Then
+  Begin
+   if (not CheckMain) Then
+   Begin
+    CompileError(eNoValidMainFunctionFound);
+    Exit;
+   End;
+
+   // the beginning of an application code have to be "main" function call and "stop" opcode.
+   DoNotGenerateCode := True;
+   OpcodeList.Insert(0, PutOpcode(o_call, [':'+findFunction('main', findNamespace('self')).LabelName]));
+   OpcodeList.Insert(1, PutOpcode(o_stop)); // and, if we back from main(), the program ends (virtual machine stops).
+   DoNotGenerateCode := False;
+  End;
+
   { if specified - save bytecode }
   if (VBytecode <> '') and (not isIncluded) Then
    SaveBytecode(VBytecode);
@@ -1621,33 +1603,9 @@ Begin
   { compile bytecode }
   if (not isIncluded) Then
   Begin
-   { ... but at first - check for valid "main" function declaration }
-   if (not CheckMain) Then
-   Begin
-    CompileError(eNoValidMainFunctionFound);
-    Exit;
-   End;
-
-   Compiler2 := BytecodeCompiler.TCompiler.Create;
+   Compiler2 := BCCompiler.TCompiler.Create;
    Compiler2.Compile(self, CompileMode = cmLibrary);
    Compiler2.Free;
-
-   Str := getStringOption(opt_header);
-
-   { if specified - generate output header file }
-   if (Str <> '') Then
-   Begin
-    Case CompileMode of
-     cmLibrary:
-     Begin
-      Log('-> Generating output header file to: '+Str);
-      GenerateHeaderFile(Str);
-     End;
-
-     else
-      Writeln('Cannot generate the output header file, because input file is not a library.');
-    End;
-   End;
   End;
  Finally
  End;
@@ -1811,126 +1769,5 @@ End;
 Procedure TCompiler.CompileNote(Note: TCompileNote);
 Begin
  CompileNote(Note, []);
-End;
-
-(* TCompiler.GenerateHeaderFile *)
-{
- Generates a header file (based on current functions list) and saves it into file `fOutputFile.`
-}
-Procedure TCompiler.GenerateHeaderFile(const fOutputFile: String);
-Var Output: TStringList;
-    Str   : String;
-
-    Item, I: Integer;
-
-    Typ  : TSymbolType;
-    mFunc: TFunction;
-    mCnst: TVariable;
-    mType: TType;
-
-    Namespace: TNamespace;
-Begin
- Output := TStringList.Create;
-
- With Output do
- Begin
-  Add('@visibility("public")');
-  Add('');
-
-  For Namespace in NamespaceList Do
-  Begin
-   With Namespace do
-   Begin
-    if (RefSymbol.Visibility <> mvPublic) Then
-     Continue;
-
-    if (RefSymbol.Name <> 'self') Then // `self` is the global namespace
-    Begin
-     Add('namespace '+RefSymbol.Name);
-     Add('{');
-    End;
-
-    For Item := 0 To SymbolList.Count-1 Do
-    Begin
-     if (SymbolList[Item].Visibility <> mvPublic) or (SymbolList[Item].isInternal) Then
-      Continue;
-
-     Typ := SymbolList[Item].Typ;
-     Case Typ of
-      stType    : mType := SymbolList[Item].mType;
-      stConstant: mCnst := SymbolList[Item].mVariable;
-      stFunction: mFunc := SymbolList[Item].mFunction;
-     End;
-
-     { global type }
-     if (Typ = stType) Then
-      With mType do
-      Begin
-       if (taEnum in Attributes) Then // special case: enumeration types
-       Begin
-        Str := 'type<enum> '+RefSymbol.Name+' = {';
-
-        For mCnst in EnumItemList Do
-         Str += mCnst.RefSymbol.Name+'='+IntToStr(mCnst.Value^.Value)+', ';
-
-        System.Delete(Str, Length(Str)-1, 2);
-
-        Str += '};';
-       End Else
-        Str := 'type<'+mType.asString+'> '+RefSymbol.Name+';';
-      End;
-
-     { global constant }
-     if (Typ = stConstant) Then
-      With mCnst do
-       if not (vaEnumItem in Attributes) Then
-        Str := 'const '+RefSymbol.Name+' = '+getValueFromExpression(Value, True)+';';
-
-     { global function }
-     if (Typ = stFunction) Then
-      With mFunc do
-      Begin
-       if (ModuleName <> self.ModuleName) Then
-        Continue;
-
-       Str := 'function<'+Return.asString+'> '+RefSymbol.Name+'(';
-
-       // parameter list
-       For I := Low(ParamList) To High(ParamList) Do
-       Begin
-        if (ParamList[I].isConst) Then
-         Str += 'const ';
-        if (ParamList[I].isVar) Then
-         Str += 'var ';
-
-        Str += ParamList[I].Typ.asString;
-
-        if (ParamList[I].DefaultValue <> nil) Then
-         Str += ' = '+getValueFromExpression(ParamList[I].DefaultValue, True);
-
-        if (I <> High(ParamList)) Then
-         Str += ', ';
-       End;
-
-       Str += ') [library="'+ExtractFileName(self.OutputFile)+'"];';
-      End;
-
-     if (Str <> '') Then
-     Begin
-      if (RefSymbol.Name <> '') Then
-       Str := ' '+Str;
-
-      Add(Str);
-     End;
-    End;
-
-    if (RefSymbol.Name <> 'self') Then
-     Add('}');
-   End;
-  End;
- End;
-
- Output.SaveToFile(fOutputFile);
- Output.Free;
 End;
 End.

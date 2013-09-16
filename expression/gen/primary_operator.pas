@@ -75,6 +75,11 @@ Begin
    False: Compiler.PutOpcode(Opcode, ['e'+TypeLeft.RegPrefix+'1', 'e'+TypeRight.RegPrefix+'2']);
   End;
 
+  if (WithAssign) Then
+  Begin
+   Compiler.PutOpcode(o_mov, ['e'+TypeRight.RegPrefix+'1', Variable.PosStr]); // @TODO: laaaame as f*ck
+  End;
+
   // check types
   if (WithAssign) Then
    if (not TypeRight.CanBeAssignedTo(Variable.Typ)) Then

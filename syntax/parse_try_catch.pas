@@ -41,9 +41,10 @@ Begin
 
  With Symbol.mVariable Do
  Begin
-  Typ        := TYPE_STRING;
-  MemPos     := 0;
-  Attributes := [vaDontAllocate, vaCatchVar, vaVolatile]; // we'll allocate this variable by ourselves, and also we don't let optimizer touch it - just to be sure.
+  Typ                        := TYPE_STRING;
+  LocationData.Location      := vlStack;
+  LocationData.StackPosition := 0;
+  Attributes                 := [vaDontAllocate, vaCatchVar, vaVolatile]; // we're allocating this variable by ourselves and also we don't let optimizer touch it - just to be sure it doesn't decide to remove it or do something worse.
  End;
 
  getCurrentFunction.SymbolList.Add(Symbol); // add symbol into the function's symbol list

@@ -1,3 +1,5 @@
+// @TODO: they're a bit lame solutions, because they distracts optimizer from doing its job ;/
+
 { ParseBreak }
 Procedure ParseBreak;
 Var I   : Integer;
@@ -7,7 +9,21 @@ Begin
   if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
   Begin
    Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
-   Node.Child.Add(Scope[I].LoopEnd);
+
+   With Node do
+   Begin
+    Typ := cetBytecode;
+
+    With Bytecode do
+    Begin
+     OpcodeName := 'jmp';
+     New(OpcodeArgList);
+     SetLength(OpcodeArgList^, 1);
+     OpcodeArgList^[0].VType  := vtPChar;
+     OpcodeArgList^[0].VPChar := CopyStringToPChar(':'+Scope[I].LoopEnd.getName);
+    End;
+   End;
+
    CFGAddNode(Node);
 
    Parser.eat(_SEMICOLON);
@@ -26,7 +42,21 @@ Begin
   if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
   Begin
    Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
-   Node.Child.Add(Scope[I].LoopBegin);
+
+   With Node do
+   Begin
+    Typ := cetBytecode;
+
+    With Bytecode do
+    Begin
+     OpcodeName := 'jmp';
+     New(OpcodeArgList);
+     SetLength(OpcodeArgList^, 1);
+     OpcodeArgList^[0].VType  := vtPChar;
+     OpcodeArgList^[0].VPChar := CopyStringToPChar(':'+Scope[I].LoopBegin.getName);
+    End;
+   End;
+
    CFGAddNode(Node);
 
    Parser.eat(_SEMICOLON);

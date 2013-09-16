@@ -115,8 +115,8 @@ Begin
  CleanAfterCall(FuncParamList);
 End;
 
-{ LocalVarCall }
-Function LocalVarCall: TType;
+{ VarCall }
+Function VarCall: TType;
 Var TypeID       : TType;
     Param        : Integer;
     Variable     : TRVariable;
@@ -240,13 +240,13 @@ Begin
 
  if (Expr^.Symbol = nil) Then // function not found or cast-call
  Begin
-  if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call
+  if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call ( (cast<functiontype>(expr))() )
   Begin
    Result := CastCall;
    Exit;
   End;
 
-  // is it any of internal functions?
+  // is it any of the internal functions?
   Case VarToStr(Left^.Value) of
    { @Note: when changing internal functions, modify also TInterpreter.MakeTree->CreateNodeFromStack and TCompiler.RedeclarationCheck }
    '':
@@ -255,14 +255,13 @@ Begin
   Exit; // error message had been already shown when building the expression tree
  End;
 
- { local variable call }
+ { variable call }
  if (TSymbol(Symbol).Typ = stVariable) Then
-  Result := LocalVarCall Else
+  Result := VarCall Else
 
- { global function call }
+ { function call }
  if (TSymbol(Symbol).Typ = stFunction) Then
   GlobalFuncCall Else
 
- { global variable call (and, as there's no global variables for now, there's no glob-var-call) }
-  Error(eInternalError, ['Shouldn''t happen']);
+  Compiler.CompileError(eInternalError, ['call.pas -> don''t know what to do!']);
 End;

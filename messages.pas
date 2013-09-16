@@ -15,7 +15,7 @@ Unit Messages;
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
-  eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
+  eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
   eInvalidArrayInitializer,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference);
@@ -81,7 +81,7 @@ Unit Messages;
   'File not found: %s',
   'Default parameter value required for `%s`',
   'Invalid foreach construction (foreach-var and foreach-expr have the same types)',
-  'Array required',
+  'Variable of array type required',
   'Expected %d fewer element(s)',
   'Expected %d more element(s)',
   'Invalid array initializer; got %dD array, expecting %d-dimensional',
@@ -96,11 +96,12 @@ Unit Messages;
 
  { warnings }
  Type TCompileWarning =
- (wNotEveryPathReturnsAValue);
+ (wNotEveryPathReturnsAValue, wPublicFunctionUsesPrivateSymbol);
 
  Const CompileWarning_fmt: Array[TCompileWarning] of String =
  (
-  'Not every code path returns a value!'
+  'Not every code path returns a value!',
+  'Public function ''%s'' uses a private symbol ''%s''!'
  );
 
  { hints }

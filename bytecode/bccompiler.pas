@@ -3,28 +3,35 @@
  All rights reserved.
 *)
 {$H+}
-Unit BytecodeCompiler;
+Unit BCCompiler;
 
  Interface
  Uses CompilerUnit, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
 
- Const bytecode_version_major = 0;
-       bytecode_version_minor = 42;
+ Const bytecode_version_major: uint8 = 0;
+       bytecode_version_minor: uint8 = 42;
 
- { TLabel }
- Type TLabel =
+ { TBCLabel }
+ Type TBCLabel =
       Record
        Name    : String;
-       Position: LongWord;
+       Position: uint32;
 
-       isPublic: Boolean;
+       isPublic, isFunction: Boolean;
+      End;
+
+ { TBCAllocatedSymbol }
+ Type TBCAllocatedSymbol =
+      Record
+       Name    : String;
+       Position: uint32;
+       Size    : uint8;
       End;
 
  { TCompiler }
  Type TCompiler =
       Class
-       Public
-        // public fields
+       Public { fields }
         BytecodeStream : TStream;
         HeaderStream   : TStream;
         ReferenceStream: TStream;
@@ -32,26 +39,26 @@ Unit BytecodeCompiler;
         Compiler: SSCompiler.TCompiler;
         Bytecode: TWriter;
 
-        LabelList: Array of TLabel;
+        LabelList      : Array of TBCLabel;
+        AllocSymbolList: Array of TBCAllocatedSymbol;
 
-       Private
-        // private methods
-        Function getLabelID(const Name: String): Integer;
-        Function CreateReference(const Name: String): LongWord;
+       Private { methods }
+        Function getLabelID(const Name: String): int32;
+        Function CreateReference(const Name: String): uint32;
+        Function AllocateGlobalVar(const Name: String): uint32;
 
-        Procedure Preparse;
+        Procedure Preparse(const AllocateGlobalVars: Boolean);
         Procedure Parse(const ResolveReferences: Boolean);
 
-       Public
-        // public methods
+       Public { methods }
         Procedure Compile(fCompiler: SSCompiler.TCompiler; SaveAs_SSM: Boolean);
        End;
 
  Implementation
-Uses SSMParser;
+Uses SSMParser, Serialization;
 
 (* TCompiler.getLabelID *)
-Function TCompiler.getLabelID(const Name: String): Integer;
+Function TCompiler.getLabelID(const Name: String): int32;
 Var I: Integer;
 Begin
  Result := -1;
@@ -61,15 +68,46 @@ Begin
 End;
 
 (* TCompiler.CreateReference *)
-Function TCompiler.CreateReference(const Name: String): LongWord;
+Function TCompiler.CreateReference(const Name: String): uint32;
 Begin
  Result := ReferenceStream.Position;
  ReferenceStream.write_string(Name);
 End;
 
+(* TCompiler.AllocateGlobalVar *)
+Function TCompiler.AllocateGlobalVar(const Name: String): uint32;
+Var I, Pos, Size: int32;
+    Data        : TUnserializer;
+Begin
+ Pos := 0;
+
+ For I := Low(AllocSymbolList) To High(AllocSymbolList) Do
+ Begin
+  Inc(Pos, AllocSymbolList[I].Size);
+
+  if (AllocSymbolList[I].Name = Name) Then
+   Exit(AllocSymbolList[I].Position);
+ End;
+
+ // We need to fetch variable's length from its serialized form.
+ Data := TUnserializer.Create(Name);
+
+ Try
+  Size := Data.getRoot[1].getInt;
+ Finally
+  Data.Free;
+ End;
+
+ SetLength(AllocSymbolList, Length(AllocSymbolList)+1);
+ AllocSymbolList[High(AllocSymbolList)].Name     := Name;
+ AllocSymbolList[High(AllocSymbolList)].Position := Pos;
+ AllocSymbolList[High(AllocSymbolList)].Size     := Size;
+ Result                                          := Pos;
+End;
+
 (* TCompiler.Preparse *)
-Procedure TCompiler.Preparse;
-Var I, Q    : LongWord;
+Procedure TCompiler.Preparse(const AllocateGlobalVars: Boolean);
+Var I, Q    : uint32;
     Int     : Integer;
     Str, Tmp: String;
 
@@ -80,9 +118,31 @@ Begin
   if (OpcodeList.Count = 0) Then
    SSCompiler.TCompiler(Compiler).CompileError(eInternalError, ['OpcodeList.Count = 0']);
 
-  // parse opcodes and labels
   OpcodeLen := 0;
 
+  // allocate global variables
+  if (AllocateGlobalVars) Then
+  Begin
+   For I := 0 To OpcodeList.Count-1 Do // each opcode
+    With OpcodeList[I]^ do
+     if (Length(Args) > 0) Then
+      For Q := Low(Args) To High(Args) Do // each argument
+       if (Args[Q].Typ = ptSymbolMemRef) Then
+        AllocateGlobalVar(Args[Q].Value);
+
+   if (Length(AllocSymbolList) > 0) Then // is there anything to allocate?
+   Begin
+    DoNotGenerateCode := True;
+
+    For I := Low(AllocSymbolList) To High(AllocSymbolList) Do
+     For Q := 1 To AllocSymbolList[I].Size Do
+      OpcodeList.Insert(0, PutOpcode(o_byte, [0]));
+
+    DoNotGenerateCode := False;
+   End;
+  End;
+
+  // parse opcodes and labels
   For I := 0 To OpcodeList.Count-1 Do
    With OpcodeList[I]^ do
     if (not isComment) and (not isLabel) Then // if opcode
@@ -90,10 +150,10 @@ Begin
      if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then
      Begin
       Case Opcode of
-       o_byte: Inc(OpcodeLen, sizeof(Byte));
-       o_word: Inc(OpcodeLen, sizeof(Word));
-       o_integer: Inc(OpcodeLen, sizeof(Integer));
-       o_extended: Inc(OpcodeLen, sizeof(Extended));
+       o_byte    : Inc(OpcodeLen, 1);
+       o_word    : Inc(OpcodeLen, 2);
+       o_integer : Inc(OpcodeLen, 4);
+       o_extended: Inc(OpcodeLen, 10);
       End;
 
       Continue;
@@ -117,7 +177,7 @@ Begin
           Begin
            Delete(Tmp, 1, 10);
            Int := StrToInt(Tmp);
-           Tmp := TFunction(Int).MangledName;
+           Tmp := TFunction(Int).LabelName;
 
            if (Length(Tmp) = 0) Then
             SSCompiler.TCompiler(Compiler).CompileError(eInternalError, ['Couldn''t fetch function''s label name; funcname = '+TSymbol(Int).mFunction.RefSymbol.Name]);
@@ -135,7 +195,7 @@ Begin
          if (Copy(Str, 1, 1) = '@') Then
          Begin
           Typ   := ptLabelAbsoluteReference;
-          Value := CreateReference(Copy(Str, 2, Length(Str))); // remove beginning `@` char
+          Value := CreateReference(Copy(Str, 2, Length(Str))); // remove the beginning `@` char
          End;
 
          { char }
@@ -153,7 +213,7 @@ Begin
          { register }
          if (isRegisterName(Str)) Then
          Begin
-          Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register type
+          Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register's type
           Value := getRegister(Str).ID;
          End;
 
@@ -173,24 +233,27 @@ Begin
         End;
 
         Case Typ of
-         ptBoolReg..ptReferenceReg: Inc(OpcodeLen, sizeof(Byte));
-         ptBool, ptChar           : Inc(OpcodeLen, sizeof(Byte));
-         ptInt                    : Inc(OpcodeLen, sizeof(Int64));
-         ptFloat                  : Inc(OpcodeLen, sizeof(Extended));
-         ptString                 : Inc(OpcodeLen, Length(VarToStr(Value))+sizeof(Byte)); // string + terminator char (0x00)
-         ptLabelAbsoluteReference : Inc(OpcodeLen, sizeof(Int64));
+         ptBoolReg..ptReferenceReg: Inc(OpcodeLen, 1);
+         ptBool, ptChar           : Inc(OpcodeLen, 1);
+         ptInt                    : Inc(OpcodeLen, 8);
+         ptFloat                  : Inc(OpcodeLen, 10);
+         ptString                 : Inc(OpcodeLen, Length(VarToStr(Value))+1); // string + terminator char (0x00)
+         ptConstantMemRef         : Inc(OpcodeLen, 8);
+         ptLabelAbsoluteReference : Inc(OpcodeLen, 8);
+         ptSymbolMemRef           : Inc(OpcodeLen, 8);
 
          else
-          Inc(OpcodeLen, sizeof(Integer));
+          Inc(OpcodeLen, 4);
         End;
        End;
     End Else // if label
     if (isLabel) Then
     Begin
      SetLength(LabelList, Length(LabelList)+1);
-     LabelList[High(LabelList)].Name     := Name;
-     LabelList[High(LabelList)].Position := OpcodeLen;
-     LabelList[High(LabelList)].isPublic := isPublic;
+     LabelList[High(LabelList)].Name       := Name;
+     LabelList[High(LabelList)].Position   := OpcodeLen;
+     LabelList[High(LabelList)].isPublic   := isPublic;
+     LabelList[High(LabelList)].isFunction := isFunction;
     End;
  End;
 End;
@@ -200,12 +263,10 @@ Procedure TCompiler.Parse(const ResolveReferences: Boolean);
 Var OpcodeBegin: LongWord;
     Opcode     : PMOpcode;
     Arg        : TMOpcodeArg;
-    Tmp        : Integer;
+    Tmp        : int32;
 
     Str: String;
-    Int: Integer;
-
-    Func: TFunction;
+    Int: int32;
 Begin
  With BytecodeStream do
  Begin
@@ -214,28 +275,30 @@ Begin
    Begin
     OpcodeBegin := BytecodeStream.Position;
 
-    if (isLabel) or (isComment) Then // skip comments
+    if (isLabel) or (isComment) Then // skip labels and comments
      Continue;
 
     if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then // special opcodes
     Begin
      Case Opcode of
-      o_byte: write_byte(Args[0].Value);
-      o_word: write_word(Args[0].Value);
-      o_integer: write_integer(Args[0].Value);
+      o_byte    : write_uint8(Args[0].Value);
+      o_word    : write_uint16(Args[0].Value);
+      o_integer : write_int32(Args[0].Value);
       o_extended: write_float(Args[0].Value);
      End;
 
      Continue;
     End;
 
-    write_byte(ord(Opcode)); // opcode type
-    For Arg in Args Do
+    write_uint8(ord(Opcode)); // write opcode type
+
+    For Arg in Args Do // write each argument
      With Arg do
      Begin
-      if (Typ = ptLabelAbsoluteReference) Then // is a references?
+      if (Typ = ptLabelAbsoluteReference) Then
       Begin
-       if (ResolveReferences) Then // should be resolved?
+       { label absolute references }
+       if (ResolveReferences) Then
        Begin
         if ((VarType(Value) and VarTypeMask) in [varInteger, varLongword, varInt64]) Then
         Begin
@@ -243,7 +306,8 @@ Begin
          Value                    := ReferenceStream.read_string;
         End;
 
-        Tmp := getLabelID(Value); // find reference
+        Tmp := getLabelID(Value); // find the reference
+
         if (Tmp = -1) Then // not found!
         Begin
          if (Token = nil) Then
@@ -262,12 +326,28 @@ Begin
 
         Typ := ptInt;
        End Else
+       Begin
         if ((VarType(Value) and VarTypeMask) = varString) Then
-         Value := CreateReference(Value);
+         Value := CreateReference(Value); // add new reference
+       End;
       End;
 
-      if (Typ = ptInt) and (Copy(Value, 1, 1) = ':') Then // resolve label relative address
+      if (Typ = ptSymbolMemRef) Then
       Begin
+       { symbol memory ('&$symbol') references }
+       if (ResolveReferences) Then
+       Begin
+        Typ   := ptConstantMemRef;
+        Value := AllocateGlobalVar(Value);
+       End Else
+       Begin
+        Value := CreateReference(Value); // add new reference
+       End;
+      End;
+
+      if (Typ = ptInt) and (Copy(Value, 1, 1) = ':') Then
+      Begin
+       { resolve label relative address }
        Str := VarToStr(Value);
 
        Delete(Str, 1, 1); // remove `:`
@@ -277,35 +357,30 @@ Begin
        With SSCompiler.TCompiler(Compiler) do
         if (Int = -1) Then // label not found
         Begin
-         Func := findFunctionByLabel(Str);
-
-         if (Func <> nil) Then
-         Begin
-          CompileError(Func.RefSymbol.DeclToken, eFunctionNotFound, [Func.RefSymbol.Name, Func.LibraryFile]);
-         End Else
-         Begin
-          if (Token = nil) Then
-           SSCompiler.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
-           SSCompiler.TCompiler(Compiler).CompileError(Token, eBytecode_LabelNotFound, [Str]);
-         End;
+         if (Token = nil) Then
+          SSCompiler.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
+          SSCompiler.TCompiler(Compiler).CompileError(Token, eBytecode_LabelNotFound, [Str]);
 
          Value := 0;
         End Else // label found
-         Value := Int64(LabelList[Int].Position)-OpcodeBegin; // jump have to be relative against the current opcode
+         Value := Int64(LabelList[Int].Position)-OpcodeBegin; // jumps have to be relative against the current opcode
       End;
 
       Try
-       write_byte(ord(Typ)); // param type
-       Case Typ of // param value
-        ptBoolReg..ptReferenceReg: write_byte(Value);
-        ptBool, ptChar           : write_byte(Value);
+       write_uint8(ord(Typ)); // write parameter type
+
+       Case Typ of // write parameter value
+        ptBoolReg..ptReferenceReg: write_uint8(Value);
+        ptBool, ptChar           : write_uint8(Value);
         ptInt                    : write_int64(Value);
         ptFloat                  : write_float(Value);
         ptString                 : write_string(Value);
+        ptConstantMemRef         : write_int64(Value);
+        ptSymbolMemRef           : write_int64(Value);
         ptLabelAbsoluteReference : write_int64(Value);
 
         else
-         write_integer(Value);
+         write_int32(Value);
        End;
       Except
        self.Compiler.CompileError(eInternalError, ['Cannot compile opcode; not a numeric parameter value: `'+VarToStr(Value)+'`']);
@@ -337,7 +412,7 @@ Begin
  BytecodeStream  := TStream.Create;
  Zip             := TZipper.Create;
 
- Preparse;
+ Preparse(not SaveAs_SSM);
 
  Try
   Parse(not SaveAs_SSM); // resolve references only when compiling to a program
@@ -345,14 +420,14 @@ Begin
   // save header
   With HeaderStream do
   Begin
-   write_longword($0DEFACED);
+   write_uint32($0DEFACED);
 
    if (SaveAs_SSM) Then
-    write_byte(0) { not runnable } else
-    write_byte(1) { runnable };
+    write_uint8(0) { not runnable } else
+    write_uint8(1) { runnable };
 
-   write_byte(bytecode_version_major);
-   write_byte(bytecode_version_minor);
+   write_uint8(bytecode_version_major);
+   write_uint8(bytecode_version_minor);
   End;
 
   Log('Header size: '+IntToStr(HeaderStream.Size)+' bytes');
@@ -361,12 +436,14 @@ Begin
 
   if (SaveAs_SSM) Then // save as a library?
   Begin
-   TSSM.Create.Save(Compiler.OutputFile, fCompiler, self).Free;
+   With TSSMWriter.Create(Compiler.OutputFile, fCompiler, self) do
+   Begin
+    Save;
+    Free;
+   End;
+
    Exit;
   End;
-
- // if (ReferenceStream.Size <> 0) Then
- //  Compiler.CompileError(eInternalError, ['Output program file contains external references!']);
 
   { make zip archive }
   AddFile(HeaderStream, '.header');

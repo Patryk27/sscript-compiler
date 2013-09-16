@@ -16,7 +16,7 @@ By default, all switches are disabled.
 	-internal-const / -Cconst	enable special (internal) constants like `__self` or `__line`
 
 3.Optimizations
-	--register-alloc / -Or		allows to allocate variables in registers (when possible)
+	--register-alloc / -Or		enables advanced register allocator
 	--constant-folding / -Of	enables constant expression folding
 	--tree-simplify / -Ot		simplifies expression trees (eg.`x = x+y;` is simplified to `x += y;`)
 	--bytecode-optimize / -Op	optimizes output bytecode
@@ -35,12 +35,9 @@ By default, all switches are disabled.
 	--strip-debug / -Sd	strips debug symbols from the file (but do not removes debug symbols from eg.linked libraries)
 	--dump-cfg		dumps CFG graphs in 'DOT' file format into 2 directories: `optimized` and `not_optimized`. Use only for compiler debugging, as it will generate a lots of files (2*number of functions)!
 
-5.Libraries only
-	-header / -h  <file>	generates and saves header file
-
-6.Other options
+5.Other options
 	-logo		displays only the compiler's information (like compile date), forces to doesn't compile anything
 	-version	displays only the compiler's version
 	-wait		waits for `enter` when finished
 	-verbose / -v	enables `verbose` mode
-	-devlog	/ -vv	shows devlog (more information about the compilation process; use only for compiler debugging)
+	-devlog	/ -vv	shows devlog (even more information about the compilation process; usable only for compiler debugging)

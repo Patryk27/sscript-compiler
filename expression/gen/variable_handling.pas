@@ -45,13 +45,36 @@ End;
  See examples and descriptions above.
 *)
 Function __variable_getvalue_stack(_var: TRVariable): TType;
+Var Reg: String;
 Begin
  Result := _var.Typ;
 
  With Compiler do
   if (_var.isConst) Then
-   PutOpcode(o_push, [getValueFromExpression(_var.Value)]) Else
-   PutOpcode(o_push, [_var.PosStr]);
+  Begin
+   PutOpcode(o_push, [getValueFromExpression(_var.Value)]);
+  End Else
+  Begin
+   if (_var.LocationData.Location = vlMemory) Then // special case: variable is located in memory
+   Begin
+    {
+     We cannot do "push(memory reference)" beacuse it would push onto the stack a reference, not it's value.
+     So we have to do:
+       mov(e_1, memory reference)
+       push(e_1)
+
+     @TODO: is rewriting "reg" register a safe solution?
+    }
+
+    Reg := 'e'+_var.RegChar+'1';
+
+    PutOpcode(o_mov, [Reg, _var.PosStr]);
+    PutOpcode(o_push, [Reg]);
+   End Else
+   Begin
+    PutOpcode(o_push, [_var.PosStr]);
+   End;
+  End;
 
  Inc(PushedValues);
 End;

@@ -38,7 +38,7 @@ Unit Parser;
                   Function getToken(const Index: uint32): TToken_P;
                   Function getTokenPnt(const Index: uint32): PToken_P;
                   Function getLastToken: TToken_P;
-                  Function getCurrentRange(Deep: Integer=1): TRange;
+                  Function getCurrentRange(Deep: int16=1): TRange;
 
                   Function read: TToken_P;
                   Function read_t: TToken;
@@ -192,45 +192,87 @@ End;
 {
  Returns current scope's range.
 }
-Function TParser.getCurrentRange(Deep: Integer=1): TRange;
+Function TParser.getCurrentRange(Deep: int16=1): TRange;
+
+  { SkipBlock }
+  Procedure SkipBlock;
+  Var Deep: int16 = 0;
+  Begin
+   if (next_t = _BRACKET3_OP) Then
+   Begin
+    While (true) Do
+    Begin
+     Case read.Token of
+      _BRACKET3_OP:
+       Inc(Deep);
+
+      _BRACKET3_CL:
+       Dec(Deep);
+     End;
+
+     if (Deep = 0) Then
+      Break;
+    End;
+   End Else
+   Begin
+    read_until(_SEMICOLON);
+   End;
+  End;
+
 Var TPos: Int64;
+Label Parse_IF;
 Begin
  Try
-  DontFailOnEOF := True; // don't fail on case when brackets are unclosed (it would fail with error `unexpected eof`), as this error will be detected and raised later (eg.when parsing a construction)
+  DontFailOnEOF := True; // don't fail when brackets are unclosed (it would fail with error `unexpected eof`) beacuse this error will be detected and raised later (when parsing the actual construction)
 
   TPos          := TokenPos;
   Result.PBegin := TokenList[TokenPos]^;
 
   With TCompiler(Compiler) do
-   if (ParsingFORInitInstruction) Then
+  Begin
+   if (ParsingFORInitInstruction) Then // super special case: parsing a for init instruction.
    Begin
     read_until(_BRACKET1_CL);
-    Deep := 0;
 
-    if (next_t <> _BRACKET3_OP) Then
-    Begin
-     if (next_t in [_FOR, _WHILE]) Then
+    Case next_t of
+     (* { *)
+     _BRACKET3_OP:
      Begin
-      read;
-      read;
+      SkipBlock;
+     End;
+
+     (* if *)
+     _IF:
+     Begin
+     Parse_IF:
+      eat(_IF);
+      eat(_BRACKET1_OP);
       read_until(_BRACKET1_CL);
+
+      SkipBlock;
+
+      if (next_t = _ELSE) Then
+      Begin
+       eat(_ELSE);
+       SkipBlock;
+
+       if (next_t = _IF) Then
+        goto Parse_IF;
+      End;
      End;
 
-     read_until(_SEMICOLON);
-     if (next_t = _ELSE) Then
-     Begin
-      read;
+     else
       read_until(_SEMICOLON);
-     End;
-
-     While (TokenPos >= TokenList.Count) Do
-      Dec(TokenPos);
-
-     Result.PEnd := TokenList[TokenPos]^;
-     TokenPos    := TPos;
-     Exit;
     End;
+
+    While (TokenPos >= TokenList.Count) Do
+     Dec(TokenPos);
+
+    Result.PEnd := TokenList[TokenPos]^;
+    TokenPos    := TPos;
+    Exit;
    End;
+  End;
 
   While (true) Do
   Begin

@@ -16,12 +16,12 @@ goto :begin
 	goto :loop
 
 :compile
-	set outputfile=..\stdlib\%~1.ssm
+	set outputfile=..\stdlib\%~1.ss
 
 	echo --] '%~1.ss' ^-^> '%outputfile%'
 
 	if exist %outputfile% del /Q %outputfile% > nul
-	..\compiler %~1.ss -o %outputfile% -h ..\stdlib\%~1.ss -Cm lib -O3
+	..\compiler %~1.ss -o %outputfile% -Cm lib -O3
 	if not exist %outputfile% goto :fail
 
 	goto :eof

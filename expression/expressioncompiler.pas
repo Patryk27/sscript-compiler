@@ -1287,12 +1287,12 @@ Type TRVariable = Record
                     pPushedValues: PInteger;
 
                    Public
-                    Name   : String;
-                    Symbol : Pointer;
-                    MemPos : Integer;
-                    RegChar: Char;
-                    Typ    : TType;
-                    Value  : PExpressionNode;
+                    Name        : String;
+                    Symbol      : Pointer;
+                    LocationData: TVarLocationData;
+                    RegChar     : Char;
+                    Typ         : TType;
+                    Value       : PExpressionNode;
 
                     getArray: Byte;
 
@@ -1307,15 +1307,13 @@ Type TRVariable = Record
 // TRVariable.PosStr
 Function TRVariable.PosStr: String;
 Begin
- if (MemPos > 0) Then
-  PosStr := 'e'+RegChar+IntToStr(MemPos) Else
-  PosStr := '['+IntToStr(MemPos-pPushedValues^)+']';
+ Result := TSymbol(Symbol).mVariable.getAllocationPos(-pPushedValues^);
 End;
 
 // TRVariable.isStoredInRegister
 Function TRVariable.isStoredInRegister: Boolean;
 Begin
- Result := (MemPos > 0);
+ Result := (LocationData.Location = vlRegister);
 End;
 
 (* CompileExpression *)
@@ -1326,8 +1324,9 @@ Var Compiler    : TCompiler; // caller compiler pointer
 
 { Parse }
 Function Parse(Expr: PExpressionNode; FinalRegID: Integer=0; FinalRegChar: Char=#0; const isSubCall: Boolean=True): TType;
-Var Left, Right: PExpressionNode; // left and right side of current expression
-    Push_IF_reg: Boolean=False; // if `true`, the `if` register is pushed at the end of parsing `Expr`
+Var Left, Right : PExpressionNode; // left and right side of current expression
+    Push_IF_reg : Boolean=False; // if equal `true`, the `if` register is pushed at the end of parsing `Expr`
+    FinalRegDone: Boolean=False; // if equal `true`, no additional "mov(FinalReg, e_1)" opcode will be automatically put (if FinalRegID > 0)
 
   // Error
   Procedure Error(Error: TCompileError; Args: Array of Const);
@@ -1372,7 +1371,7 @@ Var Left, Right: PExpressionNode; // left and right side of current expression
    With Result do
    Begin
     pPushedValues := @PushedValues;
-    MemPos        := 0;
+//    LocationData  := Default(LocationData); @TODO: FPC 2.7.0+
     RegChar       := #0;
     Typ           := nil;
     isConst       := False;
@@ -1396,12 +1395,16 @@ Var Left, Right: PExpressionNode; // left and right side of current expression
 
    With Result do
    Begin
-    mVariable := TSymbol(Result.Symbol).mVariable;
-    MemPos    := mVariable.MemPos;
-    Typ       := mVariable.Typ;
-    RegChar   := mVariable.Typ.RegPrefix;
-    Value     := mVariable.Value;
-    isConst   := mVariable.isConst;
+    mVariable    := TSymbol(Result.Symbol).mVariable;
+
+    if (mVariable = nil) Then
+     goto Failed;
+
+    LocationData := mVariable.LocationData;
+    Typ          := mVariable.Typ;
+    RegChar      := mVariable.Typ.RegPrefix;
+    Value        := mVariable.Value;
+    isConst      := mVariable.isConst;
    End;
 
   Failed:
@@ -1569,11 +1572,13 @@ Begin
       FinalRegChar := 'i';
 
      if (FinalRegID > 0) Then // put into register?
-      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line]) Else
-      Begin // push onto stack?
-       Compiler.PutOpcode(o_push, [Expr^.Token.Line]);
-       Inc(PushedValues);
-      End;
+     Begin
+      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line]);
+     End Else
+     Begin // push onto stack?
+      Compiler.PutOpcode(o_push, [Expr^.Token.Line]);
+      Inc(PushedValues);
+     End;
 
      Exit(TYPE_INT);
     End Else
@@ -1585,16 +1590,18 @@ Begin
       FinalRegChar := 's';
 
      if (FinalRegID > 0) Then // put into register?
-      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), '"'+IntToStr(Expr^.Token.Line)+'"']) Else
-      Begin // push onto stack?
-       Compiler.PutOpcode(o_push, ['"'+IntToStr(Expr^.Token.Line)+'"']);
-       Inc(PushedValues);
-      End;
+     Begin
+      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), '"'+IntToStr(Expr^.Token.Line)+'"']);
+     End Else
+     Begin // push onto stack?
+      Compiler.PutOpcode(o_push, ['"'+IntToStr(Expr^.Token.Line)+'"']);
+      Inc(PushedValues);
+     End;
 
      Exit(TYPE_STRING);
     End Else
 
-    { not a special variable - so var not found }
+    { not a special variable thus show "var not found" error }
     Begin
      Error(eUnknownVariable, [Variable.Name]);
      Exit;
@@ -1605,11 +1612,13 @@ Begin
     FinalRegChar := Variable.RegChar;
 
    if (FinalRegID > 0) Then
-    __variable_getvalue_reg(Variable, FinalRegID, FinalRegChar) Else // load a variable's value into the register
-    Begin
-     __variable_getvalue_stack(Variable);
-     Expr^.ResultOnStack := True;
-    End;
+   Begin
+    __variable_getvalue_reg(Variable, FinalRegID, FinalRegChar); // load a variable's value to specified register
+   End Else
+   Begin
+    __variable_getvalue_stack(Variable);
+    Expr^.ResultOnStack := True;
+   End;
 
    Result := Variable.Typ;
 
@@ -1690,12 +1699,18 @@ Begin
 Over:
  if (FinalRegID > 0) and (FinalRegChar <> #0) Then // load calculated value into the register?
  Begin
-  if (Push_IF_reg) Then // special case
-   Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'if']) Else
+  if (not FinalRegDone) Then
+  Begin
+   if (Push_IF_reg) Then // special case
+   Begin
+    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'if']);
+   End Else
    Begin
     if (Result <> nil) Then
      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), 'e'+Result.RegPrefix+'1']);
    End;
+  End;
+
   Exit;
  End;
 
@@ -1727,11 +1742,11 @@ Begin
  Compiler := TCompiler(CompilerPnt);
 
  if (not Compiler.inFunction) Then
-  Compiler.CompileError(Expr^.Token, eInternalError, ['not inFunction']);
+  Compiler.CompileError(Expr^.Token, eInternalError, ['CompileExpression() called outside any of compiled function.']);
 
  Compiler.PutComment(IntToStr(Expr^.Token.Line)+': '+ExpressionToString(Expr));
 
- ExprLabel := Compiler.getCurrentFunction.MangledName+'__expression_'+IntToStr(Compiler.SomeCounter);
+ ExprLabel := Compiler.getCurrentFunction.LabelName+'__expression_'+IntToStr(Compiler.SomeCounter);
  Inc(Compiler.SomeCounter);
 
  Result := Parse(Expr, 0, #0, False);

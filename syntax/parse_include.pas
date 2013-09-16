@@ -6,166 +6,244 @@ Unit Parse_include;
 
  Interface
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, CompilerUnit, Tokens, Messages, symdef, SysUtils;
+Uses Classes, SysUtils, SSCompiler, CompilerUnit, Tokens, Messages, SSMParser, symdef;
 
-{ Parse }
-Procedure Parse(Compiler: Pointer);
-Var FileName: String;
-    NewC    : TCompiler;
-    NS, I   : LongWord;
-    Found   : Boolean;
-
-    PrevNamespace, Tmp: TNamespace;
-
-    Symbol, Copy: TSymbol;
-    AddSymbol   : Boolean;
-
-    CircRef    : Boolean;
-    CPrev, CTmp: TCompiler;
+(* isZipFile *)
+Function isZipFile(const FileName: String): Boolean;
+Var Stream: TFileStream;
+    Header: Array[0..3] of uint8;
+    I     : uint8;
 Begin
-With TCompiler(Compiler), Parser do
-Begin
- eat(_BRACKET1_OP); // (
- FileName := ReplaceDirSep(read.Value); // [string]
- eat(_BRACKET1_CL); // )
+ Stream := TFileStream.Create(FileName, fmOpenRead);
 
- if (CompilePass <> _cp2) Then
-  Exit;
+ Try
+  For I := Low(Header) To High(Header) Do
+   Header[I] := Stream.ReadByte;
 
- Log('Including file: '+FileName);
-
- { search file }
- FileName := SearchFile(FileName, Found);
- if (not Found) Then
- Begin
-  CompileError(eUnknownInclude, [FileName]); // error: not found!
-  Exit;
+  Result := (Header[0] = $50) and (Header[1] = $4B) and
+            (Header[2] = $03) and (Header[3] = $04);
+ Finally
+  Stream.Free;
  End;
+End;
 
- Log('Found file: '+FileName);
+(* IncludeLibrary *)
+Procedure IncludeLibrary(const Compiler: TCompiler; const FileName: String);
+Var Reader                       : TSSMReader;
+    ParentNamespace, NewNamespace: TNamespace;
+    NewSymbol                    : TSymbol;
+    I                            : int32;
+Begin
+ Reader := TSSMReader.Create(FileName);
 
- // check for circular reference
- CircRef := False;
-
- CPrev := nil;
- CTmp  := TCompiler(Compiler);
- Repeat
-  CircRef := CircRef or (CTmp.InputFile = FileName);
-
-  if (CircRef) Then
-   Break;
-
-  CPrev    := CTmp;
-  CTmp     := CTmp.Supervisor;
- Until (CTmp = nil) or (CTmp = CPrev);
-
- if (not CircRef) Then
-  CTmp := nil;
-
- // check if the file hadn't been parsed before
- Found := False;
- if (Length(IncludeList^) > 0) Then
-  For I := 0 To High(IncludeList^) Do
+ Try
+  if (not Reader.Load) Then
   Begin
-   if (IncludeList^[I].InputFile = FileName) Then
+   Compiler.CompileError(eCorruptedSSMFile, [FileName]);
+   Exit;
+  End;
+
+  { put new symbols }
+  For NewNamespace in Reader.getNamespaceList Do // each namespace
+  Begin
+   ParentNamespace := Compiler.findNamespace(NewNamespace.RefSymbol.Name);
+
+   if (ParentNamespace = nil) Then
    Begin
-    Found := True;
-    Break;
+    ParentNamespace := TNamespace.Create;
+    Compiler.NamespaceList.Add(ParentNamespace);
+
+    With ParentNamespace.RefSymbol do
+    Begin
+     Name       := NewNamespace.RefSymbol.Name;
+     Visibility := mvPrivate;
+     mCompiler  := Compiler;
+     Range      := Compiler.Parser.getCurrentRange;
+     DeclToken  := Compiler.Parser.next_pnt(0);
+    End;
+   End;
+
+   For NewSymbol in NewNamespace.SymbolList Do // each symbol
+   Begin
+    NewSymbol.Visibility    := mvPrivate; // imported symbols have to be `private` (it's a copy so modyfing this flag won't affect the original symbol).
+    NewSymbol.Range         := Compiler.Parser.getCurrentRange;
+    NewSymbol.DeclNamespace := ParentNamespace;
+
+    ParentNamespace.SymbolList.Add(NewSymbol);
    End;
   End;
 
- if (not Found) Then
+  { put new bytecode }
+  if (Reader.getOpcodeList.Count > 0) Then
+   For I := 0 To Reader.getOpcodeList.Count-1 Do
+    Compiler.OpcodeList.Add(Reader.getOpcodeList[I]);
+ Finally
+  Reader.Free;
+ End;
+End;
+
+(* IncludeModule *)
+Procedure IncludeModule(const Parent, Module: TCompiler);
+Var ParentNamespace, NewNamespace, TmpNamespace: TNamespace;
+    Symbol, Copy                               : TSymbol;
+    AddSymbol                                  : Boolean;
+    I                                          : uint32;
+Begin
+ // copy symbols
+ For NewNamespace in Module.NamespaceList Do // each namespace
  Begin
-  { compile file }
-  NewC := TCompiler.Create;
+  if (NewNamespace.RefSymbol.Visibility = mvPrivate) Then // skip the private ones
+   Continue;
 
-  NewC.CompileCode(FileName, FileName+'.ssc', Options, True, CircRef, Parent, TCompiler(Compiler), CTmp);
+  TmpNamespace := Parent.findNamespace(NewNamespace.RefSymbol.Name);
 
-  if (not CircRef) Then
+  if (TmpNamespace = nil) Then
+  Begin
+   ParentNamespace := TNamespace.Create;
+   Parent.NamespaceList.Add(ParentNamespace);
+
+   With ParentNamespace.RefSymbol do
+   Begin
+    Name       := NewNamespace.RefSymbol.Name;
+    Visibility := mvPrivate;
+    mCompiler  := Module;
+    DeclToken  := NewNamespace.RefSymbol.DeclToken;
+   End;
+  End Else
+  Begin
+   ParentNamespace := TmpNamespace;
+  End;
+
+  For Symbol in NewNamespace.SymbolList Do
+  Begin
+   if (Symbol.Visibility = mvPrivate) or (Symbol.isInternal) or (ParentNamespace.findSymbol(Symbol.Name) <> nil) Then // skip private, internal and redeclared symbols
+    Continue;
+
+   AddSymbol := False;
+
+   Case Symbol.Typ of
+    stConstant, stVariable, stType:
+     AddSymbol := True;
+
+    stFunction:
+     AddSymbol := (Symbol.mFunction.ModuleName = Module.ModuleName);
+   End;
+
+   if (AddSymbol) Then
+   Begin
+    Copy            := TSymbol.Create(Symbol);
+    Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't affect the original symbol).
+    Copy.Range      := Parent.Parser.getCurrentRange;
+
+    ParentNamespace.SymbolList.Add(Copy);
+   End;
+  End;
+ End;
+
+ // copy bytecode
+ if (Module.OpcodeList.Count > 0) Then
+  For I := 0 To Module.OpcodeList.Count-1 Do
+   Parent.OpcodeList.Add(Module.OpcodeList[I]);
+End;
+
+(* IncludeModule *)
+Procedure IncludeModule(const Compiler: TCompiler; const FileName: String; const CircularRef: Boolean; const CpTmp: TCompiler);
+Var NewC: TCompiler;
+Begin
+ NewC := TCompiler.Create;
+
+ NewC.CompileCode(FileName, FileName+'.ssc', Compiler.Options, True, CircularRef, Compiler.Parent, Compiler, CpTmp);
+
+ if (not CircularRef) Then
+ Begin
+  With Compiler do
   Begin
    SetLength(IncludeList^, Length(IncludeList^)+1);
    IncludeList^[High(IncludeList^)] := NewC;
   End;
- End Else
- Begin
-  Log('File had been compiled before - using the already compiled version...');
-  NewC := IncludeList^[I];
  End;
 
- { for each namespace }
- Log('Including...');
- PrevNamespace := CurrentNamespace;
- For NS := 0 To NewC.NamespaceList.Count-1 Do
- Begin
-  if (NewC.NamespaceList[NS].RefSymbol.Visibility <> mvPublic) Then
-   Continue;
-
-  Log('Including namespace: '+NewC.NamespaceList[NS].RefSymbol.Name);
-
-  Tmp := findNamespace(NewC.NamespaceList[NS].RefSymbol.Name);
-  if (Tmp = nil) Then // new namespace
-  Begin
-   Log('Included namespace is new in current scope.');
-   NamespaceList.Add(TNamespace.Create);
-
-   CurrentNamespace := NamespaceList.Last;
-   With NamespaceList.Last do
-   Begin
-    With RefSymbol do
-    Begin
-     Name       := NewC.NamespaceList[NS].RefSymbol.Name;
-     Visibility := mvPrivate;
-     mCompiler  := NewC;
-     DeclToken  := NewC.NamespaceList[NS].RefSymbol.DeclToken;
-    End;
-
-    SymbolList := TSymbolList.Create;
-   End;
-  End Else // already existing namespace
-  Begin
-   Log('Included namespace extends another one.');
-   CurrentNamespace := Tmp;
-  End;
-
-  With NewC.NamespaceList[NS] do
-  Begin
-   For Symbol in SymbolList Do // each symbol
-    With Symbol do
-    Begin
-     if (Visibility = mvPrivate) or (isInternal) or (getCurrentNamespace.findSymbol(Symbol.Name) <> nil) Then // skip `private`, internal and duplicated entries
-      Continue;
-
-     AddSymbol := False;
-
-     Case Typ of
-      { constant, variable, type }
-      stConstant, stVariable, stType:
-       AddSymbol := True;
-
-      { function }
-      stFunction:
-       With mFunction do
-        AddSymbol := ((ModuleName = NewC.ModuleName) and (LibraryFile = '')) or (LibraryFile <> '');
-     End;
-
-     Copy            := TSymbol.Create(Symbol);
-     Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't affect the original symbol).
-     Copy.Range      := Parser.getCurrentRange;
-
-     if (AddSymbol) Then
-      getCurrentNamespace.SymbolList.Add(Copy);
-    End;
-  End;
- End;
- CurrentNamespace := PrevNamespace;
-
- { bytecode }
- if (NewC.OpcodeList.Count > 0) Then
-  For I := 0 To NewC.OpcodeList.Count-1 Do
-   OpcodeList.Add(NewC.OpcodeList[I]);
+ IncludeModule(Compiler, NewC);
 End;
+
+// -------------------------------------------------------------------------- //
+(* Parse *)
+Procedure Parse(const CompilerPnt: Pointer);
+Var Compiler: TCompiler absolute CompilerPnt;
+    FileName: String;
+    Found   : Boolean;
+    I       : int32;
+
+    CircularRef      : Boolean;
+    CpPrevious, CpTmp: TCompiler;
+Begin
+ With Compiler, Parser do
+ Begin
+  eat(_BRACKET1_OP); // (
+  FileName := ReplaceDirSep(read.Value); // [string]
+  eat(_BRACKET1_CL); // )
+
+  if (CompilePass <> _cp2) Then
+   Exit;
+
+  Log('Including file: '+FileName);
+
+  { search for specified file }
+  FileName := SearchFile(FileName, Found);
+
+  if (not Found) Then // error: included file does not exist!
+  Begin
+   CompileError(eUnknownInclude, [FileName]);
+   Exit;
+  End;
+
+  Log('Included file found at: '+FileName);
+
+  { check for circular references }
+  CircularRef := False;
+
+  CpPrevious := nil;
+  CpTmp      := Compiler;
+
+  Repeat
+   CircularRef := CircularRef or (CpTmp.InputFile = FileName);
+
+   if (CircularRef) Then
+    Break;
+
+   CpPrevious := CpTmp;
+   CpTmp      := CpTmp.Supervisor;
+  Until (CpTmp = nil) or (CpTmp = CpPrevious);
+
+  if (not CircularRef) Then
+   CpTmp := nil;
+
+  { check if the file hasn't been already parsed }
+  Found := False;
+  if (Length(IncludeList^) > 0) Then
+   For I := 0 To High(IncludeList^) Do
+   Begin
+    if (IncludeList^[I].InputFile = FileName) Then
+    Begin
+     Found := True;
+     Break;
+    End;
+   End;
+
+  if (Found) Then
+  Begin
+   Log('File had been compiled before - using the already compiled version...');
+   IncludeModule(Compiler, IncludeList^[I]);
+  End Else
+  Begin
+   // first compilation of this file
+   if (isZipFile(FileName)) Then
+    IncludeLibrary(Compiler, FileName) Else
+    IncludeModule(Compiler, FileName, CircularRef, CpTmp);
+  End;
+ End;
 End;
 End.

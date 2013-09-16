@@ -92,14 +92,14 @@ Begin
 
   if (OpcodeList.Count = 0) Then
   Begin
-   DevLog(dvInfo, 'OptimizeBytecode', 'OpcodeList.Count = 0; no optimizations to be done!');
+   DevLog(dvInfo, 'OptimizeBytecode', 'OpcodeList.Count = 0; no optimization(s) can be done!');
    Exit;
   End;
 
   Pos         := 0;
   OpcodeCount := OpcodeList.Count;
 
-  While (Pos < OpcodeList.Count-2) Do
+  While (Pos < OpcodeList.Count-1) Do
   Begin
    pCurrent := OpcodeList[Pos];
    pNext    := OpcodeList[Pos+1];
@@ -160,7 +160,7 @@ Begin
       pop(the same register)
       ->
       [nothing]
-      (it would be anyway optimized later (because this would be changed to `mov(reg, reg)` and then removed), but I'd like to do it here)
+      (it would be anyway optimized later (because this would be changed to `mov(reg, reg)` and then removed) but I'd like to do it here)
      }
      OpcodeList.Remove(pCurrent);
      OpcodeList.Remove(pNext);
@@ -221,9 +221,9 @@ Begin
     ->
     opcode(some value or reg, value)
 
-    Assuming that the register's value does not change in the opcodes between (it's checked, of course).
+    If that the register's value does not change in the opcodes between, of course.
    }
-   if (oCurrent.Opcode = o_mov) and not (oCurrent.Args[0].Typ = ptStackVal) Then
+   if (oCurrent.Opcode = o_mov) and (not (oCurrent.Args[0].Typ = ptStackVal)) Then
    Begin
     CanBeRemoved := False;
     Optimized    := False;
@@ -249,7 +249,7 @@ Begin
 
      if (oTmp.Opcode in [o_mov, o_pop, o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
         (isArgumentChanging(0)) Then
-         Break; // the register's value is changed
+         Break; // the register's value is changed -> stop propagation
 
      if (oTmp.Opcode = o_arset) Then // arset(out, in, in)
       if (isArgumentChanging(0)) Then
@@ -267,7 +267,7 @@ Begin
       if (isArgumentChanging(2)) Then
        Break;
 
-     if (oTmp.Opcode in [o_call, o_acall]) Then // copy propagation can be applied to these two calls
+     if (oTmp.Opcode in [o_call, o_acall]) Then // copy propagation can be applied to these two calls as well
       __optimize1(0);
 
      if (oTmp.Opcode in [o_call, o_acall, o_jmp, o_fjmp, o_tjmp]) Then // stop on jumps and calls

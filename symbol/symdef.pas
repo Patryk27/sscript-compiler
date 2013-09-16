@@ -5,7 +5,7 @@
 Unit symdef;
 
  Interface
- Uses FGL, Expression, FlowGraph, Tokens;
+ Uses FGL, Expression, FlowGraph, Tokens, Serialization;
 
  (* forward declarations *)
  Type TType      = class;
@@ -17,7 +17,9 @@ Unit symdef;
  (* auxiliary declarations *)
  Type TVisibility = (mvPublic, mvPrivate);
 
- Type TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized);
+ Type PTypeAttributes = ^TTypeAttributes;
+      TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized);
+
  Type TVariableAttributes = Set of (vaConst, vaEnumItem, vaFuncParam, vaDontAllocate, vaVolatile, vaCatchVar);
  Type TFunctionAttributes = Set of (faNaked);
 
@@ -88,11 +90,14 @@ Unit symdef;
 
        Public { methods }
         Constructor Create;
+        Constructor Create(const Unserializer: TUnserializer);
+        Constructor Create(const Root: TNode);
 
         Function isUnspecialized: Boolean;
         Function isStrict: Boolean;
 
-        Function getBytecodeType: String;
+        Function getSerializedForm: String;
+        Function getBytecodeSize: uint8;
         Function getLowerArray: TType;
 
         Function isAny: Boolean;
@@ -116,13 +121,25 @@ Unit symdef;
         Function asString: String;
        End;
 
+ { TVarLocation }
+ Type TVarLocation = (vlNone, vlRegister, vlStack, vlMemory);
+
+ { TVarLocationData }
+ Type TVarLocationData =
+      Record
+       Case Location: TVarLocation of
+        vlRegister: (RegisterID: uint8); // 1..4
+        vlStack   : (StackPosition: int8);
+        vlMemory  : (MemSymbolName: ShortString); // these types of variables are allocated by the linker; that's why there's "MemSymbolName" and not something like "MemoryAddress: uint32;"
+       End;
+
  { TVariable }
  Type TVariable =
       Class
        Public { fields }
         RefSymbol: TRefSymbol;
 
-        MemPos: int16; // negative values and zero for stack position, positive values for register ID (1..4)
+        LocationData: TVarLocationData;
 
         Typ  : TType;
         Value: PExpressionNode; // if it's a constant
@@ -131,6 +148,8 @@ Unit symdef;
 
        Public { methods }
         Constructor Create;
+        Constructor Create(const Unserializer: TUnserializer);
+        Constructor Create(const Root: TNode);
 
         Function isConst: Boolean;
         Function isFuncParam: Boolean;
@@ -139,6 +158,7 @@ Unit symdef;
         Function DontAllocate: Boolean;
 
         Function getAllocationPos(const StackShift: int8=0): String;
+        Function getSerializedForm: String;
        End;
 
  { TFunction }
@@ -148,10 +168,8 @@ Unit symdef;
         RefSymbol: TRefSymbol;
         RefVar   : TVariable;
 
-        ModuleName   : String; // module name in which function has been declared
-        MangledName  : String; // function mangled (label) name
-        NamespaceName: String; // namespace name in which function has been declared
-        LibraryFile  : String; // only for library-imported functions - library file name
+        LabelName : String;
+        ModuleName: String; // @TODO: shouldn't it be in "TRefSymbol"?
 
         Return: TType; // return type
 
@@ -169,6 +187,8 @@ Unit symdef;
 
         Function findSymbol(const SymName: String): TSymbol;
         Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
+
+        Function getSerializedForm: String;
 
         Function isNaked: Boolean;
        End;
@@ -209,6 +229,8 @@ Unit symdef;
         Function Clone: TRefSymbol;
         Procedure CopyTo(const Symbol: TRefSymbol);
 
+        Function getFullName(const Separator: String='.'): String;
+
         Function isLocal: Boolean;
         Function isGlobal: Boolean;
        End;
@@ -234,9 +256,7 @@ Unit symdef;
  // operators
  Function type_equal(A, B: TType): Boolean;
  Operator in (Token: TToken_P; Range: TRange): Boolean;
-
- // functions
- Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
+ Operator = (A, B: TVarLocationData): Boolean;
 
  Function TYPE_ANY: TType;
  Function TYPE_VOID: TType;
@@ -302,21 +322,18 @@ Begin
  Result := (Token.Position >= Range.PBegin.Position) and (Token.Position <= Range.PEnd.Position);
 End;
 
-(* CreateFunctionMangledName *)
-{
- Creates a mangled name of function passed in parameter.
-}
-Function CreateFunctionMangledName(const Func: TFunction; FuncName: String; SimplifiedName: Boolean): String;
-Var P: TParam;
+(* TVarLocationData = TVarLocationData *)
+Operator = (A, B: TVarLocationData): Boolean;
 Begin
- With Func do
- Begin
-  if (SimplifiedName) Then
-   Exit('__function_'+NamespaceName+'_'+FuncName);
+ Result := (A.Location = B.Location);
 
-  Result := '__function_'+NamespaceName+'_'+FuncName+'_'+ModuleName+'_'+Return.getBytecodeType;
-  For P in ParamList Do
-   Result += P.Typ.getBytecodeType+'_';
+ if (Result) Then
+ Begin
+  Case A.Location of
+   vlRegister: Result := (A.RegisterID = B.RegisterID);
+   vlStack   : Result := (A.StackPosition = B.StackPosition);
+   vlMemory  : Result := (A.MemSymbolName = B.MemSymbolName);
+  End;
  End;
 End;
 
@@ -414,7 +431,6 @@ Begin
  End;
 End;
 
-
 (* ---------- TType ---------- *)
 
 (* TType.Create *)
@@ -437,6 +453,63 @@ Begin
  SetLength(FuncParams, 0);
 End;
 
+(* TType.Create *)
+{ Creates type from its serialized form. }
+Constructor TType.Create(const Unserializer: TUnserializer);
+Begin
+ Create(Unserializer.getRoot);
+End;
+
+(* TType.Create *)
+{ Creates type from its serialized form. }
+Constructor TType.Create(const Root: TNode);
+Var I   : int32;
+    mVar: TVariable;
+Begin
+ Create();
+
+ if (Root.getChildren.Count = 0) Then // no data to parse, leave
+  Exit;
+
+ if (Root[0].getValue <> 'type') Then
+  raise Exception.Create('TType.Create() -> invalid serialized form!');
+
+ RegPrefix  := Root[1].getValue[1];
+ InternalID := Root[2].getInt;
+
+ if (Root[3].getChildren.Count > 0) Then
+  ArrayBase := TType.Create(Root[3]);
+
+ ArrayDimCount := Root[4].getInt;
+
+ if (Root[5].getChildren.Count > 0) Then
+  FuncReturn := TType.Create(Root[5]);
+
+ SetLength(FuncParams, Root[6].getInt);
+ For I := Low(FuncParams) To High(FuncParams) Do
+ Begin
+  FuncParams[I].isConst := Root[7][I][0].getBool;
+  FuncParams[I].isVar   := Root[7][I][1].getBool;
+  FuncParams[I].Typ     := TType.Create(Root[7][I][2]);
+ End;
+
+ if (Root[8].getChildren.Count > 0) Then
+  EnumBase := TType.Create(Root[8]);
+
+ I := Root[9].getInt;
+
+ For I := 0 To I-1 Do
+ Begin
+  mVar                := TVariable.Create;
+  mVar.RefSymbol.Name := Root[10][I].getString;
+
+  EnumItemList.Add(mVar);
+ End;
+
+ I          := Root[11].getInt;
+ Attributes := PTypeAttributes(@I)^;
+End;
+
 (* TType.isUnspecialized *)
 {
  Returns `true`, when type is marked as `unspecialized`
@@ -455,49 +528,67 @@ Begin
  Result := (taStrict in Attributes);
 End;
 
-(* TType.getBytecodeType *)
+(* TType.getSerializedForm *)
 {
- Returns type declaration, that can be used as a label's name.
- Eg.instead of "int[]" returns "2darray_int_".
+ Returns serialized form of type.
 }
-Function TType.getBytecodeType: String;
-Var I: Integer;
+Function TType.getSerializedForm: String;
+Var I: int32;
 Begin
  if (self = nil) Then
+  Exit('()');
+
+ Result := '(';
+
+ Result += 'type$';
+ Result += RegPrefix+'$';
+ Result += IntToStr(InternalID)+'$';
+ Result += ArrayBase.getSerializedForm+'$';
+ Result += IntToStr(ArrayDimCount)+'$';
+ Result += FuncReturn.getSerializedForm+'$';
+ Result += IntToStr(Length(FuncParams))+'$';
+
+ Result += '(';
+
+ For I := Low(FuncParams) To High(FuncParams) Do
  Begin
-  DevLog(dvError, 'TType.getBytecodeType', 'self = nil; that was not supposed to happen. Returned an empty string.');
-  Exit('');
+  Result += '(';
+  Result += IntToStr(uint8(FuncParams[I].isConst))+'$';
+  Result += IntToStr(uint8(FuncParams[I].isVar))+'$';
+  Result += FuncParams[I].Typ.getSerializedForm;
+  Result += ')$';
  End;
 
- Result := '';
+ Result += ')$';
 
- { is function? }
- if (taFunction in Attributes) Then
- Begin
-  if (taUnspecialized in Attributes) Then
-   Result := 'unspecialized_function_' Else
-  Begin
-   Result := 'function_'+FuncReturn.getBytecodeType+'_';
+ Result += EnumBase.getSerializedForm+'$';
+ Result += IntToStr(EnumItemList.Count)+'$';
 
-   For I := Low(FuncParams) To High(FuncParams) Do
-    Result += FuncParams[I].Typ.getBytecodeType+'_';
-  End;
+ Result += '(';
 
-  if (ArrayDimCount > 0) Then
-   Result += IntToStr(ArrayDimCount-Byte(isString))+'darray_'+ArrayBase.getBytecodeType+'_';
+ For I := 0 To EnumItemList.Count-1 Do
+  Result += '('+EnumItemList[I].RefSymbol.Name+')$';
 
-  Exit;
- End;
+ Result += ')$';
 
- { is primary? }
- if (ArrayDimCount = 0) or ((ArrayDimCount = 1) and (InternalID = TYPE_STRING_id)) Then
- Begin
-  Result += PrimaryTypeNames[InternalID]+'_';
- End Else
- Begin
-  { is array? }
-  Result += IntToStr(ArrayDimCount-Byte(isString))+'darray_'+ArrayBase.getBytecodeType+'_';
-  Exit;
+ Result += IntToStr(PLongWord(@Attributes)^);
+
+ Result += ')';
+End;
+
+(* TType.getBytecodeSize *)
+{ Returns internal type's bytecode size in bytes }
+Function TType.getBytecodeSize: uint8;
+Begin
+ Case RegPrefix of
+  'b': Result := 1;
+  'c': Result := 1;
+  'i': Result := 8;
+  'f': Result := 10;
+  's': Result := 4;
+  'r': Result := 4;
+  else
+   raise Exception.CreateFmt('TType.getBytecodeSize() -> invalid ''self.RegPrefix=#%d''!', [ord(RegPrefix)]);
  End;
 End;
 
@@ -821,7 +912,7 @@ Begin
   End Else
   Begin
    if (ArrayBase.isArray) Then
-    TCompiler(RefSymbol.mCompiler).CompileError(eInternalError, ['ArrayBase.isArray() == true']);
+    TCompiler(RefSymbol.mCompiler).CompileError(eInternalError, ['ArrayBase.isArray()']);
 
    I      := ArrayDimCount;
    Result += ArrayBase.asString;
@@ -855,6 +946,27 @@ Begin
  if (self.InternalID = TYPE_ANY_id) or (T2.InternalID = TYPE_ANY_id) Then // any or any => true
   Exit(True);
 
+ { comparing arrays }
+ if (self.isArray and T2.isArray) Then
+ Begin
+  Exit(
+       (self.ArrayBase.InternalID = T2.ArrayBase.InternalID) and // arrays' base types must be correct
+       (self.ArrayDimCount = T2.ArrayDimCount) // and also their dimensions amount must be the same
+      );
+ End Else
+
+ { comparing array with non-array almost always returns false except one case: int (eg.null) -> array }
+ if (self.isArray and (not T2.isArray)) Then
+ Begin
+  Exit(self.isArray(False) and T2.isInt);
+ End Else
+
+ { comparing non-array with array }
+ if ((not self.isArray) and T2.isArray) Then
+ Begin
+  Exit(self.isInt and T2.isArray(False));
+ End Else
+
  { compare function-pointers }
  if (self.isFunctionPointer and T2.isFunctionPointer) Then
  Begin
@@ -876,10 +988,16 @@ Begin
   Exit(True);
  End Else
 
- { comparing function-pnt with non-func-pnt }
+ { comparing function-ptr with non-func-ptr }
  if (self.isFunctionPointer and (not T2.isFunctionPointer)) Then
  Begin
   Exit(T2.isInt);
+ End Else
+
+ { comparing non-func-ptr with function-ptr }
+ if ((not self.isFunctionPointer) and T2.isFunctionPointer) Then
+ Begin
+  Exit(False);
  End Else
 
  { comparing strings }
@@ -896,22 +1014,6 @@ Begin
    Exit(True);
 
   Exit(False);
- End Else
-
- { comparing arrays }
- if (self.isArray and T2.isArray) Then
- Begin
-  Exit(
-       (self.ArrayBase.InternalID = T2.ArrayBase.InternalID) and // arrays' base types must be correct
-       (self.ArrayDimCount = T2.ArrayDimCount) // and also their dimensions amount must be the same
-      );
- End Else
-
- { comparing array with non-array almost always returns false except one case: int (eg.null) -> array }
- if (self.isArray and (not T2.isArray)) or
-    (T2.isArray and (not self.isArray)) Then
- Begin
-  Exit(self.isInt and T2.isArray(False));
  End Else
 
  { comparing enums }
@@ -1029,11 +1131,37 @@ Constructor TVariable.Create;
 Begin
  RefSymbol := TRefSymbol.Create;
 
- MemPos := 0;
- Typ    := nil;
- Value  := nil;
+ LocationData.Location := vlNone;
+ Typ                   := nil;
+ Value                 := nil;
 
  Attributes := [];
+End;
+
+(* TVariable.Create *)
+Constructor TVariable.Create(const Unserializer: TUnserializer);
+Begin
+ Create(Unserializer.getRoot);
+End;
+
+(* TVariable.Create *)
+Constructor TVariable.Create(const Root: TNode);
+Begin
+ Create();
+
+ if (Root.getChildren.Count = 0) Then // no data to parse, leave
+  Exit;
+
+ if (Root[0].getValue <> 'variable') Then
+  raise Exception.Create('TVariable.Create() -> invalid serialized form!');
+
+ if (Root[2].getType = ntParent) Then
+  Typ := TType.Create(Root[2]);
+
+ if (Length(Root[3].getValue) > 0) Then // @TODO
+ Begin
+  raise Exception.Create('TVariable.Create() -> unserializing variable''s value have not been implemented yet.');
+ End;
 End;
 
 (* TVariable.isConst *)
@@ -1075,9 +1203,36 @@ End;
 }
 Function TVariable.getAllocationPos(const StackShift: int8): String;
 Begin
- if (MemPos <= 0) Then
-  Result := '['+IntToStr(MemPos + StackShift)+']' Else
-  Result := 'e'+Typ.RegPrefix+IntToStr(MemPos);
+ Case LocationData.Location of
+  vlNone    : Result := '[0]'; // don't change it, it's a dummy value
+  vlRegister: Result := 'e'+Typ.RegPrefix+IntToStr(LocationData.RegisterID);
+  vlStack   : Result := '['+IntToStr(LocationData.StackPosition+StackShift)+']';
+  vlMemory  : Result := '&$'+LocationData.MemSymbolName;
+ End;
+End;
+
+(* TVariable.getSerializedForm *)
+{
+ Returns serialized form of variable.
+
+ @Note: when changing anything here, don't forget to modify `BCCompiler::TCompiler.AllocateGlobalVar` and `TVariable.Create`
+}
+Function TVariable.getSerializedForm: String;
+Begin
+ Result := '(';
+
+ Result += 'variable$';
+ Result += IntToStr(Typ.getBytecodeSize)+'$';
+
+ if (Typ.RefSymbol.Name = '') Then
+  Result += Typ.getSerializedForm+'$' Else
+  Result += Typ.RefSymbol.getFullName+'$';
+
+ if (Value = nil) Then
+  Result += '$' Else
+  Result += ExpressionToString(Value)+'$';
+
+ Result += ')';
 End;
 
 (* ---------- TFunction ---------- *)
@@ -1088,8 +1243,7 @@ Begin
  RefSymbol := TRefSymbol.Create;
  RefVar    := nil;
 
- ModuleName    := '';
- NamespaceName := '';
+ ModuleName := '';
 
  Return := nil;
 
@@ -1130,6 +1284,37 @@ Begin
  Exit(nil);
 End;
 
+(* TFunction.getSerializedForm *)
+{
+ Returns serialized form of function.
+}
+Function TFunction.getSerializedForm: String;
+Var P: TParam;
+Begin
+ Result := '(';
+
+ Result += 'function$';
+ Result += RefSymbol.getFullName+'$';
+ Result += ModuleName+'$';
+
+ if (Return.RefSymbol.Name = '') Then
+  Result += Return.getSerializedForm+'$' Else
+  Result += Return.RefSymbol.getFullName+'$';
+
+ Result += IntToStr(Length(ParamList))+'$';
+
+ Result += '(';
+
+ For P in ParamList Do
+  if (P.Typ.RefSymbol.Name = '') Then
+   Result += P.Typ.getSerializedForm+'$' Else
+   Result += P.Typ.RefSymbol.getFullName+'$';
+
+ Result += ')';
+
+ Result += ')';
+End;
+
 (* TFunction.isNaked *)
 {
  Returns true if function has attribute `faNaked`
@@ -1144,8 +1329,7 @@ End;
 (* TNamespace.Create *)
 Constructor TNamespace.Create;
 Begin
- RefSymbol := TRefSymbol.Create;
-
+ RefSymbol  := TRefSymbol.Create;
  SymbolList := TSymbolList.Create;
 End;
 
@@ -1229,6 +1413,26 @@ Begin
  Symbol.DeclNamespace := DeclNamespace;
  Symbol.DeclFunction  := DeclFunction;
  Symbol.isInternal    := isInternal;
+End;
+
+(* TRefSymbol.getFullName *)
+{
+ Returns symbol's full name.
+ It's either:
+   namespace <separator> symbol's name
+ or
+   namespace <separator> function <separator> symbol's name
+}
+Function TRefSymbol.getFullName(const Separator: String='.'): String;
+Begin
+ if (isInternal) or (DeclNamespace = nil) Then
+  Result := 'self'+Separator Else
+  Result := DeclNamespace.RefSymbol.Name + Separator;
+
+ if (DeclFunction <> nil) Then
+  Result += DeclFunction.RefSymbol.Name + Separator;
+
+ Result += Name;
 End;
 
 (* TRefSymbol.isLocal *)

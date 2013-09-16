@@ -31,7 +31,7 @@ Begin
 
   if (Variable.isStoredInRegister) Then // if variable is stored in a register, we can directly set this variable's value (without using a helper register)
   Begin
-   TypeID := Parse(Right, Variable.MemPos, Variable.RegChar);
+   TypeID := Parse(Right, Variable.LocationData.RegisterID, Variable.RegChar);
   End Else
   Begin
    TypeID := Parse(Right, 1); // parse expression and load it into a helper register (e_1)
@@ -87,8 +87,14 @@ asArray:
  { regular arrays }
  if (Index = 0) Then // pointer assignment (changing what our varable points at)
  Begin
-  TypeID := Parse(Right, 1); // this value will be our new pointer
-  RePop(Right, TypeID, 1);
+  if (Variable.isStoredInRegister) Then
+  Begin
+   TypeID := Parse(Right, Variable.LocationData.RegisterID, Variable.RegChar);
+  End Else
+  Begin
+   TypeID := Parse(Right, 1); // this value will be our new pointer
+   RePop(Right, TypeID, 1);
+  End;
 
   { type check }
   With Compiler do
@@ -100,8 +106,9 @@ asArray:
    End;
   End;
 
-  { set new pointer }
-  Result := __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
+  { set new pointer, if not done already }
+  if (not Variable.isStoredInRegister) Then
+   Result := __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
 
   Exit;
  End;

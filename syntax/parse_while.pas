@@ -25,6 +25,8 @@ Begin
  ConditionNode := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_BRACKET1_CL]));
  CondFalse     := TCFGNode.Create(ConditionNode, next_pnt); // dummy
 
+ ConditionNode.isVolatile := True;
+
  (* parse loop content *)
  CondTrue := TCFGNode.Create(ConditionNode, next_pnt);
  setNewRootNode(CondTrue);
@@ -63,6 +65,8 @@ Begin
  BaseNode      := TCFGNode.Create(fCurrentNode, next_pnt);
  ConditionNode := TCFGNode.Create(fCurrentNode, cetCondition, nil);
  CondFalse     := TCFGNode.Create(ConditionNode, next_pnt); // dummy
+
+ ConditionNode.isVolatile := True;
 
  setNewRootNode(BaseNode);
 

@@ -44,7 +44,7 @@ Begin
    Begin
     if (DirectBytecode) Then
      CompileError(eUnexpected, ['&']);
-    PutLabel(getCurrentFunction.MangledName + read_ident, not DirectBytecode);
+    PutLabel(getCurrentFunction.LabelName + read_ident, not DirectBytecode);
     eat(_COLON);
    End;
 
@@ -123,7 +123,7 @@ Begin
        if (next_t = _AMPERSAND) and (not DirectBytecode) Then
        Begin
         eat(_AMPERSAND);
-        Arg += getCurrentFunction.MangledName;
+        Arg += getCurrentFunction.LabelName;
        End;
        Arg += read_ident;
       End;
@@ -133,7 +133,7 @@ Begin
        if (DirectBytecode) Then
         CompileError(eUnexpected, ['&']);
 
-       Arg := getCurrentFunction.MangledName+read_ident;
+       Arg := getCurrentFunction.LabelName+read_ident;
       End;
 
       _PERCENT { % }:
@@ -152,16 +152,18 @@ Begin
         Begin
          With Variable do
           if (isConst) and (Value <> nil) Then // if constant...
-           Arg := getValueFromExpression(Value) Else
-           Begin
-            Attributes += [vaVolatile]; // optimizer could remove this variable or do any other optimization to it, which could break the user's bytecode, so we're just letting optimizer know, that it mustn't do anything with this variable
-            Arg        := 'localvar.'+IntToStr(LongWord(Variable)); // a bit lame solution, but I have no idea how to make it work in a better way
-           End;
+          Begin
+           Arg := getValueFromExpression(Value);
+          End Else
+          Begin
+           Attributes += [vaVolatile]; // optimizer could remove this variable or do any other optimization to it, which could break the user's bytecode, so we're just letting optimizer know, that it mustn't do anything with this variable
+           Arg        := 'localvar.'+IntToStr(LongWord(Variable)); // a bit lame solution, but I have no idea how to make it work in a better way
+          End;
         End Else
          With Variable do
           if (isConst) Then
            Arg := getValueFromExpression(Value) Else
-           CompileError(eInternalError, ['Global variables have not been implemented yet.']);
+           Arg := Variable.getAllocationPos;
        End;
       End;
 
