@@ -115,8 +115,8 @@ Begin
 
  With Compiler do
  Begin
-  { type-promotion table }
-  if (TypeLeft.isArray(False) or TypeRight.isArray(False)) Then // don't check arrays (except pure strings)
+  (* type-promotion table *)
+  if (TypeLeft.isArray(False) or TypeRight.isArray(False)) Then // don't promote arrays (except pure strings)
    Exit(TypeLeft);
 
   { float, int -> float, float }

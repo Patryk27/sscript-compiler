@@ -62,14 +62,17 @@ Begin
  { not arrays }
  if (Variable.getArray = 0) or (Variable.Typ.isString and (Variable.Typ.ArrayDimCount = 1)) Then
  Begin
-  if ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not Result.isNumerical)) or // numerical types only (except '+' and '+=' for strings)
-     ((Opcode in [o_mod, o_shl, o_shr, o_or, o_and, o_xor]) and (not Result.isInt)) Then // some operators are `int-`only
+  if (
+      ((not (Expr^.Typ in [mtAdd, mtAddEq])) and (not (Result.isBool or Result.isNumerical))) or // 'bool', 'int' and 'float' types only, except '+' and '+=' for strings
+      ((Opcode in [o_mod, o_shl, o_shr]) and (not Result.isInt)) or // some opcodes are int-only
+      ((Opcode in [o_or, o_and, o_xor]) and (not (Result.isBool or Result.isInt))) // some opcodes are bool-and-int-only
+     ) Then
   Begin
    Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
    Exit;
   End;
 
-  // put opcode
+  // write opcode
   Case WithAssign of
    True : Compiler.PutOpcode(Opcode, [Variable.PosStr, 'e'+TypeRight.RegPrefix+'2']);
    False: Compiler.PutOpcode(Opcode, ['e'+TypeLeft.RegPrefix+'1', 'e'+TypeRight.RegPrefix+'2']);
