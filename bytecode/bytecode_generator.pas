@@ -39,7 +39,7 @@ Var Child   : TCFGNode;
     PrevDoNotGenerateCode: Boolean;
 
     ArgList: PVarRecArray;
-    I      : Integer;
+    I, DimC: Integer;
     Symbol : TSymbol;
 
     { foreach }
@@ -72,7 +72,12 @@ Var Child   : TCFGNode;
        For I := Dim-1 Downto 0 Do
         PutOpcode(o_push, [ArrayTmpDims[I]]);
 
-       PutOpcode(o_arset, [ArrayVar.getAllocationPos(-ArrayVar.Typ.ArrayDimCount), ArrayVar.Typ.ArrayDimCount, 'e'+ExprType.RegPrefix+'1']);
+       DimC := ArrayVar.Typ.ArrayDimCount;
+
+       if (ArrayVar.Typ.isString) Then
+        Dec(DimC);
+
+       PutOpcode(o_arset, [ArrayVar.getAllocationPos(-DimC), DimC, 'e'+ExprType.RegPrefix+'1']);
 
        Inc(ArrayElementID);
       End Else
@@ -326,7 +331,12 @@ Begin
      PutOpcode(o_push, [ArrayDimSizes[I]]);
     End;
 
-    PutOpcode(o_arcrt, ['er1', ArrayVar.Typ.InternalID, ArrayVar.Typ.ArrayDimCount]);
+    I := ArrayVar.Typ.ArrayDimCount;
+
+    if (ArrayVar.Typ.isString) Then
+     Dec(I);
+
+    PutOpcode(o_arcrt, ['er1', ArrayVar.Typ.InternalID, I]);
     PutOpcode(o_mov, [ArrayVar.getAllocationPos, 'er1']);
 
     { compile initializer }

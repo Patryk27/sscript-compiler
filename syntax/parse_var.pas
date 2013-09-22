@@ -11,7 +11,7 @@ Unit Parse_VAR;
  Implementation
 Uses SSCompiler, Expression, ExpressionCompiler, Tokens, symdef, Messages, Opcodes, FlowGraph;
 
-{ ReadArrayInitializer }
+(* ReadArrayInitializer *)
 Procedure ReadArrayInitializer(const CompilerPnt, SymbolPnt: Pointer);
 Var Compiler: TCompiler absolute CompilerPnt;
     Symbol  : TSymbol absolute SymbolPnt;
@@ -84,6 +84,10 @@ Begin
 
  { check dimension count }
  Inc(DimCount);
+
+ if (Variable.Typ.isString) Then
+  Inc(DimCount); // temporarily treat string arrays as arrays of char arrays (:P)
+
  if (DimCount <> Variable.Typ.ArrayDimCount) Then
   Compiler.CompileError(eInvalidArrayInitializer, [DimCount, Variable.Typ.ArrayDimCount]);
 
