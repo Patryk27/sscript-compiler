@@ -286,7 +286,9 @@ Begin
 
    { skip function return type (it will be read in the second pass) }
    Func.Return := nil;
-   skip_parenthesis;
+
+   if (next_t = _LOWER) Then // if explicit type is specified, skip it
+    skip_parenthesis;
 
    { read function name }
    Func.RefSymbol.Name       := read_ident; // [identifier]
@@ -343,9 +345,15 @@ Begin
  (* if second pass *)
  if (CompilePass = _cp2) Then
  Begin
-  eat(_LOWER);
-  TmpType := read_type; // return type
-  eat(_GREATER);
+  if (next_t = _LOWER) Then // explicit user type
+  Begin
+   eat(_LOWER);
+   TmpType := read_type; // return type
+   eat(_GREATER);
+  End Else // implicit 'void'
+  Begin
+   TmpType := TYPE_VOID;
+  End;
 
   Func := findFunction(read_ident);
   skip_parenthesis; // param list

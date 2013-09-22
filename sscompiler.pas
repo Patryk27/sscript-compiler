@@ -357,8 +357,8 @@ End;
 
 (* TCompiler.getBoolOption *)
 {
- Gets a specified option's value, casts it into `boolean` - when casting was successful, returns that value, when casting
- failed or option isn't found, returns `oDefault`.
+ Gets a specified option's value, casts it into `boolean` - when casting was successful, returns that value; when casting
+ failed or option couldn't been found, returns `oDefault`.
 }
 Function TCompiler.getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean;
 Var Option: TCompileOption;
@@ -460,7 +460,7 @@ End;
 
 (* TCompiler.ParseToken *)
 {
- Parses current token (basing on current parser's scope)
+ Parses current token (basing on current parser scope)
 }
 Procedure TCompiler.ParseToken;
 
