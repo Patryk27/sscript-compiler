@@ -378,4 +378,15 @@ function<void> modf(float number, var int int_part, var float float_part)
  int_part   = round_trunc(number);
  float_part = number-int_part;
 }
+
+function<int> signum(int i)
+{
+ if (i == 0)
+  return 0;
+
+ if (i > 0)
+  return 1; else
+  return -1;
+}
+
 }
