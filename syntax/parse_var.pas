@@ -166,6 +166,9 @@ Begin
 
    if (next_t = _BRACKET1_OP) { ( } Then // optional array initializer
    Begin
+    if (not inFunction) Then
+     CompileError(eUnimplemented, ['global variable initializers']);
+
     if (Variable.Typ.isArray(False)) Then
      ReadArrayInitializer(Compiler, SymbolList.Last) Else
      CompileError(eVarArrayRequired);
