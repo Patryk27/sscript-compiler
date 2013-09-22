@@ -81,7 +81,7 @@ Unit ExpressionCompiler;
  Function CompileExpression(const CompilerPnt: Pointer; Expr: PExpressionNode): TType;
 
  Implementation
-Uses SysUtils,
+Uses SysUtils, Math,
      CompilerUnit, Opcodes, Messages;
 
 (* OptimizeExpression *)

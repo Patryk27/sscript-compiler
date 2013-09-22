@@ -60,6 +60,15 @@ Begin
  Result := isNumericVar(Expr^.Symbol);
 End;
 
+{ isPowerOf2 }
+Function isPowerOf2(const Num: Int64; out Exp: uint8): Boolean;
+Begin
+ Result := (Num <> 0) and (((Num and (Num-1))) = 0);
+
+ if (Result) Then
+  Exp := Round(log2(Num));
+End;
+
 // -------------------------------------------------------------------------- //
 { TryToOptimizeSum }
 Procedure TryToOptimizeSum(const Expr: PExpressionNode);
@@ -117,6 +126,7 @@ End;
 Procedure Parse(var Expr: PExpressionNode);
 Var Tmp, Param: PExpressionNode;
     Simplify1 : TSimplify1Data;
+    PowerOf2  : uint8;
 Begin
  if (Expr = nil) Then
   Exit;
@@ -233,6 +243,50 @@ Begin
 
   Expr      := Tmp;
   AnyChange := True;
+ End;
+
+ { 'intexpr/2^n' -> 'intexpr >> n' }
+ if (Expr^.Typ = mtDiv) and (Expr^.Left^.getType = mtInt) and (Expr^.Right^.Typ = mtInt) Then
+ Begin
+  if (isPowerOf2(Expr^.Right^.Value, PowerOf2)) Then
+  Begin
+   Expr^.Typ   := mtSHR;
+   Expr^.Right := MakeIntExpression(PowerOf2);
+  End;
+ End;
+
+ { 'intexpr*2^n' -> 'intexpr << n' }
+ if (Expr^.Typ = mtMul) and (Expr^.Left^.getType = mtInt) and (Expr^.Right^.Typ = mtInt) Then
+ Begin
+  if (isPowerOf2(Expr^.Right^.Value, PowerOf2)) Then
+  Begin
+   Expr^.Typ   := mtSHL;
+   Expr^.Right := MakeIntExpression(PowerOf2);
+  End; {Else
+
+  if (isPowerOf2(-Expr^.Right^.Value, PowerOf2)) Then
+  Begin
+   New(Tmp);
+   Tmp^       := Expr^;
+   Tmp^.Typ   := mtSHL;
+   Tmp^.Right := MakeIntExpression(PowerOf2);
+
+   New(Expr);
+   Expr^.Typ   := mtNeg;
+   Expr^.Left  := Tmp;
+   Expr^.Token := Tmp^.Token;
+  End; @TODO }
+ End;
+
+ { '2^n*intexpr' -> 'intexpr << n' }
+ if (Expr^.Typ = mtMul) and (Expr^.Left^.Typ = mtInt) and (Expr^.Right^.getType = mtInt) Then
+ Begin
+  if (isPowerOf2(Expr^.Left^.Value, PowerOf2)) Then
+  Begin
+   Expr^.Typ   := mtSHL;
+   Expr^.Left  := Expr^.Right;
+   Expr^.Right := MakeIntExpression(PowerOf2);
+  End;
  End;
 
  { 'numvar += 1' -> '++i' }
