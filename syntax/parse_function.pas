@@ -352,7 +352,7 @@ Begin
    eat(_GREATER);
   End Else // implicit 'void'
   Begin
-   TmpType := TYPE_VOID;
+   TmpType := findTypeCandidate('void', getDefaultNamespace, next);
   End;
 
   Func := findFunction(read_ident);
