@@ -5,7 +5,7 @@
 Unit Opcodes;
 
  Interface
- Uses Tokens;
+ Uses Tokens, symdef;
 
  Type TPrimaryType = (ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited to output bytecode (only for compiler internal usage)
 
@@ -111,6 +111,7 @@ Unit Opcodes;
        isComment: Boolean;
 
        isPublic, isFunction: Boolean;
+       FunctionSymbol      : TSymbol; // if 'isFunction' equals 'true'
 
        Token   : PToken_P;
        Compiler: Pointer;
@@ -131,19 +132,19 @@ Unit Opcodes;
   (* ====== POP (register) ====== *)
   (Name: 'pop'; ParamC: 1; ParamT: (ptAnyReg, ptNone, ptNone)),
 
-  (* ===== ADD (int/float reg, int/float value) ===== *)
+  (* ===== ADD (char/int/float reg, char/int/float value) ===== *)
   (Name: 'add'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
-  (* ==== SUB (int/float reg, int/float value) ===== *)
+  (* ===== SUB (char/int/float reg, char/int/float value) ===== *)
   (Name: 'sub'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
-  (* ===== MUL (int/float reg, int/float value) ===== *)
+  (* ===== MUL (char/int/float reg, char/int/float value) ===== *)
   (Name: 'mul'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
-  (* ===== DIV (int/float reg, int/float value) ===== *)
+  (* ===== DIV (char/int/float reg, char/int/float value) ===== *)
   (Name: 'div'; ParamC: 2; ParamT: (ptAnyReg, ptFloat, ptNone)),
 
-  (* ===== NEG (value) ===== *)
+  (* ===== NEG (reg) ===== *)
   (Name: 'neg'; ParamC: 1; ParamT: (ptAnyReg, ptNone, ptNone)),
 
   (* ===== MOV (dest, src) ===== *)
@@ -166,7 +167,7 @@ Unit Opcodes;
   (* ===== RET () ===== *)
   (Name: 'ret'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
 
-  (* ===== IF (a, b) ===== *)
+  (* ===== IF_* (val, val) ===== *)
   (Name: 'if_e'; ParamC: 2; ParamT: (ptAny, ptAny, ptNone)),
   (Name: 'if_ne'; ParamC: 2; ParamT: (ptAny, ptAny, ptNone)),
   (Name: 'if_g'; ParamC: 2; ParamT: (ptAny, ptAny, ptNone)),

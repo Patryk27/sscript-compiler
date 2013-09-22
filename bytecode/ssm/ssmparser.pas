@@ -161,7 +161,7 @@ Begin
 
   // prepare function list
   For I := Low(BCCompiler.LabelList) To High(BCCompiler.LabelList) Do
-   if (BCCompiler.LabelList[I].isPublic) and (BCCompiler.LabelList[I].isFunction) Then
+   if (BCCompiler.LabelList[I].isPublic) and (BCCompiler.LabelList[I].isFunction) and (BCCompiler.LabelList[I].FunctionSymbol.mFunction.RefSymbol.Visibility = mvPublic) Then
    Begin
     SetLength(FunctionList, Length(FunctionList)+1);
     FunctionList[High(FunctionList)].Signature := BCCompiler.LabelList[I].Name;

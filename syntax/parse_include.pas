@@ -46,7 +46,7 @@ Begin
    Exit;
   End;
 
-  { put new symbols }
+  { copy symbols }
   For NewNamespace in Reader.getNamespaceList Do // each namespace
   Begin
    ParentNamespace := Compiler.findNamespace(NewNamespace.RefSymbol.Name);
@@ -68,7 +68,7 @@ Begin
 
    For NewSymbol in NewNamespace.SymbolList Do // each symbol
    Begin
-    NewSymbol.Visibility    := mvPrivate; // imported symbols have to be `private` (it's a copy so modyfing this flag won't affect the original symbol).
+    NewSymbol.Visibility    := mvPrivate; // imported symbols have to be `private`
     NewSymbol.Range         := Compiler.Parser.getCurrentRange;
     NewSymbol.DeclNamespace := ParentNamespace;
 
@@ -76,7 +76,7 @@ Begin
    End;
   End;
 
-  { put new bytecode }
+  { copy bytecode }
   if (Reader.getOpcodeList.Count > 0) Then
    For I := 0 To Reader.getOpcodeList.Count-1 Do
     Compiler.OpcodeList.Add(Reader.getOpcodeList[I]);
@@ -92,7 +92,7 @@ Var ParentNamespace, NewNamespace, TmpNamespace: TNamespace;
     AddSymbol                                  : Boolean;
     I                                          : uint32;
 Begin
- // copy symbols
+ { copy symbols }
  For NewNamespace in Module.NamespaceList Do // each namespace
  Begin
   if (NewNamespace.RefSymbol.Visibility = mvPrivate) Then // skip the private ones
@@ -138,12 +138,14 @@ Begin
     Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't affect the original symbol).
     Copy.Range      := Parent.Parser.getCurrentRange;
 
+    Copy.getSymdefObject.RefSymbol := Copy;
+
     ParentNamespace.SymbolList.Add(Copy);
    End;
   End;
  End;
 
- // copy bytecode
+ { copy bytecode }
  if (Module.OpcodeList.Count > 0) Then
   For I := 0 To Module.OpcodeList.Count-1 Do
    Parent.OpcodeList.Add(Module.OpcodeList[I]);

@@ -18,6 +18,7 @@ Unit BCCompiler;
        Position: uint32;
 
        isPublic, isFunction: Boolean;
+       FunctionSymbol      : TSymbol; // if 'isFunction' equals 'true'
       End;
 
  { TBCAllocatedSymbol }
@@ -254,6 +255,9 @@ Begin
      LabelList[High(LabelList)].Position   := OpcodeLen;
      LabelList[High(LabelList)].isPublic   := isPublic;
      LabelList[High(LabelList)].isFunction := isFunction;
+
+     if (isFunction) Then
+      LabelList[High(LabelList)].FunctionSymbol := FunctionSymbol;
     End;
  End;
 End;

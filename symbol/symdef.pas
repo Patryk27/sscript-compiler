@@ -65,12 +65,17 @@ Unit symdef;
                End;
       TParamList = Array of TParam;
 
- { TType }
- Type TType =
+ { TSymdefObject }
+ Type TSymdefObject =
       Class
        Public { fields }
         RefSymbol: TRefSymbol;
+       End;
 
+ { TType }
+ Type TType =
+      Class(TSymdefObject)
+       Public { fields }
         RegPrefix : Char; // bytecode register prefix, any of: b, c, i, f, s, r
         InternalID: uint8;
 
@@ -135,10 +140,8 @@ Unit symdef;
 
  { TVariable }
  Type TVariable =
-      Class
+      Class(TSymdefObject)
        Public { fields }
-        RefSymbol: TRefSymbol;
-
         LocationData: TVarLocationData;
 
         Typ  : TType;
@@ -163,10 +166,9 @@ Unit symdef;
 
  { TFunction }
  Type TFunction =
-      Class
+      Class(TSymdefObject)
        Public { fields }
-        RefSymbol: TRefSymbol;
-        RefVar   : TVariable;
+        RefVar: TVariable;
 
         LabelName : String;
         ModuleName: String; // @TODO: shouldn't it be in "TRefSymbol"?
@@ -195,9 +197,8 @@ Unit symdef;
 
  { TNamespace }
  Type TNamespace =
-      Class
+      Class(TSymdefObject)
        Public { fields }
-        RefSymbol : TRefSymbol;
         SymbolList: TSymbolList; // global symbol list
 
        Public { methods }
@@ -249,8 +250,10 @@ Unit symdef;
 
        Public { methods }
         Constructor Create(const SymbolType: TSymbolType; const CreateInstance: Boolean=True);
-        Constructor Create(const SymbolType: TSymbolType; const Instance: Pointer);
+        Constructor Create(const SymbolType: TSymbolType; const Instance: TObject);
         Constructor Create(const CloneOf: TSymbol);
+
+        Function getSymdefObject: TSymdefObject;
        End;
 
  // operators
@@ -1485,7 +1488,7 @@ Begin
 End;
 
 (* TSymbol.Create *)
-Constructor TSymbol.Create(const SymbolType: TSymbolType; const Instance: Pointer);
+Constructor TSymbol.Create(const SymbolType: TSymbolType; const Instance: TObject);
 Begin
  Create(SymbolType, False);
 
@@ -1528,5 +1531,19 @@ Begin
 
  if (mType <> nil) Then
   mType.RefSymbol := mType.RefSymbol.Clone;
+End;
+
+(* TSymbol.getSymdefObject *)
+Function TSymbol.getSymdefObject: TSymdefObject;
+Begin
+ Result := nil;
+
+ Case Typ of
+  stNamespace: Result := mNamespace;
+  stFunction : Result := mFunction;
+  stVariable : Result := mVariable;
+  stConstant : Result := mVariable;
+  stType     : Result := mType;
+ End;
 End;
 End.

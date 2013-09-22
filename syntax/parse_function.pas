@@ -377,8 +377,9 @@ Begin
   { new label (function begin) }
   With PutLabel(Func.LabelName)^ do
   Begin
-   isPublic   := (Func.RefSymbol.Visibility = mvPublic);
-   isFunction := True;
+   isPublic       := (Func.RefSymbol.Visibility = mvPublic);
+   isFunction     := True;
+   FunctionSymbol := Func.RefSymbol.DeclNamespace.findSymbol(Func.RefSymbol.Name); // @TODO: it can be done waaay better
   End;
 
   { new scope (because we're in function now) }
