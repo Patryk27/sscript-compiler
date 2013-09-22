@@ -50,7 +50,7 @@ Begin
  Result := _var.Typ;
 
  With Compiler do
-  if (_var.isConst) Then
+  if (_var.isConst) and (_var.Value <> nil) Then
   Begin
    PutOpcode(o_push, [getValueFromExpression(_var.Value)]);
   End Else
