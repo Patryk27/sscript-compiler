@@ -3,7 +3,7 @@ Procedure __tree_simplification(const ShowErrors: Boolean);
 { isVariable }
 Function isVariable(const Node: PExpressionNode): Boolean;
 Begin
- Result := (Node <> nil) and (Node^.Typ = mtIdentifier) and (Node^.Symbol <> nil);
+ Result := (Node <> nil) and (Node^.Typ = mtIdentifier) and (Node^.Symbol <> nil) and (TSymbol(Node^.Symbol).Typ = stVariable);
 End;
 
 { isVariableOrCall }
@@ -35,10 +35,23 @@ End;
 
 { isNumericVar }
 Function isNumericVar(const Symbol: TObject): Boolean;
+Var Sym: TSymbol;
 Begin
  if (Symbol = nil) Then
-  Result := False Else
-  Result := (Symbol as TSymbol).mVariable.Typ.isNumerical;
+ Begin
+  Result := False;
+ End Else
+ Begin
+  Sym := (Symbol as TSymbol);
+
+  if (Sym = nil) Then
+   Exit(False);
+
+  if (Sym.Typ <> stVariable) Then
+   Exit(False);
+
+  Result := Sym.mVariable.Typ.isNumerical;
+ End;
 End;
 
 { isNumericVar }
