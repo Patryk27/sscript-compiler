@@ -4,15 +4,16 @@ Var Name               : String;
     Namespace          : TNamespace;
     NamespaceVisibility: PNamespaceVisibility;
 Begin
- With Parser do
+ With Scanner do
  Begin
- if (not ((CompilePass = _cp2) or (inFunction))) Then // "use" clauses are parsed in the second pass or inside a function
- Begin
-  read_until(_SEMICOLON);
-  Exit;
- End;
+  if (not ((CompilePass = _cp2) or (inFunction))) Then // "use" clauses are parsed in the second pass or inside a function
+  Begin
+   read_until(_SEMICOLON);
+   Exit;
+  End;
 
-  Repeat
+  While (true) Do
+  Begin
    // next namespace
    Name := read_ident;
 
@@ -33,7 +34,7 @@ Begin
    if (next_t = _SEMICOLON) Then
     Break Else
     eat(_COMMA);
-  Until (False);
+  End;
 
   semicolon;
  End;

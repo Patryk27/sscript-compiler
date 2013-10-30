@@ -23,7 +23,7 @@ Begin
   For I := Low(Header) To High(Header) Do
    Header[I] := Stream.ReadByte;
 
-  Result := (Header[0] = $50) and (Header[1] = $4B) and
+  Result := (Header[0] = $50) and (Header[1] = $4B) and // scan first 4 bytes of file for the ZIP header
             (Header[2] = $03) and (Header[3] = $04);
  Finally
   Stream.Free;
@@ -61,15 +61,15 @@ Begin
      Name       := NewNamespace.RefSymbol.Name;
      Visibility := mvPrivate;
      mCompiler  := Compiler;
-     Range      := Compiler.Parser.getCurrentRange;
-     DeclToken  := Compiler.Parser.next_pnt(0);
+     Range      := Compiler.getScanner.getCurrentRange;
+     DeclToken  := Compiler.getScanner.next_pnt(0);
     End;
    End;
 
    For NewSymbol in NewNamespace.SymbolList Do // each symbol
    Begin
     NewSymbol.Visibility    := mvPrivate; // imported symbols have to be `private`
-    NewSymbol.Range         := Compiler.Parser.getCurrentRange;
+    NewSymbol.Range         := Compiler.getScanner.getCurrentRange;
     NewSymbol.DeclNamespace := ParentNamespace;
 
     ParentNamespace.SymbolList.Add(NewSymbol);
@@ -136,7 +136,7 @@ Begin
    Begin
     Copy            := TSymbol.Create(Symbol);
     Copy.Visibility := mvPrivate; // imported symbols have to be `private` (it's a copy, so modyfing this flag won't affect the original symbol).
-    Copy.Range      := Parent.Parser.getCurrentRange;
+    Copy.Range      := Parent.getScanner.getCurrentRange;
 
     Copy.getSymdefObject.RefSymbol := Copy;
 
@@ -182,7 +182,7 @@ Var Compiler: TCompiler absolute CompilerPnt;
     CircularRef      : Boolean;
     CpPrevious, CpTmp: TCompiler;
 Begin
- With Compiler, Parser do
+ With Compiler, getScanner do
  Begin
   eat(_BRACKET1_OP); // (
   FileName := ReplaceDirSep(read.Value); // [string]

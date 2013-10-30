@@ -11,68 +11,68 @@ Unit Parse_NAMESPACE;
  Implementation
 Uses SSCompiler, symdef, Tokens, Messages;
 
-{ Parse }
+(* Parse *)
 Procedure Parse(Compiler: Pointer);
 Var nName: String;
     Deep : Integer;
 Begin
-With TCompiler(Compiler), Parser do
-Begin
- Deep := CurrentDeep;
-
- (* if first pass *)
- if (CompilePass = _cp1) Then
+ With TCompiler(Compiler), getScanner do
  Begin
-  nName := read_ident; // namespace's name
-  RedeclarationCheck(nName, True); // redeclaration check
+  Deep := CurrentDeep;
 
-  CurrentNamespace := findNamespace(nName);
-
-  if (CurrentNamespace = nil) Then // new namespace
+  (* if first pass *)
+  if (CompilePass = _cp1) Then
   Begin
-   NamespaceList.Add(TNamespace.Create);
+   nName := read_ident; // namespace's name
+   RedeclarationCheck(nName, True); // redeclaration check
 
-   CurrentNamespace := NamespaceList.Last;
-   With NamespaceList.Last do
+   CurrentNamespace := findNamespace(nName);
+
+   if (CurrentNamespace = nil) Then // new namespace
    Begin
-    With RefSymbol do
+    NamespaceList.Add(TNamespace.Create);
+
+    CurrentNamespace := NamespaceList.Last;
+    With NamespaceList.Last do
     Begin
-     Name       := nName;
-     mCompiler  := Compiler;
-     DeclToken  := next_pnt(-1);
+     With RefSymbol do
+     Begin
+      Name       := nName;
+      mCompiler  := Compiler;
+      DeclToken  := next_pnt(-1);
+     End;
+
+     SymbolList := TSymbolList.Create;
     End;
-
-    SymbolList := TSymbolList.Create;
    End;
-  End;
 
-  CurrentNamespace.RefSymbol.Visibility := getVisibility;
+   CurrentNamespace.RefSymbol.Visibility := getVisibility;
 
-  if (next_t <> _BRACKET3_OP) Then
-   CompileError(eExpected, ['{', next.Value]);
- End Else
+   if (next_t <> _BRACKET3_OP) Then
+    CompileError(eExpected, ['{', next.Value]);
+  End Else
 
- (* if second pass *)
- if (CompilePass = _cp2) Then
- Begin
-  CurrentNamespace := findNamespace(read_ident);
-
-  if (CurrentNamespace = nil) Then
-   CompileError(eInternalError, ['CurrentNamespace = nil']);
- End;
-
- { parse namespace }
- Repeat
-  if (next_t = _NAMESPACE) Then // for now it's impossible to declare a namespace inside another one
+  (* if second pass *)
+  if (CompilePass = _cp2) Then
   Begin
-   read;
-   CompileError(eNotAllowed, ['namespace']);
+   CurrentNamespace := findNamespace(read_ident);
+
+   if (CurrentNamespace = nil) Then
+    CompileError(eInternalError, ['CurrentNamespace = nil']);
   End;
 
-  ParseToken;
- Until (CurrentDeep = Deep);
+  { parse namespace }
+  Repeat
+   if (next_t = _NAMESPACE) Then // for now it's impossible to declare a namespace inside another one
+   Begin
+    read;
+    CompileError(eNotAllowed, ['namespace']);
+   End;
 
- CurrentNamespace := getDefaultNamespace;
-End;
+   ParseToken;
+  Until (CurrentDeep = Deep);
+
+  CurrentNamespace := getDefaultNamespace;
+ End;
 End;
 End.

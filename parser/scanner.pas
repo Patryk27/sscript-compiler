@@ -2,81 +2,83 @@
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
 *)
-Unit Parser;
+Unit Scanner;
 
  Interface
  Uses Classes, FGL,
-      symdef, Scanner, Tokens, Expression;
+      symdef, Lexer, Tokens, Expression;
 
  Const DefaultSeparators = [_SEMICOLON, _COMMA, _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL];
 
  Type TTokenList = specialize TFPGList<PToken_P>;
 
- { TParser }
- Type TParser = Class
-                 Private
-                // private fields
-                  Compiler : Pointer;
-                  TokenList: TTokenList; // list of tokens (with stripped comments)
+ { TScanner }
+ Type TScanner =
+      Class
+       Private { fields }
+        Compiler : TObject;
+        TokenList: TTokenList; // list of tokens (with stripped comments)
 
-                  DontFailOnEOF: Boolean;
+        DontFailOnEOF: Boolean;
 
-                 Public
-                // public fields
-                  TokenPos: Int64; // current token ID (counting from 0)
+       Public { fields }
+        TokenPos: Int64; // current token ID (counting from 0)
 
-                  CurrentDeep: Integer; // current brackets' deep (`{` = +1, `}` = -1)
-                  Visibility : TVisibility; // current visibility
+        CurrentDeep: Integer; // current brackets' deep (`{` = +1, `}` = -1)
+        Visibility : TVisibility; // current visibility
 
-                  Property getPosition: Int64 read TokenPos; // current token position
-                  Property getVisibility: TVisibility read Visibility; // current visibility state
+        Property getPosition: Int64 read TokenPos; // current token position
+        Property getVisibility: TVisibility read Visibility; // current visibility state
 
-                // public methods
-                  Constructor Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
-                  Destructor Destroy; override;
+       Public { methods }
+        Constructor Create(const CompilerObject: TObject; InputFile: String; out inLongComment: Boolean);
+        Destructor Destroy; override;
 
-                  Function getToken(const Index: uint32): TToken_P;
-                  Function getTokenPnt(const Index: uint32): PToken_P;
-                  Function getLastToken: TToken_P;
-                  Function getCurrentRange(Deep: int16=1): TRange;
+        Function getToken(const Index: uint32): TToken_P;
+        Function getTokenPnt(const Index: uint32): PToken_P;
+        Function getLastToken: TToken_P;
+        Function getCurrentRange(Deep: int16=1): TRange;
 
-                  Function read: TToken_P;
-                  Function read_t: TToken;
-                  Function next(const I: Integer=0): TToken_P;
-                  Function next_pnt(const I: Integer=0): PToken_P;
-                  Function next_t(const I: Integer=0): TToken;
-                  Function read_ident: String;
-                  Function read_string: String;
-                  Function read_int: Integer;
-                  Function read_type(const AllowArrays: Boolean=True): TType;
-                  Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
-                  Function read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
-                  Procedure eat(Token: TToken);
-                  Procedure semicolon;
+        Function read: TToken_P;
+        Function read_t: TToken;
+        Function next(const I: Integer=0): TToken_P;
+        Function next_pnt(const I: Integer=0): PToken_P;
+        Function next_t(const I: Integer=0): TToken;
+        Function read_ident: String;
+        Function read_string: String;
+        Function read_int: Integer;
+        Function read_type(const AllowArrays: Boolean=True): TType;
+        Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
+        Function read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
+        Procedure eat(Token: TToken);
+        Procedure semicolon;
 
-                  Procedure skip_parenthesis;
-                  Procedure read_until(const Token: TToken);
+        Procedure skip_parenthesis;
+        Procedure read_until(const Token: TToken);
 
-                  Function Can: Boolean;
-                 End;
+        Function Can: Boolean;
+       End;
 
  Implementation
 Uses CompilerUnit, SSCompiler, ExpressionCompiler, Messages, SysUtils;
 
-(* TParser.Create *)
+(* TScanner.Create *)
 {
  Loads code from file and preparses it (removes comments etc.)
 }
-Constructor TParser.Create(const CompilerPnt: Pointer; InputFile: String; out inLongComment: Boolean);
-Var Scanner: TScanner; // token scanner
-    Code   : TStringList; // TScanner needs a TStringList to parse code
+Constructor TScanner.Create(const CompilerObject: TObject; InputFile: String; out inLongComment: Boolean);
+Var Lexer: TLexer; // lexer
+    Code : TStringList; // TScanner needs a TStringList to parse code
 
     Token           : TToken_P; // current token
     PToken          : PToken_P;
     ShortCommentLine: LongWord=0; // short comment (`//`) line
 Begin
- Compiler      := CompilerPnt;
+ Compiler      := CompilerObject as TCompiler;
  inLongComment := False;
+
+ if (Compiler = nil) Then
+  raise Exception.Create('TScanner.Create() -> expected a TCompiler instance as first parameter!');
 
  TokenPos    := 0;
  CurrentDeep := 0;
@@ -88,8 +90,8 @@ Begin
  { parse it }
  TokenList := TTokenList.Create;
 
- Scanner := TScanner.Create(Code);
- if (not Scanner.Can) Then // an empty file
+ Lexer := TLexer.Create(Code);
+ if (not Lexer.Can) Then // an empty file
  Begin
   New(PToken);
   With PToken^ do
@@ -106,16 +108,16 @@ Begin
   Exit;
  End;
 
- While (Scanner.Can) do
+ While (Lexer.Can) do
  Begin
-  Token := Scanner.getToken_P;
+  Token := Lexer.getToken_P;
 
   if (Token.Token = noToken) Then // skip `noToken`-s
    Continue;
 
   if (Token.Token = _EOF) Then
   Begin
-   DevLog(dvInfo, 'TParser.Create', 'reached `EOF` - finishing code parsing...');
+   DevLog(dvInfo, 'TScanner.Create', 'reached `EOF` - finishing code parsing...');
    Break;
   End;
 
@@ -148,12 +150,12 @@ Begin
  DontFailOnEOF := False;
 
  { destroy objects }
- Scanner.Free;
+ Lexer.Free;
  Code.Free;
 End;
 
-(* TParser.Destroy *)
-Destructor TParser.Destroy;
+(* TScanner.Destroy *)
+Destructor TScanner.Destroy;
 Var Token: PToken_P;
 Begin
  For Token in TokenList Do
@@ -161,38 +163,38 @@ Begin
  TokenList.Free;
 End;
 
-(* TParser.getToken *)
+(* TScanner.getToken *)
 {
  Returns a token with specified index.
 }
-Function TParser.getToken(const Index: uint32): TToken_P;
+Function TScanner.getToken(const Index: uint32): TToken_P;
 Begin
  Result := TokenList[Index]^;
 End;
 
-(* TParser.getTokenPnt *)
+(* TScanner.getTokenPnt *)
 {
  Returns a pointer to token with specified index.
 }
-Function TParser.getTokenPnt(const Index: uint32): PToken_P;
+Function TScanner.getTokenPnt(const Index: uint32): PToken_P;
 Begin
  Result := TokenList[Index];
 End;
 
-(* TParser.getLastToken *)
+(* TScanner.getLastToken *)
 {
  Returns last non-`noToken` token
 }
-Function TParser.getLastToken: TToken_P;
+Function TScanner.getLastToken: TToken_P;
 Begin
  Exit(TokenList.Last^);
 End;
 
-(* TParser.getCurrentRange *)
+(* TScanner.getCurrentRange *)
 {
  Returns current scope's range.
 }
-Function TParser.getCurrentRange(Deep: int16=1): TRange;
+Function TScanner.getCurrentRange(Deep: int16=1): TRange;
 
   { SkipBlock }
   Procedure SkipBlock;
@@ -304,11 +306,11 @@ Begin
  End;
 End;
 
-(* TParser.read *)
+(* TScanner.read *)
 {
  Reads a token
 }
-Function TParser.read: TToken_P;
+Function TScanner.read: TToken_P;
 Begin
  if (TokenPos >= TokenList.Count) Then
   TCompiler(Compiler).CompileError(eEOF);
@@ -324,82 +326,82 @@ Begin
   End;
 End;
 
-(* TParser.read_t *)
+(* TScanner.read_t *)
 {
- Reads a token's kind; see @TParser.read
+ Reads a token's kind; see @TScanner.read
 }
-Function TParser.read_t: TToken;
+Function TScanner.read_t: TToken;
 Begin
  Result := read.Token;
 End;
 
-(* TParser.next *)
+(* TScanner.next *)
 {
  Returns a next - or previous (when `I` is negative) - token.
 }
-Function TParser.next(const I: Integer=0): TToken_P;
+Function TScanner.next(const I: Integer=0): TToken_P;
 Begin
  Result := next_pnt(I)^;
 End;
 
-(* TParser.next_pnt *)
+(* TScanner.next_pnt *)
 {
  Returns a next - or previous (when `I` is negative) - token's pointer.
 }
-Function TParser.next_pnt(const I: Integer=0): PToken_P;
+Function TScanner.next_pnt(const I: Integer=0): PToken_P;
 Begin
  if (TokenPos+I >= TokenList.Count) Then
   Result := TokenList.Last Else
   Result := TokenList[TokenPos+I];
 End;
 
-(* TParser.next_t *)
+(* TScanner.next_t *)
 {
- Works just as TParser.next, but gets only a token's kind.
+ Works just as TScanner.next, but gets only a token's kind.
 }
-Function TParser.next_t(const I: Integer=0): TToken;
+Function TScanner.next_t(const I: Integer=0): TToken;
 Begin
  Result := next(I).Token;
 End;
 
-(* TParser.read_ident *)
+(* TScanner.read_ident *)
 {
  Reads an identifier; displays error `eExpectedIdentifier` when read token isn't an identifier.
 }
-Function TParser.read_ident: String;
+Function TScanner.read_ident: String;
 Begin
  if (next_t <> _IDENTIFIER) Then
   TCompiler(Compiler).CompileError(next, eExpectedIdentifier, [next.Value]);
  Result := read.Value;
 End;
 
-(* TParser.read_string *)
+(* TScanner.read_string *)
 {
  Reads a string; displays error `eExpectedString` when read token isn't a string.
 }
-Function TParser.read_string: String;
+Function TScanner.read_string: String;
 Begin
  if (next_t <> _STRING) Then
   TCompiler(Compiler).CompileError(next, eExpectedString, [next.Value]);
  Result := read.Value;
 End;
 
-(* TParser.read_int *)
+(* TScanner.read_int *)
 {
  Reads an integer value; displays error `eExpectedInt` when read token isn't a string.
 }
-Function TParser.read_int: Integer;
+Function TScanner.read_int: Integer;
 Begin
  if (next_t <> _INT) Then
   TCompiler(Compiler).CompileError(next, eExpectedInt, [next.Value]);
  Result := StrToInt(read.Value);
 End;
 
-(* TParser.read_type *)
+(* TScanner.read_type *)
 {
  Reads a type name or a full type (based on current token) and returns its ID.
 }
-Function TParser.read_type(const AllowArrays: Boolean=True): TType;
+Function TScanner.read_type(const AllowArrays: Boolean=True): TType;
 Var Base, Typ, TmpType: TType;
 
     Token: TToken_P;
@@ -616,18 +618,18 @@ Begin
  End;
 End;
 
-(* TParser.read_constant_expr *)
+(* TScanner.read_constant_expr *)
 {
  Reads and evaluates a constant expression.
 }
-Function TParser.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
+Function TScanner.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
 Begin
  Result := MakeExpression(Compiler, Sep, []);
  OptimizeExpression(TCompiler(Compiler), Result, [oInsertConstants, oConstantFolding, oDisplayParseErrors]);
 End;
 
-(* TParser.read_constant_expr_int *)
-Function TParser.read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
+(* TScanner.read_constant_expr_int *)
+Function TScanner.read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
 Var Expr: PExpressionNode;
 Begin
  Expr := read_constant_expr(Sep);
@@ -637,38 +639,38 @@ Begin
 
  if (Expr^.Value = null) Then
  Begin
-  DevLog(dvError, 'TParser.read_constant_expr_int', 'Error: TParser.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
+  DevLog(dvError, 'TScanner.read_constant_expr_int', 'Error: TScanner.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
   Exit(0);
  End;
 
  Exit(Expr^.Value);
 End;
 
-(* TParser.eat *)
+(* TScanner.eat *)
 {
  'eats' a specified token.
  (ie. if current token isn't token passed in the parameter, displays a syntax error).
 }
-Procedure TParser.eat(Token: TToken);
+Procedure TScanner.eat(Token: TToken);
 Begin
  if (read_t <> Token) Then
   TCompiler(Compiler).CompileError(eExpected, [getTokenDisplay(Token), next(-1).Value]);
 End;
 
-(* TParser.semicolon *)
+(* TScanner.semicolon *)
 {
  Eats a semicolon (`_SEMICOLON` token)
 }
-Procedure TParser.semicolon;
+Procedure TScanner.semicolon;
 Begin
  eat(_SEMICOLON);
 End;
 
-(* TParser.skip_parenthesis *)
+(* TScanner.skip_parenthesis *)
 {
  Skips parenthesises
 }
-Procedure TParser.skip_parenthesis;
+Procedure TScanner.skip_parenthesis;
 Var Deep: Integer = 0;
 Begin
  Repeat
@@ -682,8 +684,8 @@ Begin
  Until (Deep = 0);
 End;
 
-(* TParser.read_until *)
-Procedure TParser.read_until(const Token: TToken);
+(* TScanner.read_until *)
+Procedure TScanner.read_until(const Token: TToken);
 Var Deep: Integer = 0;
     Tok : TToken;
 Begin
@@ -704,11 +706,11 @@ Begin
  End;
 End;
 
-(* TParser.Can *)
+(* TScanner.Can *)
 {
  Returns 'true', if at least one token can be read.
 }
-Function TParser.Can: Boolean;
+Function TScanner.Can: Boolean;
 Begin
  Result := (TokenPos < TokenList.Count);
 End;

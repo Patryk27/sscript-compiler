@@ -170,7 +170,7 @@ Var Position: uint32 = 1;
      Inc(Position);
     End;
    End Else
-    raise EInvalidSerializedData.CreateFmt('Expected node opening at %d in "%s"', [Position, SerializedData]);
+    raise EInvalidSerializedData.CreateFmt('Expected a node opening at %d in "%s"', [Position, SerializedData]);
   End;
 
 Begin

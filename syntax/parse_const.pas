@@ -11,70 +11,72 @@ Unit Parse_CONST;
  Implementation
 Uses SSCompiler, ExpressionCompiler, Tokens, symdef, Messages, Opcodes;
 
-{ Parse }
+(* Parse *)
 Procedure Parse(Compiler: Pointer);
 Var Variable  : TVariable;
     SymbolList: TSymbolList;
 Begin
-With TCompiler(Compiler), Parser do
-Begin
- if (not ((CompilePass = _cp1) or (inFunction))) Then // constants are parsed in the first pass or inside a function
+ With TCompiler(Compiler), getScanner do
  Begin
-  read_until(_SEMICOLON);
-  Exit;
- End;
-
- if (inFunction) Then
-  SymbolList := getCurrentFunction.SymbolList Else
-  SymbolList := getCurrentNamespace.SymbolList;
-
- While (true) Do
- Begin
-  Variable := TVariable.Create;
-  Variable.Attributes += [vaConst, vaDontAllocate];
-
-  With Variable.RefSymbol do
+  if (not ((CompilePass = _cp1) or (inFunction))) Then // constants are parsed in the first pass or inside a function
   Begin
-   Range      := getCurrentRange;
-   mCompiler  := Compiler;
-   Visibility := getVisibility;
-
-   DeclToken     := next_pnt;
-   DeclNamespace := getCurrentNamespace;
-   DeclFunction  := getCurrentFunction;
-   Name          := read_ident; // [identifier]
-
-   RedeclarationCheck(Name); // check for redeclaration of the constant
+   read_until(_SEMICOLON);
+   Exit;
   End;
 
-  eat(_EQUAL); // =
+  if (inFunction) Then
+   SymbolList := getCurrentFunction.SymbolList Else
+   SymbolList := getCurrentNamespace.SymbolList;
 
-  Variable.Value            := read_constant_expr; // [constant value]
-  Variable.Value^.IdentName := Variable.RefSymbol.Name;
-
-  With Variable.Value^ do
+  While (true) Do
   Begin
-   if (isConstant) Then // is this a constant expression?
+   Variable := TVariable.Create;
+   Variable.Attributes += [vaConst, vaDontAllocate];
+
+   With Variable.RefSymbol do
    Begin
-    Variable.Typ := getTypeFromExpression(Variable.Value);
-   End Else // if it's not - show error
-   Begin
-    CompileError(eExpectedConstant, []);
-    Variable.Value := EmptyExpression;
+    Range      := getCurrentRange;
+    mCompiler  := Compiler;
+    Visibility := getVisibility;
+
+    DeclToken     := next_pnt;
+    DeclNamespace := getCurrentNamespace;
+    DeclFunction  := getCurrentFunction;
+    Name          := read_ident; // [identifier]
+
+    RedeclarationCheck(Name); // check for redeclaration of the constant
    End;
-  End;
 
-  SymbolList.Add(TSymbol.Create(stConstant, Variable));
+   eat(_EQUAL); // =
 
-  Dec(TokenPos); // ExpressionCompiler 'eats' comma.
+   Variable.Value            := read_constant_expr; // [constant value]
+   Variable.Value^.IdentName := Variable.RefSymbol.Name;
 
-  if (next_t = _COMMA) Then // const(...) name1=value1, name2=value2, name3=value3...
-   read Else
+   With Variable.Value^ do
+   Begin
+    if (isConstant) Then // is this a constant expression?
+    Begin
+     Variable.Typ := getTypeFromExpression(Variable.Value);
+    End Else // if it's not - show error
+    Begin
+     CompileError(eExpectedConstant, []);
+     Variable.Value := EmptyExpression;
+    End;
+   End;
+
+   SymbolList.Add(TSymbol.Create(stConstant, Variable));
+
+   Dec(TokenPos); // ExpressionCompiler 'eats' comma.
+
+   if (next_t = _COMMA) Then // const(...) name1=value1, name2=value2, name3=value3...
+   Begin
+    read;
+   End Else
    Begin
     semicolon;
     Break;
    End;
+  End;
  End;
-End;
 End;
 End.

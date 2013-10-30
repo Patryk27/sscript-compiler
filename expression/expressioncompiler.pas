@@ -5,7 +5,6 @@
 
 {.$DEFINE DISPLAY_TREE} // compiler debug only
 {$MODESWITCH ADVANCEDRECORDS}
-
 Unit ExpressionCompiler;
 
  Interface
@@ -21,46 +20,49 @@ Unit ExpressionCompiler;
       TShortCircuit = (scNone, scOR, scAND);
 
  { TStackValue }
- Type TStackValue = Record // value on the stack
-                     Typ  : TExpressionNodeType;
-                     Value: Variant;
-                     Token: TToken_P;
+ Type TStackValue =
+      Record // value on the stack
+       Typ  : TExpressionNodeType;
+       Value: Variant;
+       Token: TToken_P;
 
-                     ParamCount: Integer; // if `Typ == stFunction`, here's hold read parameters count
-                     Namespace : TNamespace; // function calls, variables and constants only; used in namespace operator, eg. `foo::function()`
-                    End;
+       ParamCount: Integer; // if `Typ == stFunction`, here's hold read parameters count
+       Namespace : TNamespace; // function calls, variables and constants only; used in namespace resolution operator (`foo::function()`)
+      End;
 
- { TInterpreter }
- Type TInterpreter = Class
-                      Private
-                       Compiler: TCompiler;
+ { TExpressionParser }
+ Type TExpressionParser =
+      Class
+       Private
+        Compiler: TCompiler;
 
-                       Stack   : Array of TStackValue; // whole stack
-                       StackPos: Integer;
+        Stack   : Array of TStackValue; // whole stack
+        StackPos: Integer;
 
-                       FinalExpr   : Array of TStackValue; // final expression
-                       FinalExprPos: Integer;
+        FinalExpr   : Array of TStackValue; // final expression
+        FinalExprPos: Integer;
 
-                       Procedure StackPush(Val: TStackValue);
-                       Procedure StackPush(fTyp: TExpressionNodeType; fValue: Variant; fToken: TToken_P);
-                       Procedure StackPush(fTyp: TExpressionNodeType; fValue: Variant);
-                       Procedure StackPush(Typ: TExpressionNodeType; Token: TToken_P);
-                       Function StackPop: TStackValue;
-                       Function StackPeek: TStackValue;
+       Private
+        Procedure StackPush(Val: TStackValue);
+        Procedure StackPush(fTyp: TExpressionNodeType; fValue: Variant; fToken: TToken_P);
+        Procedure StackPush(fTyp: TExpressionNodeType; fValue: Variant);
+        Procedure StackPush(Typ: TExpressionNodeType; Token: TToken_P);
+        Function StackPop: TStackValue;
+        Function StackPeek: TStackValue;
 
-                       Procedure FinalExprPush(Val: TStackValue);
-                       Procedure FinalExprPush(Typ: TExpressionNodeType; Value: Variant; Token: TToken_P; Namespace: TNamespace=nil);
-                       Function FinalExprPop: TStackValue;
-                       Function FinalExprPeek: TStackValue;
+        Procedure FinalExprPush(Val: TStackValue);
+        Procedure FinalExprPush(Typ: TExpressionNodeType; Value: Variant; Token: TToken_P; Namespace: TNamespace=nil);
+        Function FinalExprPop: TStackValue;
+        Function FinalExprPeek: TStackValue;
 
-                       Function CreateNode(Left, Right: PExpressionNode; Typ: TExpressionNodeType; Value: Variant; Token: TToken_P): PExpressionNode;
+        Function CreateNode(Left, Right: PExpressionNode; Typ: TExpressionNodeType; Value: Variant; Token: TToken_P): PExpressionNode;
 
-                      Public
-                       Constructor Create(fCompiler: TCompiler);
+       Public
+        Constructor Create(fCompiler: TCompiler);
 
-                       Procedure Parse(EndTokens: TTokenSet);
-                       Function MakeTree: PExpressionNode;
-                      End;
+        Procedure Parse(EndTokens: TTokenSet);
+        Function MakeTree: PExpressionNode;
+       End;
 
  Function OptimizeExpression(const Compiler: TCompiler; var Tree: PExpressionNode; const Options: TOptions): Boolean;
 
@@ -463,17 +465,17 @@ Begin
            and (not isRightAssoc(X)));
 End;
 
-// ---------- TInterpreter ---------- //
+// ---------- TExpressionParser ---------- //
 
-{ TInterpreter.StackPush }
-Procedure TInterpreter.StackPush(Val: TStackValue);
+{ TExpressionParser.StackPush }
+Procedure TExpressionParser.StackPush(Val: TStackValue);
 Begin
  Stack[StackPos] := Val;
  Inc(StackPos);
 End;
 
-{ TInterpreter.StackPush }
-Procedure TInterpreter.StackPush(fTyp: TExpressionNodeType; fValue: Variant; fToken: TToken_P);
+{ TExpressionParser.StackPush }
+Procedure TExpressionParser.StackPush(fTyp: TExpressionNodeType; fValue: Variant; fToken: TToken_P);
 Begin
  With Stack[StackPos] do
  Begin
@@ -484,8 +486,8 @@ Begin
  Inc(StackPos);
 End;
 
-{ TInterpreter.StackPush }
-Procedure TInterpreter.StackPush(fTyp: TExpressionNodeType; fValue: Variant);
+{ TExpressionParser.StackPush }
+Procedure TExpressionParser.StackPush(fTyp: TExpressionNodeType; fValue: Variant);
 Begin
  With Stack[StackPos] do
  Begin
@@ -495,40 +497,40 @@ Begin
  Inc(StackPos);
 End;
 
-{ TInterpreter.StackPush }
-Procedure TInterpreter.StackPush(Typ: TExpressionNodeType; Token: TToken_P);
+{ TExpressionParser.StackPush }
+Procedure TExpressionParser.StackPush(Typ: TExpressionNodeType; Token: TToken_P);
 Begin
  StackPush(Typ, null, Token);
 End;
 
-{ TInterpreter.StackPop }
-Function TInterpreter.StackPop: TStackValue;
+{ TExpressionParser.StackPop }
+Function TExpressionParser.StackPop: TStackValue;
 Begin
  if (StackPos <= 0) Then
-  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
+  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
 
  Dec(StackPos);
  Result := Stack[StackPos];
 End;
 
-{ TInterpreter.StackPeek }
-Function TInterpreter.StackPeek: TStackValue;
+{ TExpressionParser.StackPeek }
+Function TExpressionParser.StackPeek: TStackValue;
 Begin
  if (StackPos <= 0) Then
-  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
+  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
 
  Result := Stack[StackPos-1];
 End;
 
-{ TInterpreter.FinalExprPush }
-Procedure TInterpreter.FinalExprPush(Val: TStackValue);
+{ TExpressionParser.FinalExprPush }
+Procedure TExpressionParser.FinalExprPush(Val: TStackValue);
 Begin
  FinalExpr[FinalExprPos] := Val;
  Inc(FinalExprPos);
 End;
 
-{ TInterpreter.FinalExprPush }
-Procedure TInterpreter.FinalExprPush(Typ: TExpressionNodeType; Value: Variant; Token: TToken_P; Namespace: TNamespace=nil);
+{ TExpressionParser.FinalExprPush }
+Procedure TExpressionParser.FinalExprPush(Typ: TExpressionNodeType; Value: Variant; Token: TToken_P; Namespace: TNamespace=nil);
 Var Val: TStackValue;
 Begin
  Val.Typ       := Typ;
@@ -538,27 +540,27 @@ Begin
  FinalExprPush(Val);
 End;
 
-{ TInterpreter.FinalExprPop }
-Function TInterpreter.FinalExprPop: TStackValue;
+{ TExpressionParser.FinalExprPop }
+Function TExpressionParser.FinalExprPop: TStackValue;
 Begin
  if (FinalExprPos <= 0) Then
-  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
+  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
 
  Dec(FinalExprPos);
  Result := FinalExpr[FinalExprPos];
 End;
 
-{ TInterpreter.FinalExprPeek }
-Function TInterpreter.FinalExprPeek: TStackValue;
+{ TExpressionParser.FinalExprPeek }
+Function TExpressionParser.FinalExprPeek: TStackValue;
 Begin
  if (FinalExprPos <= 0) Then
-  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
+  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
 
  Result := FinalExpr[FinalExprPos-1];
 End;
 
-{ TInterpreter.CreateNode }
-Function TInterpreter.CreateNode(Left, Right: PExpressionNode; Typ: TExpressionNodeType; Value: Variant; Token: TToken_P): PExpressionNode;
+{ TExpressionParser.CreateNode }
+Function TExpressionParser.CreateNode(Left, Right: PExpressionNode; Typ: TExpressionNodeType; Value: Variant; Token: TToken_P): PExpressionNode;
 Begin
  New(Result);
 
@@ -575,8 +577,8 @@ Begin
  SetLength(Result^.SSA.Values, 0);
 End;
 
-{ TInterpreter.Create }
-Constructor TInterpreter.Create(fCompiler: TCompiler);
+{ TExpressionParser.Create }
+Constructor TExpressionParser.Create(fCompiler: TCompiler);
 Begin
  Compiler := fCompiler;
 
@@ -587,8 +589,8 @@ Begin
  FinalExprPos := 0;
 End;
 
-{ TInterpreter.Parse }
-Procedure TInterpreter.Parse(EndTokens: TTokenSet);
+{ TExpressionParser.Parse }
+Procedure TExpressionParser.Parse(EndTokens: TTokenSet);
 Var Token: TToken_P;
 
     Str   : String;
@@ -612,18 +614,18 @@ Var Token: TToken_P;
       Token          : TToken_P;
   Begin
    Result  := 1;
-   TmpPos  := Compiler.Parser.getPosition;
+   TmpPos  := Compiler.getScanner.getPosition;
    Bracket := 0; { bracket level/deep }
 
-   if (Compiler.Parser.next_t(0) = _BRACKET1_CL) Then { func() }
+   if (Compiler.getScanner.next_t(0) = _BRACKET1_CL) Then { func() }
     Exit(0);
 
-   With Compiler.Parser do
+   With Compiler.getScanner do
     Dec(TokenPos);
 
    While (true) Do
    Begin
-    Token := Compiler.Parser.read;
+    Token := Compiler.getScanner.read;
     Case Token.Token of
      _BRACKET1_OP: Inc(Bracket);
      _BRACKET1_CL: Begin
@@ -638,7 +640,7 @@ Var Token: TToken_P;
     End;
    End;
 
-   Compiler.Parser.TokenPos := TmpPos;
+   Compiler.getScanner.TokenPos := TmpPos;
   End;
 
   { is_a_post_operator }
@@ -648,7 +650,7 @@ Var Token: TToken_P;
    Result := False;
    Pos    := -2;
 
-   With Compiler.Parser do
+   With Compiler.getScanner do
     Case next_t(Pos) of
      _IDENTIFIER : Exit(True);
      _BRACKET2_CL:
@@ -673,7 +675,7 @@ Var Token: TToken_P;
 
 { function's body }
 Begin
-With Compiler, Parser do
+With Compiler, getScanner do
 Begin
  StackPos          := 0;
  FinalExprPos      := 0;
@@ -1046,8 +1048,8 @@ Begin
 End;
 End;
 
-(* TInterpreter.MakeTree *)
-Function TInterpreter.MakeTree: PExpressionNode;
+(* TExpressionParser.MakeTree *)
+Function TExpressionParser.MakeTree: PExpressionNode;
 Var Pos, I: Integer;
     Value : TStackValue;
     MType : TExpressionNodeType;
@@ -1236,17 +1238,17 @@ Begin
  Result := CreateNodeFromStack;
 
  if (StackPos <> 0) Then
-  Compiler.CompileError(Compiler.Parser.next(-1), eInvalidExpression, []);
+  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
 End;
 
 // ---------- </> ---------- //
 
 { MakeExpression }
 Function MakeExpression(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): PExpressionNode;
-Var Compiler   : TCompiler absolute CompilerPnt;
-    Interpreter: TInterpreter;
+Var Compiler: TCompiler absolute CompilerPnt;
+    Parser  : TExpressionParser;
 Begin
- Interpreter := TInterpreter.Create(Compiler);
+ Parser := TExpressionParser.Create(Compiler);
 
  Try
   if (oGetFromCommandLine in Options) Then
@@ -1257,15 +1259,15 @@ Begin
     Options += [oInsertConstants, oConstantFolding];
   End;
 
-  Interpreter.Parse(EndTokens);
+  Parser.Parse(EndTokens);
 
-  Result := Interpreter.MakeTree;//Interpreter.Optimize(Interpreter.MakeTree, Options);
+  Result := Parser.MakeTree;
 
   {$IFDEF DISPLAY_TREE}
    DisplayTree(Result);
   {$ENDIF}
  Finally
-  Interpreter.Free;
+  Parser.Free;
  End;
 End;
 

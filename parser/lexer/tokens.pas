@@ -208,37 +208,41 @@ Unit Tokens;
   ''
  );
 
+ { TToken_P }
  Type PToken_P = ^TToken_P;
-      TToken_P = Record
-                  Token               : TToken;
-                  TokenName           : String;
-                  Value               : Variant;
-                  Position, Line, Char: LongWord;
-                 End;
+      TToken_P =
+      Record
+       Token    : TToken;
+       TokenName: String;
 
- Function getTokenName(T: TToken): String;
- Function getTokenDisplay(T: TToken): String;
- Function isKeyword(S: String): Boolean;
- Function KeywordToToken(S: String): TToken;
+       Value: Variant;
+
+       Position, Line, Char: uint32;
+      End;
+
+ Function getTokenName(const T: TToken): String;
+ Function getTokenDisplay(const T: TToken): String;
+ Function isKeyword(const S: String): Boolean;
+ Function KeywordToToken(const S: String): TToken;
  
  Implementation
 
 (* getTokenName *)
 {
- Gets token name.
+ Returns token name.
  Eg. for token `>` returns '_GREATER'
 }
-Function getTokenName(T: TToken): String;
+Function getTokenName(const T: TToken): String;
 Begin                                         
  Result := getEnumName(TypeInfo(TToken), ord(T));
 End;
 
 (* getTokenDisplay *)
 {
- Returns how a token looks in code.
+ Returns ASCII representation of token.
  Eg.for token `_GREATER` returns '>'
 }
-Function getTokenDisplay(T: TToken): String;
+Function getTokenDisplay(const T: TToken): String;
 Begin
  Result := Token_Display[T];
 End;
@@ -247,24 +251,21 @@ End;
 {
  Returns `true` when passed string is a keyword.
 }
-Function isKeyword(S: String): Boolean;
-Var I: Integer;
+Function isKeyword(const S: String): Boolean;
+Var Str: String;
 Begin
  Result := False;
 
- For I := Low(Keywords) To High(Keywords) Do
-  if (Keywords[I] = S) Then
-  Begin
-   Result := True;
-   Exit;                               
-  End;
+ For Str in Keywords Do
+  if (Str = S) Then
+   Exit(True);
 End;
 
 (* KeywordToToken *)
 {
  Converts a keyword into token; when no such token can be found returns `noToken`.
 }
-Function KeywordToToken(S: String): TToken;
+Function KeywordToToken(const S: String): TToken;
 Var I, Q: Integer;
 Begin
  Result := noToken;

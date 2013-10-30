@@ -250,7 +250,7 @@ Begin
       Begin
        Writeln;
        Writeln('File name: ', InputFile);
-       Writeln('Line     : ', Parser.getToken(Parser.getPosition).Line);
+       Writeln('Line     : ', getScanner.getToken(getScanner.getPosition).Line);
 
        if (getCurrentFunction <> nil) Then
        Begin

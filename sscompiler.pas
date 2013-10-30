@@ -6,7 +6,7 @@ Unit SSCompiler;
 
  Interface
  Uses Classes, SysUtils, Variants, FGL, Math, FlowGraph,
-      Parser, Tokens, CompilerUnit, Opcodes, Messages, Expression, symdef,
+      Scanner, Tokens, CompilerUnit, Opcodes, Messages, Expression, symdef,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include,
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW, Parse_FOREACH;
 
@@ -38,9 +38,10 @@ Unit SSCompiler;
         Procedure CompileAsBytecode;
         Procedure SaveBytecode(const FileName: String);
 
-       Public { fields }
-        Parser: TParser; // code parser instance; @TODO: getParser() property?
+       Private { fields }
+        Scanner: TScanner; // code scanner instance
 
+       Public { fields }
         AnyError: Boolean; // 'true' if any error (`CompileError()`) was raised, 'false' otherwise.
 
         fCurrentRoot: TCFGNode; // when equal 'nil', nodes added by `CFGAddNode` will be added to current function's flow graph. Otherwise - to this.
@@ -82,6 +83,8 @@ Unit SSCompiler;
         Function getCurrentNode: TCFGNode;
 
          Property getCurrentFunction: TFunction read CurrentFunction;
+
+         Property getScanner: TScanner read Scanner;
 
         Public { methods }
          Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
@@ -237,7 +240,7 @@ Var Compiler2: BCCompiler.TCompiler;
 Begin
  Log('-> Compiling as bytecode');
 
- With Parser do
+ With Scanner do
   if (next_t <> _BRACKET3_OP) Then
    CompileError(eExpected, ['{', next.Value]);
 
@@ -460,7 +463,7 @@ End;
 
 (* TCompiler.ParseToken *)
 {
- Parses current token (basing on current parser scope)
+ Parses current token (basing on current scanner's scope)
 }
 Procedure TCompiler.ParseToken;
 
@@ -473,7 +476,7 @@ Var Token : TToken_P;
     TmpVis: TVisibility;
     Node  : TCFGNode;
 Begin
- With Parser do
+ With Scanner do
  Begin
   Token := read;
 
@@ -555,7 +558,7 @@ End;
 Procedure TCompiler.SkipCodeBlock;
 Var Deep: Integer = 0;
 Begin
- With Parser do
+ With Scanner do
  Begin
   Repeat
    Case read_t of
@@ -582,7 +585,7 @@ End;
 Procedure TCompiler.ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
 Var Deep: Integer;
 Begin
- With Parser do
+ With Scanner do
  Begin
   if (next_t <> _BRACKET3_OP) Then
    if (AllowOneTokenOnly) Then
@@ -632,7 +635,7 @@ Begin
  DoCheck := (fToken <> nil); // check only bytecode written by user
 
  if (fToken = nil) Then
-  fToken := Parser.next_pnt;
+  fToken := Scanner.next_pnt;
 
  New(Item);
  With Item^ do
@@ -872,7 +875,7 @@ Begin
 //  if (DoNotGenerateCode) Then
 //   Exit;
 
-  Node                     := TCFGNode.Create(fCurrentNode, cetBytecode, nil, Parser.next_pnt(-1));
+  Node                     := TCFGNode.Create(fCurrentNode, cetBytecode, nil, Scanner.next_pnt(-1));
   Node.Bytecode.OpcodeName := '';
   Node.Bytecode.LabelName  := fName;
 
@@ -994,7 +997,7 @@ End;
 Function TCompiler.inRange(Range: TRange; Position: Int64): Boolean;
 Begin
  if (Position < 0) Then
-  Position := Parser.next(-1).Position;
+  Position := Scanner.next(-1).Position;
 
  Exit(Math.inRange(Position, Range.PBegin.Position, Range.PEnd.Position));
 End;
@@ -1017,7 +1020,7 @@ Begin
    Begin
     Typ           := fTyp;
     Attributes    := fAttributes;
-    Range         := Parser.getCurrentRange;
+    Range         := Scanner.getCurrentRange;
     DeclNamespace := getCurrentNamespace;
     DeclFunction  := getCurrentFunction;
 
@@ -1146,7 +1149,7 @@ End;
 
 (* TCompiler.inFunction *)
 {
- Return `true` when parser is inside any function, or `false` when it's outside.
+ Return `true` when scanner is inside any function, or `false` when it's outside.
 }
 Function TCompiler.inFunction: Boolean;
 Begin
@@ -1264,8 +1267,8 @@ Procedure TCompiler.RedeclarationCheck(Name: String; const SkipNamespaces: Boole
 Var Symbol: TSymbol;
 Begin
  if (inFunction) Then
-  Symbol := getCurrentFunction.findSymbol(Name, Parser.next(-1)) Else
-  Symbol := getCurrentNamespace.findSymbol(Name, Parser.next(-1));
+  Symbol := getCurrentFunction.findSymbol(Name, Scanner.next(-1)) Else
+  Symbol := getCurrentNamespace.findSymbol(Name, Scanner.next(-1));
 
  if (Symbol <> nil) Then // symbol found?
  Begin
@@ -1436,7 +1439,7 @@ Var Compiler2: BCCompiler.TCompiler;
     { ResetParser }
     Procedure ResetParser;
     Begin
-     With Parser do
+     With Scanner do
      Begin
       TokenPos   := 0;
       Visibility := mvPrivate;
@@ -1450,8 +1453,8 @@ Var Compiler2: BCCompiler.TCompiler;
      ResetParser;
      CompilePass := _cp1;
 
-     With Parser do
-      While (Parser.Can) Do
+     With Scanner do
+      While (Can) Do
        ParseToken;
     End;
 
@@ -1462,8 +1465,8 @@ Var Compiler2: BCCompiler.TCompiler;
      ResetParser;
      CompilePass := _cp2;
 
-     With Parser do
-      While (Parser.Can) Do
+     With Scanner do
+      While (Can) Do
        ParseToken;
     End;
 
@@ -1490,12 +1493,12 @@ Begin
   Log('Module: '+InputFile) Else
   Log('Main file: '+InputFile+' => '+OutputFile);
 
- Parser := TParser.Create(self, InputFile, UnfinishedComment);
+ Scanner := TScanner.Create(self, InputFile, UnfinishedComment);
  ResetParser;
 
  if (UnfinishedComment) Then
  Begin
-  CompileError(Parser.getLastToken, eUnfinishedComment, []);
+  CompileError(Scanner.getLastToken, eUnfinishedComment, []);
   Exit;
  End;
 
@@ -1553,8 +1556,8 @@ Begin
   { create symbol list }
   CreateSymbols;
 
-  { clear parser variables }
-  Parser.CurrentDeep := 0;
+  { clear scanner variables }
+  Scanner.CurrentDeep := 0;
 
   { compile code }
   Pass1;
@@ -1648,7 +1651,7 @@ End;
 }
 Procedure TCompiler.CompileError(Error: TCompileError; Args: Array of Const);
 Begin
- CompileError(Parser.next(0), Error, Args);
+ CompileError(Scanner.next(0), Error, Args);
 End;
 
 (* TCompiler.CompileError *)
@@ -1686,7 +1689,7 @@ End;
 }
 Procedure TCompiler.CompileWarning(Warning: TCompileWarning; Args: Array of Const);
 Begin
- CompileWarning(Parser.next(0), Warning, Args);
+ CompileWarning(Scanner.next(0), Warning, Args);
 End;
 
 (* TCompiler.CompileWarning *)
@@ -1724,7 +1727,7 @@ End;
 }
 Procedure TCompiler.CompileHint(Hint: TCompileHint; Args: Array of Const);
 Begin
- CompileHint(Parser.next(0), Hint, Args);
+ CompileHint(Scanner.next(0), Hint, Args);
 End;
 
 (* TCompiler.CompileHint *)
@@ -1762,7 +1765,7 @@ End;
 }
 Procedure TCompiler.CompileNote(Note: TCompileNote; Args: Array of Const);
 Begin
- CompileNote(Parser.next(0), Note, Args);
+ CompileNote(Scanner.next(0), Note, Args);
 End;
 
 (* TCompiler.CompileNote *)

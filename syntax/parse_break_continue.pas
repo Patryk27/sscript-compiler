@@ -8,7 +8,7 @@ Begin
  For I := High(Scope) Downto Low(Scope) Do
   if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
   Begin
-   Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
+   Node := TCFGNode.Create(getCurrentNode, Scanner.next_pnt);
 
    With Node do
    Begin
@@ -26,7 +26,7 @@ Begin
 
    CFGAddNode(Node);
 
-   Parser.eat(_SEMICOLON);
+   Scanner.eat(_SEMICOLON);
    Exit;
   End;
 
@@ -41,7 +41,7 @@ Begin
  For I := High(Scope) Downto Low(Scope) Do
   if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
   Begin
-   Node := TCFGNode.Create(getCurrentNode, Parser.next_pnt);
+   Node := TCFGNode.Create(getCurrentNode, Scanner.next_pnt);
 
    With Node do
    Begin
@@ -59,7 +59,7 @@ Begin
 
    CFGAddNode(Node);
 
-   Parser.eat(_SEMICOLON);
+   Scanner.eat(_SEMICOLON);
    Exit;
   End;
 

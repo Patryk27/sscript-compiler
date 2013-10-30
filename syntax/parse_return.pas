@@ -11,18 +11,18 @@ Unit Parse_RETURN;
  Implementation
 Uses SSCompiler, ExpressionCompiler, Tokens, FlowGraph;
 
-{ Parse }
+(* Parse *)
 Procedure Parse(Compiler: Pointer);
 Begin
-With TCompiler(Compiler), Parser do
-Begin
- if (next_t = _SEMICOLON) Then // `return;` (aka "void return")
+ With TCompiler(Compiler), getScanner do
  Begin
-  CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, nil, next_pnt));
- End Else // `return expression;`
- Begin
-  CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, MakeExpression(TCompiler(Compiler))));
+  if (next_t = _SEMICOLON) Then // `return;` (aka "void return")
+  Begin
+   CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, nil, next_pnt));
+  End Else // `return expression;`
+  Begin
+   CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, MakeExpression(TCompiler(Compiler))));
+  End;
  End;
-End;
 End;
 End.

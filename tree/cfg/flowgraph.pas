@@ -693,7 +693,7 @@ Var Compiler        : TCompiler absolute CompilerPnt;
     isThereAnyReturn := True; // otherwise the message below would be shown 2 times instead of one
 
     if (not isVoidOrNaked) Then
-     Compiler.CompileWarning(Compiler.Parser.next_pnt(-1), wNotEveryPathReturnsAValue, []);
+     Compiler.CompileWarning(Compiler.getScanner.next_pnt(-1), wNotEveryPathReturnsAValue, []);
    End;
 
    { if condition }
@@ -736,7 +736,7 @@ Begin
   Visit(Root, nil);
 
   if (not isVoidOrNaked) and (not isThereAnyReturn) Then
-   Compiler.CompileWarning(Compiler.Parser.next_pnt(-1), wNotEveryPathReturnsAValue, []);
+   Compiler.CompileWarning(Compiler.getScanner.next_pnt(-1), wNotEveryPathReturnsAValue, []);
  Finally
   VisitedNodes.Free;
  End;

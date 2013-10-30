@@ -5,7 +5,7 @@ Procedure ParseMacro_Outside;
   Procedure _visibility;
   Var Str: String;
   Begin
-   With Parser do
+   With Scanner do
    Begin
     Str := read.Value;
     Case Str of
@@ -19,7 +19,7 @@ Procedure ParseMacro_Outside;
 Var Name: String;
 Begin
  { read identifier }
- With Parser do
+ With Scanner do
   if (next_t = _IDENTIFIER) Then
   Begin
    Name := read_ident;

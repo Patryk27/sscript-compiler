@@ -2,13 +2,13 @@
  Copyright © by Patryk Wychowaniec, 2013
  All rights reserved.
 *)
-Unit Scanner;
+Unit Lexer;
 
  Interface
  Uses Tokens, SysUtils, Classes;
 
- { TScanner }
- Type TScanner = Class
+ { TLexer }
+ Type TLexer = Class
                   Private
                    Code    : String;
                    Position: Int64;
@@ -33,11 +33,11 @@ Unit Scanner;
  Implementation
 Const NewlineChar = #13;
 
-(* TScanner.__readChar *)
+(* TLexer.__readChar *)
 {
  Reads a single char which may be - when 'AllowEscaping = true' - escaped, eg.: `\0xA` or `\\`
 }
-Function TScanner.__readChar(out NewLine, Escaped: Boolean; const AllowEscaping: Boolean=False): Char;
+Function TLexer.__readChar(out NewLine, Escaped: Boolean; const AllowEscaping: Boolean=False): Char;
 Var C  : Char;
     Tmp: String;
 Label Now1, Now2;
@@ -126,22 +126,22 @@ Begin
  End;
 End;
 
-(* TScanner.__readCharN *)
+(* TLexer.__readCharN *)
 {
  Works like `__readChar`, but do not require the "Escaped" parameter (variable) to be given.
 }
-Function TScanner.__readCharN(out NewLine: Boolean; const AllowEscaping: Boolean=False): Char;
+Function TLexer.__readCharN(out NewLine: Boolean; const AllowEscaping: Boolean=False): Char;
 Var Escaped: Boolean;
 Begin
  Result := __readChar(NewLine, Escaped, AllowEscaping);
 End;
 
-(* TScanner.__readString *)
+(* TLexer.__readString *)
 {
  Reads a string.
  'Ch' should be `"` or `'`, depending on string to be read.
 }
-Function TScanner.__readString(out OK: Boolean; const Ch: Char): String;
+Function TLexer.__readString(out OK: Boolean; const Ch: Char): String;
 Var C          : Char;
     NL, Escaped: Boolean;
 Begin
@@ -162,11 +162,11 @@ Begin
   OK := False;
 End;
 
-(* TScanner.__readIdentifier *)
+(* TLexer.__readIdentifier *)
 {
  Reads an identifier.
 }
-Function TScanner.__readIdentifier: String;
+Function TLexer.__readIdentifier: String;
 Var Ch     : Char;
     Newline: Boolean;
 Begin
@@ -186,11 +186,11 @@ Begin
  Dec(Position);
 End;
 
-(* TScanner.__readNumber *)
+(* TLexer.__readNumber *)
 {
  Reads a decimal integer or float number.
 }
-Function TScanner.__readNumber(out OK, isFloat: Boolean; out Str: String): Extended;
+Function TLexer.__readNumber(out OK, isFloat: Boolean; out Str: String): Extended;
 Var Ch             : Char;
     Newline, Dot, E: Boolean;
 Begin
@@ -244,11 +244,11 @@ Begin
  Dec(Position);
 End;
 
-(* TScanner.__readHexNumber *)
+(* TLexer.__readHexNumber *)
 {
  Reads a hexadecimal integer number.
 }
-Function TScanner.__readHexNumber(out OK: Boolean; out Str: String): Int64;
+Function TLexer.__readHexNumber(out OK: Boolean; out Str: String): Int64;
 Var Ch     : Char;
     Newline: Boolean;
     ValCode: Integer;
@@ -273,11 +273,11 @@ Begin
  Dec(Position);
 End;
 
-(* TScanner.getToken *)
+(* TLexer.getToken *)
 {
  Reads a token.
 }
-Function TScanner.getToken: TToken;
+Function TLexer.getToken: TToken;
 Var C1, C2, C3: Char;
     NL        : Boolean;
 
@@ -466,11 +466,11 @@ Begin
 End;
 
 // -------------------------------------------------------------------------- //
-(* TScanner.Create *)
+(* TLexer.Create *)
 {
  Tokenizes code given in `TStringList`.
 }
-Constructor TScanner.Create(Lines: TStringList);
+Constructor TLexer.Create(Lines: TStringList);
 Var I: Integer;
 Begin
  Code := '';
@@ -481,11 +481,11 @@ Begin
  Position := 1; // `string` is iterated from `1`
 End;
 
-(* TScanner.getToken_P *)
+(* TLexer.getToken_P *)
 {
  Reads a token.
 }
-Function TScanner.getToken_P: TToken_P;
+Function TLexer.getToken_P: TToken_P;
 
   // getLine
   Function getLine: LongWord;
@@ -610,11 +610,11 @@ Begin
   Result.Char += 1;
 End;
 
-(* TScanner.Can *)
+(* TLexer.Can *)
 {
  Returns 'true', if there's at least one token to be read.
 }
-Function TScanner.Can: Boolean;
+Function TLexer.Can: Boolean;
 Begin
  Result := (Position < Length(Code));
 End;

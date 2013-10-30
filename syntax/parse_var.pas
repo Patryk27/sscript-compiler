@@ -26,7 +26,7 @@ Var Compiler: TCompiler absolute CompilerPnt;
   Procedure ReadDimension(const Dimension: uint8);
   Var ElementCount: uint32 = 0;
   Begin
-   With Compiler, Parser do
+   With Compiler, getScanner do
    Begin
     if (Dimension >= DimCount) Then
      DimCount := Dimension;
@@ -92,7 +92,7 @@ Begin
   Compiler.CompileError(eInvalidArrayInitializer, [DimCount, Variable.Typ.ArrayDimCount]);
 
  { add node to the flowgraph }
- Node                            := TCFGNode.Create(Compiler.fCurrentNode, cetArrayInitializer, nil, Compiler.Parser.getTokenPnt(Compiler.Parser.getPosition));
+ Node                            := TCFGNode.Create(Compiler.fCurrentNode, cetArrayInitializer, nil, Compiler.getScanner.getTokenPnt(Compiler.getScanner.getPosition));
  Node.ArrayInitializer.VarSymbol := Symbol;
  Node.ArrayInitializer.Values    := Values;
  Node.ArrayInitializer.DimSizes  := DimSizes;
@@ -107,7 +107,7 @@ Var Compiler  : TCompiler absolute CompilerPnt;
     Variable  : TVariable;
     VarType   : TType;
 Begin
- With Compiler, Parser do
+ With Compiler, getScanner do
  Begin
   if (not ((CompilePass = _cp1) or (inFunction))) Then // variables are parsed in the first pass or inside a function
   Begin
