@@ -7,59 +7,60 @@ Unit Lexer;
  Interface
  Uses Tokens, SysUtils, Classes;
 
- { TLexer }
- Type TLexer = Class
-                  Private
-                   Code    : String;
-                   Position: Int64;
+ (* TLexer *)
+ Type TLexer =
+      Class
+       Private
+        Input   : String;
+        Position: uint32;
 
-                   Function __readChar(out NewLine, Escaped: Boolean; const AllowEscaping: Boolean=False): Char;
-                   Function __readCharN(out NewLine: Boolean; const AllowEscaping: Boolean=False): Char;
-                   Function __readString(out OK: Boolean; const Ch: Char): String;
-                   Function __readIdentifier: String;
-                   Function __readNumber(out OK, isFloat: Boolean; out Str: String): Extended;
-                   Function __readHexNumber(out OK: Boolean; out Str: String): Int64;
+       Private
+        Function __readChar(out NewLine, Escaped: Boolean; const AllowEscaping: Boolean=False): Char;
+        Function __readCharN(out NewLine: Boolean; const AllowEscaping: Boolean=False): Char;
+        Function __readString(out OK: Boolean; const Ch: Char): String;
+        Function __readIdentifier: String;
+        Function __readNumber(out OK, isFloat: Boolean; out Str: String): Extended;
+        Function __readHexNumber(out OK: Boolean; out Str: String): Int64;
 
-                   Function getToken: TToken;
+        Function getToken: TToken;
 
-                  Public
-                   Constructor Create(Lines: TStringList);
+       Public
+        Constructor Create(Lines: TStringList);
 
-                   Function getToken_P: TToken_P;
-
-                   Function Can: Boolean;
-                 End;
+        Function getToken_P: TToken_P;
+        Function Can: Boolean;
+       End;
 
  Implementation
-Const NewlineChar = #13;
+Const NewlineChar = #13; // this can be pretty any char, except that printable ones - it doesn't depend on any system settings
 
 (* TLexer.__readChar *)
 {
  Reads a single char which may be - when 'AllowEscaping = true' - escaped, eg.: `\0xA` or `\\`
 }
 Function TLexer.__readChar(out NewLine, Escaped: Boolean; const AllowEscaping: Boolean=False): Char;
-Var C  : Char;
+Var Ch : Char;
     Tmp: String;
-Label Now1, Now2;
+    OK : Boolean;
 Begin
  NewLine := False;
  Escaped := False;
 
- Result := Code[Position];
+ Result := Input[Position];
  Inc(Position);
 
- if (Result = NewlineChar) Then // newline
+ if (Result = NewlineChar) Then // if encountered the newline character
  Begin
   NewLine := True;
   Exit;
  End;
 
- if (Result = '\') and (AllowEscaping) Then // char escape (`\0`, `\0x512` etc.)
+ if (Result = '\') and (AllowEscaping) Then // read an escaped char, if allowed
  Begin
-  C       := __readCharN(NewLine);
+  Ch      := __readCharN(NewLine);
   Escaped := True;
 
-  Case C of
+  Case Ch of // possible char escapes: \n, \r, \t, \v, \f
    'n': Exit(#$0A);
    'r': Exit(#$0D);
    't': Exit(#$09);
@@ -67,62 +68,45 @@ Begin
    'f': Exit(#$0C);
   End;
 
-  if (C in ['0'..'9']) Then // read a number
+  if (Ch in ['0'..'9']) Then // read an escaped decimal number-char, like: \40
   Begin
-   Tmp := C;
+   Tmp := Ch;
 
-   C := __readCharN(NewLine);
+   Ch := __readCharN(NewLine);
    if (NewLine) Then
     Exit(#0);
 
-   { read a hexadecimal number }
-   if (C = 'x') Then { 0x ... }
+   if (Ch = 'x') Then // hexadecimal number: \0xnumber
    Begin
-    // @TODO: __readHexNumber?
-
-    While (true) Do
-    Begin
-     C := __readCharN(NewLine);
-
-     if (NewLine) Then
-      goto Now1;
-
-     if not (C in ['0'..'9', 'a'..'f', 'A'..'F']) Then
-      Break Else
-      Tmp += C;
-    End;
-
-   Now1:
-    Dec(Position);
-    Exit(chr(StrToInt('$'+Trim(Tmp))));
+    Exit(chr(__readHexNumber(OK, Tmp)));
    End Else
 
-   { read a decimal number }
-   Begin
-    // @TODO: __readNumber?
+   Begin // decimal number: \number
+//    Dec(Position); ?
 
-    if (C in ['0'..'9']) Then
-     Tmp += C Else
+    if (Ch in ['0'..'9']) Then
+     Tmp += Ch Else
      Dec(Position);
 
     While (true) Do
     Begin
-     C := __readCharN(NewLine);
+     Ch := __readCharN(NewLine);
 
      if (NewLine) Then
-      goto Now2;
+      Break;
 
-     if not (C in ['0'..'9']) Then
-      Break Else
-      Tmp += C;
+     if (Ch in ['0'..'9']) Then
+      Tmp += Ch Else
+      Break;
     End;
 
-   Now2:
     Dec(Position);
     Exit(chr(StrToInt(Trim(Tmp))));
    End;
   End Else
-   Exit(C);
+  Begin
+   Exit(Ch);
+  End;
  End;
 End;
 
@@ -138,8 +122,8 @@ End;
 
 (* TLexer.__readString *)
 {
- Reads a string.
- 'Ch' should be `"` or `'`, depending on string to be read.
+ Reads a string literal.
+ 'Ch' should be `"` or `'`, depending on literal to be read.
 }
 Function TLexer.__readString(out OK: Boolean; const Ch: Char): String;
 Var C          : Char;
@@ -299,11 +283,11 @@ Begin
  C1 := __readCharN(NL); // first token char
 
  if (not NL) Then // second token char (if possible)
-  C2 := Code[Position] Else
+  C2 := Input[Position] Else
   C2 := #0;
 
  if (not NL) Then // third token char (if possible)
-  C3 := Code[Position+1] Else
+  C3 := Input[Position+1] Else
   C3 := #0;
 
  if (C1 in [' ', NewlineChar]) Then // skip spaces and newlines
@@ -473,10 +457,10 @@ End;
 Constructor TLexer.Create(Lines: TStringList);
 Var I: Integer;
 Begin
- Code := '';
+ Input := '';
 
  For I := 0 To Lines.Count-1 Do
-  Code += Lines[I] + NewlineChar;
+  Input += Lines[I] + NewlineChar;
 
  Position := 1; // `string` is iterated from `1`
 End;
@@ -487,25 +471,25 @@ End;
 }
 Function TLexer.getToken_P: TToken_P;
 
-  // getLine
+  { getLine }
   Function getLine: LongWord;
   Var I: LongWord;
   Begin
    Result := 1;
 
    For I := 1 To Position-1 Do
-    if (Code[I] = NewlineChar) Then
+    if (Input[I] = NewlineChar) Then
      Inc(Result);
   End;
 
-  // getChar
+  { getChar }
   Function getChar: LongWord;
   Var I: LongWord;
   Begin
    Result := 0;
 
    For I := Position-1 Downto 1 Do
-    if (Code[I] = NewlineChar) Then
+    if (Input[I] = NewlineChar) Then
      Exit Else
      Inc(Result);
   End;
@@ -603,7 +587,7 @@ Begin
   Result.Value := getTokenDisplay(Result.Token);
 
   if (Result.Value = '') Then
-   Result.Value := Code[Result.Position];
+   Result.Value := Input[Result.Position];
  End;
 
  if (not ((Result.Token in [_IDENTIFIER, _STRING, _INVALID_STRING]) or (isKeyword(Result.Value)))) Then
@@ -616,6 +600,6 @@ End;
 }
 Function TLexer.Can: Boolean;
 Begin
- Result := (Position < Length(Code));
+ Result := (Position < Length(Input));
 End;
 End.
