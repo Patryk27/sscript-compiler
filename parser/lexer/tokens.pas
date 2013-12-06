@@ -7,7 +7,7 @@ Unit Tokens;
  Interface
  Uses TypInfo;                                                    
 
- Const IdentAllowed = ['a'..'z', 'A'..'Z', '0'..'9', '_'];
+ Const IdentAllowed = ['a'..'z', 'A'..'Z', '0'..'9', '_']; // chars allowed in identifiers; don't change it if you don't know what you're doing.
  Const Keywords     : Array[0..25] of String = ('function', 'var', 'const', 'return', 'naked', 'for', 'if', 'else', 'while', 'break', 'continue',
                                                 'in', 'do', 'public', 'private', 'type', 'new', 'namespace', 'use', 'cast', 'strict', 'try',
                                                 'catch', 'throw', 'enum', 'foreach');

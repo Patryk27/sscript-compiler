@@ -95,6 +95,7 @@ Begin
   (* do some control-flow-graph magic *)
   CFGAddNode(Foreach);
   Foreach.Child.Add(Content);
+  Foreach.Child.Add(EndNode);
 
   EndNode.Parent := fCurrentNode;
   fCurrentNode   := EndNode;

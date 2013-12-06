@@ -81,7 +81,7 @@ Unit Messages;
   'File not found: %s',
   'Default parameter value required for `%s`',
   'Invalid foreach construction (foreach-var and foreach-expr have the same types)',
-  'Variable of array type required',
+  'Variable of an array type required',
   'Expected %d fewer element(s)',
   'Expected %d more element(s)',
   'Invalid array initializer; got %dD array, expecting %d-dimensional',

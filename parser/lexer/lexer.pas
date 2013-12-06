@@ -179,6 +179,7 @@ Var Ch             : Char;
     Newline, Dot, E: Boolean;
 Begin
  Dec(Position);
+
  Result  := 0;
  Str     := '';
  OK      := True;

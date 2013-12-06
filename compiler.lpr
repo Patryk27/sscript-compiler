@@ -23,7 +23,7 @@
 {$ENDIF}
 
 {$IFDEF CPU64}
- {$FATAL 64-bit CPUs are not supported (yet)!} // (because of floating point operations)
+ {$FATAL 64-bit CPUs are not supported (yet)!} // (because of floating point type which is a bit different on x86-64)
 {$ENDIF}
 
 Program compiler;
