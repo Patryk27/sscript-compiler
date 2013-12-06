@@ -232,7 +232,7 @@ Begin
 
   With TCompiler(Compiler) do
   Begin
-   if (ParsingFORInitInstruction) Then // super special case: parsing a for init instruction.
+   if (ParsingFORInitInstruction or ParsingForeachHeader) Then // super special cases: parsing a "for" init instruction or parsing a "foreach" header
    Begin
     read_until(_BRACKET1_CL);
 
