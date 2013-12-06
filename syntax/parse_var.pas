@@ -22,7 +22,7 @@ Var Compiler: TCompiler absolute CompilerPnt;
 
     Node: TCFGNode;
 
-  // ReadDimension
+  { ReadDimension }
   Procedure ReadDimension(const Dimension: uint8);
   Var ElementCount: uint32 = 0;
   Begin

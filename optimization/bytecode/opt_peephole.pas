@@ -113,7 +113,7 @@ Begin
     Continue;
    End;
 
-   if (oCurrent.Compiler = nil) or (oNext.Compiler = nil) Then // don't optimize bytecode imported from libraries
+   if (oCurrent.Compiler = nil) or (oNext.Compiler = nil) Then // don't optimize bytecode imported from libraries (it could break labels' addresses)
    Begin
     Inc(Pos);
     Continue;
@@ -131,8 +131,7 @@ Begin
    End;
 
    {
-    mov(register, the same register)
-    mov(stackval, the same stackval)
+    mov(x, x)
     ->
     [nothing]
    }
@@ -179,9 +178,7 @@ Begin
    End;
 
    {
-     add(register, 0)
-    or
-     sub(register, 0)
+    add/sub(register, 0)
     ->
     [nothing]
    }
@@ -353,7 +350,7 @@ Begin
   End;
 
   OpcodeCount -= OpcodeList.Count;
-  Log('Peephole results: removed `'+IntToStr(abs(OpcodeCount))+'` opcodes');
+  Log('Peephole results: removed '+IntToStr(abs(OpcodeCount))+' opcodes');
  End;
 End;
 End.
