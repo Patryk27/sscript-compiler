@@ -7,61 +7,71 @@ Unit Opcodes;
  Interface
  Uses Tokens, symdef;
 
- Type TPrimaryType = (ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited to output bytecode (only for compiler internal usage)
+ { TPrimaryType }
+ Type TPrimaryType =
+      (
+       ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited to output bytecode (only for compiler internal usage)
 
-                      ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg,
-                      ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal, ptConstantMemRef,
+       ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg,
+       ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal, ptConstantMemRef,
 
-                      ptLabelAbsoluteReference, ptSymbolMemRef); // also for internal usage
+       ptLabelAbsoluteReference, ptSymbolMemRef // also for internal usage only
+      );
 
- Const PrimaryTypeNames: Array[TPrimaryType] of String =
-                     ('none', 'any', 'any reg',
-                      'bool reg', 'char reg', 'int reg', 'float reg', 'string reg', 'reference reg',
-                      'bool', 'char', 'int', 'float', 'string', 'stackval', 'constant memory reference',
-                      'label absolute reference', 'relocatable symbol memory reference');
+ Const PrimaryTypeNames:
+       Array[TPrimaryType] of String =
+       (
+        'none', 'any', 'any reg',
+        'bool reg', 'char reg', 'int reg', 'float reg', 'string reg', 'reference reg',
+        'bool', 'char', 'int', 'float', 'string', 'stackval', 'constant memory reference',
+        'label absolute reference', 'relocatable symbol memory reference'
+       );
 
- Type TRegister = Record
-                   Name: String;
-                   ID  : Integer;
-                   Typ : TPrimaryType;
-                  End;
+ { TRegister }
+ Type TRegister =
+      Record
+       Name: String;
+       ID  : uint8;
+       Typ : TPrimaryType;
+      End;
 
+ { RegisterList }
  Const RegisterCount = 26;
  Const RegisterList: Array[0..RegisterCount-1] of TRegister =
  (
-  (* ===== BOOLEAN ===== *)
+  (* ===== bool ===== *)
   (Name: 'eb1'; ID: 1; Typ: ptBool),
   (Name: 'eb2'; ID: 2; Typ: ptBool),
   (Name: 'eb3'; ID: 3; Typ: ptBool),
   (Name: 'eb4'; ID: 4; Typ: ptBool),
   (Name: 'if' ; ID: 5; Typ: ptBool),
 
-  (* ===== CHAR ===== *)
+  (* ===== char ===== *)
   (Name: 'ec1'; ID: 1; Typ: ptChar),
   (Name: 'ec2'; ID: 2; Typ: ptChar),
   (Name: 'ec3'; ID: 3; Typ: ptChar),
   (Name: 'ec4'; ID: 4; Typ: ptChar),
 
-  (* ===== INTEGER ===== *)
+  (* ===== int ===== *)
   (Name: 'ei1'; ID: 1; Typ: ptInt),
   (Name: 'ei2'; ID: 2; Typ: ptInt),
   (Name: 'ei3'; ID: 3; Typ: ptInt),
   (Name: 'ei4'; ID: 4; Typ: ptInt),
   (Name: 'stp'; ID: 5; Typ: ptInt),
 
-  (* ===== FLOAT ===== *)
+  (* ===== float ===== *)
   (Name: 'ef1'; ID: 1; Typ: ptFloat),
   (Name: 'ef2'; ID: 2; Typ: ptFloat),
   (Name: 'ef3'; ID: 3; Typ: ptFloat),
   (Name: 'ef4'; ID: 4; Typ: ptFloat),
 
-  (* ===== STRING ===== *)
+  (* ===== string ===== *)
   (Name: 'es1'; ID: 1; Typ: ptString),
   (Name: 'es2'; ID: 2; Typ: ptString),
   (Name: 'es3'; ID: 3; Typ: ptString),
   (Name: 'es4'; ID: 4; Typ: ptString),
 
-  (* ===== REFERENCE ===== *)
+  (* ===== reference ===== *)
   (Name: 'er1'; ID: 1; Typ: ptInt),
   (Name: 'er2'; ID: 2; Typ: ptInt),
   (Name: 'er3'; ID: 3; Typ: ptInt),
@@ -72,7 +82,7 @@ Unit Opcodes;
  Type TOpcode =
       Record
        Name  : String;
-       ParamC: Integer;
+       ParamC: uint8;
        ParamT: Array[0..2] of TPrimaryType;
       End;
 
@@ -230,22 +240,22 @@ Unit Opcodes;
   (Name: 'de'; ParamC: 1; ParamT: (ptFloat, ptNone, ptNone))
  );
 
- Operator = (A, B: TMOpcodeArg): Boolean;
- Function isValidOpcode(O: TMOpcode): Boolean;
- Function GetOpcodeID(Name: String): Integer;
- Function isRegisterName(Name: String): Boolean;
- Function getRegister(Name: String): TRegister;
+ Operator = (const A, B: TMOpcodeArg): Boolean;
+ Function isValidOpcode(const O: TMOpcode): Boolean;
+ Function GetOpcodeID(const Name: String): Integer;
+ Function isRegisterName(const Name: String): Boolean;
+ Function getRegister(const Name: String): TRegister;
 
  Implementation
 
 (* TMOpcodeArg = TMOpcodeArg *)
-Operator = (A, B: TMOpcodeArg): Boolean;
+Operator = (const A, B: TMOpcodeArg): Boolean;
 Begin
  Result := (A.Typ = B.Typ) and (A.Value = B.Value);
 End;
 
 (* OpcodeTypeCheck *)
-Function OpcodeTypeCheck(A, B: TPrimaryType): Boolean;
+Function OpcodeTypeCheck(const A, B: TPrimaryType): Boolean;
 Begin
  Result := (A=B);
 
@@ -268,14 +278,14 @@ Begin
 End;
 
 (* CheckMOV *)
-Function CheckMOV(A, B: TPrimaryType): Boolean;
+Function CheckMOV(const A, B: TPrimaryType): Boolean;
 Begin
  Result := OpcodeTypeCheck(A, B);
 End;
 
 (* isValidOpcode *)
-Function isValidOpcode(O: TMOpcode): Boolean;
-Var ID, I : Integer;
+Function isValidOpcode(const O: TMOpcode): Boolean;
+Var ID, I: Integer;
 Begin
  if (O.isLabel) or (O.isComment) Then
   Exit(True);
@@ -321,7 +331,7 @@ Begin
 End;
 
 (* GetOpcodeID *)
-Function GetOpcodeID(Name: String): Integer;
+Function GetOpcodeID(const Name: String): Integer;
 Var I: Integer;
 Begin
  Result := -1;
@@ -334,27 +344,21 @@ Begin
 End;
 
 (* isRegisterName *)
-Function isRegisterName(Name: String): Boolean;
-Var I: Integer;
+Function isRegisterName(const Name: String): Boolean;
+Var Reg: TRegister;
 Begin
- Result := False;
- For I := 0 To High(RegisterList) Do
-  if (RegisterList[I].Name = Name) Then
-  Begin
-   Result := True;
-   Exit;
-  End;
+ For Reg in RegisterList Do
+  if (Reg.Name = Name) Then
+   Exit(True);
+
+ Exit(False);
 End;
 
 (* getRegister *)
-Function getRegister(Name: String): TRegister;
-Var I: Integer;
+Function getRegister(const Name: String): TRegister;
 Begin
- For I := 0 To High(RegisterList) Do
-  if (RegisterList[I].Name = Name) Then
-  Begin
-   Result := RegisterList[I];
+ For Result in RegisterList Do
+  if (Result.Name = Name) Then
    Exit;
-  End;
 End;
 End.
