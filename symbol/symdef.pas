@@ -119,6 +119,8 @@ Unit symdef;
         Function isEnum: Boolean;
         Function isEnumItem: Boolean;
 
+        Function isSimple: Boolean;
+
         Function CanBeAssignedTo(T2: TType): Boolean;
         Function CanBeCastedTo(T2: TType): Boolean;
 
@@ -135,7 +137,7 @@ Unit symdef;
        Case Location: TVarLocation of
         vlRegister: (RegisterID: uint8); // 1..4
         vlStack   : (StackPosition: int8);
-        vlMemory  : (MemSymbolName: ShortString); // these types of variables are allocated by the linker; that's why there's "MemSymbolName" and not something like "MemoryAddress: uint32;"
+        vlMemory  : (MemSymbolName: ShortString); // these types of variables are allocated by the linker, that's why here's "MemSymbolName" rather that something like "MemoryAddress: uint32;"
        End;
 
  { TVariable }
@@ -237,7 +239,7 @@ Unit symdef;
        End;
 
  { TSymbol }
- Type TSymbolType = (stNamespace,  stFunction, stVariable, stConstant, stType);
+ Type TSymbolType = (stNamespace, stFunction, stVariable, stConstant, stType);
  Type TSymbol =
       Class (TRefSymbol)
        Public { fields }
@@ -787,6 +789,15 @@ Begin
   Exit(False);
 
  Exit(EnumBase <> nil);
+End;
+
+(* TType.isSimple *)
+{
+ Returns 'true' if type is "simple" (ie. is either bool/char/int/float/string/pointer but not an array)
+}
+Function TType.isSimple: Boolean;
+Begin
+ Result := (isBool or isChar or isInt or isFloat or isString or isFunctionPointer) and (not isArray(False));
 End;
 
 (* TType.Clone *)

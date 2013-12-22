@@ -32,7 +32,7 @@ Begin
 End;
 
 (* VisitExpression *)
-Procedure VisitExpression(Expr: PExpressionNode);
+Procedure VisitExpression(const Expr: PExpressionNode);
 Var Param : PExpressionNode;
     I     : Integer;
     PList : TParamList;

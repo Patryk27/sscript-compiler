@@ -119,22 +119,38 @@ End;
 Function VarCall: TType;
 Var TypeID       : TType;
     Param        : Integer;
-    Variable     : TRVariable;
     FuncParamList: TParamList;
+    TmpVar       : TRVariable;
+    IdentName    : String;
 Begin
- Variable := getVariable(Left);
+ if (Left^.Typ = mtArrayElement) Then
+ Begin
+  TypeID    := Parse(Left);
+  IdentName := '<anonymouse array-call>';
 
- if (Variable.Symbol = nil) Then
-  Exit;
+  RePop(Left, TypeID, 1);
+ End Else
+ Begin
+  TmpVar := getVariable(Left);
 
- TypeID := __variable_getvalue_reg(Variable, 1, 'r');
-
- With Compiler do
-  if (not TypeID.isFunctionPointer) Then // a function pointer is required
-  Begin
-   Error(eWrongType, [TypeID.asString, 'function pointer']);
+  if (TmpVar.Symbol = nil) Then
    Exit;
-  End;
+
+  IdentName := TmpVar.Name;
+  TypeID    := __variable_getvalue_reg(TmpVar, 1, 'r');
+ End;
+
+ if (not TypeID.isSimple) Then // error: complex type
+ Begin
+  Error(eCannotBeUsedAsFunction, [TypeID.asString]);
+  Exit;
+ End;
+
+ if (not TypeID.isFunctionPointer) Then // error: not a callable function pointer
+ Begin
+  Error(eWrongType, [TypeID.asString, 'function pointer']);
+  Exit;
+ End;
 
  FuncParamList := TypeID.FuncParams;
  Result        := TypeID.FuncReturn;
@@ -142,9 +158,9 @@ Begin
  if (not TypeID.isUnspecialized) Then
  Begin
   // check param count
-  if not (Length(Expr^.ParamList) in [RequiredParamCount(FuncParamList)..Length(FuncParamList)]) Then
+  if (not (Length(Expr^.ParamList) in [RequiredParamCount(FuncParamList)..Length(FuncParamList)])) Then
   Begin
-   Error(eWrongParamCount, [Variable.Name, Length(FuncParamList), Length(Expr^.ParamList)]);
+   Error(eWrongParamCount, [IdentName, Length(FuncParamList), Length(Expr^.ParamList)]);
    Exit;
   End;
  End;
@@ -155,7 +171,7 @@ Begin
   For Param := High(Expr^.ParamList) Downto Low(Expr^.ParamList) Do
    Parse(Expr^.ParamList[Param]);
  End Else
-  ParseParamList(Variable.Name, FuncParamList);
+  ParseParamList(IdentName, FuncParamList);
 
  // call function-pointer
  Compiler.PutOpcode(o_acall, ['er1']);
@@ -170,7 +186,7 @@ Begin
  With TSymbol(Symbol), mFunction do
  Begin
   // check param count
-  if not (Length(Expr^.ParamList) in [RequiredParamCount(ParamList)..Length(ParamList)]) Then
+  if (not (Length(Expr^.ParamList) in [RequiredParamCount(ParamList)..Length(ParamList)])) Then
   Begin
    Error(eWrongParamCount, [RefSymbol.Name, Length(ParamList), Length(Expr^.ParamList)]);
    Exit;
@@ -190,34 +206,34 @@ Begin
 End;
 
 { MethodCall }
-Procedure MethodCall; // pseudo-OOP for arrays :P
+Function MethodCall: TType; // pseudo-OOP for arrays :P
 
  // magic
- Function magic(Expr: PExpressionNode): TType;
- Var method, param: TType;
-     name         : String;
+ Function magic(const Expr: PExpressionNode): TType;
+ Var mObject   : TType;
+     MethodName: String;
 
  {$I array_length.pas}
 
  Begin
-  Result := nil;
-  method := Parse(Expr^.Left);
-  name   := Expr^.Right^.IdentName;
+  Result     := nil;
+  mObject    := Parse(Expr^.Left);
+  MethodName := Expr^.Right^.IdentName;
 
-  RePop(Expr^.Left, method, 1);
-
-  if (not method.isObject) Then // is it an "object"?
+  if (not mObject.isObject) Then // is it an object?
   Begin
-   Error(eNonObjectMethodCall, [name, method.asString]);
+   Error(eNonObjectMethodCall, [MethodName, mObject.asString]);
    Exit;
   End;
 
-  if (method.isArray(False)) and (Name = 'length') Then
+  RePop(Expr^.Left, mObject, 1); // re-pop object address
+
+  if (mObject.isArray(False)) and (MethodName = 'length') Then
   Begin
    __array_length;
   End Else
   Begin
-   Error(eMethodNotFound, [name, method.asString]);
+   Error(eMethodNotFound, [MethodName, mObject.asString]);
    Exit;
   End;
 
@@ -234,25 +250,34 @@ Begin
  // calling a method?
  if (isMethodCall) Then
  Begin
-  MethodCall;
+  Result := MethodCall();
   Exit;
  End;
 
- if (Expr^.Symbol = nil) Then // function not found or cast-call
+ if (Expr^.Symbol = nil) Then // function not found, array-call or cast-call
  Begin
-  if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call ( (cast<functiontype>(expr))() )
+  if (VarToStr(Expr^.Value) = 'array-call') Then // array-call -> array[10]();
   Begin
-   Result := CastCall;
+   Result := VarCall();
+   Exit;
+  End;
+
+  if (VarToStr(Expr^.Value) = 'cast-call') Then // cast-call -> cast<function>(expression)()
+  Begin
+   Result := CastCall();
    Exit;
   End;
 
   // is it any of the internal functions?
-  Case VarToStr(Left^.Value) of
+  {Case VarToStr(Left^.Value) of
    { @Note: when changing internal functions, modify also TInterpreter.MakeTree->CreateNodeFromStack and TCompiler.RedeclarationCheck }
    '':
-  End;
+  End;}
 
-  Exit; // error message had been already shown when building the expression tree
+  Compiler.CompileError(Expr^.Token, eUnknownFunction, [Expr^.Value]);
+
+  Result := TYPE_VOID;
+  Exit;
  End;
 
  { variable call }

@@ -266,10 +266,17 @@ Function TLexer.getToken: TToken;
 Var C1, C2, C3: Char;
     NL        : Boolean;
 
-  // Double
-  Function Double(X: Char): Boolean;
+  { Match }
+  Function Match(const Str: String): Boolean;
   Begin
-   Exit((C1 = X) and (C2 = X));
+   Case Length(Str) of
+    1: Result := (Str[1] = C1);
+    2: Result := (Str[1] = C1) and (Str[2] = C2);
+    3: Result := (Str[1] = C1) and (Str[2] = C2) and (Str[3] = C3);
+
+    else
+     raise Exception.CreateFmt('TLexer.getToken::Match() called with invalid argument (str = %s)', [Str]);
+   End;
   End;
 
 Begin
@@ -334,33 +341,63 @@ Begin
   'a'..'z', 'A'..'Z': Result := _CHAR;
  End;
 
- if (C1 = '+') and (C2 = '=') Then { += }
+ if (Match('+=')) Then { += }
  Begin
   Result := _PLUS_EQUAL;
   Inc(Position);
  End Else
 
- if (C1 = '-') and (C2 = '=') Then { -= }
+ if (Match('-=')) Then { -= }
  Begin
   Result := _MINUS_EQUAL;
   Inc(Position);
  End Else
 
- if (C1 = '*') and (C2 = '=') Then { *= }
+ if (Match('*=')) Then { *= }
  Begin
   Result := _STAR_EQUAL;
   Inc(Position);
  End Else
 
- if (C1 = '/') and (C2 = '=') Then { /= }
+ if (Match('/=')) Then { /= }
  Begin
   Result := _SLASH_EQUAL;
   Inc(Position);
  End Else
 
- if (C1 = '%') and (C2 = '=') Then { %= }
+ if (Match('%=')) Then { %= }
  Begin
   Result := _PERCENT_EQUAL;
+  Inc(Position);
+ End Else
+
+ if (Match('<<=')) Then { <<= }
+ Begin
+  Result := _DBL_LOWER_EQUAL;
+  Inc(Position, 2);
+ End Else
+
+ if (Match('>>=')) Then { >>= }
+ Begin
+  Result := _DBL_GREATER_EQUAL;
+  Inc(Position, 2);
+ End Else
+
+ if (Match('|=')) Then { |= }
+ Begin
+  Result := _PIPE_EQUAL;
+  Inc(Position);
+ End Else
+
+ if (Match('&=')) Then { &= }
+ Begin
+  Result := _AMPERSAND_EQUAL;
+  Inc(Position);
+ End Else
+
+ if (Match('^=')) Then { ^= }
+ Begin
+  Result := _CARON_EQUAL;
   Inc(Position);
  End Else
 
@@ -377,73 +414,73 @@ Begin
   End;
  End Else
 
- if (C1 = '.') and (C2 = '.') and (C3 = '.') Then { ... }
+ if (Match('...')) Then { ... }
  Begin
   Result := _ELLIPSIS;
   Inc(Position, 2);
  End Else
 
- if (C1 = '/') and (C2 = '*') Then { /* }
+ if (Match('/*')) Then { /* }
  Begin            
   Result := _LONGCMT_OPEN;
   Inc(Position);
  End Else
 
- if (C1 = '*') and (C2 = '/') Then { */ }
+ if (Match('*/')) Then { */ }
  Begin
   Result := _LONGCMT_CLOSE;
   Inc(Position);
  End Else
 
- if (Double('/')) Then { // }
+ if (Match('//')) Then { // }
  Begin
   Result := _DOUBLE_SLASH;
   Inc(Position);
  End Else
   
- if (Double(':')) Then { :: }
+ if (Match('::')) Then { :: }
  Begin
   Result := _DOUBLE_COLON;
   Inc(Position);
  End Else
 
- if (Double('+')) Then { ++ }
+ if (Match('++')) Then { ++ }
  Begin
   Result := _DOUBLE_PLUS;
   Inc(Position);
  End Else
 
- if (Double('-')) Then { -- }
+ if (Match('--')) Then { -- }
  Begin
   Result := _DOUBLE_MINUS;
   Inc(Position);
  End Else
 
- if (Double('*')) Then { ** }
+ if (Match('**')) Then { ** }
  Begin
   Result := _DOUBLE_STAR;
   Inc(Position);
  End Else
 
- if (Double('|')) Then { || }
+ if (Match('||')) Then { || }
  Begin
   Result := _DOUBLE_PIPE;
   Inc(Position);
  End Else
 
- if (Double('&')) Then { && }
+ if (Match('&&')) Then { && }
  Begin
   Result := _DOUBLE_AMPERSAND;
   Inc(Position);
  End Else
 
- if (Double('<')) Then { << }
+ if (Match('<<')) Then { << }
  Begin
   Result := _DOUBLE_LOWER;
   Inc(Position);
  End Else
 
- if (Double('>')) Then { >> }
+ if (Match('>>')) Then { >> }
  Begin
   Result := _DOUBLE_GREATER;
   Inc(Position);
@@ -601,6 +638,6 @@ End;
 }
 Function TLexer.Can: Boolean;
 Begin
- Result := (Position < Length(Input));
+ Result := (Position < uint32(Length(Input)));
 End;
 End.

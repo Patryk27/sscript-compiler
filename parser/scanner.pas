@@ -47,10 +47,10 @@ Unit Scanner;
         Function read_ident: String;
         Function read_string: String;
         Function read_int: Integer;
-        Function read_type(const AllowArrays: Boolean=True): TType;
+        Function read_type(const AllowArrayTypes: Boolean=True): TType;
         Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
         Function read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
-        Procedure eat(Token: TToken);
+        Function eat(const Token: TToken): TToken_P;
         Procedure semicolon;
 
         Procedure skip_parenthesis;
@@ -401,7 +401,7 @@ End;
 {
  Reads a type name or a full type (based on current token) and returns its ID.
 }
-Function TScanner.read_type(const AllowArrays: Boolean=True): TType;
+Function TScanner.read_type(const AllowArrayTypes: Boolean): TType;
 Var Base, Typ, TmpType: TType;
 
     Token: TToken_P;
@@ -558,7 +558,7 @@ Begin
     Typ.Attributes += [taFunction, taUnspecialized];
    End;
 
-   if ((next_t = _BRACKET2_OP) and (AllowArrays)) Then // is it an array declaration?
+   if ((next_t = _BRACKET2_OP) and (AllowArrayTypes)) Then // is it an array declaration?
    Begin
     Base := Typ.Clone;
    End Else
@@ -590,7 +590,7 @@ Begin
   End;
 
   { is it an array (is the next token a `[`)? }
-  While (next_t = _BRACKET2_OP) and (AllowArrays) Do
+  While (next_t = _BRACKET2_OP) and (AllowArrayTypes) Do
   Begin
    eat(_BRACKET2_OP);
    eat(_BRACKET2_CL);
@@ -649,11 +649,13 @@ End;
 (* TScanner.eat *)
 {
  'eats' a specified token.
- (ie. if current token isn't token passed in the parameter, displays a syntax error).
+ (ie. if current token isn't token passed in the parameter, displays a syntax error.)
 }
-Procedure TScanner.eat(Token: TToken);
+Function TScanner.eat(const Token: TToken): TToken_P;
 Begin
- if (read_t <> Token) Then
+ Result := read;
+
+ if (Result.Token <> Token) Then
   TCompiler(Compiler).CompileError(eExpected, [getTokenDisplay(Token), next(-1).Value]);
 End;
 

@@ -11,67 +11,74 @@ Unit Expression;
  Type TIntegerArray = Array of Integer;
 
  // TExpression
- Type TExpressionNodeType = (mtNothing, mtIdentifier, mtFunctionCall, mtMethodCall, mtTypeCast, mtTree, mtType, mtOpeningBracket, mtClosingBracket, mtOpeningBracket2, mtClosingBracket2, mtArrayElement,
-                             mtBool, mtChar, mtInt, mtFloat, mtString,
-                             mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq,
-                             mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent,
-                             mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR,
-                             mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq,
-                             mtNeg, mtLogicalNOT, mtBitwiseNOT, mtPreInc, mtPreDec, mtPostInc, mtPostDec,
-                             mtNew);
+ Type TExpressionNodeType =
+      (
+       mtNothing, mtIdentifier, mtFunctionCall, mtMethodCall, mtTypeCast, mtTree, mtType, mtOpeningBracket, mtClosingBracket, mtOpeningBracket2, mtClosingBracket2, mtArrayElement,
+       mtBool, mtChar, mtInt, mtFloat, mtString,
+       mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq,
+       mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent,
+       mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR,
+       mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq,
+       mtNeg, mtLogicalNOT, mtBitwiseNOT, mtPreInc, mtPreDec, mtPostInc, mtPostDec,
+       mtNew
+      );
 
  Const ExpressionNodeString: Array[TExpressionNodeType] of String =
- ('<nothing>', '<identifier>', '<function call>', '<method call>', '<type cast>', '<tree>', '<type>', '(', ')', '[', ']', '[]',
+ (
+  '<nothing>', '<identifier>', '<function call>', '<method call>', '<type cast>', '<tree>', '<type>', '(', ')', '[', ']', '[]',
   'bool', 'char', 'int', 'float', 'string',
   '+', '-', '*', '/', '%', '=', '+=', '-=', '*=', '/=', '%=',
   '<', '>', '==', '<=', '>=', '!=',
   '&&', '||', '&', '|', '^', '<<', '>>',
   '<<=', '>>=', '|=', '&=', '^=',
   '-', '!', '~', '++', '--', '++', '--',
-  'new');
+  'new'
+ );
 
  Type TExpressionNodeTypeSet = Set of TExpressionNodeType;
 
- Const MBinaryOperators: TExpressionNodeTypeSet  = [mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq];
- Const MUnaryOperators: TExpressionNodeTypeSet   = [mtNeg, mtLogicalNot, mtBitwiseNot, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
- Const MCompareOperators: TExpressionNodeTypeSet = [mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent];
- Const MOperators: TExpressionNodeTypeSet        = [mtArrayElement, mtNew, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
+ //Const MBinaryOperators: TExpressionNodeTypeSet  = [mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq];
+ //Const MUnaryOperators: TExpressionNodeTypeSet   = [mtNeg, mtLogicalNot, mtBitwiseNot, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
+ //Const MCompareOperators: TExpressionNodeTypeSet = [mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent];
+ //Const MOperators: TExpressionNodeTypeSet        = [mtArrayElement, mtNew, mtAdd, mtSub, mtMul, mtDiv, mtMod, mtAssign, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent, mtLogicalAND, mtLogicalOR, mtBitwiseAND, mtBitwiseOR, mtNeg, mtLogicalNOT, mtBitwiseNOT, mtXOR, mtSHL, mtSHR, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq, mtPreInc, mtPreDec, mtPostInc, mtPostDec];
 
  Const MLValueOperators: TExpressionNodeTypeSet = [mtAssign, mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq, mtOREq, mtANDEq, mtXOREq];
 
  Type PSSAVarID = ^TSSAVarID;
-      TSSAVarID = Record
-                   FPC_bug: Byte; // without this field, FPC crashes (internal error) :/ @TODO
+      TSSAVarID =
+      Record
+       FPC_bug: Byte; // without this field, FPC crashes (internal error) :/ @TODO
 
-                   Values: Array of uint32;
-                  End;
+       Values: Array of uint32;
+      End;
 
  Type PExpressionNode = ^TExpressionNode;
-      TExpressionNode = Record
-                         Left, Right: PExpressionNode;
+      TExpressionNode =
+      Record
+       Left, Right: PExpressionNode;
 
-                         Typ      : TExpressionNodeType;
-                         Value    : Variant;
-                         Token    : TToken_P;
+       Typ      : TExpressionNodeType;
+       Value    : Variant;
+       Token    : TToken_P;
 
-                         IdentName: String; // used in expression folding
-                         IdentType: TExpressionNodeType; // used in expression folding
-                         ParamList: Array of PExpressionNode; // for mtFunctionCall
+       IdentName: String; // used in expression folding
+       IdentType: TExpressionNodeType; // used in expression folding
+       ParamList: Array of PExpressionNode; // for mtFunctionCall
 
-                         Symbol      : TObject;
-                         SSA, PostSSA: TSSAVarID;
+       Symbol      : TObject;
+       SSA, PostSSA: TSSAVarID;
 
-                         ResultOnStack: Boolean; // equal 'true' if expression's result is left on the stack
+       ResultOnStack: Boolean; // equal 'true' if expression's result is left on the stack
 
-                         Function FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
-                         Procedure RemoveAssignments(const VarName: String);
+       Function FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
+       Procedure RemoveAssignments(const VarName: String);
 
-                         Function getType: TExpressionNodeType;
+       Function getType: TExpressionNodeType;
 
-                         Function hasCall: Boolean;
-                         Function hasValue: Boolean;
-                         Function isConstant: Boolean;
-                        End;
+       Function hasCall: Boolean;
+       Function hasValue: Boolean;
+       Function isConstant: Boolean;
+      End;
 
  // primary types; order (those numbers) is important, as it is the same in the virtual machine!
  Const PrimaryTypeNames: Array[0..6] of String = ('bool', 'char', 'int', 'float', 'string', 'any', 'void');

@@ -1,4 +1,5 @@
 Procedure __array_length;
+Var Param: TType;
 Begin
  {
   `array.length` can be called in 3 ways:
@@ -13,16 +14,16 @@ Begin
 
  if (Length(Expr^.ParamList) = 1) Then // 1 param passed, case #2
  Begin
-  param := Parse(Expr^.ParamList[0]);
-  RePop(Expr^.ParamList[0], param, 1);
+  Param := Parse(Expr^.ParamList[0]);
+  RePop(Expr^.ParamList[0], Param, 1);
 
-  if (not param.isInt) Then // have to be `int`
+  if (not Param.isInt) Then // have to be `int`
   Begin
-   Error(eWrongTypeInCall, ['length', param.asString, 'int']);
+   Error(eWrongTypeInCall, ['length', Param.asString, 'int']);
    Exit;
   End;
 
-  Compiler.PutOpcode(o_arlen, ['er1', 'e'+param.RegPrefix+'1', 'ei1']);
+  Compiler.PutOpcode(o_arlen, ['er1', 'e'+Param.RegPrefix+'1', 'ei1']);
  End Else
 
   Error(eWrongParamCount, ['length', Length(Expr^.ParamList), '1']); // wrong syntax

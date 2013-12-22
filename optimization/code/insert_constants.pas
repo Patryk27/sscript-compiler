@@ -1,7 +1,7 @@
 Procedure __insert_constants(const ShowErrors: Boolean);
 
 (* Parse *)
-Procedure Parse(Expr: PExpressionNode);
+Procedure Parse(const Expr: PExpressionNode);
 Var Param: PExpressionNode;
 Begin
  if (Expr = nil) or (Expr^.Typ = mtArrayElement) Then

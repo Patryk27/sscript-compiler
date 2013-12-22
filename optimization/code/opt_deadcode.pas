@@ -3,7 +3,7 @@ Procedure RemoveUnusedAssigns;
 Var AnyChange: Boolean;
 
   { Visit }
-  Procedure Visit(Node: TCFGNode);
+  Procedure Visit(const Node: TCFGNode);
   Var Child, Back, Tmp: TCFGNode;
       CanBeRemoved    : Boolean;
       Symbol          : TSymbol;
@@ -84,10 +84,10 @@ End;
 
 (* RemoveUnusedVariables *)
 Procedure RemoveUnusedVariables;
-Var ID, KilledVars: Integer;
+Var ID, KilledVars: int32;
 
   { RemoveVarAssign }
-  Procedure RemoveVarAssign(Node: TCFGNode);
+  Procedure RemoveVarAssign(const Node: TCFGNode);
   Var Child, TmpNode : TCFGNode;
       Assign, TmpExpr: PExpressionNode;
   Begin

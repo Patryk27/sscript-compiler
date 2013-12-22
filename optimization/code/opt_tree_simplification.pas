@@ -15,6 +15,9 @@ End;
 { isEqual }
 Function isEqual(const Node: PExpressionNode; const Value: Int64): Boolean;
 Begin
+ if (Node = nil) Then
+  Exit(False);
+
  Result := (Node^.Typ in [mtInt, mtFloat]) and (Node^.Value = Value);
 
  if (Node^.Typ = mtNeg) and (Value < 0) Then
@@ -115,9 +118,9 @@ End;
 // -------------------------------------------------------------------------- //
 (* Parse *)
 Procedure Parse(var Expr: PExpressionNode);
-Var Tmp, Param: PExpressionNode;
-    Simplify1 : TSimplify1Data;
-    PowerOf2  : uint8;
+Var Tmp      : PExpressionNode;
+    Simplify1: TSimplify1Data;
+    I        : int16;
 Begin
  if (Expr = nil) Then
   Exit;
@@ -471,7 +474,7 @@ Begin
   AnyChange   := True;
  End;
 
- { '-const' -> 'negative value of const' }
+ { '-const' -> 'negative value of const', for what it's worth... }
  if (Expr^.Typ = mtNeg) and (Expr^.Left^.Typ in [mtInt, mtFloat]) Then
  Begin
   Expr        := Expr^.Left;
@@ -481,8 +484,8 @@ Begin
 
  Parse(Expr^.Left);
  Parse(Expr^.Right);
- For Param in Expr^.ParamList Do
-  Parse(Param);
+ For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
+  Parse(Expr^.ParamList[I]);
 End;
 
 Var Tmp: Boolean;

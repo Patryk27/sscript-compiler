@@ -31,11 +31,9 @@ Begin
   Error(eInternalError, ['Cannot create an `any`-typed array!']);
 
  { make an array from that base type }
- While (Right^.Typ = mtArrayElement) Do
+ While (Right <> nil) Do
  Begin
-  if (Right^.Right^.Value <> null) Then
-   TmpType := Parse(Right^.Right) Else
-   TmpType := Parse(Right^.Left);
+  TmpType := Parse(Right^.Left);
 
   if (TmpType = nil) Then
   Begin
@@ -47,7 +45,7 @@ Begin
    if (not TmpType.isInt) Then
     Error(eInvalidArraySubscript, [BaseType.asString, TmpType.asString]);
 
-  Right := Right^.Left;
+  Right := Right^.Right;
   Inc(Typ.ArrayDimCount);
  End;
 

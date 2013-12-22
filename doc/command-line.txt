@@ -13,7 +13,7 @@ By default, all switches are disabled.
 		-Cm lib		compiles file as a library
 		-Cm bytecode	compiles file as a bytecode
 
-	-internal-const / -Cconst	enable special (internal) constants like `__self` or `__line`
+	-internal-const / -Cconst	enable special (internal) constants like `__self` and `__line`
 
 3.Optimizations
 	--register-alloc / -Or		enables advanced register allocator

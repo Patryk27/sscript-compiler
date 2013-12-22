@@ -16,7 +16,7 @@ Unit Messages;
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
   eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
-  eInvalidArrayInitializer,
+  eInvalidArrayInitializer, eCannotBeCalled, eNotAType, eCannotBeUsedAsFunction, eUnknownIdentifier,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference);
 
@@ -40,7 +40,7 @@ Unit Messages;
   'Syntax error: expected int but `%s` found',
   'Syntax error: `%s` not allowed here',
   'Redeclaration of identifier: `%s`',
-  'L-value expected',
+  'An l-value was expected',
   'Unknown type: `%s`',
   'Unknown variable: `%s`',
   'Unknown function: `%s`',
@@ -72,7 +72,7 @@ Unit Messages;
   'No valid `main` function found',
   'Not a constant-var: `%s`',
   'Tried to call method `%s` on non-object (`%s`)',
-  'Method `%s` not found in object (`%s`)',
+  'Method `%s` not found in object `%s`',
   'Invalid conversion from `%s` to `%s`',
   'Unfinished comment',
   'Invalid integer value: `%s`',
@@ -85,6 +85,10 @@ Unit Messages;
   'Expected %d fewer element(s)',
   'Expected %d more element(s)',
   'Invalid array initializer; got %dD array, expecting %d-dimensional',
+  '`%s` cannot be called',
+  'Not a type: `%s`',
+  'Expression of type `%s` cannot be used as a function',
+  'Unknown identifier: `%s`',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

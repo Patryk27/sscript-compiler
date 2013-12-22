@@ -5,30 +5,17 @@
 
 {.$DEFINE DISPLAY_TREE} // compiler debug only
 {$MODESWITCH ADVANCEDRECORDS}
+{$MACRO ON}
+
 Unit ExpressionCompiler;
 
  Interface
- Uses SSCompiler, Expression, symdef, Tokens, Variants, TypInfo;
-
- Const STACK_SIZE = 5000; // internal parser's expression stack size (in elements)
-
- Const _UNARY_MINUS = #01;
+ Uses SSCompiler, Expression, Scanner, symdef, Tokens, Variants, TypInfo;
 
  Type TOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oTreeSimplification, oDisplayParseErrors);
       TOptions = Set of TOption;
 
       TShortCircuit = (scNone, scOR, scAND);
-
- { TStackValue }
- Type TStackValue =
-      Record // value on the stack
-       Typ  : TExpressionNodeType;
-       Value: Variant;
-       Token: TToken_P;
-
-       ParamCount: Integer; // if `Typ == stFunction`, here's hold read parameters count
-       Namespace : TNamespace; // function calls, variables and constants only; used in namespace resolution operator (`foo::function()`)
-      End;
 
  { TExpressionParser }
  Type TExpressionParser =
@@ -36,32 +23,12 @@ Unit ExpressionCompiler;
        Private
         Compiler: TCompiler;
 
-        Stack   : Array of TStackValue; // whole stack
-        StackPos: Integer;
-
-        FinalExpr   : Array of TStackValue; // final expression
-        FinalExprPos: Integer;
-
-       Private
-        Procedure StackPush(Val: TStackValue);
-        Procedure StackPush(fTyp: TExpressionNodeType; fValue: Variant; fToken: TToken_P);
-        Procedure StackPush(fTyp: TExpressionNodeType; fValue: Variant);
-        Procedure StackPush(Typ: TExpressionNodeType; Token: TToken_P);
-        Function StackPop: TStackValue;
-        Function StackPeek: TStackValue;
-
-        Procedure FinalExprPush(Val: TStackValue);
-        Procedure FinalExprPush(Typ: TExpressionNodeType; Value: Variant; Token: TToken_P; Namespace: TNamespace=nil);
-        Function FinalExprPop: TStackValue;
-        Function FinalExprPeek: TStackValue;
-
-        Function CreateNode(Left, Right: PExpressionNode; Typ: TExpressionNodeType; Value: Variant; Token: TToken_P): PExpressionNode;
+        Function CreateNode(const Left, Right: PExpressionNode; const Typ: TExpressionNodeType; const Value: Variant; const Token: TToken_P): PExpressionNode;
 
        Public
-        Constructor Create(fCompiler: TCompiler);
+        Constructor Create(const fCompiler: TCompiler);
 
-        Procedure Parse(EndTokens: TTokenSet);
-        Function MakeTree: PExpressionNode;
+        Function Parse(const EndTokens: TTokenSet): PExpressionNode;
        End;
 
  Function OptimizeExpression(const Compiler: TCompiler; var Tree: PExpressionNode; const Options: TOptions): Boolean;
@@ -77,10 +44,10 @@ Unit ExpressionCompiler;
  Function getValueFromExpression(const Expr: PExpressionNode; const Beautify: Boolean=False): String;
  Function getTypeFromExpression(const Expr: PExpressionNode): TType;
  Function getExpressionTypeName(const Expr: PExpressionNode): String;
- Function ExpressionToString(Expr: PExpressionNode): String;
+ Function ExpressionToString(const Expr: PExpressionNode): String;
 
- Function MakeExpression(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): PExpressionNode;
- Function CompileExpression(const CompilerPnt: Pointer; Expr: PExpressionNode): TType;
+ Function MakeExpression(const CompilerPnt: Pointer; const EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): PExpressionNode;
+ Function CompileExpression(const CompilerPnt: Pointer; const Expr: PExpressionNode): TType;
 
  Implementation
 Uses SysUtils, Math,
@@ -276,7 +243,7 @@ Begin
 End;
 
 (* ExpressionToString *)
-Function ExpressionToString(Expr: PExpressionNode): String;
+Function ExpressionToString(const Expr: PExpressionNode): String;
 Var I   : int32;
     L, R: String;
 Begin
@@ -376,191 +343,59 @@ End;
 
 // -------------------------------------------------------------------------- //
 { DisplayTree }
-Procedure DisplayTree(Tree: PExpressionNode; Deep: Byte=0);
+Procedure DisplayTree(const Tree: PExpressionNode; const Deep: uint8=0);
 
-  // Writeln
-  Procedure Writeln(const Text: String);
-  Var I: Integer;
+  // Fill
+  Procedure Fill;
+  Var I: int8;
   Begin
-   For I := 0 To Deep-1 Do
-    Write('-');
-   System.Writeln('> ', Text);
+   For I := 0 To int8(Deep)-1 Do
+    Write(' ');
+//   Write('> ');
   End;
 
 Var I: Integer;
 Begin
+ Fill;
+
  if (Tree = nil) Then
  Begin
   Writeln('nil');
   Exit;
  End;
 
- if (Tree^.Value = null) Then
-  Writeln('Type = '+ExpressionNodeString[Tree^.Typ]+' | Value = [null]') Else
-  Writeln('Type = '+ExpressionNodeString[Tree^.Typ]+' | Value = '+VarToStr(Tree^.Value));
+ Write('Type = ', ExpressionNodeString[Tree^.Typ], ' | ');
 
+ if (Tree^.Typ = mtIdentifier) Then
+  Writeln('Identifier: '+Tree^.IdentName) Else
+
+ if (Tree^.Value = null) Then
+  Writeln('Value = [null]') Else
+  Writeln('Value = '+VarToStr(Tree^.Value));
+
+ Fill;
  Writeln('^L:');
  DisplayTree(Tree^.Left, Deep+5);
 
+ Fill;
  Writeln('^R:');
  DisplayTree(Tree^.Right, Deep+5);
 
+ Fill;
  Writeln('^P:');
  For I := Low(Tree^.ParamList) To High(Tree^.ParamList) Do
  Begin
+  Fill;
   Writeln('arg ['+IntToStr(I)+']:');
   DisplayTree(Tree^.ParamList[I], Deep+5);
-  Writeln('');
+  Writeln;
  End;
-End;
-
-// -------------------------------------------------------------------------- //
-{ getOrder }
-Function getOrder(E: String): Integer;
-Const Order: Array[0..8] of Array[0..7] of String =
-(
- // operators' precedence (from the most important to the less)
- (_UNARY_MINUS, '@', '&', '|', '^', '!', 'new', 'delete'),
- ('++', '--', '', '', '', '', '', ''),
- ('*', '/', '%', '', '', '', '', ''),
- ('+', '-', '', '', '', '', '', ''),
- ('||', '&&', '', '', '', '', '', ''),
- ('<', '<=', '==', '>=', '>', '!=', '', ''),
- ('<<', '>>', '', '', '', '', '', ''),
- ('=', '+=', '-=', '/=', '*=', '%=', '', ''),
- ('<<=', '>>=', '|=', '&=', '^=', '', '', '')
-);
-Var I, Q: Integer;
-Begin
- Result := -1;
-
- if (Length(E) = 0) Then
-  Exit;
-
- For I := Low(Order) To High(Order) Do
-  For Q := Low(Order[I]) To High(Order[I]) Do
-   if (Order[I][Q] = E) Then
-    Exit(High(Order)-I);
-End;
-
-{ getOrder }
-Function getOrder(E: TStackValue): Integer;
-Begin
- if (E.Typ in MOperators) Then
-  Result := getOrder(ExpressionNodeString[E.Typ]) Else
-  Result := -1;
-End;
-
-{ isRightAssoc }
-Function isRightAssoc(X: String): Boolean;
-Begin
- Result := (X[1] in ['!', '=']) or (X = '++') or (X = '--') or (X = 'new');
-End;
-
-{ isLeftAssoc }
-Function isLeftAssoc(X: String): Boolean;
-Begin
- Result := ((X[1] in ['+', '-', '*', '/', '%', '=']) or (X = '<<') or (X = '>>') or (X = '==') or (X = '!=') or (X = '>=') or (X = '<=') or (X = '<') or (X = '>')
-           or (X = '+=') or (X = '-=') or (X = '*=') or (X = '/=') or (X = '%=') or (X = '&&') or (X = '||') or (X = '>>=') or (X = '<<=') or (X = '|=') or (X = '&=') or (X = '^=')
-           and (not isRightAssoc(X)));
 End;
 
 // ---------- TExpressionParser ---------- //
 
-{ TExpressionParser.StackPush }
-Procedure TExpressionParser.StackPush(Val: TStackValue);
-Begin
- Stack[StackPos] := Val;
- Inc(StackPos);
-End;
-
-{ TExpressionParser.StackPush }
-Procedure TExpressionParser.StackPush(fTyp: TExpressionNodeType; fValue: Variant; fToken: TToken_P);
-Begin
- With Stack[StackPos] do
- Begin
-  Typ   := fTyp;
-  Value := fValue;
-  Token := fToken;
- End;
- Inc(StackPos);
-End;
-
-{ TExpressionParser.StackPush }
-Procedure TExpressionParser.StackPush(fTyp: TExpressionNodeType; fValue: Variant);
-Begin
- With Stack[StackPos] do
- Begin
-  Typ   := fTyp;
-  Value := fValue;
- End;
- Inc(StackPos);
-End;
-
-{ TExpressionParser.StackPush }
-Procedure TExpressionParser.StackPush(Typ: TExpressionNodeType; Token: TToken_P);
-Begin
- StackPush(Typ, null, Token);
-End;
-
-{ TExpressionParser.StackPop }
-Function TExpressionParser.StackPop: TStackValue;
-Begin
- if (StackPos <= 0) Then
-  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
-
- Dec(StackPos);
- Result := Stack[StackPos];
-End;
-
-{ TExpressionParser.StackPeek }
-Function TExpressionParser.StackPeek: TStackValue;
-Begin
- if (StackPos <= 0) Then
-  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
-
- Result := Stack[StackPos-1];
-End;
-
-{ TExpressionParser.FinalExprPush }
-Procedure TExpressionParser.FinalExprPush(Val: TStackValue);
-Begin
- FinalExpr[FinalExprPos] := Val;
- Inc(FinalExprPos);
-End;
-
-{ TExpressionParser.FinalExprPush }
-Procedure TExpressionParser.FinalExprPush(Typ: TExpressionNodeType; Value: Variant; Token: TToken_P; Namespace: TNamespace=nil);
-Var Val: TStackValue;
-Begin
- Val.Typ       := Typ;
- Val.Value     := Value;
- Val.Token     := Token;
- Val.Namespace := Namespace;
- FinalExprPush(Val);
-End;
-
-{ TExpressionParser.FinalExprPop }
-Function TExpressionParser.FinalExprPop: TStackValue;
-Begin
- if (FinalExprPos <= 0) Then
-  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
-
- Dec(FinalExprPos);
- Result := FinalExpr[FinalExprPos];
-End;
-
-{ TExpressionParser.FinalExprPeek }
-Function TExpressionParser.FinalExprPeek: TStackValue;
-Begin
- if (FinalExprPos <= 0) Then
-  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
-
- Result := FinalExpr[FinalExprPos-1];
-End;
-
-{ TExpressionParser.CreateNode }
-Function TExpressionParser.CreateNode(Left, Right: PExpressionNode; Typ: TExpressionNodeType; Value: Variant; Token: TToken_P): PExpressionNode;
+(* TExpressionParser.CreateNode *)
+Function TExpressionParser.CreateNode(const Left, Right: PExpressionNode; const Typ: TExpressionNodeType; const Value: Variant; const Token: TToken_P): PExpressionNode;
 Begin
  New(Result);
 
@@ -575,676 +410,537 @@ Begin
  Result^.ResultOnStack := False;
 
  SetLength(Result^.SSA.Values, 0);
+ SetLength(Result^.ParamList, 0);
 End;
 
-{ TExpressionParser.Create }
-Constructor TExpressionParser.Create(fCompiler: TCompiler);
+(* TExpressionParser.Create *)
+Constructor TExpressionParser.Create(const fCompiler: TCompiler);
 Begin
  Compiler := fCompiler;
-
- SetLength(Stack, STACK_SIZE);
- StackPos := 0;
-
- SetLength(FinalExpr, STACK_SIZE);
- FinalExprPos := 0;
 End;
 
-{ TExpressionParser.Parse }
-Procedure TExpressionParser.Parse(EndTokens: TTokenSet);
-Var Token: TToken_P;
+(* TExpressionParser.Parse *)
+Function TExpressionParser.Parse(const EndTokens: TTokenSet): PExpressionNode;
+Const Order1: TTokenSet = [_EQUAL, _PLUS_EQUAL, _MINUS_EQUAL, _SLASH_EQUAL, _STAR_EQUAL, _PERCENT_EQUAL, _DBL_LOWER_EQUAL, _DBL_GREATER_EQUAL, _PIPE_EQUAL, _AMPERSAND_EQUAL, _CARON_EQUAL];
+      Order2: TTokenSet = [_DOUBLE_PIPE, _DOUBLE_AMPERSAND];
+      Order3: TTokenSet = [_LOWER, _LOWER_EQUAL, _EQUAL_EQUAL, _GREATER, _GREATER_EQUAL, _DIFFERENT];
+      Order4: TTokenSet = [_DOUBLE_LOWER, _DOUBLE_GREATER];
+      Order5: TTokenSet = [_PLUS, _MINUS];
+      Order6: TTokenSet = [_STAR, _SLASH, _PERCENT];
+      Order8: TTokenSet = [_PIPE, _CARON, _AMPERSAND];
+Var Scanner  : TScanner;
+    LoopToken: TToken_P;
 
-    Str   : String;
-    Value : TStackValue;
-    TypeID: TType;
+  // @TODO: "cast" operator
 
-    Bracket        : Integer=0;
-    Bracket2       : Integer=0;
-    FunctionBracket: Integer=0;
-    Expect         : (eValueOrOperator, eValue, eOperator);
-
-    Parsed: Boolean;
-
-    IdentNamespace, PreviousNamespace: TNamespace;
-
-    OperatorNew: Boolean = False;
-
-  { ReadParamCount }
-  Function ReadParamCount: Integer;
-  Var TmpPos, Bracket: Integer;
-      Token          : TToken_P;
+  { WhileCondition }
+  Function WhileCondition(const TokenSet: TTokenSet): Boolean;
   Begin
-   Result  := 1;
-   TmpPos  := Compiler.getScanner.getPosition;
-   Bracket := 0; { bracket level/deep }
+   LoopToken := Scanner.next;
 
-   if (Compiler.getScanner.next_t(0) = _BRACKET1_CL) Then { func() }
-    Exit(0);
+   Result := (LoopToken.Token in TokenSet); // and (not (Token.Token in EndTokens));
 
-   With Compiler.getScanner do
-    Dec(TokenPos);
+   if (Result) Then
+    Scanner.read;
+  End;
 
-   While (true) Do
+  { ReadSymbol }
+  Function ReadSymbol(out NamespaceName, IdentifierName: String; out Namespace: TNamespace): TSymbol;
+  Var Token: TToken_P;
+  Begin
+   Token := Scanner.next(-1);
+
+   if (Scanner.next_t = _DOUBLE_COLON) Then // namespace resolution operator (namespace::ident)
    Begin
-    Token := Compiler.getScanner.read;
-    Case Token.Token of
-     _BRACKET1_OP: Inc(Bracket);
-     _BRACKET1_CL: Begin
-                    Dec(Bracket);
-                    if (Bracket = 0) Then
-                     Break;
-                   End;
-     _COMMA: if (Bracket = 1) Then
-              Inc(Result);
+    Scanner.read; // skip `::`
 
-     _SEMICOLON, _BRACKET3_OP, _BRACKET3_CL: Compiler.CompileError(eExpected, [')', Token.Value]);
+    NamespaceName  := Token.Value;
+    IdentifierName := Scanner.read_ident;
+
+    Namespace := Compiler.findNamespace(NamespaceName);
+
+    if (Namespace = nil) Then // error: namespace not found
+    Begin
+     Compiler.CompileError(Token, eUnknownNamespace, [NamespaceName]);
+     Exit;
+    End;
+
+    Exit(Namespace.findSymbol(IdentifierName)); // assume no multiple symbols with the same name exist in one namespace
+   End Else
+   Begin
+    IdentifierName := Token.Value;
+    Exit(Compiler.findCandidate(Token.Value, nil, Token));
+   End;
+  End;
+
+  { ParseOrder9 }
+  Function ParseOrder9: PExpressionNode; //  const-expr   group-expr   array-expr   function-call   cast-expr
+  Var Token, First                 : TToken_P;
+      Symbol                       : TSymbol;
+      NamespaceName, IdentifierName: String;
+      mNamespace                   : TNamespace;
+      mType                        : TType;
+  Label ParseModifiers;
+  Begin
+   Result := nil;
+
+   Token := Scanner.read;
+   First := Token;
+
+   Case Token.Token of
+    { a char constant }
+    _CHAR:
+    Begin
+     Result := CreateNode(nil, nil, mtChar, Token.Value, Token);
+    End;
+
+    { an integer constant }
+    _INT:
+    Begin
+     Result := CreateNode(nil, nil, mtInt, Token.Value, Token);
+    End;
+
+    { a float constant }
+    _FLOAT:
+    Begin
+     Result := CreateNode(nil, nil, mtFloat, Token.Value, Token);
+    End;
+
+    { a string constant }
+    _STRING:
+    Begin
+     Result := CreateNode(nil, nil, mtString, Token.Value, Token);
+    End;
+
+    { a variable or a function/method call }
+    _IDENTIFIER:
+    Begin
+     // @TODO: true/false
+     if (Scanner.next_t <> _DOUBLE_COLON) Then
+     Begin
+      if (Token.Value = 'true') Then // "true" built-in constant
+       Exit(CreateNode(nil, nil, mtBool, True, Token));
+
+      if (Token.Value = 'false') Then // "false" built-in constant
+       Exit(CreateNode(nil, nil, mtBool, False, Token));
+     End;
+
+     Symbol := ReadSymbol(NamespaceName, IdentifierName, mNamespace);
+
+     if (Symbol = nil) Then
+     Begin
+      Compiler.CompileError(Token, eUnknownIdentifier, [IdentifierName]);
+      Exit;
+     End;
+
+     // fetch symbol
+     Result            := CreateNode(nil, nil, mtIdentifier, null, First);
+     Result^.IdentName := IdentifierName;
+     Result^.Symbol    := Symbol;
+    End;
+
+    { cast }
+    _CAST: // cast<symbol-name | type-decl>(expression)
+    Begin
+     Scanner.eat(_LOWER);
+     mType := Scanner.read_type;
+     Scanner.eat(_GREATER);
+
+     Scanner.eat(_BRACKET1_OP);
+     Result := CreateNode(Parse([_BRACKET1_CL]), nil, mtTypeCast, uint32(mType), Token);
+    End;
+
+    { opening parenthesis }
+    _BRACKET1_OP:
+    Begin
+     Result := Parse([_BRACKET1_CL]);
+    End;
+
+    { unexpected symbol }
+    else
+     Compiler.CompileError(eExpectedValue, [Token.Value]);
+   End;
+
+   // parse optional 'modifiers'
+   ParseModifiers:
+
+   // function/cast call
+   if (Scanner.next_t = _BRACKET1_OP) Then
+   Begin
+    Scanner.read;
+
+    if (First.Token = _IDENTIFIER) Then // function call -> foo()
+    Begin
+     Result         := CreateNode(Result, nil, mtFunctionCall, IdentifierName, First);
+     Result^.Symbol := Result^.Left^.Symbol;
+
+     Symbol := (Result^.Symbol as TSymbol);
+
+     if (not (Symbol.Typ in [stFunction, stVariable])) Then
+     Begin
+      Compiler.CompileError(Result^.Token, eCannotBeCalled, [Symbol.Name]);
+      Exit;
+     End;
+    End Else
+
+    if (First.Token = _BRACKET2_CL) Then // array element call -> array[10]()
+    Begin
+     Result := CreateNode(Result, nil, mtFunctionCall, 'array-call', First);
+    End Else
+
+    Begin // cast-call -> cast<function>(expression)();
+     Result := CreateNode(Result, nil, mtFunctionCall, 'cast-call', First);
+    End;
+
+    if (Scanner.next_t = _BRACKET1_CL) Then
+    Begin
+     Scanner.read;
+    End Else
+    Begin
+     While (Scanner.next_t <> _BRACKET1_CL) Do
+     Begin
+      {$DEFINE PList := Result^.ParamList}
+      SetLength(PList, Length(PList)+1);
+      PList[High(PList)] := Parse([_COMMA, _BRACKET1_CL]);
+      {$UNDEF PList}
+
+      Dec(Scanner.TokenPos);
+
+      if (Scanner.next_t = _BRACKET1_CL) Then
+      Begin
+       Scanner.eat(_BRACKET1_CL); // `)` ends function call
+       Break;
+      End Else
+      Begin
+       Scanner.eat(_COMMA); // arguments are separated by comma
+      End;
+     End;
     End;
    End;
 
-   Compiler.getScanner.TokenPos := TmpPos;
-  End;
-
-  { is_a_post_operator }
-  Function is_a_post_operator: Boolean;
-  Var Pos, BracketDeep: Integer;
-  Begin
-   Result := False;
-   Pos    := -2;
-
-   With Compiler.getScanner do
-    Case next_t(Pos) of
-     _IDENTIFIER : Exit(True);
-     _BRACKET2_CL:
-     Begin
-      BracketDeep := 0;
-
-      Repeat
-       if (-Pos > getPosition) Then // Magic. Do not touch.
-        Exit(False);
-
-       Case next_t(Pos) of
-        _BRACKET2_OP: Inc(BracketDeep);
-        _BRACKET2_CL: Dec(BracketDeep);
-       End;
-       Dec(Pos);
-      Until (BracketDeep = 0);
-
-      Exit(next_t(Pos) = _IDENTIFIER);
-     End;
-   End;
-  End;
-
-{ function's body }
-Begin
-With Compiler, getScanner do
-Begin
- StackPos          := 0;
- FinalExprPos      := 0;
- FunctionBracket   := 0;
- IdentNamespace    := nil;
- PreviousNamespace := nil;
- Expect            := eValue;
-
- While (true) do
- Begin
-  Token := read;
-  Str   := Token.Value;
-
-  if (Token.Token in EndTokens) and (Bracket = 0) Then
-  Begin
-   Case Expect of
-    eValue: CompileError(eExpectedValue, [Token.Value]);
-   End;
-
-   Break;
-  End;
-
-  if (Token.Token in [_SEMICOLON, _BRACKET3_OP, _BRACKET3_CL]) Then
-   if (Bracket = 0) Then
-    Compiler.CompileError(eUnexpected, [Token.Value]) Else
-    Compiler.CompileError(eExpected, [')', Token.Value]);
-
-  Parsed := True;
-  Case Token.Token of
-   { values }
-   _INT   : FinalExprPush(mtInt, StrToInt64(Str), Token);
-   _FLOAT : FinalExprPush(mtFloat, StrToFloat(Str), Token);
-   _STRING: FinalExprPush(mtString, Str, Token);
-   _CHAR  : FinalExprPush(mtChar, Str[1], Token);
-
-   _BREAK, _CONTINUE: Compiler.CompileError(eNotAllowed, [Token.Value]);
-
-   else Parsed := False;
-  End;
-
-  { constant value }
-  if (Token.Token in [_INT, _FLOAT, _STRING, _CHAR]) Then
-  Begin
-   if (Expect = eOperator) Then
-    Compiler.CompileError(eExpectedOperator, [Token.Value]);
-
-   Expect := eOperator;
-  End;
-
-  if (Parsed) Then
-   Continue;
-
-  { type casting }
-  if (Token.Token = _CAST) Then
-  Begin
-   eat(_LOWER);
-   TypeID := read_type;
-   eat(_GREATER);
-
-   if (next_t <> _BRACKET1_OP) Then
+   // (linked with) method call? | @TODO (in future): method field fetch (xyz.foo)
+   While (Scanner.next_t = _POINT) Do
    Begin
-    read;
-    CompileError(eExpected, ['(', next(-1).Value]);
-   End;
+    Token := Scanner.read; // `.`
 
-   StackPush(mtTypeCast, LongWord(TypeID), Token);
+    IdentifierName := Scanner.read_ident;
+    Result         := CreateNode
+                      (
+                       Result,
+                       CreateNode(nil, nil, mtIdentifier, IdentifierName, Token),
+                       mtMethodCall,
+                       null,
+                       Token
+                      );
 
-   Expect := eValue;
-  End Else
+    Result^.Right^.IdentName := IdentifierName;
 
-  { namespace operator }
-  if (Token.Token = _IDENTIFIER) and (next_t = _DOUBLE_COLON) Then
-  Begin
-   if (IdentNamespace <> nil) Then // namespace-inside-namespace isn't supported for now
-   Begin
-    read;
-    CompileError(eUnimplemented, ['namespace-inside-namespace']);
-   End;
+    Scanner.eat(_BRACKET1_OP);
 
-   PreviousNamespace := IdentNamespace;
-   IdentNamespace    := findNamespace(Token.Value);
-
-   if (IdentNamespace = nil) Then // error: namespace not found
-   Begin
-    CompileError(eUnknownNamespace, [Token.Value]);
-    IdentNamespace := nil; // IdentNamespace := Compiler.findNamespace('self');
-   End;
-
-   eat(_DOUBLE_COLON); // `::`
-
-   if (next_t <> _IDENTIFIER) Then
-    CompileError(eExpectedIdentifier, [next.Value]);
-  End Else
-
-  { function or method call }
-  if (next_t(-2) in [_IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) and (Token.Token = _BRACKET1_OP) Then
-  Begin
-   Inc(Bracket);
-
-   if (FunctionBracket = 0) Then
-    FunctionBracket := Bracket;
-
-   if (next_t(-3) = _POINT) Then
-   Begin
-    StackPush(mtMethodCall, Token.Value, Token); // method call
-   End Else
-    StackPush(mtFunctionCall, Token.Value, Token); // function call
-
-   Stack[StackPos-1].ParamCount := ReadParamCount;
-
-   Expect := eValue;
-   StackPush(mtOpeningBracket, null, Token);
-  End Else
-
-  { method call }
-  if (next_t(-2) in [_IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) and (Token.Token = _POINT) Then
-  Begin
-   // methods are parsed in `if` above
-   Expect := eValue;
-  End Else
-
-  { function parameters separator (comma) }
-  if (Token.Token = _COMMA) Then
-  Begin
-   if (Expect = eValue) Then
-    Compiler.CompileError(eExpectedValue, [Token.Value]);
-   if (FunctionBracket = 0) Then
-    Compiler.CompileError(eExpectedOperator, [Token.Value]);
-
-   Expect := eValue;
-
-   While (StackPos > 0) and (StackPeek.Typ <> mtOpeningBracket) do
-    FinalExprPush(StackPop);
-  End Else
-
-  { variable or constant }
-  if (Token.Token = _IDENTIFIER) Then
-  Begin
-   if (Expect = eOperator) Then
-    Compiler.CompileError(eExpectedOperator, [Token.Value]);
-
-   Expect := eOperator;
-   FinalExprPush(mtIdentifier, Token.Value, Token, IdentNamespace); // add it directly to the final expression
-
-   IdentNamespace := PreviousNamespace;
-  End Else
-
-  { opening bracket }
-  if (Token.Token = _BRACKET1_OP) Then
-  Begin
-   Inc(Bracket);
-
-   if ((Expect = eOperator) and (next_t(-2) <> _IDENTIFIER)) Then
-    Compiler.CompileError(eExpectedOperator, ['(']);
-
-   Expect := eValue;
-   StackPush(mtOpeningBracket, null, Token);
-  End Else
-
-  { closing bracket }
-  if (Token.Token = _BRACKET1_CL) Then
-  Begin
-   if (Bracket = FunctionBracket) Then
-    FunctionBracket := 0;
-
-   Dec(Bracket);
-   if (Bracket < 0) Then
-    Compiler.CompileError(next, eUnexpected, [')']);
-
-   if (next_t(-2) = _BRACKET1_OP) Then // construction `()` is valid only when calling a function or method
-   Begin
-    if not (Stack[StackPos-2].Typ in [mtFunctionCall, mtMethodCall]) Then
-     Compiler.CompileError(eExpectedValue, [')']);
-   End Else
-    if (Expect = eValue) Then
-     Compiler.CompileError(eExpectedValue, [')']);
-
-   Expect := eOperator;
-
-   While (StackPos > 0) do
-   Begin
-    Value := StackPop;
-    if (Value.Typ = mtOpeningBracket) Then
-     Break;
-    FinalExprPush(Value);
-   End;
-   if (StackPos > 0) Then
-    if (StackPeek.Typ in [mtFunctionCall, mtMethodCall]) Then
-     FinalExprPush(StackPop);
-  End Else
-
-  { array bracket open }
-  if (Token.Token = _BRACKET2_OP) Then
-  Begin
-   Inc(Bracket2);
-
-   Expect := eValue;
-   StackPush(mtOpeningBracket2, null, Token);
-
-   if (OperatorNew) Then
-   Begin
-    StackPush(mtNothing, null, Token);
-    OperatorNew := False;
-   End;
-  End Else
-
-  { array bracket close }
-  if (Token.Token = _BRACKET2_CL) Then
-  Begin
-   Dec(Bracket2);
-   if (Bracket2 < 0) Then
-    Compiler.CompileError(eUnexpected, [']']);
-
-   if (Expect = eValue) Then
-    Compiler.CompileError(eExpectedValue, [']']);
-
-   Expect := eValueOrOperator;
-
-   While (StackPos > 0) do
-   Begin
-    Value := StackPop;
-    if (Value.Typ = mtOpeningBracket2) Then
-     Break;
-    FinalExprPush(Value);
-   End;
-
-   FinalExprPush(mtArrayElement, null, Token);
-  End Else
-
-  { operator }
-  Begin
-   if (Token.Token = _MINUS) Then // is it unary or binary minus?
-   Begin
-    if not (next_t(-2) in [_INT, _FLOAT, _STRING, _CHAR, _IDENTIFIER, _BRACKET1_CL, _BRACKET2_CL]) Then
-     Str := _UNARY_MINUS;
-   End;
-
-   if (Expect = eValue) and (Str <> _UNARY_MINUS) and not (Token.Token in [_EXCLM_MARK, _TILDE, _DOUBLE_PLUS, _DOUBLE_MINUS, _NEW]) Then
-    Compiler.CompileError(eExpectedValue, [Token.Value]);
-
-   Expect := eValue;
-
-   if (StackPos > 0) Then // is there any element on the list?
-   Begin
-    While (isLeftAssoc(Str) and (getOrder(Str) <= getOrder(StackPeek))) or
-          (isRightAssoc(Str) and (getOrder(Str) < getOrder(StackPeek))) Do
+    While (Scanner.next_t <> _BRACKET1_CL) Do
     Begin
-     FinalExprPush(StackPop);
-     if (StackPos <= 0) Then // no more elements on the list
+     {$DEFINE PList := Result^.ParamList}
+     SetLength(PList, Length(PList)+1);
+     PList[High(PList)] := Parse([_COMMA, _BRACKET1_CL]);
+     {$UNDEF PList}
+
+     Dec(Scanner.TokenPos);
+     if (Scanner.next_t = _BRACKET1_CL) Then
+      Break Else
+      Scanner.eat(_COMMA);
+    End;
+
+    Scanner.eat(_BRACKET1_CL);
+   End;
+
+   // array element fetch
+   While (Scanner.next_t = _BRACKET2_OP) Do
+   Begin
+    Scanner.read; // `[`
+    Result := CreateNode(Result, Parse([_BRACKET2_CL]), mtArrayElement, null, Token);
+   End;
+
+   if (Scanner.next_t in [_BRACKET1_OP, _POINT, _BRACKET2_OP]) Then
+   Begin
+    First.Token := Scanner.next_t(-1);
+    Token       := First;
+
+    goto ParseModifiers;
+   End;
+  End;
+
+  { ParseOrder8 }
+  Function ParseOrder8: PExpressionNode; //  unary '-'   |   ^   &   !   new
+  Var Op   : TExpressionNodeType;
+      mType: TType;
+      next : TToken;
+      Token: TToken_P;
+      Tmp  : PExpressionNode;
+  Begin
+   next := Scanner.next_t;
+
+   if (next = _NEW) Then // "new" operator
+   Begin
+    Token := Scanner.read; // `new`
+    mType := Scanner.read_type(False); // read type
+
+    Result := CreateNode
+              (
+               CreateNode(nil, nil, mtInt, uint32(mType), Token),
+               nil,
+               mtNew,
+               null,
+               Token
+              );
+
+    Tmp := Result;
+
+    While (true) Do
+    Begin
+     Token      := Scanner.eat(_BRACKET2_OP);
+     Tmp^.Right := CreateNode(Parse([_BRACKET2_CL]), nil, mtArrayElement, null, Token);
+     Tmp        := Tmp^.Right;
+
+     if (Scanner.next_t = _BRACKET2_OP) Then
+      Continue Else
       Break;
     End;
+
+    Exit;
    End;
 
-   Case Token.Token of // translate token into an operator
-    _PLUS   : StackPush(mtAdd, Token); // +
-    _MINUS  : if (Str = _UNARY_MINUS) Then StackPush(mtNeg, Token) Else StackPush(mtSub, Token); // -
-    _STAR   : StackPush(mtMul, Token); // *
-    _SLASH  : StackPush(mtDiv, Token); // /
-    _PERCENT: StackPush(mtMod, Token); // %
-    _EQUAL  : StackPush(mtAssign, Token); // =
+   if (next = _MINUS) Then // unary '-'
+   Begin
+    Token := Scanner.read;
+    Exit(CreateNode(ParseOrder9(), nil, mtNeg, null, Token));
+   End;
 
-    _PLUS_EQUAL   : StackPush(mtAddEq, Token); // +=
-    _MINUS_EQUAL  : StackPush(mtSubEq, Token); // -=
-    _STAR_EQUAL   : StackPush(mtMulEq, Token); // *=
-    _SLASH_EQUAL  : StackPush(mtDivEq, Token); // /=
-    _PERCENT_EQUAL: StackPush(mtModEq, Token); // %=
+   if (next = _EXCLM_MARK) Then // unary '!'
+   Begin
+    Token := Scanner.read;
+    Exit(CreateNode(ParseOrder9(), nil, mtLogicalNOT, null, Token));
+   End;
 
-    _EXCLM_MARK: StackPush(mtLogicalNOT, Token); // !
-    _TILDE     : StackPush(mtBitwiseNOT, Token); // ~
+   if (next = _TILDE) Then // unary '~'
+   Begin
+    Token := Scanner.read;
+    Exit(CreateNode(ParseOrder9(), nil, mtBitwiseNOT, null, Token));
+   End;
 
-    _DOUBLE_PLUS: // ++
-    if (is_a_post_operator) Then
-     StackPush(mtPostInc, Token) Else
-     StackPush(mtPreInc, Token);
+   Result := ParseOrder9();
 
-    _DOUBLE_MINUS: // --
-    if (is_a_post_operator) Then
-     StackPush(mtPostDec, Token) Else
-     StackPush(mtPreDec, Token);
+   While (WhileCondition(Order8)) Do
+   Begin
+    Case LoopToken.Token of
+     _PIPE     : Op := mtBitwiseOR;
+     _CARON    : Op := mtXOR;
+     _AMPERSAND: Op := mtBitwiseAND;
 
-    _LOWER        : StackPush(mtLower, Token); // <
-    _GREATER      : StackPush(mtGreater, Token); // >
-    _EQUAL_EQUAL  : StackPush(mtEqual, Token); // ==
-    _LOWER_EQUAL  : StackPush(mtLowerEqual, Token); // <=
-    _GREATER_EQUAL: StackPush(mtGreaterEqual, Token); // >=
-    _DIFFERENT    : StackPush(mtDifferent, Token); // !=
-
-    _DOUBLE_PIPE     : StackPush(mtLogicalOR, Token); // ||
-    _DOUBLE_AMPERSAND: StackPush(mtLogicalAND, Token); // &&
-
-    _PIPE: // |
-    if (next_t = _EQUAL) Then
-    Begin
-     read;
-     StackPush(mtOrEq, Token);
-    End Else
-     StackPush(mtBitwiseOR, Token);
-
-    _AMPERSAND: // &
-    if (next_t = _EQUAL) Then
-    Begin
-     read;
-     StackPush(mtANDEq, Token);
-    End Else
-     StackPush(mtBitwiseAND, Token);
-
-    _CARON: // ^
-    if (next_t = _EQUAL) Then
-    Begin
-     read;
-     StackPush(mtXOREq, Token);
-    End Else
-     StackPush(mtXOR, Token);
-
-    _DOUBLE_LOWER: // <<
-    if (next_t = _EQUAL) Then
-    Begin
-     read;
-     StackPush(mtSHLEq, Token);
-    End Else
-     StackPush(mtSHL, Token);
-
-    _DOUBLE_GREATER: // >>
-    if (next_t = _EQUAL) Then
-    Begin
-     read;
-     StackPush(mtSHREq, Token);
-    End Else
-     StackPush(mtSHR, Token);
-
-    _NEW: // `new`
-    Begin
-     StackPush(mtNew, Token);
-
-     TypeID := read_type(False); // read type
-     StackPush(mtType, LongWord(TypeID), Token);
-
-     if (next_t <> _BRACKET2_OP) Then // fast syntax-check
-     Begin
-      read;
-      Compiler.CompileError(eExpected, ['[', next(-1).Value]);
-     End;
-
-     OperatorNew := True;
+     else
+      Compiler.CompileError(eInternalError, ['ParseOrder8() -> unexpected token']);
     End;
 
-    { invalid operator }
-    else
-     Case Expect of
-      eOperator: Compiler.CompileError(eExpectedOperator, [Token.Value]);
-      eValue   : Compiler.CompileError(eExpectedValue, [Token.Value]);
-      else Compiler.CompileError(eUnexpected, [Token.Value]);
-     End;
+    Result := CreateNode(Result, ParseOrder9(), Op, null, LoopToken);
    End;
-
-   if (Stack[StackPos-1].Typ in [mtPostInc, mtPostDec]) Then
-    Expect := eOperator;
   End;
- End;
 
- // and add remaining operators to the final operator list
- While (StackPos > 0) Do
-  FinalExprPush(StackPop);
-
- if (FinalExprPos = 0) Then
-  FinalExpr[0].Token.Token := noToken;
-
- if (Bracket <> 0) or (Bracket2 <> 0) Then
-  CompileError(eInvalidExpression);
-End;
-End;
-
-(* TExpressionParser.MakeTree *)
-Function TExpressionParser.MakeTree: PExpressionNode;
-Var Pos, I: Integer;
-    Value : TStackValue;
-    MType : TExpressionNodeType;
-    Node  : PExpressionNode;
-
-  { CreateNodeFromStack }
-  Function CreateNodeFromStack: PExpressionNode;
-  Var Value : TStackValue;
-      Name  : String;
-      Tmp   : PExpressionNode;
-      Symbol: TSymbol;
+  { ParseOrder7 }
+  Function ParseOrder7: PExpressionNode; //  ++   --
+  Var Op: TExpressionNodeType;
   Begin
-   Value := StackPop;
-
-   { whole expression tree }
-   if (Value.Typ = mtTree) Then
+   if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then // pre
    Begin
-    if (Value.Value = null) Then // shouldn't happen
-     Compiler.CompileError(eInternalError, ['Value.Value = null']);
+    LoopToken := Scanner.read;
 
-    Result := PExpressionNode(LongWord(Value.Value)); // get pointer
-
-    { function call }
-    if (Result^.Typ = mtFunctionCall) Then
-    Begin
-     Tmp := Result^.Left;
-
-     if (Tmp^.Typ = mtIdentifier) Then // calling an identifier (ie. variable or function)
-     Begin
-      Name := Tmp^.IdentName;
-
-      if (Name <> '') Then
-      Begin
-       Symbol         := TSymbol(Tmp^.Symbol); // symbol should be already fetched, see end of this function
-       Result^.Symbol := Symbol;
-
-       if (Symbol = nil) or not (Symbol.Typ in [stVariable, stFunction]) Then
-        Compiler.CompileError(Tmp^.Token, eUnknownFunction, [Name]);
-      End;
-     End Else // calling not an identifier (cast-call, like: `(cast<function<void>()>(somevar))()` )
-      Result^.Value := 'cast-call';
+    Case LoopToken.Token of
+     _DOUBLE_PLUS : Op := mtPreInc;
+     _DOUBLE_MINUS: Op := mtPreDec;
     End;
 
-    Exit(Result);
-   End;
+    Result := ParseOrder9(); // parse expr
 
-   { something else (variable, constant value etc.) }
-   Result      := CreateNode(nil, nil, mtNothing, Value.Value, Value.Token);
-   Result^.Typ := Value.Typ;
+    if (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
+    Begin
+     Compiler.CompileError(Result^.Token, eLValueExpected, []);
+     Exit;
+     // @TODO: error recovery?
+    End;
 
-   { identifier (variable, constant or function name) }
-   if (Value.Typ = mtIdentifier) Then
+    Result := CreateNode(Result, nil, Op, null, LoopToken);
+   End Else
    Begin
-    Result^.IdentName := VarToStr(Result^.Value);
-    Result^.Value     := null;
+    Result := ParseOrder8();
 
-    if (Value.Namespace = nil) Then
-     Result^.Symbol := Compiler.findCandidate(Result^.IdentName, Value.Namespace, Value.Token) Else
-     Result^.Symbol := Value.Namespace.findSymbol(Result^.IdentName);
+    if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then // post
+    Begin
+     if (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
+     Begin
+      Compiler.CompileError(Result^.Token, eLValueExpected, []);
+      Exit;
+      // @TODO: error recovery?
+     End;
+
+     LoopToken := Scanner.read;
+     Case LoopToken.Token of
+      _DOUBLE_PLUS : Op := mtPostInc;
+      _DOUBLE_MINUS: Op := mtPostDec;
+     End;
+
+     Result := CreateNode(Result, nil, Op, null, LoopToken);
+    End;
+   End;
+  End;
+
+  { ParseOrder6 }
+  Function ParseOrder6: PExpressionNode; //  *   /   %
+  Var Op: TExpressionNodeType;
+  Begin
+   Result := ParseOrder7();
+
+   While (WhileCondition(Order6)) Do
+   Begin
+    Case LoopToken.Token of
+     _STAR   : Op := mtMul;
+     _SLASH  : Op := mtDiv;
+     _PERCENT: Op := mtMod;
+
+     else
+      Compiler.CompileError(eInternalError, ['ParseOrder6() -> unexpected token']);
+    End;
+
+    Result := CreateNode(Result, ParseOrder7(), Op, null, LoopToken);
+   End;
+  End;
+
+  { ParseOrder5 }
+  Function ParseOrder5: PExpressionNode; //  +   -
+  Var Op: TExpressionNodeType;
+  Begin
+   Result := ParseOrder6();
+
+   While (WhileCondition(Order5)) Do
+   Begin
+    Case LoopToken.Token of
+     _PLUS : Op := mtAdd;
+     _MINUS: Op := mtSub;
+
+     else
+      Compiler.CompileError(eInternalError, ['ParseOrder5() -> unexpected token']);
+    End;
+
+    Result := CreateNode(Result, ParseOrder6(), Op, null, LoopToken);
+   End;
+  End;
+
+  { ParseOrder4 }
+  Function ParseOrder4: PExpressionNode; // <<   >>
+  Var Op: TExpressionNodeType;
+  Begin
+   Result := ParseOrder5();
+
+   While (WhileCondition(Order4)) Do
+   Begin
+    Case LoopToken.Token of
+     _DOUBLE_LOWER  : Op := mtSHL;
+     _DOUBLE_GREATER: Op := mtSHR;
+
+     else
+      Compiler.CompileError(eInternalError, ['ParseOrder4() -> unexpected token']);
+    End;
+
+    Result := CreateNode(Result, ParseOrder5(), Op, null, LoopToken);
+   End;
+  End;
+
+  { ParseOrder3 }
+  Function ParseOrder3: PExpressionNode; //  <   <=   ==   >=   >   !=
+  Var Op: TExpressionNodeType;
+  Begin
+   Result := ParseOrder4();
+
+   While (WhileCondition(Order3)) Do
+   Begin
+    Case LoopToken.Token of
+     _LOWER        : Op := mtLower;
+     _LOWER_EQUAL  : Op := mtLowerEqual;
+     _EQUAL_EQUAL  : Op := mtEqual;
+     _GREATER_EQUAL: Op := mtGreaterEqual;
+     _GREATER      : Op := mtGreater;
+     _DIFFERENT    : Op := mtDifferent;
+
+     else
+      Compiler.CompileError(eInternalError, ['ParseOrder3() -> unexpected token']);
+    End;
+
+    Result := CreateNode(Result, ParseOrder4(), Op, null, LoopToken);
+   End;
+  End;
+
+  { ParseOrder2 }
+  Function ParseOrder2: PExpressionNode; //  ||   &&
+  Var Op: TExpressionNodeType;
+  Begin
+   Result := ParseOrder3();
+
+   While (WhileCondition(Order2)) Do
+   Begin
+    Case LoopToken.Token of
+     _DOUBLE_PIPE     : Op := mtLogicalOR;
+     _DOUBLE_AMPERSAND: Op := mtLogicalAND;
+
+     else
+      Compiler.CompileError(eInternalError, ['ParseOrder2() -> unexpected token']);
+    End;
+
+    Result := CreateNode(Result, ParseOrder3(), Op, null, LoopToken);
+   End;
+  End;
+
+  { ParseOrder1 }
+  Function ParseOrder1: PExpressionNode; //  =   +=   -=   /=   *=   %=   <<=   >>=   |=   &=   ^=
+  Var Op: TExpressionNodeType;
+  Begin
+   Result := ParseOrder2();
+
+   While (WhileCondition(Order1)) Do
+   Begin
+    Case LoopToken.Token of
+     _EQUAL            : Op := mtAssign;
+     _PLUS_EQUAL       : Op := mtAddEq;
+     _MINUS_EQUAL      : Op := mtSubEq;
+     _SLASH_EQUAL      : Op := mtDivEq;
+     _STAR_EQUAL       : Op := mtMulEq;
+     _PERCENT_EQUAL    : Op := mtModEq;
+     _DBL_LOWER_EQUAL  : Op := mtSHLEq;
+     _DBL_GREATER_EQUAL: Op := mtSHREq;
+     _PIPE_EQUAL       : Op := mtOREq;
+     _AMPERSAND_EQUAL  : Op := mtANDEq;
+     _CARON_EQUAL      : Op := mtXOREq;
+
+     else
+      Compiler.CompileError(eInternalError, ['ParseOrder1() -> unexpected token']);
+    End;
+
+    Result := CreateNode(Result, ParseOrder2(), Op, null, LoopToken);
    End;
   End;
 
 Begin
- Pos      := 0;
- StackPos := 0;
+ Scanner := Compiler.getScanner;
+ Result  := ParseOrder1();
 
- if (FinalExpr[0].Token.Token = noToken) Then
-  Exit(nil);
+ if (not (Scanner.next_t in EndTokens)) Then
+ Begin
+  Compiler.CompileError(Scanner.next, eExpectedOperator, [Scanner.next.Value]);
+ End;
 
- Repeat
-  Value := FinalExpr[Pos];
-
-  { constant value }
-  if (Value.Typ in [mtNothing, mtType, mtBool, mtChar, mtInt, mtFloat, mtString]) Then
-  Begin
-   StackPush(Value);
-  End Else
-
-  { variable }
-  if (Value.Typ = mtIdentifier) Then
-  Begin
-   if (Value.Value = 'true') Then // internal constants
-   Begin
-    Value.Typ   := mtBool;
-    Value.Value := True;
-   End Else
-
-   if (Value.Value = 'false') Then
-   Begin
-    Value.Typ   := mtBool;
-    Value.Value := False;
-   End;
-
-   StackPush(Value);
-  End Else
-
-  { type cast }
-  if (Value.Typ = mtTypeCast) Then
-  Begin
-   Node       := CreateNode(nil, nil, mtTypeCast, Value.Value, Value.Token);
-   Node^.Left := CreateNodeFromStack;
-
-   StackPush(mtTree, uint32(Node));
-  End Else
-
-  { function call }
-  if (Value.Typ = mtFunctionCall) Then
-  Begin
-   Node := CreateNode(nil, nil, mtFunctionCall, Value.Value, Value.Token);
-
-   SetLength(Node^.ParamList, Value.ParamCount);
-   For I := High(Node^.ParamList) Downto Low(Node^.ParamList) Do
-    Node^.ParamList[I] := CreateNodeFromStack;
-
-   Node^.Left := CreateNodeFromStack;
-
-   StackPush(mtTree, uint32(Node));
-  End Else
-
-  { method call }
-  if (Value.Typ = mtMethodCall) Then
-  Begin
-   Node := CreateNode(nil, nil, mtMethodCall, Value.Value, Value.Token);
-
-   SetLength(Node^.ParamList, Value.ParamCount);
-   For I := High(Node^.ParamList) Downto Low(Node^.ParamList) Do
-    Node^.ParamList[I] := CreateNodeFromStack;
-
-   Node^.Right := CreateNodeFromStack;
-   Node^.Left  := CreateNodeFromStack;
-
-   StackPush(mtTree, uint32(Node));
-  End Else
-
-  { operator }
-  if (Value.Typ in MOperators) Then
-  Begin
-   // binary operators
-   if (Value.Typ in MBinaryOperators) Then
-   Begin
-    MType := Value.Typ;
-    Node  := CreateNode(nil, nil, MType, null, Value.Token);
-
-    Node^.Right := CreateNodeFromStack;
-    Node^.Left  := CreateNodeFromStack;
-
-    StackPush(mtTree, uint32(Node));
-   End Else
-
-   // unary operators
-   if (Value.Typ in MUnaryOperators) Then
-   Begin
-    MType := Value.Typ;
-    Node  := CreateNode(nil, nil, MType, null, Value.Token);
-
-    Node^.Left := CreateNodeFromStack;
-    StackPush(mtTree, uint32(Node));
-   End Else
-
-   // `new` operator
-   if (Value.Typ = mtNew) Then
-   Begin
-    Node := CreateNode(nil, nil, mtNew, null, Value.Token);
-
-    Node^.Left  := CreateNodeFromStack;
-    Node^.Right := CreateNodeFromStack;
-
-    StackPush(mtTree, uint32(Node));
-   End Else
-
-   // array element
-   if (Value.Typ = mtArrayElement) Then
-   Begin
-    Node := CreateNode(nil, nil, mtArrayElement, null, Value.Token);
-
-    Node^.Right := CreateNodeFromStack;
-    Node^.Left  := CreateNodeFromStack;
-
-    StackPush(mtTree, uint32(Node));
-   End;
-  End;
-
-  Inc(Pos);
- Until (Pos >= FinalExprPos);
-
- Result := CreateNodeFromStack;
-
- if (StackPos <> 0) Then
-  Compiler.CompileError(Compiler.getScanner.next(-1), eInvalidExpression, []);
+ Scanner.read;
 End;
 
 // ---------- </> ---------- //
 
-{ MakeExpression }
-Function MakeExpression(const CompilerPnt: Pointer; EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): PExpressionNode;
+(* MakeExpression *)
+Function MakeExpression(const CompilerPnt: Pointer; const EndTokens: TTokenSet=[_SEMICOLON]; Options: TOptions=[oGetFromCommandLine]): PExpressionNode;
 Var Compiler: TCompiler absolute CompilerPnt;
     Parser  : TExpressionParser;
 Begin
@@ -1259,12 +955,11 @@ Begin
     Options += [oInsertConstants, oConstantFolding];
   End;
 
-  Parser.Parse(EndTokens);
-
-  Result := Parser.MakeTree;
+  Result := Parser.Parse(EndTokens);
 
   {$IFDEF DISPLAY_TREE}
    DisplayTree(Result);
+   Writeln;
   {$ENDIF}
  Finally
   Parser.Free;
@@ -1284,27 +979,28 @@ Begin
 End;
 
 // TRVariable
-Type TRVariable = Record
-                   Private
-                    pPushedValues: PInteger;
+Type TRVariable =
+     Record
+      Private
+       pPushedValues: PInteger;
 
-                   Public
-                    Name        : String;
-                    Symbol      : Pointer;
-                    LocationData: TVarLocationData;
-                    RegChar     : Char;
-                    Typ         : TType;
-                    Value       : PExpressionNode;
+      Public
+       Name        : String;
+       Symbol      : Pointer;
+       LocationData: TVarLocationData;
+       RegChar     : Char;
+       Typ         : TType;
+       Value       : PExpressionNode;
 
-                    getArray: Byte;
+       getArray: Byte;
 
-                    isConst: Boolean;
+       isConst: Boolean;
 
-                    mVariable: TVariable;
+       mVariable: TVariable;
 
-                    Function PosStr: String;
-                    Function isStoredInRegister: Boolean;
-                  End;
+       Function PosStr: String;
+       Function isStoredInRegister: Boolean;
+      End;
 
 // TRVariable.PosStr
 Function TRVariable.PosStr: String;
@@ -1319,7 +1015,7 @@ Begin
 End;
 
 (* CompileExpression *)
-Function CompileExpression(const CompilerPnt: Pointer; Expr: PExpressionNode): TType;
+Function CompileExpression(const CompilerPnt: Pointer; const Expr: PExpressionNode): TType;
 Var Compiler    : TCompiler; // caller compiler pointer
     ExprLabel   : String; // unique name for each expression
     PushedValues: Integer=0; // amount of values pushed onto stack; used in eg.getting value of variables lying on the stack
@@ -1330,33 +1026,33 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
     Push_IF_reg : Boolean=False; // if equal `true`, the `if` register is pushed at the end of parsing `Expr`
     FinalRegDone: Boolean=False; // if equal `true`, no additional "mov(FinalReg, e_1)" opcode will be automatically put (if FinalRegID > 0)
 
-  // Error
-  Procedure Error(Error: TCompileError; Args: Array of Const);
+  { Error }
+  Procedure Error(const Error: TCompileError; const Args: Array of Const);
   Begin
    Compiler.CompileError(Expr^.Token, Error, Args);
   End;
 
-  // Error
-  Procedure Error(Token: TToken_P; Error: TCompileError; Args: Array of Const);
+  { Error }
+  Procedure Error(const Token: TToken_P; const Error: TCompileError; const Args: Array of Const);
   Begin
    Compiler.CompileError(Token, Error, Args);
   End;
 
-  // Hint
-  Procedure Hint(Hint: TCompileHint; Args: Array of Const);
+  { Hint }
+  Procedure Hint(const Hint: TCompileHint; const Args: Array of Const);
   Begin
    Compiler.CompileHint(Expr^.Token, Hint, Args);
   End;
 
-  // RePop
-  Procedure RePop(Expr: PExpressionNode; TypeID: TType; Reg: Byte);
+  { RePop }
+  Procedure RePop(const Expr: PExpressionNode; const TypeID: TType; const Reg: Byte);
   Begin
    if (TypeID = nil) Then
     Exit;
 
    if (Expr^.ResultOnStack) Then
    Begin
-    if not (Reg in [1..4]) Then
+    if (not (Reg in [1..4])) Then
      Error(eInternalError, ['RePop called with invalid register ID: '+IntToStr(Reg)]);
 
     Compiler.PutOpcode(o_pop, ['e'+TypeID.RegPrefix+IntToStr(Reg)]);
@@ -1365,7 +1061,7 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
    End;
   End;
 
-  // getVariable
+  { getVariable }
   Function getVariable(Expr: PExpressionNode; const FailWhenNotFound: Boolean=False; const AllowConstants: Boolean=False): TRVariable;
   Label Failed;
   Begin
@@ -1421,7 +1117,7 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
   End;
 
   { getType }
-  Function getType(Value: Variant): TType;
+  Function getType(const Value: Variant): TType; inline;
   Begin
    if (Value = null) Then
    Begin
@@ -1429,11 +1125,11 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
     Exit(nil);
    End;
 
-   Result := TType(LongWord(Value));
+   Result := TType(uint32(Value));
   End;
 
   { getTypeFromMExpr }
-  Function getTypeFromMExpr(Expr: PExpressionNode): TType;
+  Function getTypeFromMExpr(const Expr: PExpressionNode): TType; inline;
   Begin
    Case Expr^.Typ of
     mtBool      : Result := TYPE_BOOL;
@@ -1449,7 +1145,7 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
   End;
 
   { isLValue }
-  Function isLValue(Expr: PExpressionNode): Boolean;
+  Function isLValue(const Expr: PExpressionNode): Boolean; inline;
   Begin
    Result := (Expr^.Typ in [mtIdentifier, mtArrayElement]);
 
@@ -1458,7 +1154,7 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
   End;
 
   { countLeaves }
-  Function countLeaves(Expr: PExpressionNode): LongWord;
+  Function countLeaves(const Expr: PExpressionNode): uint32; inline;
   Var Param: PExpressionNode;
   Begin
    if (Expr = nil) Then
@@ -1651,46 +1347,29 @@ Begin
   Exit;
  End;
 
- // parse binary operators
- if (Expr^.Typ in MBinaryOperators) Then
- Begin
-  if (Expr^.Typ in [mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent]) Then
-   ParseCompare;
-
-  Case Expr^.Typ of
-   mtAdd, mtSub, mtMul, mtDiv, mtMod, mtSHL, mtSHR                                        : ParsePrimaryOperator(False);
-   mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq: ParsePrimaryOperator(True);
-
-   mtAssign    : ParseAssign;
-   mtLogicalOR : ParseLogicalOR;
-   mtLogicalAND: ParseLogicalAND;
-   mtBitwiseOR : ParseBitwiseOR;
-   mtBitwiseAND: ParseBitwiseAND;
-   mtXOR       : ParseXOR;
-  End;
- End;
-
- // parse unary operators
- if (Expr^.Typ in MUnaryOperators) Then
- Begin
-  if (Expr^.Left = nil) Then
-   Error(eInternalError, ['Expr^.Left = nil']);
-
-  if (Expr^.Typ in [mtPreInc, mtPreDec, mtPostInc, mtPostDec]) Then // pre/post increment/decrement
-  Begin
-   ParsePIncDec;
-   goto Over;
-  End;
-
-  Case Expr^.Typ of
-   mtNeg: ParseNEG;
-   mtLogicalNOT: ParseLogicalNOT;
-   mtBitwiseNOT: ParseBitwiseNOT;
-  End;
- End;
-
- // parse other operators
+ // parse operators
  Case Expr^.Typ of
+  { binary operators }
+  mtAdd, mtSub, mtMul, mtDiv, mtMod, mtSHL, mtSHR                                        : ParsePrimaryOperator(False);
+  mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtSHLEq, mtSHREq, mtOREq, mtANDEq, mtXOREq: ParsePrimaryOperator(True);
+
+  mtLower, mtGreater, mtEqual, mtLowerEqual, mtGreaterEqual, mtDifferent: ParseCompare;
+
+  mtAssign    : ParseAssign;
+  mtLogicalOR : ParseLogicalOR;
+  mtLogicalAND: ParseLogicalAND;
+  mtBitwiseOR : ParseBitwiseOR;
+  mtBitwiseAND: ParseBitwiseAND;
+  mtXOR       : ParseXOR;
+
+  { unary operators }
+  mtNeg       : ParseNEG;
+  mtLogicalNOT: ParseLogicalNOT;
+  mtBitwiseNOT: ParseBitwiseNOT;
+
+  mtPreInc, mtPreDec, mtPostInc, mtPostDec: ParsePIncDec;
+
+  { other operators }
   mtFunctionCall: ParseCall(False);
   mtMethodCall  : ParseCall(True);
   mtArrayElement: ParseArrayElement;

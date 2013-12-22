@@ -146,25 +146,25 @@ Unit SSCompiler;
         { compiling }
          Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
 
-         Procedure CompileError(Token: TToken_P; Error: TCompileError; Args: Array of Const);
-         Procedure CompileError(Token: PToken_P; Error: TCompileError; Args: Array of Const);
-         Procedure CompileError(Error: TCompileError; Args: Array of Const);
-         Procedure CompileError(Error: TCompileError);
+         Procedure CompileError(const Token: TToken_P; const Error: TCompileError; const Args: Array of Const);
+         Procedure CompileError(const Token: PToken_P; const Error: TCompileError; const Args: Array of Const);
+         Procedure CompileError(const Error: TCompileError; const Args: Array of Const);
+         Procedure CompileError(const Error: TCompileError);
 
-         Procedure CompileWarning(Token: TToken_P; Warning: TCompileWarning; Args: Array of Const);
-         Procedure CompileWarning(Token: PToken_P; Warning: TCompileWarning; Args: Array of Const);
-         Procedure CompileWarning(Warning: TCompileWarning; Args: Array of Const);
-         Procedure CompileWarning(Warning: TCompileWarning);
+         Procedure CompileWarning(const Token: TToken_P; const Warning: TCompileWarning; const Args: Array of Const);
+         Procedure CompileWarning(const Token: PToken_P; const Warning: TCompileWarning; const Args: Array of Const);
+         Procedure CompileWarning(const Warning: TCompileWarning; const Args: Array of Const);
+         Procedure CompileWarning(const Warning: TCompileWarning);
 
-         Procedure CompileHint(Token: TToken_P; Hint: TCompileHint; Args: Array of Const);
-         Procedure CompileHint(Token: PToken_P; Hint: TCompileHint; Args: Array of Const);
-         Procedure CompileHint(Hint: TCompileHint; Args: Array of Const);
-         Procedure CompileHint(Hint: TCompileHint);
+         Procedure CompileHint(const Token: TToken_P; const Hint: TCompileHint; const Args: Array of Const);
+         Procedure CompileHint(const Token: PToken_P; const Hint: TCompileHint; const Args: Array of Const);
+         Procedure CompileHint(const Hint: TCompileHint; const Args: Array of Const);
+         Procedure CompileHint(const Hint: TCompileHint);
 
-         Procedure CompileNote(Token: TToken_P; Note: TCompileNote; Args: Array of Const);
-         Procedure CompileNote(Token: PToken_P; Note: TCompileNote; Args: Array of Const);
-         Procedure CompileNote(Note: TCompileNote; Args: Array of Const);
-         Procedure CompileNote(Note: TCompileNote);
+         Procedure CompileNote(const Token: TToken_P; const Note: TCompileNote; const Args: Array of Const);
+         Procedure CompileNote(const Token: PToken_P; const Note: TCompileNote; const Args: Array of Const);
+         Procedure CompileNote(const Note: TCompileNote; const Args: Array of Const);
+         Procedure CompileNote(const Note: TCompileNote);
         End;
 
  Function ReplaceDirSep(FileName: String): String;
@@ -1618,7 +1618,7 @@ End;
 {
  Displays an error; when passed error is a `eInternalError` or belongs to `error_stop`, function also stops the compiler.
 }
-Procedure TCompiler.CompileError(Token: TToken_P; Error: TCompileError; Args: Array of Const);
+Procedure TCompiler.CompileError(const Token: TToken_P; const Error: TCompileError; const Args: Array of const);
 Var Str: String;
 Begin
  if (Parent <> nil) Then
@@ -1638,7 +1638,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileError(Token: PToken_P; Error: TCompileError; Args: Array of Const);
+Procedure TCompiler.CompileError(const Token: PToken_P; const Error: TCompileError; const Args: Array of const);
 Begin
  if (Token = nil) Then
   CompileError(Error, Args) Else
@@ -1649,7 +1649,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileError(Error: TCompileError; Args: Array of Const);
+Procedure TCompiler.CompileError(const Error: TCompileError; const Args: Array of const);
 Begin
  CompileError(Scanner.next(0), Error, Args);
 End;
@@ -1658,7 +1658,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileError(Error: TCompileError);
+Procedure TCompiler.CompileError(const Error: TCompileError);
 Begin
  CompileError(Error, []);
 End;
@@ -1667,7 +1667,7 @@ End;
 {
  Displays a warning
 }
-Procedure TCompiler.CompileWarning(Token: TToken_P; Warning: TCompileWarning; Args: Array of Const);
+Procedure TCompiler.CompileWarning(const Token: TToken_P; const Warning: TCompileWarning; const Args: Array of const);
 Begin
  Writeln(InputFile+'('+IntToStr(Token.Line)+','+IntToStr(Token.Char)+') Warning: '+Format(CompileWarning_fmt[Warning], Args));
 End;
@@ -1676,7 +1676,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileWarning(Token: PToken_P; Warning: TCompileWarning; Args: Array of Const);
+Procedure TCompiler.CompileWarning(const Token: PToken_P; const Warning: TCompileWarning; const Args: Array of const);
 Begin
  if (Token = nil) Then
   CompileWarning(Warning, Args) Else
@@ -1687,7 +1687,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileWarning(Warning: TCompileWarning; Args: Array of Const);
+Procedure TCompiler.CompileWarning(const Warning: TCompileWarning; const Args: Array of const);
 Begin
  CompileWarning(Scanner.next(0), Warning, Args);
 End;
@@ -1696,7 +1696,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileWarning(Warning: TCompileWarning);
+Procedure TCompiler.CompileWarning(const Warning: TCompileWarning);
 Begin
  CompileWarning(Warning, []);
 End;
@@ -1705,7 +1705,7 @@ End;
 {
  Displays a hint
 }
-Procedure TCompiler.CompileHint(Token: TToken_P; Hint: TCompileHint; Args: Array of Const);
+Procedure TCompiler.CompileHint(const Token: TToken_P; const Hint: TCompileHint; const Args: Array of const);
 Begin
  Writeln(InputFile+'('+IntToStr(Token.Line)+','+IntToStr(Token.Char)+') Hint: '+Format(CompileHint_fmt[Hint], Args));
 End;
@@ -1714,7 +1714,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileHint(Token: PToken_P; Hint: TCompileHint; Args: Array of Const);
+Procedure TCompiler.CompileHint(const Token: PToken_P; const Hint: TCompileHint; const Args: Array of const);
 Begin
  if (Token = nil) Then
   CompileHint(Hint, Args) Else
@@ -1725,7 +1725,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileHint(Hint: TCompileHint; Args: Array of Const);
+Procedure TCompiler.CompileHint(const Hint: TCompileHint; const Args: Array of const);
 Begin
  CompileHint(Scanner.next(0), Hint, Args);
 End;
@@ -1734,7 +1734,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileHint(Hint: TCompileHint);
+Procedure TCompiler.CompileHint(const Hint: TCompileHint);
 Begin
  CompileHint(Hint, []);
 End;
@@ -1743,7 +1743,7 @@ End;
 {
  Displays a note
 }
-Procedure TCompiler.CompileNote(Token: TToken_P; Note: TCompileNote; Args: Array of Const);
+Procedure TCompiler.CompileNote(const Token: TToken_P; const Note: TCompileNote; const Args: Array of const);
 Begin
  Writeln(InputFile+'('+IntToStr(Token.Line)+','+IntToStr(Token.Char)+') Note: '+Format(CompileNote_fmt[Note], Args));
 End;
@@ -1752,7 +1752,7 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileNote(Token: PToken_P; Note: TCompileNote; Args: Array of Const);
+Procedure TCompiler.CompileNote(const Token: PToken_P; const Note: TCompileNote; const Args: Array of const);
 Begin
  if (Token = nil) Then
   CompileNote(Note, Args) Else
@@ -1763,13 +1763,13 @@ End;
 {
  See above
 }
-Procedure TCompiler.CompileNote(Note: TCompileNote; Args: Array of Const);
+Procedure TCompiler.CompileNote(const Note: TCompileNote; const Args: Array of const);
 Begin
  CompileNote(Scanner.next(0), Note, Args);
 End;
 
 (* TCompiler.CompileNote *)
-Procedure TCompiler.CompileNote(Note: TCompileNote);
+Procedure TCompiler.CompileNote(const Note: TCompileNote);
 Begin
  CompileNote(Note, []);
 End;

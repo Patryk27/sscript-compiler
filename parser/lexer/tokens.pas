@@ -14,70 +14,75 @@ Unit Tokens;
 
  Type TToken =
  (
-  noToken,        //
-  _PLUS,          // +
-  _DOUBLE_PLUS,   // ++
-  _PLUS_EQUAL,    // +=
-  _MINUS,         // -                                                 
-  _DOUBLE_MINUS,  // --
-  _MINUS_EQUAL,   // -=
-  _STAR,          // *
-  _DOUBLE_STAR,   // **
-  _STAR_EQUAL,    // *=
-  _SLASH,         // /
-  _DOUBLE_SLASH,  // //
-  _SLASH_EQUAL,   // /=
-  _EQUAL,         // =
-  _EQUAL_EQUAL,   // == 
-  _GREATER,       // >
-  _DOUBLE_GREATER,// >>
-  _LOWER,         // <
-  _DOUBLE_LOWER,  // <<
-  _GREATER_EQUAL, // >=
-  _LOWER_EQUAL,   // <=
-  _EXCLM_MARK,    // !
-  _DIFFERENT,     // !=
-  _POINT,         // .                     
-  _BRACKET1_OP,   // (
-  _BRACKET1_CL,   // )
-  _BRACKET2_OP,   // [
-  _BRACKET2_CL,   // ]
-  _BRACKET3_OP,   // {
-  _BRACKET3_CL,   // }
-  _COMMA,         // ,
-  _COLON,         // :
-  _DOUBLE_COLON,  // ::
-  _SEMICOLON,     // ;
-  _QUOTE,         // "
-  _APOSTR,        // '
-  _AT,            // @
-  _UNDERSCORE,    // _
-  _PIPE,          // |
-  _DOUBLE_PIPE,   // ||
-  _CARON,         // ^
-  _PERCENT,       // %
-  _PERCENT_EQUAL, // %=
-  _EOF,           //
-  _NUMBER,        // int or float
-  _HEX_INTEGER,   // hexadecimal number
-  _INT,           // integer value
-  _FLOAT,         // float value
-  _STRING,        // string value
-  _INVALID_STRING,//
-  _INVALID_INT,   //
-  _INVALID_FLOAT, //
-  _CHAR,          //                               
-  _MCHAR,         //
-  _AMPERSAND,     // &
-  _DOUBLE_AMPERSAND, // &&
-  _HASH,          // #
-  _GRAVE_ACCENT,  // `
-  _ELLIPSIS,      // ...
-  _TILDE,         // ~
-  _SPACE,         //
-  _LONGCMT_OPEN,  // /*
-  _LONGCMT_CLOSE, // */
-  _IDENTIFIER,    //
+  noToken,            //
+  _PLUS,              // +
+  _DOUBLE_PLUS,       // ++
+  _PLUS_EQUAL,        // +=
+  _MINUS,             // -
+  _DOUBLE_MINUS,      // --
+  _MINUS_EQUAL,       // -=
+  _STAR,              // *
+  _DOUBLE_STAR,       // **
+  _STAR_EQUAL,        // *=
+  _SLASH,             // /
+  _DOUBLE_SLASH,      // //
+  _SLASH_EQUAL,       // /=
+  _EQUAL,             // =
+  _EQUAL_EQUAL,       // ==
+  _GREATER,           // >
+  _DOUBLE_GREATER,    // >>
+  _DBL_GREATER_EQUAL, // >>=
+  _LOWER,             // <
+  _DOUBLE_LOWER,      // <<
+  _DBL_LOWER_EQUAL,   // <<=
+  _GREATER_EQUAL,     // >=
+  _LOWER_EQUAL,       // <=
+  _EXCLM_MARK,        // !
+  _DIFFERENT,         // !=
+  _POINT,             // .
+  _BRACKET1_OP,       // (
+  _BRACKET1_CL,       // )
+  _BRACKET2_OP,       // [
+  _BRACKET2_CL,       // ]
+  _BRACKET3_OP,       // {
+  _BRACKET3_CL,       // }
+  _COMMA,             // ,
+  _COLON,             // :
+  _DOUBLE_COLON,      // ::
+  _SEMICOLON,         // ;
+  _QUOTE,             // "
+  _APOSTR,            // '
+  _AT,                // @
+  _UNDERSCORE,        // _
+  _PIPE,              // |
+  _PIPE_EQUAL,        // |=
+  _DOUBLE_PIPE,       // ||
+  _CARON,             // ^
+  _CARON_EQUAL,       // ^=
+  _PERCENT,           // %
+  _PERCENT_EQUAL,     // %=
+  _EOF,               //
+  _NUMBER,            // int or float
+  _HEX_INTEGER,       // hexadecimal number
+  _INT,               // integer value
+  _FLOAT,             // float value
+  _STRING,            // string value
+  _INVALID_STRING,    //
+  _INVALID_INT,       //
+  _INVALID_FLOAT,     //
+  _CHAR,              //
+  _MCHAR,             //
+  _AMPERSAND,         // &
+  _AMPERSAND_EQUAL,   // &=
+  _DOUBLE_AMPERSAND,  // &&
+  _HASH,              // #
+  _GRAVE_ACCENT,      // `
+  _ELLIPSIS,          // ...
+  _TILDE,             // ~
+  _SPACE,             //
+  _LONGCMT_OPEN,      // /*
+  _LONGCMT_CLOSE,     // */
+  _IDENTIFIER,        //
 
   _TT,            // [keyword list]
   _FUNCTION,      // function
@@ -131,8 +136,10 @@ Unit Tokens;
   '==',
   '>',
   '>>',
+  '>>=',
   '<',
   '<<',
+  '<<=',
   '>=',
   '<=',
   '!',
@@ -153,8 +160,10 @@ Unit Tokens;
   '@',
   '_',
   '|',
+  '|=',
   '||',
   '^',
+  '^=',
   '%',
   '%=',
   '',
@@ -169,6 +178,7 @@ Unit Tokens;
   '',
   '',
   '&',
+  '&=',
   '&&',
   '#',
   '`',

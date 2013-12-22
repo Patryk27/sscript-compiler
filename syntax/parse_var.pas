@@ -180,7 +180,7 @@ Begin
     Begin
      Dec(TokenPos);
      CFGAddNode(TCFGNode.Create(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA])));
-     Dec(TokenPos); // ExpressionCompiler 'eats' comma.
+     Dec(TokenPos); // ExpressionCompiler 'eats' comma which we need.
     End Else // global var initializer
     Begin
      CompileError(eUnimplemented, ['global variable initializers']);
