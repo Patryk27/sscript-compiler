@@ -111,7 +111,7 @@ Var ID, KilledVars: int32;
      TmpNode.Value := TmpExpr;
      RemovedNodes.Add(TmpNode);
 
-     if (Node.Value^.hasCall) Then // if right side of the asignment is a call, remove the assignment, but leave the call
+     if (Node.Value^.containsCall) Then // if right side of the asignment is a call, remove the assignment, but leave the call
      Begin
       Node.Value^.RemoveAssignments(Func.SymbolList[ID].Name);
      End Else
