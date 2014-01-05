@@ -836,6 +836,9 @@ End;
 }
 Function TCompiler.PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
 Begin
+ if (GetOpcodeID(Opcode) = -1) Then
+  CompileError(Scanner.next(-1), eBytecode_InvalidOpcode, []);
+
  Result := PutOpcode(TOpcode_E(GetOpcodeID(Opcode)), Args, fToken); // find opcode with name stored in variable (parameter) `Opcode` and then put it into the list
 End;
 

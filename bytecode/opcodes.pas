@@ -335,12 +335,10 @@ Function GetOpcodeID(const Name: String): Integer;
 Var I: Integer;
 Begin
  Result := -1;
+
  For I := Low(OpcodeList) To High(OpcodeList) Do
   if (OpcodeList[I].Name = Name) Then
-  Begin
-   Result := I;
-   Exit;
-  End;
+   Exit(I);
 End;
 
 (* isRegisterName *)
