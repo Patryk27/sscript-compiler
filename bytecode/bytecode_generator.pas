@@ -418,8 +418,6 @@ Begin
 
   PutComment('--------------------------------- //');
 
-  PutOpcode(o_loc_func, ['"'+Func.RefSymbol.Name+'"']);
-
   With Func do
   Begin
    StDec := StackSize;

@@ -629,9 +629,6 @@ Var I, T: Integer;
 
     DoCheck: Boolean;
 Begin
- if (fOpcode in [o_loc_file, o_loc_func, o_loc_line]) and (getBoolOption(opt__strip_debug)) Then
-  Exit;
-
  DoCheck := (fToken <> nil); // check only bytecode written by user
 
  if (fToken = nil) Then
@@ -1540,8 +1537,6 @@ Begin
    CompileAsBytecode;
    Exit; // stop compiler
   End;
-
-  PutOpcode(o_loc_file, ['"'+ExtractRelativePath(ExtractFilePath(Parent.InputFile), InputFile)+'"']); // write file location
 
   if (not isIncluded) Then // are we the main file?
   Begin
