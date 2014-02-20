@@ -93,7 +93,7 @@ Begin
  Begin
   (*
    @Note:
-   When a pure variable is passed into `+=` (and derivatives), it can be directly increased, decreased etc., as we exactly know
+   When a pure variable is passed into `+=` (and derivatives like '-=', '&='...), it can be directly increased, decreased etc., as we exactly know
    where it is (exact stack position or register).
    When an array element is passed, we know only its object-pointer and element's index, so we have to:
         1.Get a current value from the array.
@@ -105,7 +105,7 @@ Begin
   RegChar  := Variable.Typ.ArrayBase.RegPrefix;
   TypeLeft := __variable_getvalue_array_reg(Variable, 1, RegChar, Left);
 
-  if (not (Expr^.Typ in [mtAdd, mtAddEq])) Then // operators other than `+` and `+=` for string arrays are unsupported
+  if (TypeLeft.isString) and (not (Expr^.Typ in [mtAdd, mtAddEq])) Then // operators other than `+` and `+=` for string arrays are unsupported
   Begin
    Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
    Exit;
