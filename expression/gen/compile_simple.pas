@@ -1,5 +1,5 @@
 {
- @TODO: short-circuit may not be a good solution, when we're comparing two variables:
+ @TODO: short-circuit may not be a good solution when we're comparing two variables:
 
  if (a && b)
   foo();
@@ -117,7 +117,16 @@ Begin
  Begin
   (* type-promotion table *)
   if (TypeLeft.isArray(False) or TypeRight.isArray(False)) Then // don't promote arrays (except pure strings)
-   Exit(TypeLeft);
+  Begin
+   if (not TypeRight.CanBeAssignedTo(TypeLeft)) Then // ... buuut check their types
+   Begin
+    Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
+    Exit(nil);
+   End Else
+   Begin
+    Exit(TypeLeft);
+   End;
+  End;
 
   { float, int -> float, float }
   if (TypeLeft.isFloat) and (TypeRight.isInt) Then

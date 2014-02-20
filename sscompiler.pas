@@ -1422,7 +1422,7 @@ Var Compiler2: BCCompiler.TCompiler;
      { create global constants }
      With NamespaceList.Last do
      Begin
-      CreateGlobalConstant('null', TYPE_INT, MakeIntExpression(0));
+      CreateGlobalConstant('null', TYPE_NULL, MakeIntExpression(0));
 
       CreateGlobalConstant('__file', TYPE_STRING, MakeStringExpression(InputFile));
       CreateGlobalConstant('__date', TYPE_STRING, MakeStringExpression(DateToStr(Date)));

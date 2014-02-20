@@ -18,7 +18,7 @@ Unit symdef;
  Type TVisibility = (mvPublic, mvPrivate);
 
  Type PTypeAttributes = ^TTypeAttributes;
-      TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized);
+      TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized, taNull);
 
  Type TVariableAttributes = Set of (vaConst, vaEnumItem, vaFuncParam, vaDontAllocate, vaVolatile, vaCatchVar);
  Type TFunctionAttributes = Set of (faNaked);
@@ -113,6 +113,7 @@ Unit symdef;
         Function isFloat: Boolean;
         Function isString: Boolean;
         Function isNumerical: Boolean;
+        Function isNull: Boolean;
         Function isArray(const RegardStringAsArray: Boolean=True): Boolean;
         Function isObject: Boolean;
         Function isFunctionPointer: Boolean;
@@ -270,6 +271,7 @@ Unit symdef;
  Function TYPE_INT: TType;
  Function TYPE_FLOAT: TType;
  Function TYPE_STRING: TType;
+ Function TYPE_NULL: TType;
 
  Implementation
 Uses CompilerUnit, SSCompiler, ExpressionCompiler, Messages, SysUtils;
@@ -433,6 +435,21 @@ Begin
 
   ArrayBase     := TYPE_CHAR;
   ArrayDimCount := 1;
+ End;
+End;
+
+(* TYPE_NULL *)
+Function TYPE_NULL: TType;
+Begin
+ Result := TType.Create;
+
+ With Result do
+ Begin
+  RefSymbol.Name := 'nulltype'#0;
+  RegPrefix      := 'i';
+  InternalID     := TYPE_INT_id;
+
+  Attributes += [taNull];
  End;
 End;
 
@@ -728,6 +745,18 @@ Begin
  Exit(isInt or isFloat or isChar or isFunctionPointer);
 End;
 
+(* TType.isNull *)
+{
+ Returns `true` when type is 'null'.
+}
+Function TType.isNull: Boolean;
+Begin
+ if (self = nil) Then
+  Exit(False);
+
+ Exit(taNull in Attributes);
+End;
+
 (* TType.isArray *)
 {
  Returns `true` when type passed in parameter is an array; in other case, returns `false`.
@@ -969,16 +998,16 @@ Begin
       );
  End Else
 
- { comparing array with non-array almost always returns false except one case: int (eg.null) -> array }
+ { comparing array with non-array almost always returns false except one case: null -> array }
  if (self.isArray and (not T2.isArray)) Then
  Begin
-  Exit(self.isArray(False) and T2.isInt);
+  Exit(self.isArray(False) and T2.isNull);
  End Else
 
  { comparing non-array with array }
  if ((not self.isArray) and T2.isArray) Then
  Begin
-  Exit(self.isInt and T2.isArray(False));
+  Exit(self.isNull and T2.isArray(False));
  End Else
 
  { compare function-pointers }
