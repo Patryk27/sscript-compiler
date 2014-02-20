@@ -746,7 +746,8 @@ Var Scanner  : TScanner;
 
   { ParseOrder7 }
   Function ParseOrder7: PExpressionNode; //  ++   --
-  Var Op: TExpressionNodeType;
+  Var Op   : TExpressionNodeType;
+      Token: TToken_P;
   Begin
    if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then // pre
    Begin
@@ -759,11 +760,14 @@ Var Scanner  : TScanner;
 
     Result := ParseOrder9(); // parse expr
 
-    if (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
+    if (Result = nil) or (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
     Begin
-     Compiler.CompileError(Result^.Token, eLValueExpected, []);
+     if (Result = nil) Then
+      Token := Scanner.next(-1) Else
+      Token := Result^.Token;
+
+     Compiler.CompileError(Token, eLValueExpected, []);
      Exit;
-     // @TODO: error recovery?
     End;
 
     Result := CreateNode(Result, nil, Op, null, LoopToken);
@@ -773,14 +777,18 @@ Var Scanner  : TScanner;
 
     if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then // post
     Begin
-     if (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
+     LoopToken := Scanner.read;
+
+     if (Result = nil) or (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
      Begin
-      Compiler.CompileError(Result^.Token, eLValueExpected, []);
+      if (Result = nil) Then
+       Token := Scanner.next(-1) Else
+       Token := Result^.Token;
+
+      Compiler.CompileError(Token, eLValueExpected, []);
       Exit;
-      // @TODO: error recovery?
      End;
 
-     LoopToken := Scanner.read;
      Case LoopToken.Token of
       _DOUBLE_PLUS : Op := mtPostInc;
       _DOUBLE_MINUS: Op := mtPostDec;
@@ -929,7 +937,7 @@ Begin
  Scanner := Compiler.getScanner;
  Result  := ParseOrder1();
 
- if (not (Scanner.next_t in EndTokens)) Then
+ if (not (Scanner.next_t in EndTokens)) Then // if finished parsing too early
  Begin
   Compiler.CompileError(Scanner.next, eExpectedOperator, [Scanner.next.Value]);
  End;
