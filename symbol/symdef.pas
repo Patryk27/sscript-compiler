@@ -1213,7 +1213,7 @@ Begin
 
  if (Length(Root[3].getValue) > 0) Then // @TODO
  Begin
-  raise Exception.Create('TVariable.Create() -> unserializing variable''s value have not been implemented yet.');
+  raise Exception.Create('TVariable.Create() -> unserializing variable''s value has not been implemented yet.');
  End;
 End;
 

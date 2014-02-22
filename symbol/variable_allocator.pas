@@ -150,6 +150,7 @@ Begin
   Try
    // sort variabes ascending by their CFG cost
    For Symbol in Func.SymbolList Do
+   Begin
     if (Symbol.Typ = stVariable) Then
     Begin
      if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) and (not Symbol.mVariable.DontAllocate) Then
@@ -161,6 +162,7 @@ Begin
       VarList.Add(VarRec);
      End;
     End;
+   End;
 
    VarList.Sort(@SortVarRec);
 
@@ -175,16 +177,21 @@ Begin
  Begin
   { stack-only allocation }
   For Symbol in Func.SymbolList Do
-   if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) and (not Symbol.mVariable.DontAllocate) Then
+  Begin
+   if (Symbol.Typ = stVariable) Then
    Begin
-    With Symbol.mVariable.LocationData do
+    if (not Symbol.mVariable.isConst) and (not Symbol.mVariable.isFuncParam) and (not Symbol.mVariable.DontAllocate) Then
     Begin
-     Location      := vlStack;
-     StackPosition := -StackPos;
-    End;
+     With Symbol.mVariable.LocationData do
+     Begin
+      Location      := vlStack;
+      StackPosition := -StackPos;
+     End;
 
-    Inc(StackPos);
-    Inc(Func.StackSize);
+     Inc(StackPos);
+     Inc(Func.StackSize);
+    End;
    End;
+  End;
  End;
 End;
