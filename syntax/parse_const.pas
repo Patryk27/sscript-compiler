@@ -1,22 +1,22 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_CONST;
 
  Interface
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, Tokens, symdef, Messages, Opcodes;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var Variable  : TVariable;
     SymbolList: TSymbolList;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   if (not ((CompilePass = _cp1) or (inFunction))) Then // constants are parsed in the first pass or inside a function
   Begin
@@ -36,7 +36,7 @@ Begin
    With Variable.RefSymbol do
    Begin
     Range      := getCurrentRange;
-    mCompiler  := Compiler;
+    mCompiler  := CompilerPnt;
     Visibility := getVisibility;
 
     DeclToken     := next_pnt;

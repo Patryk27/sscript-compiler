@@ -31,7 +31,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-logo -wait"/>
+        <CommandLineParams Value="input.ss -wait -b bytecode.ssb -O1"/>
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -fa monco -fs 10 -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
         <Display Use="True"/>
       </local>

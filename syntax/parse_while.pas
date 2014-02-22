@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_WHILE;
@@ -7,31 +7,31 @@ Unit Parse_WHILE;
  Interface
  Uses SysUtils;
 
- Procedure Parse(Compiler: Pointer);
- Procedure Parse_DO_WHILE(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
+ Procedure Parse_DO_WHILE(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, Tokens, Messages, Opcodes, FlowGraph;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var ConditionNode, CondTrue, CondFalse, CondTrueLast: TCFGNode;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   eat(_BRACKET1_OP); // (
 
   (* parse loop condition *)
-  ConditionNode := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_BRACKET1_CL]));
-  CondFalse     := TCFGNode.Create(ConditionNode, next_pnt); // dummy
+  ConditionNode := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeExpression(CompilerPnt, [_BRACKET1_CL]));
+  CondFalse     := getCurrentFunction.createNode(ConditionNode, next_pnt); // dummy
 
   ConditionNode.isVolatile := True;
 
   (* parse loop content *)
-  CondTrue := TCFGNode.Create(ConditionNode, next_pnt);
+  CondTrue := getCurrentFunction.createNode(ConditionNode, next_pnt);
   setNewRootNode(CondTrue);
 
-  NewScope(sWHILE, ConditionNode, CondFalse);
+  NewScope(sctWhile, ConditionNode, CondFalse);
   Inc(CurrentDeep);
   ParseCodeBlock(True); // parse loop's content
   Dec(CurrentDeep);
@@ -42,35 +42,35 @@ Begin
   restorePrevRootNode;
 
   (* do magic *)
-  ConditionNode.Child.Add(CondTrue);
-  ConditionNode.Child.Add(CondFalse);
+  ConditionNode.Edges.Add(CondTrue);
+  ConditionNode.Edges.Add(CondFalse);
 
   CFGAddNode(ConditionNode);
 
-  fCurrentNode := TCFGNode.Create(ConditionNode);
+  fCurrentNode := getCurrentFunction.createNode(ConditionNode);
 
-  ConditionNode.Child.Add(fCurrentNode);
-  CondTrueLast.Child.Add(ConditionNode);
-  CondFalse.Child.Add(fCurrentNode);
+  ConditionNode.Edges.Add(fCurrentNode);
+  CondTrueLast.Edges.Add(ConditionNode);
+  CondFalse.Edges.Add(fCurrentNode);
  End;
 End;
 
 (* Parse_DO_WHILE *)
-Procedure Parse_DO_WHILE(Compiler: Pointer);
+Procedure Parse_DO_WHILE(const CompilerPnt: Pointer);
 Var BaseNode, BaseNodeLast, ConditionNode, CondFalse: TCFGNode;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   (* parse loop content *)
-  BaseNode      := TCFGNode.Create(fCurrentNode, next_pnt);
-  ConditionNode := TCFGNode.Create(fCurrentNode, cetCondition, nil);
-  CondFalse     := TCFGNode.Create(ConditionNode, next_pnt); // dummy
+  BaseNode      := getCurrentFunction.createNode(fCurrentNode, next_pnt);
+  ConditionNode := getCurrentFunction.createNode(fCurrentNode, cetCondition, nil);
+  CondFalse     := getCurrentFunction.createNode(ConditionNode, next_pnt); // dummy
 
   ConditionNode.isVolatile := True;
 
   setNewRootNode(BaseNode);
 
-  NewScope(sWHILE, ConditionNode, CondFalse);
+  NewScope(sctWhile, ConditionNode, CondFalse);
   Inc(CurrentDeep);
   ParseCodeBlock(True); // parse loop's content
   Dec(CurrentDeep);
@@ -84,20 +84,20 @@ Begin
   eat(_WHILE);
   eat(_BRACKET1_OP);
 
-  ConditionNode.Value := MakeExpression(Compiler, [_BRACKET1_CL]);
+  ConditionNode.Value := MakeExpression(CompilerPnt, [_BRACKET1_CL]);
 
   (* do magic *)
-  BaseNodeLast.Child.Add(ConditionNode);
+  BaseNodeLast.Edges.Add(ConditionNode);
 
-  ConditionNode.Child.Add(BaseNode); // on true
-  ConditionNode.Child.Add(CondFalse); // on false
+  ConditionNode.Edges.Add(BaseNode); // on true
+  ConditionNode.Edges.Add(CondFalse); // on false
 
   CFGAddNode(BaseNode);
 
-  fCurrentNode := TCFGNode.Create(ConditionNode);
+  fCurrentNode := getCurrentFunction.createNode(ConditionNode);
 
-  ConditionNode.Child.Add(fCurrentNode);
-  CondFalse.Child.Add(fCurrentNode);
+  ConditionNode.Edges.Add(fCurrentNode);
+  CondFalse.Edges.Add(fCurrentNode);
  End;
 End;
 End.

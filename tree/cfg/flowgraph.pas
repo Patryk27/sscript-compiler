@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 
  Control flow graph.
@@ -29,7 +29,7 @@ Unit FlowGraph;
         Value: PExpressionNode;
 
         Parent: TCFGNode;
-        Child : TCFGNodeList;
+        Edges : TCFGNodeList;
 
         Bytecode: // if `Typ` is `cetBytecode`
         Record
@@ -52,13 +52,13 @@ Unit FlowGraph;
          DimSizes : Array of uint32; // size of each array dimension
         End;
 
-        isVolatile: Boolean; // is node volatile (information for optimizers)?
+        isVolatile: Boolean; // is node volatile? (information for optimizers)
 
        Public { methods }
-        Constructor Create(fParent: TCFGNode; ffToken: PToken_P=nil);
-        Constructor Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpressionNode; ffToken: PToken_P=nil);
+        Constructor Create(const fParent: TCFGNode; const fName: String; const ffToken: PToken_P=nil);
+        Constructor Create(const fParent: TCFGNode; const fName: String; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P=nil);
 
-        Function isThere(const SearchType: TCFGNodeType): Boolean;
+        Function SearchFor(const NodeType: TCFGNodeType): TCFGNode;
 
         Function getToken: PToken_P;
         Property getName: String read Name;
@@ -83,22 +83,11 @@ Unit FlowGraph;
  Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 
  Function getVariableCFGCost(Symbol: TObject; rBeginNode, rEndNode: TCFGNode): uint32;
- Function isVariableUsed(VariablePnt: TObject; rBeginNode, rEndNode: TCFGNode): Boolean;
+ Function isVariableRead(const VariablePnt: TObject; const rBeginNode, rEndNode: TCFGNode): Boolean;
 
  Implementation
 Uses Math, Classes, SysUtils, SSCompiler, Messages, symdef, ExpressionCompiler;
 
-{ RandomSymbol }
-Function RandomSymbol: String;
-Var I: uint8;
-Begin
- Result := '';
-
- For I := 0 To 10 Do
-  Result += chr(ord('a')+Random(24));
-End;
-
-// -------------------------------------------------------------------------- //
 (* SaveGraph *)
 Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
 Var Str, Visited: TStringList;
@@ -133,7 +122,7 @@ Var Str, Visited: TStringList;
   End;
 
   { Parse }
-  Function Parse(Node: TCFGNode): String;
+  Function Parse(const Node: TCFGNode): String;
   Var Str: String;
   Begin
    Result := '';
@@ -145,9 +134,9 @@ Var Str, Visited: TStringList;
    Begin
     if (Node.Typ = cetNone) Then
     Begin
-     if (Node.Child.Count = 0) Then
+     if (Node.Edges.Count = 0) Then
       Exit('nil') Else
-      Exit(Parse(Node.Child[0]));
+      Exit(Parse(Node.Edges[0]));
     End Else
      Exit(Node.Name);
    End;
@@ -157,9 +146,9 @@ Var Str, Visited: TStringList;
    { none }
    if (Node.Typ = cetNone) Then
    Begin
-    if (Node.Child.Count = 0) Then
+    if (Node.Edges.Count = 0) Then
      Result := 'nil' Else
-     Result := {Node.Name+' -> '+}Parse(Node.Child[0]);
+     Result := {Node.Name+' -> '+}Parse(Node.Edges[0]);
    End Else
 
    { expression }
@@ -167,11 +156,11 @@ Var Str, Visited: TStringList;
    Begin
     Result := Node.Name;
 
-    Case Node.Child.Count of
+    Case Node.Edges.Count of
      0: Exit;
-     1: Result += ' -> '+Parse(Node.Child[0]);
+     1: Result += ' -> '+Parse(Node.Edges[0]);
      else
-      raise Exception.CreateFmt('DrawGraph::Parse() -> damaged graph! Node.Child.Count = %d', [Node.Child.Count]);
+      raise Exception.CreateFmt('DrawGraph::Parse() -> damaged graph! Node.Edges.Count = %d', [Node.Edges.Count]);
     End;
    End Else
 
@@ -181,8 +170,8 @@ Var Str, Visited: TStringList;
     Str := Node.Name;
 
     Result := Str;
-    Result += #13#10+Str+' -> '+Parse(Node.Child[0]);
-    Result += #13#10+Str+' -> '+Parse(Node.Child[1]);
+    Result += #13#10+Str+' -> '+Parse(Node.Edges[0]);
+    Result += #13#10+Str+' -> '+Parse(Node.Edges[1]);
    End Else
 
    { return }
@@ -190,8 +179,8 @@ Var Str, Visited: TStringList;
    Begin
     Result := Node.Name;
 
-    if (Node.Child.Count <> 0) Then
-     Result += ' -> '+Parse(Node.Child[0]);
+    if (Node.Edges.Count <> 0) Then
+     Result += ' -> '+Parse(Node.Edges[0]);
    End Else
 
    { throw }
@@ -199,8 +188,8 @@ Var Str, Visited: TStringList;
    Begin
     Result := Node.Name;
 
-    if (Node.Child.Count <> 0) Then
-     Result += ' -> '+Parse(Node.Child[0]);
+    if (Node.Edges.Count <> 0) Then
+     Result += ' -> '+Parse(Node.Edges[0]);
    End Else
 
    { try }
@@ -208,9 +197,9 @@ Var Str, Visited: TStringList;
    Begin
     Result := Node.Name;
 
-    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[0]);
-    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[1]);
-    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[2]);
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Edges[0]);
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Edges[1]);
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Edges[2]);
    End Else
 
    { foreach }
@@ -218,11 +207,11 @@ Var Str, Visited: TStringList;
    Begin
     Result := Node.Name;
 
-    Str := Parse(Node.Child[0]);
+    Str := Parse(Node.Edges[0]);
 
     Result += #13#10+Node.Name+' -> '+Str;
     Result += #13#10+Str+' -> '+Node.Name;
-    Result += #13#10+Node.Name+' -> '+Parse(Node.Child[1]);
+    Result += #13#10+Node.Name+' -> '+Parse(Node.Edges[1]);
    End Else
 
    { bytecode }
@@ -230,15 +219,15 @@ Var Str, Visited: TStringList;
    Begin
     Result := Node.Name;
 
-    if (Node.Child.Count <> 0) Then
-     Result += ' -> '+Parse(Node.Child[0]);
+    if (Node.Edges.Count <> 0) Then
+     Result += ' -> '+Parse(Node.Edges[0]);
    End Else
 
     raise Exception.CreateFmt('DrawGraph::Parse() -> invalid Node.Typ = %d', [ord(Node.Typ)]);
   End;
 
   { ParseF }
-  Procedure ParseF(Node: TCFGNode);
+  Procedure ParseF(const Node: TCFGNode);
   Var I : Integer;
       NS: String;
   Begin
@@ -255,8 +244,8 @@ Var Str, Visited: TStringList;
    if (Length(NS) <> 0) Then
     Str.Add(Node.Name+' [label="'+NS+'"];');
 
-   For I := 0 To Node.Child.Count-1 Do
-    ParseF(Node.Child[I]);
+   For I := 0 To Node.Edges.Count-1 Do
+    ParseF(Node.Edges[I]);
   End;
 
 Var DirName: String;
@@ -291,33 +280,30 @@ End;
  Useful mainly/only for checking loops.
 }
 Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
-Var Visited: TStringList;
+Var Visited: TCFGNodeList;
 
-    { Visit }
-    Procedure Visit(Node: TCFGNode);
-    Var Child: TCFGNode;
-    Begin
-     if (Node = nil) or (Node = rEndNode) Then
-      Exit;
+  { Visit }
+  Procedure Visit(Node: TCFGNode);
+  Var Edges: TCFGNode;
+  Begin
+   if (Node = nil) or (Node = rEndNode) or (Visited.IndexOf(Node) <> -1) Then
+    Exit;
+   Visited.Add(Node);
 
-     if (Visited.IndexOf(Node.Name) <> -1) Then
-      Exit;
-     Visited.Add(Node.Name);
+   if (Node = AtWhat) Then
+   Begin
+    Result := True; // @Note: "Result" here refers to "AnythingFromNodePointsAt"
+    Exit;
+   End;
 
-     if (Node = AtWhat) Then
-     Begin
-      Result := True;
-      Exit;
-     End;
-
-     For Child in Node.Child Do
-      Visit(Child);
-    End;
+   For Edges in Node.Edges Do
+    Visit(Edges);
+  End;
 
 Begin
  Result := False;
 
- Visited := TStringList.Create;
+ Visited := TCFGNodeList.Create;
  Try
   Visit(rBeginNode);
  Finally
@@ -331,7 +317,7 @@ End;
 
  Basically:
  var += expr; <- cost = 2 (var read + var write)
- var = expr <- cost = 1 (var write)
+ var = expr; <- cost = 1 (var write)
  var = var*var; <- cost = 3 (var read + var read + var write)
  xyz = var; <- cost = 1 ('var' is read once)
  xyz = 10*var; <- cost = 1
@@ -342,53 +328,52 @@ End;
 Function getVariableCFGCost(Symbol: TObject; rBeginNode, rEndNode: TCFGNode): uint32;
 Var Visited: TCFGNodeList;
 
-    { VisitExpression }
-    Procedure VisitExpression(Expr: PExpressionNode);
-    Var I: Integer;
-    Begin
-     if (Expr = nil) Then
-      Exit;
+  { VisitExpression }
+  Procedure VisitExpression(Expr: PExpressionNode);
+  Var I: Integer;
+  Begin
+   if (Expr = nil) Then
+    Exit;
 
-     if (Expr^.Typ = mtIdentifier) and (Expr^.Symbol = Symbol) Then
-      Inc(Result); // var read
+   if (Expr^.Typ = mtIdentifier) and (Expr^.Symbol = Symbol) Then
+   Begin
+    Inc(Result); // var read
+   End Else
 
-     if (Expr^.Typ = mtAssign) and (Expr^.Left^.Symbol = Symbol) Then
-     Begin
-      Inc(Result); // var write
-      VisitExpression(Expr^.Right);
-     End Else
+   if (Expr^.Typ = mtAssign) and (Expr^.Left^.Symbol = Symbol) Then
+   Begin
+    Inc(Result); // var write
+    VisitExpression(Expr^.Right);
+   End Else
 
-     if (Expr^.Typ in MLValueOperators) and (Expr^.Left^.Symbol = Symbol) Then
-     Begin
-      Inc(Result, 2); // var read + var write
-      VisitExpression(Expr^.Right);
-     End Else
+   if (Expr^.Typ in MLValueOperators) and (Expr^.Left^.Symbol = Symbol) Then
+   Begin
+    Inc(Result, 2); // var read + var write
+    VisitExpression(Expr^.Right);
+   End Else
 
-     Begin
-      VisitExpression(Expr^.Left);
-      VisitExpression(Expr^.Right);
-     End;
+   Begin
+    VisitExpression(Expr^.Left);
+    VisitExpression(Expr^.Right);
+   End;
 
-     For I := 0 To High(Expr^.ParamList) Do
-      VisitExpression(Expr^.ParamList[I]);
-    End;
+   For I := 0 To High(Expr^.ParamList) Do
+    VisitExpression(Expr^.ParamList[I]);
+  End;
 
-    { VisitNode }
-    Procedure VisitNode(Node: TCFGNode);
-    Var Child: TCFGNode;
-    Begin
-     if (Node = rEndNode) Then
-      Exit;
+  { VisitNode }
+  Procedure VisitNode(Node: TCFGNode);
+  Var Edges: TCFGNode;
+  Begin
+   if (Node = rEndNode) or (Visited.IndexOf(Node) <> -1) Then
+    Exit;
+   Visited.Add(Node);
 
-     if (Visited.IndexOf(Node) <> -1) Then
-      Exit;
-     Visited.Add(Node);
+   VisitExpression(Node.Value);
 
-     VisitExpression(Node.Value);
-
-     For Child in Node.Child Do
-      VisitNode(Child);
-    End;
+   For Edges in Node.Edges Do
+    VisitNode(Edges);
+  End;
 
 Begin
  Result := 0;
@@ -401,80 +386,78 @@ Begin
  End;
 End;
 
-(* isVariableUsed *)
+(* isVariableRead *)
 {
- Returns `true` if the variable is used in any expression between specified nodes, excluding assignments and operators like `*=` (!)
+ Returns `true` if specified variable is used in any expression between specified nodes, excluding assignments and assign-operators (`*=`, `-=`, `++`...)
 }
-Function isVariableUsed(VariablePnt: TObject; rBeginNode, rEndNode: TCFGNode): Boolean;
-Var Visited : TStringList;
+Function isVariableRead(const VariablePnt: TObject; const rBeginNode, rEndNode: TCFGNode): Boolean;
+Var Visited : TCFGNodeList;
     VarName : String;
     VarRange: TRange;
 
-    { isUsed }
-    Function isUsed(Node: TCFGNode; Expr: PExpressionNode): Boolean;
-    Var I    : Integer;
-        Range: Boolean;
-    Begin
-     Result := False;
+  { isRead }
+  Function isRead(const Node: TCFGNode; const Expr: PExpressionNode): Boolean;
+  Var I    : Integer;
+      Range: Boolean;
+  Begin
+   Result := False;
 
-     if (Expr = nil) Then
-      Exit(False);
+   if (Expr = nil) Then
+    Exit(False);
 
-     if (Expr^.Typ = mtIdentifier) Then
-     Begin
-      Range := inRange(Expr^.Token.Position, VarRange.PBegin.Position, VarRange.PEnd.Position);
+   if (Expr^.Typ = mtIdentifier) Then
+   Begin
+    Range := inRange(Expr^.Token.Position, VarRange.PBegin.Position, VarRange.PEnd.Position);
 
-      if (Range) and (Expr^.IdentName = VarName) Then
+    if (Range) and (Expr^.IdentName = VarName) Then
+     Exit(True);
+   End;
+
+   if (Expr^.Typ in MLValueOperators) Then
+   Begin
+    {
+     in expressions like "x = 10;" don't count "x" as an "used variable"
+    }
+    Result := isRead(Node, Expr^.Right);
+   End Else
+   Begin
+    if (Expr^.Left <> nil) Then
+     Result := Result or isRead(Node, Expr^.Left);
+
+    if (Expr^.Right <> nil) Then
+     Result := Result or isRead(Node, Expr^.Right);
+
+    if (not Result) Then
+     For I := 0 To High(Expr^.ParamList) Do
+      if (isRead(Node, Expr^.ParamList[I])) Then
        Exit(True);
-     End;
+   End;
+  End;
 
-     if (Expr^.Typ = mtAssign) Then
-     Begin
-      {
-       in expressions like "x = 10;" don't count "x" as an "used variable"
-      }
-      Result := isUsed(Node, Expr^.Right);
-     End Else
-     Begin
-      if (Expr^.Left <> nil) Then
-       Result := Result or isUsed(Node, Expr^.Left);
+  { Visit }
+  Procedure Visit(Node: TCFGNode);
+  Var Edges: TCFGNode;
+  Begin
+   if (Node = nil) or (Node = rEndNode) or (Visited.IndexOf(Node) <> -1) Then
+    Exit;
 
-      if (Expr^.Right <> nil) Then
-       Result := Result or isUsed(Node, Expr^.Right);
+   Visited.Add(Node);
 
-      if (not Result) Then
-       For I := 0 To High(Expr^.ParamList) Do
-        if (isUsed(Node, Expr^.ParamList[I])) Then
-         Exit(True);
-     End;
-    End;
+   if (isRead(Node, Node.Value)) Then
+   Begin
+    Result := True; // @Note: "Result" here refers to "isVariableRead"
+    Exit;
+   End;
 
-    { Visit }
-    Procedure Visit(Node: TCFGNode);
-    Var Child: TCFGNode;
-    Begin
-     if (Node = nil) or (Node = rEndNode) Then
-      Exit;
+   if (Node.Typ = cetForeach) and (Node.Foreach.LoopVar = VariablePnt) Then
+   Begin
+    Result := True; // @Note: ditto
+    Exit;
+   End;
 
-     if (Visited.IndexOf(Node.Name) <> -1) Then
-      Exit;
-     Visited.Add(Node.Name);
-
-     if (isUsed(Node, Node.Value)) Then
-     Begin
-      Result := True;
-      Exit;
-     End;
-
-     if (Node.Typ = cetForeach) and (Node.Foreach.LoopVar = VariablePnt) Then
-     Begin
-      Result := True;
-      Exit;
-     End;
-
-     For Child in Node.Child Do
-      Visit(Child);
-    End;
+   For Edges in Node.Edges Do
+    Visit(Edges);
+  End;
 
 Begin
  Result := False;
@@ -482,7 +465,7 @@ Begin
  VarName  := TVariable(VariablePnt).RefSymbol.Name;
  VarRange := TVariable(VariablePnt).RefSymbol.Range;
 
- Visited := TStringList.Create;
+ Visited := TCFGNodeList.Create;
  Try
   Visit(rBeginNode);
  Finally
@@ -492,22 +475,22 @@ End;
 
 // -------------------------------------------------------------------------- //
 (* TCFGNode.Create *)
-Constructor TCFGNode.Create(fParent: TCFGNode; ffToken: PToken_P);
+Constructor TCFGNode.Create(const fParent: TCFGNode; const fName: String; const ffToken: PToken_P);
 Begin
- Name := RandomSymbol;
+ Name := fName;
 
  Typ    := cetNone;
  Value  := nil;
  fToken := ffToken;
  Parent := fParent;
 
- Child := TCFGNodeList.Create;
+ Edges := TCFGNodeList.Create;
 End;
 
 (* TCFGNode.Create *)
-Constructor TCFGNode.Create(fParent: TCFGNode; fTyp: TCFGNodeType; fValue: PExpressionNode; ffToken: PToken_P);
+Constructor TCFGNode.Create(const fParent: TCFGNode; const fName: String; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P);
 Begin
- Name := RandomSymbol;
+ Name := fName;
 
  Typ    := fTyp;
  Value  := fValue;
@@ -518,21 +501,25 @@ Begin
   if (Value <> nil) Then
    fToken := @Value^.Token;
 
- Child := TCFGNodeList.Create;
+ Edges := TCFGNodeList.Create;
 End;
 
 (* TCFGNode.isThere *)
-Function TCFGNode.isThere(const SearchType: TCFGNodeType): Boolean;
-Var mChild: TCFGNode;
+Function TCFGNode.SearchFor(const NodeType: TCFGNodeType): TCFGNode;
+Var Edge: TCFGNode;
 Begin
- Result := False;
+ Result := nil;
 
- if (Typ = SearchType) Then
-  Exit(True);
+ if (Typ = NodeType) Then
+  Exit(self);
 
- For mChild in Child Do
-  if (mChild.isThere(SearchType)) Then
-   Exit(True);
+ For Edge in Edges Do
+ Begin
+  Result := Edge.SearchFor(NodeType);
+
+  if (Result <> nil) Then
+   Exit;
+ End;
 End;
 
 (* TCFGNode.getToken *)
@@ -570,16 +557,16 @@ Begin
   if (Last = nil) Then
    raise Exception.Create('TCFGraph.AddNode() -> Last = nil; damaged graph!');
 
-  if (Last.Typ = cetExpression) and (Last.Child.Count <> 0) Then
-   raise Exception.Create('TCFGraph.AddNode() -> expression node cannot have more than one child!');
+  if (Last.Typ = cetExpression) and (Last.Edges.Count <> 0) Then
+   raise Exception.Create('TCFGraph.AddNode() -> expression node cannot have more than one edge!');
 
-  if (Last.Typ = cetCondition) and (Last.Child.Count >= 2) Then
-   raise Exception.Create('TCFGraph.AddNode() -> condition node cannot have more than two children!');
+  if (Last.Typ = cetCondition) and (Last.Edges.Count >= 2) Then
+   raise Exception.Create('TCFGraph.AddNode() -> condition node cannot have more than two edges!');
 
-  if (Last.Typ = cetReturn) and (Last.Child.Count <> 0) Then
-   raise Exception.Create('TCFGraph.AddNode() -> return node cannot have more than one child!');
+  if (Last.Typ = cetReturn) and (Last.Edges.Count <> 0) Then
+   raise Exception.Create('TCFGraph.AddNode() -> return node cannot have more than one edge!');
 
-  Last.Child.Add(Node);
+  Last.Edges.Add(Node);
   Last := Node;
  End;
 End;
@@ -591,17 +578,17 @@ Var VisitedNodes: TCFGNodeList;
 
   { FixTryCatch }
   Procedure FixTryCatch(const Node: TCFGNode);
-  Var Child: TCFGNode;
+  Var Edge: TCFGNode;
   Begin
    if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
     Exit;
    VisitedNodes.Add(Node);
 
-   if (Node.Typ = cetTryCatch) and (Node.Child.Count = 2) Then
+   if (Node.Typ = cetTryCatch) and (Node.Edges.Count = 2) Then
    Begin
     (* @Note:
 
-      In some specific cases, "try..catch" construction has only 2 children, not 3; like here:
+      In some specific cases, "try..catch" construction has only 2 edges, not 3; like here:
 
       function<void> foo()
       {
@@ -615,29 +602,29 @@ Var VisitedNodes: TCFGNodeList;
       }
       (because no code appears after the try..catch construction)
 
-      This could crash optimizer as well as the code generator (as they expect 'cetTryCatch'-typed nodes to have exactly 3 children), so we're just inserting a `nil` child-node into this node.
+      This could crash optimizer as well as the code generator (as they expect 'cetTryCatch'-typed nodes to have exactly 3 children), so we're just inserting a `nil` edge-node into this node.
     *)
 
-    Node.Child.Add(nil);
+    Node.Edges.Add(nil);
    End;
 
-   For Child in Node.Child Do
-    FixTryCatch(Child);
+   For Edge in Node.Edges Do
+    FixTryCatch(Edge);
   End;
 
   { FixForeach }
   Procedure FixForeach(const Node: TCFGNode);
-  Var Child: TCFGNode;
+  Var Edge: TCFGNode;
   Begin
    if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
     Exit;
    VisitedNodes.Add(Node);
 
-   if (Node.Typ = cetForeach) and (Node.Child.Count < 2) Then
-    Node.Child.Add(nil);
+   if (Node.Typ = cetForeach) and (Node.Edges.Count < 2) Then
+    Node.Edges.Add(nil);
 
-   For Child in Node.Child Do
-    FixForeach(Child);
+   For Edge in Node.Edges Do
+    FixForeach(Edge);
   End;
 
 Begin
@@ -664,8 +651,8 @@ Var Compiler        : TCompiler absolute CompilerPnt;
     VisitedNodes    : TCFGNodeList;
 
   { Visit }
-  Procedure Visit(Node, EndNode: TCFGNode);
-  Var Child: TCFGNode;
+  Procedure Visit(Node: TCFGNode; const EndNode: TCFGNode);
+  Var Edge: TCFGNode;
   Begin
    if (Node = nil) or (Node = EndNode) or (VisitedNodes.IndexOf(Node) <> -1) Then // if encountered nil node, end node or we're visiting one node for the second time, stop.
     Exit;
@@ -676,19 +663,19 @@ Var Compiler        : TCompiler absolute CompilerPnt;
    Begin
     isThereAnyReturn := True;
 
-    if (Node.Child.Count = 1) Then // any code appearing after 'return' is 'unreachable'...
-     if (Node.Child[0] <> EndNode) and // ...if it isn't ending node
-        (VisitedNodes.IndexOf(Node.Child[0]) = -1) and // ...and if it hasn't been already visited
-        (Node.Child[0].Value <> nil) Then // ...and ofc. - if it's an expression
+    if (Node.Edges.Count = 1) Then // any code appearing after 'return' is 'unreachable'...
+     if (Node.Edges[0] <> EndNode) and // ... if it isn't ending node
+        (VisitedNodes.IndexOf(Node.Edges[0]) = -1) and // ... and if it hasn't been already visited
+        (Node.Edges[0].Value <> nil) Then // ... and ofc. - if it's an expression
      Begin
-      Compiler.CompileHint(Node.Child[0].getToken, hUnreachableCode, []);
-      VisitedNodes.Add(Node.Child[0]);
+      Compiler.CompileHint(Node.Edges[0].getToken, hUnreachableCode, []);
+      VisitedNodes.Add(Node.Edges[0]);
      End;
 
     Exit;
    End;
 
-   if (Node.Child.Count = 0) and (Node.Value <> nil) Then // if it's an edge node with some expression and it isn't 'return', show warning
+   if (Node.Edges.Count = 0) and (Node.Value <> nil) Then // if it's an edge node with some expression and it isn't 'return', show warning
    Begin
     isThereAnyReturn := True; // otherwise the message below would be shown 2 times instead of one
 
@@ -699,34 +686,34 @@ Var Compiler        : TCompiler absolute CompilerPnt;
    { if condition }
    if (Node.Typ = cetCondition) Then
    Begin
-    Visit(Node.Child[0], Node.Child[2]);
-    Visit(Node.Child[1], Node.Child[2]);
-    Visit(Node.Child[2], nil);
+    Visit(Node.Edges[0], Node.Edges[2]);
+    Visit(Node.Edges[1], Node.Edges[2]);
+    Visit(Node.Edges[2], nil);
    End Else
 
    { if 'try..catch' }
    if (Node.Typ = cetTryCatch) Then
    Begin
-    if (Node.Child[0].isThere(cetReturn)) and (Node.Child[1].isThere(cetReturn)) Then // if both nodes ("try" and "catch") return a value...
+    if (Node.Edges[0].SearchFor(cetReturn) <> nil) and (Node.Edges[1].SearchFor(cetReturn) <> nil) Then // if both nodes ("try" and "catch") return a value...
     Begin
      isThereAnyReturn := True;
 
-     Node := Node.Child[2];
+     Node := Node.Edges[2];
 
      if (Node <> nil) and (Node.Value <> nil) Then
       Compiler.CompileHint(Node.getToken, hUnreachableCode, []);
     End Else
-     Visit(Node.Child[2], EndNode);
+     Visit(Node.Edges[2], EndNode);
    End Else
 
    { if 'foreach' }
    if (Node.Typ = cetForeach) Then
    Begin
-    Visit(Node.Child[1], EndNode);
+    Visit(Node.Edges[1], EndNode);
    End Else
 
-    For Child in Node.Child Do // visit every child
-     Visit(Child, EndNode);
+    For Edge in Node.Edges Do // visit every edge
+     Visit(Edge, EndNode);
   End;
 
 Begin

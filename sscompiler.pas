@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit SSCompiler;
@@ -19,17 +19,19 @@ Unit SSCompiler;
  Type TCompiler = class;
 
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
- Type TCompilePass = (_cp1, _cp2); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `cp3` enum
+ Type TCompilePass = (_cp1, _cp2); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `_cp3` enum
 
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
 
- Type TScopeType = (sFunction, sFOR, sFOREACH, sIF, sWHILE, sTRYCATCH);
+ Type TScopeType = (sctFunction, sctFor, sctForeach, sctIf, sctWhile, sctTryCatch);
 
- Type TScope = Record
-                Typ               : TScopeType;
-                LoopBegin, LoopEnd: TCFGNode;
-               End;
+ { TScope }
+ Type TScope =
+      Record
+       Typ               : TScopeType;
+       LoopBegin, LoopEnd: TCFGNode;
+      End;
 
  { TCompiler }
  Type TCompiler =
@@ -71,7 +73,7 @@ Unit SSCompiler;
         NamespaceList: TNamespaceList; // namespace list
         Scope        : Array of TScope; // current function scopes
 
-        SomeCounter: LongWord; // used in labels eg.`__while_<somecounter>_begin`, so they don't overwrite each other
+        LabelCounter: uint32; // used in labels like eg.`__while_<somecounter>_begin`, so they don't overwrite each other
 
         DoNotGenerateCode: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
 
@@ -543,7 +545,7 @@ Begin
     else
     Begin
      Dec(TokenPos);
-     Node := TCFGNode.Create(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(self)); // parse as expression
+     Node := getCurrentFunction.createNode(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(self)); // parse as expression
      CFGAddNode(Node);
     End;
    End;
@@ -872,10 +874,7 @@ Var Item: PMOpcode;
 Begin
  if (asNode) Then
  Begin
-//  if (DoNotGenerateCode) Then
-//   Exit;
-
-  Node                     := TCFGNode.Create(fCurrentNode, cetBytecode, nil, Scanner.next_pnt(-1));
+  Node                     := getCurrentFunction.createNode(fCurrentNode, cetBytecode, nil, Scanner.next_pnt(-1));
   Node.Bytecode.OpcodeName := '';
   Node.Bytecode.LabelName  := fName;
 
@@ -1110,7 +1109,7 @@ Begin
  if (fCurrentNode = nil) Then
   fCurrentNode := Node Else
   Begin
-   fCurrentNode.Child.Add(Node);
+   fCurrentNode.Edges.Add(Node);
    fCurrentNode := Node;
   End;
 End;
@@ -1477,7 +1476,7 @@ Begin
  InputFile        := fInputFile;
  OutputFile       := fOutputFile;
  Options          := fOptions;
- SomeCounter      := 0;
+ LabelCounter     := 0;
  ModuleName       := '';
  AnyError         := False;
  Parent           := fParent;

@@ -1,25 +1,25 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_TYPE;
 
  Interface
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, Messages, Tokens, symdef;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var Typ          : TType;
     isEnum       : Boolean = False;
     EnumItem     : TVariable;
     EnumPrevValue: Int64 = -1;
     SymbolList   : TSymbolList;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   if (not ((CompilePass = _cp1) or (inFunction))) Then // `type` is parsed in the first pass or inside function
   Begin
@@ -38,7 +38,9 @@ Begin
    eat(_ENUM);
    isEnum := True;
   End Else
+  Begin // regular type
    Typ := read_type; // [type]
+  End;
 
   eat(_GREATER); // `>`
 
@@ -53,7 +55,7 @@ Begin
    Begin
     Name       := read_ident; // [identifier]
     DeclToken  := next_pnt(-1);
-    mCompiler  := Compiler;
+    mCompiler  := CompilerPnt;
     Visibility := getVisibility;
     Range      := getCurrentRange;
     isInternal := False;
@@ -79,7 +81,7 @@ Begin
      DeclToken     := next_pnt(-1);
      DeclNamespace := getCurrentNamespace;
      DeclFunction  := getCurrentFunction;
-     mCompiler     := Compiler;
+     mCompiler     := CompilerPnt;
      Visibility    := getVisibility;
      Range         := getCurrentRange;
      isInternal    := False;
@@ -95,7 +97,9 @@ Begin
      EnumItem.Value := MakeIntExpression(read_constant_expr_int);
      Dec(TokenPos);
     End Else
+    Begin
      EnumItem.Value := MakeIntExpression(EnumPrevValue+1);
+    End;
 
     Typ.EnumItemList.Add(EnumItem); // insert into list
 
@@ -106,7 +110,9 @@ Begin
      eat(_BRACKET2_CL); // `]`
      Break;
     End Else
+    Begin
      eat(_COMMA); // `,`
+    End;
    End;
   End Else
 
@@ -118,7 +124,7 @@ Begin
     DeclToken     := next_pnt(-1);
     DeclNamespace := getCurrentNamespace;
     DeclFunction  := getCurrentFunction;
-    mCompiler     := Compiler;
+    mCompiler     := CompilerPnt;
     Visibility    := getVisibility;
     Range         := getCurrentRange;
     isInternal    := False;

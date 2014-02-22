@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 {$MODESWITCH ADVANCEDRECORDS}
@@ -10,7 +10,7 @@ Unit Expression;
 
  Type TIntegerArray = Array of Integer;
 
- (* TExpressionNodeType *)
+ { TExpressionNodeType }
  Type TExpressionNodeType =
       (
        mtNothing, mtIdentifier, mtFunctionCall, mtMethodCall, mtTypeCast, mtArrayElement,
@@ -38,13 +38,14 @@ Unit Expression;
  Type TExpressionNodeTypeSet = Set of TExpressionNodeType;
  Const MLValueOperators: TExpressionNodeTypeSet = [mtAssign, mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq, mtOREq, mtANDEq, mtXOREq];
 
+ { TSSAVarID }
  Type PSSAVarID = ^TSSAVarID;
       TSSAVarID =
       Record
        Values: Array of uint32;
       End;
 
- (* TExpressionNode *)
+ { TExpressionNode }
  Type PExpressionNode = ^TExpressionNode;
       TExpressionNode =
       Record

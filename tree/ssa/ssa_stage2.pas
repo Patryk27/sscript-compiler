@@ -1,7 +1,7 @@
 Var VisitedParentNodes: TCFGNodeList;
 
 { DumpGraph } // debug only
-Procedure DumpGraph(Node: TCFGNode; Deep: uint8=0);
+Procedure DumpGraph(const Node: TCFGNode; const Deep: uint8=0);
 Var I, Q: Integer;
     P   : String;
 Begin
@@ -25,12 +25,12 @@ Begin
   Write(' ');
  Writeln('Node [', Node.getName, '] :: ', Node.Typ, ' :: ', ExpressionToString(Node.Value), ' ; parent = ', P);
 
- For I := 0 To Node.Child.Count-1 Do
+ For I := 0 To Node.Edges.Count-1 Do
  Begin
   For Q := 0 To Deep-1 Do
    Write(' ');
-  Writeln('[', Node.getName, '].child ', I);
-  DumpGraph(Node.Child[I], Deep+3);
+  Writeln('[', Node.getName, '].edge ', I);
+  DumpGraph(Node.Edges[I], Deep+3);
  End;
 End;
 
@@ -56,10 +56,10 @@ Begin
 End;
 
 (* FetchSSAVarID *)
-Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
+Function FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGNode): TSSAVarID;
 
   { VisitExpression }
-  Function VisitExpression(Expr: PExpressionNode): TSSAVarID;
+  Function VisitExpression(const Expr: PExpressionNode): TSSAVarID;
   Var Param: PExpressionNode;
       PList: TParamList;
       I    : Integer;
@@ -81,7 +81,7 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
      stFunction: PList := Sym.mFunction.ParamList;
      stVariable: PList := Sym.mVariable.Typ.FuncParams;
      else
-      TCompiler(Compiler).CompileError(eInternalError, ['{ ssa_stage2 } VisitExpression: unknown symbol type ('+IntToStr(ord(Sym.Typ))+')!']);
+      TCompiler(CompilerPnt).CompileError(eInternalError, ['{ ssa_stage2 } VisitExpression: unknown symbol type ('+IntToStr(ord(Sym.Typ))+')!']);
     End;
 
     For I := Low(PList) To High(PList) Do // iterate each parameter
@@ -104,14 +104,12 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
   End;
 
   { VisitNode }
-  Function VisitNode(Node, EndNode: TCFGNode; const CheckChildrenNotParent: Boolean=False; const CheckEndNode: Boolean=False): TSSAVarID;
+  Function VisitNode(const Node, EndNode: TCFGNode; const CheckEdgesNotParent: Boolean=False; const CheckEndNode: Boolean=False): TSSAVarID;
   Var Left, Right, Parent    : TSSAVarID;
       PointsLeft, PointsRight: Boolean;
-      Child                  : TCFGNode;
+      Edge                   : TCFGNode;
       Foreach                : TSSAVarID;
   Begin
-  // Writeln(Node.Typ, ' :: ', ExpressionToString(Node.Value));
-
    SetLength(Result.Values, 0);
 
    if (Node = nil) or ((not CheckEndNode) and (Node = EndNode)) or (VisitedParentNodes.IndexOf(Node) <> -1) Then
@@ -121,25 +119,25 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
    { condition }
    if (Node.Typ = cetCondition) Then
    Begin
-    PointsLeft  := AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], SearchNode);
-    PointsRight := AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], SearchNode);
+    PointsLeft  := AnythingFromNodePointsAt(Node.Edges[0], Node.Edges[2], SearchNode);
+    PointsRight := AnythingFromNodePointsAt(Node.Edges[1], Node.Edges[2], SearchNode);
 
     // -> parent
     Parent := VisitNode(Node.Parent, EndNode, False, True);
 
     // -> left
-    Left := VisitNode(Node.Child[0], Node.Child[2], True, False);
+    Left := VisitNode(Node.Edges[0], Node.Edges[2], True, False);
 
     if (Length(Left.Values) = 0) and (PointsLeft) and
-       (AnythingFromNodePointsAt(Node.Child[0], Node.Child[2], Node)) Then // if inside a loop... (see note below)
-        Left := VisitNode(SearchNode, Node.Child[2], True, False);
+       (AnythingFromNodePointsAt(Node.Edges[0], Node.Edges[2], Node)) Then // if inside a loop... (see note below)
+        Left := VisitNode(SearchNode, Node.Edges[2], True, False);
 
     // -> right
-    Right := VisitNode(Node.Child[1], Node.Child[2], True, False);
+    Right := VisitNode(Node.Edges[1], Node.Edges[2], True, False);
 
     if (Length(Right.Values) = 0) and (PointsRight) and
-       (AnythingFromNodePointsAt(Node.Child[1], Node.Child[2], Node)) Then // if inside a loop... (see note below)
-        Right := VisitNode(SearchNode, Node.Child[2], True, False);
+       (AnythingFromNodePointsAt(Node.Edges[1], Node.Edges[2], Node)) Then // if inside a loop... (see note below)
+        Right := VisitNode(SearchNode, Node.Edges[2], True, False);
 
     {
      @Note (about that 2 long if-s above):
@@ -163,7 +161,7 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
            -----------------
      (# - hidden temporary node which is result of the `for` loop parsing)
 
-     If we were parsing `i` and did just 'Left := VisitNode(Node.Child[0], Node.Child[2], True);', it would return nothing (empty set, precisely), as
+     If we were parsing `i` and did just 'Left := VisitNode(Node.Edges[0], Node.Edges[2], True);', it would return nothing (empty set, precisely), as
      the `#` node located before the `i` node would have been parsed for the second time.
      Thus instead of clearing the `VisitedParentNodes` list (which would cause stack overflow), we're just searching from right the `i` node (which
      hasn't been parsed so far).
@@ -179,7 +177,7 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
     if (PointsRight) Then
      Coalesce(Result, Right);
 
-    if (AnythingFromNodePointsAt(Node.Child[2], nil, SearchNode)) Then
+    if (AnythingFromNodePointsAt(Node.Edges[2], nil, SearchNode)) Then
     Begin
      Coalesce(Result, Left);
      Coalesce(Result, Right);
@@ -189,18 +187,18 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
    { try..catch }
    if (Node.Typ = cetTryCatch) Then
    Begin
-    if (AnythingFromNodePointsAt(Node.Child[0], nil, SearchNode)) Then // when we came from the "try" block, parse "try" and parent
-     Coalesce(Result, VisitNode(Node.Child[0], nil, True)) Else // 'try'
+    if (AnythingFromNodePointsAt(Node.Edges[0], nil, SearchNode)) Then // when we came from the "try" block, parse "try" and parent
+     Coalesce(Result, VisitNode(Node.Edges[0], nil, True)) Else // 'try'
 
-    if (AnythingFromNodePointsAt(Node.Child[1], nil, SearchNode)) Then // when we came from the "catch" block, parse "try", "catch" and parent
+    if (AnythingFromNodePointsAt(Node.Edges[1], nil, SearchNode)) Then // when we came from the "catch" block, parse "try", "catch" and parent
     Begin
-     Coalesce(Result, VisitNode(Node.Child[0], nil, True)); // 'try'
-     Coalesce(Result, VisitNode(Node.Child[1], nil, True)); // 'catch'
+     Coalesce(Result, VisitNode(Node.Edges[0], nil, True)); // 'try'
+     Coalesce(Result, VisitNode(Node.Edges[1], nil, True)); // 'catch'
     End Else
 
     Begin // otherwise parse "try", "catch" and parent block
-     Coalesce(Result, VisitNode(Node.Child[0], nil, True)); // 'try'
-     Coalesce(Result, VisitNode(Node.Child[1], nil, True)); // 'catch'
+     Coalesce(Result, VisitNode(Node.Edges[0], nil, True)); // 'try'
+     Coalesce(Result, VisitNode(Node.Edges[1], nil, True)); // 'catch'
     End;
 
     Coalesce(Result, VisitNode(Node.Parent, EndNode, False, True)); // parent
@@ -215,20 +213,20 @@ Function FetchSSAVarID(Symbol: TSymbol; SearchNode: TCFGNode): TSSAVarID;
     if (Symbol.mVariable = Node.Foreach.LoopVar) Then
      Coalesce(Result, Foreach);
 
-    Coalesce(Result, VisitNode(Node.Child[0], nil));
+    Coalesce(Result, VisitNode(Node.Edges[0], nil));
    End;
 
-   if (CheckChildrenNotParent) Then
+   if (CheckEdgesNotParent) Then
    Begin
-    For Child in Node.Child Do
+    For Edge in Node.Edges Do
      if (Length(Result.Values) = 0) Then
-      Result := VisitNode(Child, EndNode, True, CheckEndNode);
+      Result := VisitNode(Edge, EndNode, True, CheckEndNode);
    End;
 
    if (Length(Result.Values) = 0) Then
     Result := VisitExpression(Node.Value);
 
-   if (not CheckChildrenNotParent) and (Length(Result.Values) = 0) Then
+   if (not CheckEdgesNotParent) and (Length(Result.Values) = 0) Then
     Result := VisitNode(Node.Parent, EndNode, False, CheckEndNode);
   End;
 
@@ -246,8 +244,8 @@ Begin
  SetLength(Result.Values, 0);
 
  if (SearchNode.Typ = cetCondition) Then
-  if (AnythingFromNodePointsAt(SearchNode.Child[0], SearchNode.Child[2], SearchNode)) or
-     (AnythingFromNodePointsAt(SearchNode.Child[1], SearchNode.Child[2], SearchNode)) Then
+  if (AnythingFromNodePointsAt(SearchNode.Edges[0], SearchNode.Edges[2], SearchNode)) or
+     (AnythingFromNodePointsAt(SearchNode.Edges[1], SearchNode.Edges[2], SearchNode)) Then
   Begin
    Result := VisitNode(SearchNode, nil); // if inside a loop
   End;
@@ -261,12 +259,12 @@ Begin
 
   With TSymbol(Symbol).mVariable do
    if (not isConst) and (not isFuncParam) and (not isCatchVar) and (RefSymbol.isLocal) Then
-    TCompiler(Compiler).CompileHint(Origin.getToken, hUseOfUninitializedVariable, [RefSymbol.Name]);
+    TCompiler(CompilerPnt).CompileHint(Origin.getToken, hUseOfUninitializedVariable, [RefSymbol.Name]);
  End;
 End;
 
 (* VisitExpression *)
-Procedure VisitExpression(Node: TCFGNode; Expr: PExpressionNode);
+Procedure VisitExpression(const Node: TCFGNode; const Expr: PExpressionNode);
 Var Param: PExpressionNode;
 Begin
  if (Expr = nil) Then
@@ -274,10 +272,7 @@ Begin
 
  if (Expr^.Typ = mtIdentifier) and (Length(Expr^.SSA.Values) = 0) Then // if variable with no SSA idenitifer assigned yet
  Begin
-//  Writeln(ExpressionToString(Expr));
   Expr^.SSA := FetchSSAVarID(TSymbol(Expr^.Symbol), Node);
-//  Writeln(ExpressionToString(Expr));
-//  Writeln;
  End;
 
  if (Expr^.Typ in [mtFunctionCall, mtMethodCall]) Then
@@ -292,8 +287,8 @@ Begin
 End;
 
 (* VisitNode *)
-Procedure VisitNode(Node, EndNode: TCFGNode);
-Var Child: TCFGNode;
+Procedure VisitNode(const Node, EndNode: TCFGNode);
+Var Edge: TCFGNode;
 Begin
  if (Node = nil) or (Node = EndNode) or (VisitedNodes.IndexOf(Node) <> -1) Then
   Exit;
@@ -301,8 +296,8 @@ Begin
 
  VisitExpression(Node, Node.Value); // visit node's expression
 
- For Child in Node.Child Do
-  VisitNode(Child, EndNode);
+ For Edge in Node.Edges Do
+  VisitNode(Edge, EndNode);
 End;
 
 (* Execute *)

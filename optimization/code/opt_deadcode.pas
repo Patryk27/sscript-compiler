@@ -4,10 +4,10 @@ Var AnyChange: Boolean;
 
   { Visit }
   Procedure Visit(const Node: TCFGNode);
-  Var Child, Back, Tmp: TCFGNode;
-      CanBeRemoved    : Boolean;
-      Symbol          : TSymbol;
-      Second          : PExpressionNode;
+  Var Edge, Back, Tmp: TCFGNode;
+      CanBeRemoved   : Boolean;
+      Symbol         : TSymbol;
+      Second         : PExpressionNode;
   Begin
    if (Node = nil) Then
     Exit;
@@ -16,7 +16,7 @@ Var AnyChange: Boolean;
     Exit;
    VisitedNodes.Add(Node);
 
-   TCompiler(Compiler).fCurrentNode := Node;
+   TCompiler(CompilerPnt).fCurrentNode := Node;
 
    if (Node.Value <> nil) and (Node.Value^.Typ = mtAssign) Then // @TODO: assigns can be nested!
    Begin
@@ -44,7 +44,7 @@ Var AnyChange: Boolean;
         Continue;
        End;
 
-       if (not isVariableUsed(TSymbol(Second^.Left^.Symbol).mVariable, Back, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
+       if (not isVariableRead(TSymbol(Second^.Left^.Symbol).mVariable, Back, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
        Begin
         CanBeRemoved := True;
         Break;
@@ -57,7 +57,7 @@ Var AnyChange: Boolean;
 
     if (CanBeRemoved) Then
     Begin
-     Tmp       := TCFGNode.Create(nil, nil);
+     Tmp       := TCompiler(CompilerPnt).getCurrentFunction.createNode(nil, nil);
      Tmp.Typ   := cetExpression;
      Tmp.Value := Back.Value;
      RemovedNodes.Add(Tmp);
@@ -69,8 +69,8 @@ Var AnyChange: Boolean;
     End;
    End;
 
-   For Child in Node.Child Do
-    Visit(Child);
+   For Edge in Node.Edges Do
+    Visit(Edge);
   End;
 
 Begin
@@ -88,7 +88,7 @@ Var ID, KilledVars: int32;
 
   { RemoveVarAssign }
   Procedure RemoveVarAssign(const Node: TCFGNode);
-  Var Child, TmpNode : TCFGNode;
+  Var Edge, TmpNode  : TCFGNode;
       Assign, TmpExpr: PExpressionNode;
   Begin
    if (Node = nil) Then
@@ -106,7 +106,7 @@ Var ID, KilledVars: int32;
     Begin
      New(TmpExpr);
      TmpExpr^      := Assign^;
-     TmpNode       := TCFGNode.Create(nil, nil);
+     TmpNode       := TCompiler(CompilerPnt).getCurrentFunction.createNode(nil, nil);
      TmpNode.Typ   := cetExpression;
      TmpNode.Value := TmpExpr;
      RemovedNodes.Add(TmpNode);
@@ -122,8 +122,8 @@ Var ID, KilledVars: int32;
     End;
    End;
 
-   For Child in Node.Child Do
-    RemoveVarAssign(Child);
+   For Edge in Node.Edges Do
+    RemoveVarAssign(Edge);
   End;
 
 Begin
@@ -135,7 +135,7 @@ Begin
   While (ID < SymbolList.Count) Do
   Begin
    if (SymbolList[ID].Typ = stVariable) and (not SymbolList[ID].mVariable.isFuncParam) and (not SymbolList[ID].mVariable.isVolatile) Then
-    if (not isVariableUsed(SymbolList[ID].mVariable, Func.FlowGraph.Root, nil)) Then // if variable's value isn't used anywhere...
+    if (not isVariableRead(SymbolList[ID].mVariable, Func.FlowGraph.Root, nil)) Then // if variable's value isn't used anywhere...
     Begin
      VisitedNodes.Clear;
      RemoveVarAssign(Func.FlowGraph.Root); // remove every assignment to this variable

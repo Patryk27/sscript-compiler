@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Lexer;
@@ -7,7 +7,7 @@ Unit Lexer;
  Interface
  Uses Tokens, SysUtils, Classes;
 
- (* TLexer *)
+ { TLexer }
  Type TLexer =
       Class
        Private

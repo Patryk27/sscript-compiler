@@ -3,10 +3,10 @@ Var ret_stp_sub: int16 = 0;
 { GenerateLabelName }
 Function GenerateLabelName: String;
 Begin
- With TCompiler(Compiler) do
+ With TCompiler(CompilerPnt).getCurrentFunction do
  Begin
-  Result := getCurrentFunction.LabelName+'_l_'+IntToStr(SomeCounter);
-  Inc(SomeCounter);
+  Result := Format('%s_l_%d', [LabelName, LastLabelID]);
+  Inc(LastLabelID);
  End;
 End;
 
@@ -14,7 +14,7 @@ End;
 Procedure RemoveRedundantMovPush(const Expr: PExpressionNode);
 Var Opcode: PMOpcode;
 Begin
- With TCompiler(Compiler) do
+ With TCompiler(CompilerPnt) do
   if (Expr^.ResultOnStack) Then
    if (OpcodeList.Last^.Opcode = o_push) Then
    Begin
@@ -29,8 +29,8 @@ Begin
 End;
 
 { Generate }
-Procedure Generate(Node: TCFGNode);
-Var Child   : TCFGNode;
+Procedure Generate(const Node: TCFGNode);
+Var Edge    : TCFGNode;
     Expr    : PExpressionNode;
     ExprType: TType;
 
@@ -57,11 +57,11 @@ Var Child   : TCFGNode;
     Procedure CompileArrayInitializer(const Dim: uint8);
     Var I: uint8;
     Begin
-     With TCompiler(Compiler) do
+     With TCompiler(CompilerPnt) do
      Begin
       if (ArrayDimSizes[Dim] = 0) Then
       Begin
-       ExprType := CompileExpression(Compiler, ArrayValues[ArrayElementID]); // compile expression
+       ExprType := CompileExpression(CompilerPnt, ArrayValues[ArrayElementID]); // compile expression
 
        if (not (type_equal(ExprType, ArrayElementType))) Then // check types
         CompileError(eWrongType, [ExprType.asString, ArrayElementType.asString]);
@@ -96,26 +96,26 @@ Begin
 
  if (VisitedNodes.IndexOf(Node) <> -1) Then // if node has been visited more than once, don't compile it again - place a jump instead
  Begin
-  TCompiler(Compiler).PutOpcode(o_jmp, [':'+Node.getName]);
+  TCompiler(CompilerPnt).PutOpcode(o_jmp, [':'+Node.getName]);
   Exit;
  End;
  VisitedNodes.Add(Node);
 
- PrevDoNotGenerateCode := TCompiler(Compiler).DoNotGenerateCode;
+ PrevDoNotGenerateCode := TCompiler(CompilerPnt).DoNotGenerateCode;
 
- TCompiler(Compiler).fCurrentNode := Node;
+ TCompiler(CompilerPnt).fCurrentNode := Node;
 
  if (AnythingFromNodePointsAt(Func.FlowGraph.Root, nil, Node) and (Node.Typ <> cetBytecode)) Then
-  TCompiler(Compiler).PutLabel(Node.getName);
+  TCompiler(CompilerPnt).PutLabel(Node.getName);
 
  Try
-  With TCompiler(Compiler) do
+  With TCompiler(CompilerPnt) do
    Case Node.Typ of
   { cetNone }
     cetNone:
     Begin
-     For Child in Node.Child Do
-      Generate(Child);
+     For Edge in Node.Edges Do
+      Generate(Edge);
     End;
 
   { cetExpression }
@@ -123,12 +123,12 @@ Begin
     Begin
      if (Node.Value <> nil) Then
      Begin
-      ExpressionCompiler.CompileExpression(Compiler, Node.Value);
+      ExpressionCompiler.CompileExpression(CompilerPnt, Node.Value);
       RemoveRedundantMovPush(Node.Value);
      End;
 
-     if (Node.Child.Count <> 0) Then
-      Generate(Node.Child.First);
+     if (Node.Edges.Count <> 0) Then
+      Generate(Node.Edges.First);
     End;
 
   { cetCondition }
@@ -139,27 +139,27 @@ Begin
 
      // compile condition
      Expr     := Node.Value;
-     ExprType := ExpressionCompiler.CompileExpression(Compiler, Expr);
+     ExprType := ExpressionCompiler.CompileExpression(CompilerPnt, Expr);
      if (not (ExprType.isBool or ExprType.isInt)) Then // condition must be a bool or an int
       CompileError(Expr^.Token, eWrongType, [ExprType.asString, 'bool']);
 
-     VisitedNodes.Add(Node.Child[2]);
+     VisitedNodes.Add(Node.Edges[2]);
 
      PutOpcode(o_pop, ['if']);
      PutOpcode(o_fjmp, [':'+LabelFalse]);
 
      // compile 'true'
-     Generate(Node.Child[0]);
+     Generate(Node.Edges[0]);
      PutOpcode(o_jmp, [':'+LabelOut]);
 
      // compile 'false' (`else`; if possible)
      PutLabel(LabelFalse);
-     Generate(Node.Child[1]);
+     Generate(Node.Edges[1]);
 
-     VisitedNodes.Remove(Node.Child[2]);
+     VisitedNodes.Remove(Node.Edges[2]);
 
      PutLabel(LabelOut);
-     Generate(Node.Child[2]);
+     Generate(Node.Edges[2]);
     End;
 
  { cetReturn }
@@ -182,7 +182,7 @@ Begin
     End Else // return expression;
     Begin
      Expr     := Node.Value;
-     ExprType := ExpressionCompiler.CompileExpression(Compiler, Expr);
+     ExprType := ExpressionCompiler.CompileExpression(CompilerPnt, Expr);
 
      if (not ExprType.CanBeAssignedTo(Func.Return)) Then // type check
       CompileError(Expr^.Token, eWrongType, [ExprType.asString, Func.Return.asString]);
@@ -196,15 +196,15 @@ Begin
     End;
 
     DoNotGenerateCode := getBoolOption(opt__remove_dead); // code after 'return' is generated but deleted, as it would be never executed anyway
-    For Child in Node.Child Do
-     Generate(Child);
+    For Edge in Node.Edges Do
+     Generate(Edge);
    End;
 
  { cetThrow }
    cetThrow:
    Begin
     Expr     := Node.Value;
-    ExprType := ExpressionCompiler.CompileExpression(Compiler, Expr);
+    ExprType := ExpressionCompiler.CompileExpression(CompilerPnt, Expr);
 
     if (not ExprType.isString) Then // type check
     Begin
@@ -216,8 +216,8 @@ Begin
     PutOpcode(o_push, ['es1']);
     PutOpcode(o_icall, ['"vm.throw"']);
 
-    For Child in Node.Child Do
-     Generate(Child);
+    For Edge in Node.Edges Do
+     Generate(Edge);
    End;
 
  { cetTryCatch }
@@ -231,7 +231,7 @@ Begin
     PutOpcode(o_icall, ['"vm.set_exception_handler"']);
 
     { parse `try` block }
-    Generate(Node.Child[0]);
+    Generate(Node.Edges[0]);
     PutOpcode(o_jmp, [':'+LabelName+'_end']);
 
     { parse `catch` block }
@@ -240,12 +240,12 @@ Begin
     PutOpcode(o_icall, ['"vm.get_last_exception"']); // get exception
 
     Inc(ret_stp_sub);
-    Generate(Node.Child[1]);
+    Generate(Node.Edges[1]);
     PutOpcode(o_sub, ['stp', 1]); // remove the exception message variable holder
     Dec(ret_stp_sub);
 
     PutLabel(LabelName+'_end');
-    Generate(Node.Child[2]);
+    Generate(Node.Edges[2]);
    End;
 
  { cetForeach }
@@ -259,7 +259,7 @@ Begin
 
     { compile foreach expression }
     Expr     := Node.Value;
-    ExprType := CompileExpression(Compiler, Expr);
+    ExprType := CompileExpression(CompilerPnt, Expr);
 
     if (type_equal(ForeachVar.Typ, ExprType)) Then
     Begin
@@ -303,13 +303,13 @@ Begin
 
     PutOpcode(o_arget, [Pos1, 1, Pos2]); // arget(ForeachExprHolder, 1, ForeachVar)
 
-    Generate(Node.Child[0]);
+    Generate(Node.Edges[0]);
 
     PutOpcode(o_add, [ForeachIterator.getAllocationPos, 1]); // ForeachIterator++
     PutOpcode(o_jmp, [':'+LabelName+'content']); // jump to the beginning of the loop
 
     PutLabel(LabelName+'end');
-    Generate(Node.Child[1]);
+    Generate(Node.Edges[1]);
    End;
 
  { cetArrayInitializer }
@@ -344,8 +344,8 @@ Begin
     CompileArrayInitializer(0);
 
     { compile further nodes }
-    if (Node.Child.Count > 0) Then
-     Generate(Node.Child[0]);
+    if (Node.Edges.Count > 0) Then
+     Generate(Node.Edges[0]);
    End;
 
  { cetBytecode }
@@ -368,15 +368,15 @@ Begin
       PutOpcode(Node.Bytecode.OpcodeName, ArgList^, Node.getToken);
      End;
 
-    For Child in Node.Child Do
-     Generate(Child);
+    For Edge in Node.Edges Do
+     Generate(Edge);
    End;
 
     else
      CompileError(eInternalError, ['Generate() -> unexpected Node.Typ = '+IntToStr(ord(Node.Typ))]);
    End;
  Finally
-  TCompiler(Compiler).DoNotGenerateCode := PrevDoNotGenerateCode;
+  TCompiler(CompilerPnt).DoNotGenerateCode := PrevDoNotGenerateCode;
  End;
 End;
 
@@ -396,7 +396,7 @@ Var Symbol  : TSymbol;
     StackReg: PStackSavedReg;
     StDec   : uint16 = 0;
 Begin
- With TCompiler(Compiler) do
+ With TCompiler(CompilerPnt) do
  Begin
   { function info }
   PutComment('--------------------------------- //');
@@ -453,7 +453,7 @@ End;
 Procedure AddEpilogCode;
 Var I: int32;
 Begin
- With TCompiler(Compiler) do
+ With TCompiler(CompilerPnt) do
  Begin
   { function end code }
   PutLabel(Func.LabelName+'_end');

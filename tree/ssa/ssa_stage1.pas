@@ -61,7 +61,7 @@ Begin
     stFunction: PList := Symbol.mFunction.ParamList;
     stVariable: PList := Symbol.mVariable.Typ.FuncParams;
     else
-     TCompiler(Compiler).CompileError(eInternalError, ['{ ssa_stage1 } VisitExpression: unknown symbol type ('+IntToStr(ord(Symbol.Typ))+')!']);
+     TCompiler(CompilerPnt).CompileError(eInternalError, ['{ ssa_stage1 } VisitExpression: unknown symbol type ('+IntToStr(ord(Symbol.Typ))+')!']);
    End;
 
    For I := Low(PList) To High(PList) Do // iterate each parameter
@@ -80,9 +80,9 @@ Begin
 End;
 
 (* VisitNode *)
-Procedure VisitNode(Node, EndNode: TCFGNode);
-Var Child: TCFGNode;
-    mVar : TVariable;
+Procedure VisitNode(const Node, EndNode: TCFGNode);
+Var Edge: TCFGNode;
+    mVar: TVariable;
 Begin
  if (Node = nil) or (Node = EndNode) or (VisitedNodes.IndexOf(Node) <> -1) Then
   Exit;
@@ -101,8 +101,8 @@ Begin
   Node.Foreach.LoopVarSSAID := VarMap[mVar];
  End;
 
- For Child in Node.Child Do
-  VisitNode(Child, EndNode);
+ For Edge in Node.Edges Do
+  VisitNode(Edge, EndNode);
 End;
 
 (* Execute *)

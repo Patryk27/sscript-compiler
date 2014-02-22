@@ -2,8 +2,8 @@
 Function TreeSimplify: Boolean;
 
   { Visit }
-  Procedure Visit(Node: TCFGNode);
-  Var Child: TCFGNode;
+  Procedure Visit(const Node: TCFGNode);
+  Var Edge: TCFGNode;
   Begin
    if (Node = nil) Then
     Exit;
@@ -12,13 +12,13 @@ Function TreeSimplify: Boolean;
     Exit;
    VisitedNodes.Add(Node);
 
-   TCompiler(Compiler).fCurrentNode := Node;
+   TCompiler(CompilerPnt).fCurrentNode := Node;
 
    if (Node.Value <> nil) Then
-    Result := Result or ExpressionCompiler.OptimizeExpression(TCompiler(Compiler), Node.Value, [oTreeSimplification]);
+    Result := Result or ExpressionCompiler.OptimizeExpression(TCompiler(CompilerPnt), Node.Value, [oTreeSimplification]);
 
-   For Child in Node.Child Do
-    Visit(Child);
+   For Edge in Node.Edges Do
+    Visit(Edge);
   End;
 
 Begin
@@ -95,8 +95,8 @@ Var VarList: TVarList;
   End;
 
   // Visit
-  Procedure Visit(Node: TCFGNode);
-  Var Child: TCFGNode;
+  Procedure Visit(const Node: TCFGNode);
+  Var Edge: TCFGNode;
   Begin
    if (Node = nil) Then
     Exit;
@@ -107,8 +107,8 @@ Var VarList: TVarList;
 
    VisitExpression(Node.Value);
 
-   For Child in Node.Child Do
-    Visit(Child);
+   For Edge in Node.Edges Do
+    Visit(Edge);
   End;
 
 Var Tmp: PVarData;
@@ -128,8 +128,8 @@ End;
 Procedure ConstantFolding;
 
   // Visit
-  Procedure Visit(Node: TCFGNode);
-  Var Child: TCFGNode;
+  Procedure Visit(const Node: TCFGNode);
+  Var Edge: TCFGNode;
   Begin
    if (Node = nil) Then
     Exit;
@@ -138,13 +138,13 @@ Procedure ConstantFolding;
     Exit;
    VisitedNodes.Add(Node);
 
-   TCompiler(Compiler).fCurrentNode := Node;
+   TCompiler(CompilerPnt).fCurrentNode := Node;
 
    if (Node.Value <> nil) Then
-    AnyChange := AnyChange or ExpressionCompiler.OptimizeExpression(TCompiler(Compiler), Node.Value, [oInsertConstants, oConstantFolding]);
+    AnyChange := AnyChange or ExpressionCompiler.OptimizeExpression(TCompiler(CompilerPnt), Node.Value, [oInsertConstants, oConstantFolding]);
 
-   For Child in Node.Child Do
-    Visit(Child);
+   For Edge in Node.Edges Do
+    Visit(Edge);
   End;
 
 Begin
@@ -152,7 +152,7 @@ Begin
  Visit(Func.FlowGraph.Root);
 End;
 
-Var Comp: TCompiler absolute Compiler;
+Var Comp: TCompiler absolute CompilerPnt;
 Begin
  Repeat
   AnyChange := False;

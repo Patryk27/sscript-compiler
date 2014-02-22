@@ -1,14 +1,14 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
-{$MODE DELPHI} // we're using Delphi syntax because there's no need to use the dereference operator (`^`) all the time.
+{$MODE DELPHI} // we're using Delphi syntax because using it, there's no need to write the dereference operator (`^`) all the time.
 Unit opt_peephole;
 
  Interface
  Uses SSCompiler, Variants;
 
- Procedure OptimizeBytecode(Compiler: TCompiler);
+ Procedure OptimizeBytecode(const Compiler: TCompiler);
 
  Implementation
 Uses CompilerUnit, Opcodes, SysUtils, Messages;
@@ -17,7 +17,7 @@ Uses CompilerUnit, Opcodes, SysUtils, Messages;
 {
  Returns `true` when passed primary type is a register
 }
-Function isRegister(T: TPrimaryType): Boolean;
+Function isRegister(const T: TPrimaryType): Boolean; inline;
 Begin
  Result := T in [ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg];
 End;
@@ -26,7 +26,7 @@ End;
 {
  Returns `true` when passed primary type is an int
 }
-Function isInt(T: TPrimaryType): Boolean;
+Function isInt(const T: TPrimaryType): Boolean; inline;
 Begin
  Result := (T = ptInt);
 End;
@@ -37,7 +37,7 @@ End;
 
  @Note: 'variable-holders' are registers `e_3` and `e_4`, and also stackvals - as only there variables can be allocated.
 }
-Function isVariableHolder(T: TMOpcodeArg): Boolean;
+Function isVariableHolder(const T: TMOpcodeArg): Boolean; inline;
 Begin
  Result := isRegister(T.Typ);
 
@@ -50,7 +50,7 @@ End;
 {
  Optimizes bytecode for faster execution.
 }
-Procedure OptimizeBytecode(Compiler: TCompiler);
+Procedure OptimizeBytecode(const Compiler: TCompiler);
 Var Pos, Pos2            : uint64;
     oCurrent, oNext, oTmp: TMOpcode;
     pCurrent, pNext, pTmp: PMOpcode;
@@ -59,32 +59,32 @@ Var Pos, Pos2            : uint64;
     Optimized            : Boolean;
     TmpArg               : TMOpcodeArg;
 
-    { isArgumentChanging }
-    Function isArgumentChanging(Param: Byte): Boolean;
+  { isArgumentChanging }
+  Function isArgumentChanging(Param: Byte): Boolean;
+  Begin
+   Result := (oTmp.Args[Param] = oCurrent.Args[0]) or (oTmp.Args[Param] = oCurrent.Args[1]);
+  End;
+
+  { __optimize1 }
+  Procedure __optimize1(Param: Byte);
+  Begin
+   if (oTmp.Args[Param] = oCurrent.Args[0]) Then
+   Begin
+    TmpArg           := oTmp.Args[Param];
+    pTmp.Args[Param] := oCurrent.Args[1]; // replace register with value
+
+    if (isValidOpcode(pTmp^)) Then // is it a valid opcode now?
     Begin
-     Result := (oTmp.Args[Param] = oCurrent.Args[0]) or (oTmp.Args[Param] = oCurrent.Args[1]);
-    End;
+     if (pTmp.Args[Param].Typ = ptStackVal) and (PushFix <> 0) Then
+      pTmp.Args[Param].Value -= PushFix;
 
-    { __optimize1 }
-    Procedure __optimize1(Param: Byte);
-    Begin
-     if (oTmp.Args[Param] = oCurrent.Args[0]) Then
-     Begin
-      TmpArg           := oTmp.Args[Param];
-      pTmp.Args[Param] := oCurrent.Args[1]; // replace register with value
+     Optimized := True;
+    End Else // if it's not
+     pTmp.Args[Param] := TmpArg;
+   End;
+  End;
 
-      if (isValidOpcode(pTmp^)) Then // is it a valid opcode now?
-      Begin
-       if (pTmp.Args[Param].Typ = ptStackVal) and (PushFix <> 0) Then
-        pTmp.Args[Param].Value -= PushFix;
-
-       Optimized := True;
-      End Else // if it's not
-       pTmp.Args[Param] := TmpArg;
-     End;
-    End;
-
-Var OpcodeCount: Int64;
+Var OpcodeCount: int64;
 Begin
  With Compiler do
  Begin
@@ -159,7 +159,7 @@ Begin
       pop(the same register)
       ->
       [nothing]
-      (it would be anyway optimized later (because this would be changed to `mov(reg, reg)` and then removed) but I'd like to do it here)
+      (it would be anyway optimized later (because this would be changed to `mov(reg, reg)` and then removed), but I'd like to do it here)
      }
      OpcodeList.Remove(pCurrent);
      OpcodeList.Remove(pNext);
@@ -201,10 +201,10 @@ Begin
    Begin
     if (oCurrent.Args[0] = oNext.Args[1]) and
        (oCurrent.Args[1] = oNext.Args[0]) Then
-       Begin
-        OpcodeList.Remove(pNext);
-        Continue;
-       End;
+    Begin
+     OpcodeList.Remove(pNext);
+     Continue;
+    End;
    End;
 
    // @TODO: mul(register, 0) -> mov(register, 0)
@@ -246,7 +246,9 @@ Begin
 
      if (oTmp.Opcode in [o_mov, o_pop, o_neg, o_not, o_xor, o_or, o_and, o_shr, o_shl, o_strjoin, o_add, o_sub, o_mul, o_div, o_mod]) and
         (isArgumentChanging(0)) Then
-         Break; // the register's value is changed -> stop propagation
+     Begin
+      Break; // the register's value is changed -> stop propagation
+     End;
 
      if (oTmp.Opcode = o_arset) Then // arset(out, in, in)
       if (isArgumentChanging(0)) Then

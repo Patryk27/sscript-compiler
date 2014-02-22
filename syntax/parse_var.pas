@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_VAR;
@@ -92,7 +92,7 @@ Begin
   Compiler.CompileError(eInvalidArrayInitializer, [DimCount, Variable.Typ.ArrayDimCount]);
 
  { add node to the flowgraph }
- Node                            := TCFGNode.Create(Compiler.fCurrentNode, cetArrayInitializer, nil, Compiler.getScanner.getTokenPnt(Compiler.getScanner.getPosition));
+ Node                            := TCompiler(CompilerPnt).getCurrentFunction.createNode(Compiler.fCurrentNode, cetArrayInitializer, nil, Compiler.getScanner.getTokenPnt(Compiler.getScanner.getPosition));
  Node.ArrayInitializer.VarSymbol := Symbol;
  Node.ArrayInitializer.Values    := Values;
  Node.ArrayInitializer.DimSizes  := DimSizes;
@@ -179,7 +179,7 @@ Begin
     if (inFunction) Then // local var initializer
     Begin
      Dec(TokenPos);
-     CFGAddNode(TCFGNode.Create(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA])));
+     CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA])));
      Dec(TokenPos); // ExpressionCompiler 'eats' comma which we need.
     End Else // global var initializer
     Begin

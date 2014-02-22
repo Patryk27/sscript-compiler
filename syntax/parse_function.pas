@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_FUNCTION;
@@ -7,11 +7,12 @@ Unit Parse_FUNCTION;
  Interface
  Uses Expression, Tokens, Variants, TypInfo;
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SysUtils, Classes, FGL, SSCompiler, Messages, Opcodes, ExpressionCompiler, symdef, FlowGraph, CompilerUnit;
 
+{ TVar }
 Type PVar = ^TVar;
      TVar =
      Record
@@ -19,7 +20,7 @@ Type PVar = ^TVar;
       CFGCost: uint32;
      End;
 
-// SortVarRec
+(* SortVarRec *)
 Function SortVarRec(const A, B: PVar): Integer;
 Begin
  if (A^.CFGCost > B^.CFGCost) Then
@@ -35,7 +36,7 @@ End;
 {
  Parses and compiles functions.
 }
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var Func: TFunction; // our new function
 
     NamedParams        : (npNotSetYet, npYes, npNo) = npNotSetYet;
@@ -52,7 +53,7 @@ Var Func: TFunction; // our new function
   Procedure NewConst(const cName: String; cTyp: TType; cValue: PExpressionNode);
   Var Variable: TVariable;
   Begin
-   With TCompiler(Compiler) do
+   With TCompiler(CompilerPnt) do
    Begin
     Variable       := TVariable.Create;
     Variable.Typ   := cTyp;
@@ -61,7 +62,7 @@ Var Func: TFunction; // our new function
     With Variable.RefSymbol do
     Begin
      Name          := cName;
-     mCompiler     := Compiler;
+     mCompiler     := CompilerPnt;
      DeclToken     := getScanner.next_pnt;
      DeclFunction  := getCurrentFunction;
      DeclNamespace := getCurrentNamespace;
@@ -85,7 +86,7 @@ Var Func: TFunction; // our new function
   Begin
    SetLength(Func.ParamList, 0); // every function has no parameters by the default
 
-   With TCompiler(Compiler), getScanner, Func do
+   With TCompiler(CompilerPnt), getScanner, Func do
    Begin
     eat(_BRACKET1_OP); // (
 
@@ -169,7 +170,7 @@ Var Func: TFunction; // our new function
   Procedure ReadAttributes;
   Var Token: TToken_P;
   Begin
-   With TCompiler(Compiler), getScanner do
+   With TCompiler(CompilerPnt), getScanner do
    Begin
     Func.Attributes := [];
 
@@ -195,7 +196,7 @@ Var I           : Integer;
     TmpNamespace: TNamespace;
     TmpIdent    : String;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   (* if first pass *)
   if (CompilePass = _cp1) Then
@@ -242,7 +243,7 @@ Begin
                   |                                         |
                   --------------------------------          |
      The "PreviousInstance" pointer points there ^          |
-     The current compiler instance ("Compiler") points here ^
+     The current compiler instance ("CompilerPnt") points here ^
 
      Since this function had been already parsed in the "PreviousInstance", we have to use that symbol pointer.
      Why we have to?
@@ -282,7 +283,7 @@ Begin
    Begin
     Func                         := TFunction.Create;
     CurrentFunction              := Func;
-    Func.RefSymbol.mCompiler     := Compiler;
+    Func.RefSymbol.mCompiler     := CompilerPnt;
     Func.RefSymbol.DeclToken     := next_pnt(-1); // `_FUNCTION`
     Func.RefSymbol.DeclNamespace := getCurrentNamespace;
     Func.RefSymbol.DeclFunction  := nil;
@@ -385,8 +386,8 @@ Begin
     FunctionSymbol := Func.RefSymbol.DeclNamespace.findSymbol(Func.RefSymbol.Name); // @TODO: it can be done waaay better
    End;
 
-   { new scope (because we're in function now) }
-   NewScope(sFunction);
+   { new scope (because we're inside a function now) }
+   NewScope(sctFunction);
 
    { ====== parse function's body ====== }
    setNewRootNode(nil, False);
@@ -401,15 +402,15 @@ Begin
    VisitedNodes := TCFGNodeList.Create;
    RemovedNodes := TCFGNodeList.Create;
    Try
-    if (not TCompiler(Compiler).AnyError) Then // if no errors were raised, do optimizations and run the code generator
+    if (not TCompiler(CompilerPnt).AnyError) Then // if no errors were raised, do optimizations and run the code generator
     Begin
      With Func.FlowGraph do
      Begin
       Validate;
-      CheckReturns(Compiler, Func.Return.isVoid or Func.isNaked);
+      CheckReturns(CompilerPnt, Func.Return.isVoid or Func.isNaked);
      End;
 
-     if (TCompiler(Compiler).getBoolOption(opt__tree_simplify)) Then
+     if (TCompiler(CompilerPnt).getBoolOption(opt__tree_simplify)) Then
      Begin
       {
        @Note:
@@ -456,7 +457,9 @@ Begin
      Generate(TmpNode);
     DoNotGenerateCode := False;
 
-    (* @Note:
+    (*
+     @Note:
+
      We're compiling removed nodes to avoid situations like this:
 
      if (true)

@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Scanner;
@@ -10,6 +10,7 @@ Unit Scanner;
 
  Const DefaultSeparators = [_SEMICOLON, _COMMA, _BRACKET1_CL, _BRACKET2_CL, _BRACKET3_CL];
 
+ { TTokenList }
  Type TTokenList = specialize TFPGList<PToken_P>;
 
  { TScanner }
@@ -22,7 +23,7 @@ Unit Scanner;
         DontFailOnEOF: Boolean;
 
        Public { fields }
-        TokenPos: Int64; // current token ID (counting from 0)
+        TokenPos: int64; // current token ID (counting from 0)
 
         CurrentDeep: Integer; // current brackets' deep (`{` = +1, `}` = -1)
         Visibility : TVisibility; // current visibility
@@ -130,9 +131,14 @@ Begin
     if (Token.Line <> ShortCommentLine) Then // not in short (one-line) comment
     Begin
      if (Token.Token = _LONGCMT_OPEN { /* }) Then
-      inLongComment := True Else
+     Begin
+      inLongComment := True;
+     End Else
+
      if (Token.Token = _LONGCMT_CLOSE { */ }) Then
-      inLongComment := False Else
+     Begin
+      inLongComment := False;
+     End Else
 
      if (not inLongComment) Then
      Begin

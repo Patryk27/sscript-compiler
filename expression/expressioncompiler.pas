@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 
@@ -1435,8 +1435,8 @@ Begin
 
  Compiler.PutComment(IntToStr(Expr^.Token.Line)+': '+ExpressionToString(Expr));
 
- ExprLabel := Compiler.getCurrentFunction.LabelName+'__expression_'+IntToStr(Compiler.SomeCounter);
- Inc(Compiler.SomeCounter);
+ ExprLabel := Compiler.getCurrentFunction.LabelName+'__expression_'+IntToStr(Compiler.LabelCounter);
+ Inc(Compiler.LabelCounter);
 
  Result := Parse(Expr, 0, #0, False);
 End;

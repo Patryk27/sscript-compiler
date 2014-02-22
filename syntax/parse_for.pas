@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_FOR;
@@ -7,21 +7,21 @@ Unit Parse_FOR;
  Interface
  Uses SysUtils;
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, Tokens, Messages, Opcodes, FlowGraph;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var Content, Condition, Step, EndingNode: TCFGNode;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   eat(_BRACKET1_OP); // `(`
 
-  Content    := TCFGNode.Create(nil, next_pnt);
-  EndingNode := TCFGNode.Create(nil, next_pnt);
+  Content    := getCurrentFunction.createNode(nil, next_pnt);
+  EndingNode := getCurrentFunction.createNode(nil, next_pnt);
 
   Inc(CurrentDeep);
 
@@ -29,17 +29,17 @@ Begin
   ParsingFORInitInstruction := True;
   if (next_t in [_VAR, _SEMICOLON]) Then
    ParseToken Else
-   CFGAddNode(TCFGNode.Create(fCurrentNode, cetExpression, MakeExpression(Compiler)));
+   CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetExpression, MakeExpression(CompilerPnt)));
   ParsingFORInitInstruction := False;
 
   (* parse condition *)
   if (next_t = _SEMICOLON) Then
   Begin
    eat(_SEMICOLON);
-   Condition            := TCFGNode.Create(fCurrentNode, cetCondition, MakeBoolExpression(True, next_pnt(-1)));
+   Condition            := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeBoolExpression(True, next_pnt(-1)));
    Condition.isVolatile := True; // the branch optimizer would enter an infinite loop trying to optimize this
   End Else
-   Condition := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_SEMICOLON]));
+   Condition := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeExpression(CompilerPnt, [_SEMICOLON]));
 
   (* parse step instruction *)
   if (next_t = _BRACKET1_CL) Then
@@ -47,14 +47,14 @@ Begin
    eat(_BRACKET1_CL);
    Step := nil;
   End Else
-   Step := TCFGNode.Create(fCurrentNode, cetExpression, MakeExpression(Compiler, [_BRACKET1_CL]));
+   Step := getCurrentFunction.createNode(fCurrentNode, cetExpression, MakeExpression(CompilerPnt, [_BRACKET1_CL]));
 
   (* parse loop's content *)
   setNewRootNode(Content);
 
   if (Step = nil) Then
-   NewScope(sFOR, Content, EndingNode) Else
-   NewScope(sFOR, Step, EndingNode);
+   NewScope(sctFor, Content, EndingNode) Else
+   NewScope(sctFor, Step, EndingNode);
 
   ParseCodeBlock(True); // parse 'for' loop
 
@@ -79,9 +79,9 @@ Begin
   EndingNode.Parent := fCurrentNode;
   fCurrentNode      := EndingNode;
 
-  Condition.Child.Add(Content); // on true
-  Condition.Child.Add(EndingNode); // on false
-  Condition.Child.Add(nil);
+  Condition.Edges.Add(Content); // on true
+  Condition.Edges.Add(EndingNode); // on false
+  Condition.Edges.Add(nil);
  End;
 End;
 End.

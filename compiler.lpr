@@ -1,6 +1,6 @@
 (*
  SScript Compiler
- Copyright © by Patryk Wychowaniec, 2012-2013
+ Copyright © by Patryk Wychowaniec, 2012-2014
 
  -------------------------------------------------------------------------------
  SScript Compiler is free software; you can redistribute it and/or modify
@@ -170,7 +170,9 @@ Begin
   End Else
 
   { unexpected }
+  Begin
    Writeln('Unexpected command-line argument: ', Current);
+  End;
 
   Inc(Pos);
  Until (Pos > ParamCount);

@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_CODE;
@@ -7,13 +7,13 @@ Unit Parse_CODE;
  Interface
  Uses SysUtils, Variants;
 
- Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
+ Procedure Parse(const CompilerPnt: Pointer; const DirectBytecode: Boolean=False);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, Messages, Tokens, Opcodes, FlowGraph, symdef;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer; const DirectBytecode: Boolean=False);
+Procedure Parse(const CompilerPnt: Pointer; const DirectBytecode: Boolean=False);
 Var Opcode: PMOpcode;
 
     Deep : Integer;
@@ -27,7 +27,7 @@ Var Opcode: PMOpcode;
 
     Node: TCFGNode;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   if (not DirectBytecode) Then
    eat(_IDENTIFIER); // `:CODE`
@@ -186,7 +186,7 @@ Begin
       PutOpcode(Name, ArgList^);
      End Else
      Begin
-      Node                        := TCFGNode.Create(fCurrentNode, next_pnt(-1));
+      Node                        := getCurrentFunction.createNode(fCurrentNode, next_pnt(-1));
       Node.Typ                    := cetBytecode;
       Node.Bytecode.OpcodeName    := Name;
       Node.Bytecode.OpcodeArgList := ArgList;

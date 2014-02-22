@@ -110,7 +110,7 @@ Var Stage      : 1..2;
 
   { VisitNode }
   Procedure VisitNode(const Node, EndNode: TCFGNode);
-  Var Child: TCFGNode;
+  Var Edge: TCFGNode;
   Begin
    if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
     Exit;
@@ -122,10 +122,12 @@ Var Stage      : 1..2;
       VisitExpression(Node.Value);
     Exit;
    End Else
+   Begin
     VisitExpression(Node.Value);
+   End;
 
-   For Child in Node.Child Do
-    VisitNode(Child, EndNode);
+   For Edge in Node.Edges Do
+    VisitNode(Edge, EndNode);
   End;
 
 Var Tmp: PSSAData;

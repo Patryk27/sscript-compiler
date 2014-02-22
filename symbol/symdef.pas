@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit symdef;
@@ -25,25 +25,28 @@ Unit symdef;
 
  { TRange }
  Type PRange = ^TRange;
-      TRange = Record
-                PBegin, PEnd: TToken_P;
-               End;
+      TRange =
+      Record
+       PBegin, PEnd: TToken_P;
+      End;
 
  { TStackSavedReg }
  Type PStackSavedReg = ^TStackSavedReg;
-      TStackSavedReg = Record
-                        RegChar: Char;
-                        RegID  : uint8;
-                       End;
+      TStackSavedReg =
+      Record
+       RegChar: Char;
+       RegID  : uint8;
+      End;
 
  Type TStackSavedRegs = specialize TFPGList<PStackSavedReg>;
 
  { TNamespaceVisibility }
  Type PNamespaceVisibility = ^TNamespaceVisibility;
-      TNamespaceVisibility = Record
-                              Namespace: TNamespace;
-                              Range    : TRange;
-                             End;
+      TNamespaceVisibility =
+      Record
+       Namespace: TNamespace;
+       Range    : TRange;
+      End;
  Type TNamespaceVisibilityList = specialize TFPGList<PNamespaceVisibility>;
 
  Type TRefSymbol = class;
@@ -55,15 +58,17 @@ Unit symdef;
 
  { TParam }
  Type PParam = ^TParam;
-      TParam = Record
-                Name        : String;
-                Typ         : TType;
-                DefaultValue: PExpressionNode;
-                Attributes  : TVariableAttributes;
-                isConst     : Boolean;
-                isVar       : Boolean; // `isPassedByRef`
-               End;
-      TParamList = Array of TParam;
+      TParam =
+      Record
+       Name        : String;
+       Typ         : TType;
+       DefaultValue: PExpressionNode;
+       Attributes  : TVariableAttributes;
+       isConst     : Boolean;
+       isVar       : Boolean; // `isPassedByRef`
+      End;
+
+ Type TParamList = Array of TParam;
 
  { TSymdefObject }
  Type TSymdefObject =
@@ -185,10 +190,15 @@ Unit symdef;
         StackSize: uint8;
         StackRegs: TStackSavedRegs;
 
+        LastLabelID: uint32;
+
         Attributes: TFunctionAttributes;
 
        Public { methods }
         Constructor Create;
+
+        Function createNode(const fParent: TCFGNode; const ffToken: PToken_P=nil): TCFGNode;
+        Function createNode(const fParent: TCFGNode; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P=nil): TCFGNode;
 
         Function findSymbol(const SymName: String): TSymbol;
         Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
@@ -259,7 +269,7 @@ Unit symdef;
         Function getSymdefObject: TSymdefObject;
        End;
 
- // operators
+ // functions
  Function type_equal(A, B: TType): Boolean;
  Operator in (Token: TToken_P; Range: TRange): Boolean;
  Operator = (A, B: TVarLocationData): Boolean;
@@ -1299,6 +1309,26 @@ Begin
  StackRegs := TStackSavedRegs.Create;
 
  Attributes := [];
+End;
+
+(* TFunction.createNode *)
+{
+ Constructs a new instance of TCFGNode, generates its name and returns it.
+}
+Function TFunction.createNode(const fParent: TCFGNode; const ffToken: PToken_P): TCFGNode;
+Begin
+ Result := TCFGNode.Create(fParent, Format('%s_l_%d', [LabelName, LastLabelID]), ffToken);
+ Inc(LastLabelID);
+End;
+
+(* TFunction.createNode *)
+{
+ Constructs a new instance of TCFGNode, generates its name and returns it.
+}
+Function TFunction.createNode(const fParent: TCFGNode; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P): TCFGNode;
+Begin
+ Result := TCFGNode.Create(fParent, Format('%s_l_%d', [LabelName, LastLabelID]), fTyp, fValue, ffToken);
+ Inc(LastLabelID);
 End;
 
 (* TFunction.findSymbol *)

@@ -1,4 +1,4 @@
-// @TODO: they're a bit lame solutions, because they distracts optimizer from doing its job ;/
+// @TODO: they're lame solutions, because they distract optimizers from doing their job ;/
 
 { ParseBreak }
 Procedure ParseBreak;
@@ -6,9 +6,9 @@ Var I   : Integer;
     Node: TCFGNode;
 Begin
  For I := High(Scope) Downto Low(Scope) Do
-  if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
+  if (Scope[I].Typ in [sctFor, sctForeach, sctWhile]) Then
   Begin
-   Node := TCFGNode.Create(getCurrentNode, Scanner.next_pnt);
+   Node := getCurrentFunction.createNode(getCurrentNode, Scanner.next_pnt);
 
    With Node do
    Begin
@@ -30,7 +30,7 @@ Begin
    Exit;
   End;
 
- CompileError(eNotAllowed, ['break']);
+ CompileError(eNotAllowed, ['break']); // error: instruction not allowed
 End;
 
 { ParseContinue }
@@ -39,9 +39,9 @@ Var I   : Integer;
     Node: TCFGNode;
 Begin
  For I := High(Scope) Downto Low(Scope) Do
-  if (Scope[I].Typ in [sFOR, sFOREACH, sWHILE]) Then
+  if (Scope[I].Typ in [sctFor, sctForeach, sctWhile]) Then
   Begin
-   Node := TCFGNode.Create(getCurrentNode, Scanner.next_pnt);
+   Node := getCurrentFunction.createNode(getCurrentNode, Scanner.next_pnt);
 
    With Node do
    Begin
@@ -63,5 +63,5 @@ Begin
    Exit;
   End;
 
- CompileError(eNotAllowed, ['continue']);
+ CompileError(eNotAllowed, ['continue']); // error: instruction not allowed
 End;

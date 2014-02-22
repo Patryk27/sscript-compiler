@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Tokens;
@@ -12,6 +12,7 @@ Unit Tokens;
                                                 'in', 'do', 'public', 'private', 'type', 'new', 'namespace', 'use', 'cast', 'strict', 'try',
                                                 'catch', 'throw', 'enum', 'foreach');
 
+ { TToken }
  Type TToken =
  (
   noToken,            //
@@ -115,9 +116,10 @@ Unit Tokens;
   _NEWLINE
  );
 
+ { TTokenSet }
  Type TTokenSet = Set of TToken;
 
- Const Token_Display: Array[TToken] of String =
+ Const TokenDisplay: Array[TToken] of String =
  (
   '',
   '+',
@@ -254,7 +256,7 @@ End;
 }
 Function getTokenDisplay(const T: TToken): String;
 Begin
- Result := Token_Display[T];
+ Result := TokenDisplay[T];
 End;
 
 (* isKeyword *)

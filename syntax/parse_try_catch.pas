@@ -1,5 +1,5 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_TRY_CATCH;
@@ -7,22 +7,22 @@ Unit Parse_TRY_CATCH;
  Interface
  Uses SysUtils;
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, FlowGraph, symdef, Opcodes, Tokens;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var Symbol                  : TSymbol;
     Node, TryNode, CatchNode: TCFGNode;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
-  NewScope(sTryCatch);
+  NewScope(sctTryCatch);
 
   (* parse 'try' *)
-  TryNode := TCFGNode.Create(fCurrentNode, next_pnt);
+  TryNode := getCurrentFunction.createNode(fCurrentNode, next_pnt);
   setNewRootNode(TryNode);
   ParseCodeBlock; // parse code block
   restorePrevRootNode;
@@ -54,16 +54,16 @@ Begin
   Symbol.Range := getScanner.getCurrentRange(0);
 
   // parse 'catch' code block
-  CatchNode := TCFGNode.Create(fCurrentNode, next_pnt);
+  CatchNode := getCurrentFunction.createNode(fCurrentNode, next_pnt);
   setNewRootNode(CatchNode);
   ParseCodeBlock; // parse code block
   restorePrevRootNode;
 
   (* do some CFG-magic *)
-  Node := TCFGNode.Create(fCurrentNode, cetTryCatch, nil, TryNode.getToken);
+  Node := getCurrentFunction.createNode(fCurrentNode, cetTryCatch, nil, TryNode.getToken);
 
-  Node.Child.Add(TryNode);
-  Node.Child.Add(CatchNode);
+  Node.Edges.Add(TryNode);
+  Node.Edges.Add(CatchNode);
 
   TryNode.Parent   := Node;
   CatchNode.Parent := Node;

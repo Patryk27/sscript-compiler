@@ -1,27 +1,27 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_RETURN;
 
  Interface
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, Tokens, FlowGraph;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   if (next_t = _SEMICOLON) Then // `return;` (aka "void return")
   Begin
-   CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, nil, next_pnt));
+   CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetReturn, nil, next_pnt));
   End Else // `return expression;`
   Begin
-   CFGAddNode(TCFGNode.Create(fCurrentNode, cetReturn, MakeExpression(TCompiler(Compiler))));
+   CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetReturn, MakeExpression(TCompiler(CompilerPnt))));
   End;
  End;
 End;

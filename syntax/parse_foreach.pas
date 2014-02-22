@@ -1,29 +1,29 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_FOREACH;
 
  Interface
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, FlowGraph, Messages, symdef, Tokens;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var Foreach, Content, EndNode                  : TCFGNode;
     LoopIterVar, LoopExprHolder, LoopSizeHolder: TVariable;
     VarName                                    : String;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   eat(_BRACKET1_OP); // `(`
 
-  Foreach := TCFGNode.Create(getCurrentNode, cetForeach, nil, next_pnt);
-  Content := TCFGNode.Create(Foreach, next_pnt);
-  EndNode := TCFGNode.Create(nil, next_pnt);
+  Foreach := getCurrentFunction.createNode(getCurrentNode, cetForeach, nil, next_pnt);
+  Content := getCurrentFunction.createNode(Foreach, next_pnt);
+  EndNode := getCurrentFunction.createNode(nil, next_pnt);
 
  // NewScope(sFOREACH, Content, EndNode);
   Inc(CurrentDeep);
@@ -80,7 +80,7 @@ Begin
 
   eat(_IN); // `in`
 
-  Foreach.Value := MakeExpression(Compiler, [_BRACKET1_CL]);
+  Foreach.Value := MakeExpression(CompilerPnt, [_BRACKET1_CL]);
 
   (* parse loop content *)
   setNewRootNode(Content);
@@ -94,8 +94,8 @@ Begin
 
   (* do some control-flow-graph magic *)
   CFGAddNode(Foreach);
-  Foreach.Child.Add(Content);
-  Foreach.Child.Add(EndNode);
+  Foreach.Edges.Add(Content);
+  Foreach.Edges.Add(EndNode);
 
   EndNode.Parent := fCurrentNode;
   fCurrentNode   := EndNode;

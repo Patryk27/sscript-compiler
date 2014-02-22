@@ -1,34 +1,34 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_IF;
 
  Interface
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, ExpressionCompiler, Tokens, FlowGraph;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var BaseNode, onTrue, onFalse, onTrueLast, onFalseLast: TCFGNode;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   eat(_BRACKET1_OP); // (
 
-  BaseNode := TCFGNode.Create(fCurrentNode, cetCondition, MakeExpression(Compiler, [_BRACKET1_CL])); // 'if' main node
+  BaseNode := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeExpression(CompilerPnt, [_BRACKET1_CL])); // 'if' main node
 
-  onFalse     := TCFGNode.Create(BaseNode, next_pnt);
+  onFalse     := getCurrentFunction.createNode(BaseNode, next_pnt);
   onFalseLast := onFalse;
 
   (* parse 'true' *)
-  onTrue := TCFGNode.Create(BaseNode, next_pnt);
+  onTrue := getCurrentFunction.createNode(BaseNode, next_pnt);
   setNewRootNode(onTrue); // set new root node
 
-  NewScope(sIF); // new scope
+  NewScope(sctIf); // new scope
   Inc(CurrentDeep);
 
   ParseCodeBlock(True); // parse code block
@@ -43,10 +43,10 @@ Begin
   (* parse 'else' (`false`), if possible *)
   if (next_t = _ELSE) Then // parse 'else' block
   Begin
-   onFalse := TCFGNode.Create(BaseNode, next_pnt);
+   onFalse := getCurrentFunction.createNode(BaseNode, next_pnt);
    setNewRootNode(onFalse); // set new root node
 
-   NewScope(sIF); // new scope
+   NewScope(sctIf); // new scope
    Inc(CurrentDeep);
 
    eat(_ELSE);
@@ -61,16 +61,16 @@ Begin
    restorePrevRootNode; // restore previous root node
   End;
 
-  BaseNode.Child.Add(onTrue);
-  BaseNode.Child.Add(onFalse);
+  BaseNode.Edges.Add(onTrue);
+  BaseNode.Edges.Add(onFalse);
 
   CFGAddNode(BaseNode);
 
-  fCurrentNode := TCFGNode.Create(BaseNode, next_pnt);
+  fCurrentNode := getCurrentFunction.createNode(BaseNode, next_pnt);
 
-  BaseNode.Child.Add(fCurrentNode);
-  onTrueLast.Child.Add(fCurrentNode);
-  onFalseLast.Child.Add(fCurrentNode);
+  BaseNode.Edges.Add(fCurrentNode);
+  onTrueLast.Edges.Add(fCurrentNode);
+  onFalseLast.Edges.Add(fCurrentNode);
  End;
 End;
 End.

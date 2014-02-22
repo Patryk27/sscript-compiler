@@ -1,22 +1,22 @@
 (*
- Copyright © by Patryk Wychowaniec, 2013
+ Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
 Unit Parse_NAMESPACE;
 
  Interface
 
- Procedure Parse(Compiler: Pointer);
+ Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
 Uses SSCompiler, symdef, Tokens, Messages;
 
 (* Parse *)
-Procedure Parse(Compiler: Pointer);
+Procedure Parse(const CompilerPnt: Pointer);
 Var nName: String;
     Deep : Integer;
 Begin
- With TCompiler(Compiler), getScanner do
+ With TCompiler(CompilerPnt), getScanner do
  Begin
   Deep := CurrentDeep;
 
@@ -38,7 +38,7 @@ Begin
      With RefSymbol do
      Begin
       Name       := nName;
-      mCompiler  := Compiler;
+      mCompiler  := CompilerPnt;
       DeclToken  := next_pnt(-1);
      End;
 
