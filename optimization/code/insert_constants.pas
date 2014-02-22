@@ -4,7 +4,7 @@ Procedure __insert_constants(const ShowErrors: Boolean);
 Procedure Parse(const Expr: PExpressionNode);
 Var Param: PExpressionNode;
 Begin
- if (Expr = nil) or (Expr^.Typ = mtArrayElement) Then
+ if (Expr = nil) or (Expr^.Typ = mtArrayElement) Then // stop on invalid/array expressions
   Exit;
 
  if (Expr^.Typ = mtIdentifier) Then // if identifier
@@ -24,6 +24,9 @@ Begin
      Compiler.CompileError(Expr^.Token, eNotAConstant, [Expr^.IdentName]);
     Exit;
    End;
+
+   if (mVariable.Typ.isEnumItem) Then
+    Exit;
 
    AnyChange := True;
    Expr^     := mVariable.Value^;
