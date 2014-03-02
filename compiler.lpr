@@ -178,7 +178,7 @@ Begin
  Until (Pos > ParamCount);
 End;
 
-{ program's body }
+{ program body }
 Begin
  Randomize;
 
@@ -210,7 +210,7 @@ Begin
     verbose_mode := True;
 
    Log('SScript Compiler '+Version+' [compiled '+{$I %DATE%}+']');
-   Log('Copyright (c) 2012-2013 by Patryk Wychowaniec');
+   Log('Copyright (c) 2012-2014 by Patryk Wychowaniec');
 
    {$IFDEF NIGHTLY}
     Log;
