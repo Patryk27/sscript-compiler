@@ -184,6 +184,6 @@ Procedure CompileCode(Input, Output: String; Options: TCompileOptions);
 Begin                                            
  Compiler := TCompiler.Create;
  Compiler.CompileCode(Input, Output, Options);
- Compiler.Free;
+ Compiler.Free; // lack of try..finally construction here is purposeful
 End;
 End.

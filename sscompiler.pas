@@ -1304,170 +1304,170 @@ Var Compiler2: BCCompiler.TCompiler;
     VBytecode        : String = '';
     UnfinishedComment: Boolean = False;
 
-    { AddPrimaryType }
-    Procedure AddPrimaryType(Typ: TType);
+  { AddPrimaryType }
+  Procedure AddPrimaryType(const Typ: TType);
+  Begin
+   Typ.RefSymbol.isInternal := True;
+   NamespaceList[0].SymbolList.Add(TSymbol.Create(stType, Typ));
+  End;
+
+  { CheckMain }
+  Function CheckMain: Boolean;
+  Var Func: TFunction;
+  Begin
+   if (CompileMode <> cmApp) Then // library or bytecode compile mode do not require the 'main' function to exist.
+    Exit(True);
+
+   Func := findFunction('main', findNamespace('self')); // search for `main` function in the `self` namespace
+
+   if (Func = nil) Then // not found!
+    Exit(False);
+
+   With Func do
+    Result := (Length(ParamList) = 0) and (type_equal(Return, TYPE_INT));
+  End;
+
+  { ParseCommandLine }
+  Procedure ParseCommandLine;
+  Var I  : Integer;
+      Str: String;
+  Begin
+   { parse `-Cm` }
+   Str := getStringOption(opt_Cm, 'app');
+   Case Str of
+    'app'     : CompileMode := cmApp;
+    'lib'     : CompileMode := cmLibrary;
+    'bytecode': CompileMode := cmBytecode;
+
+    else
     Begin
-     Typ.RefSymbol.isInternal := True;
-     NamespaceList[0].SymbolList.Add(TSymbol.Create(stType, Typ));
+     Writeln('Unknown compile mode (-Cm): `', Str, '`; default set to `app`');
+     CompileMode := cmApp;
     End;
+   End;
 
-    { CheckMain }
-    Function CheckMain: Boolean;
-    Var Func: TFunction;
+   { parse `-includepath` }
+   IncludePaths               := TStringList.Create;
+   IncludePaths.Delimiter     := ';';
+   IncludePaths.DelimitedText := getStringOption(opt_includepath, '$file;$compiler');
+
+   For I := 0 To IncludePaths.Count-1 Do
+   Begin
+    Str := IncludePaths[I];
+
+    Str := StringReplace(Str, '$file', ExtractFilePath(InputFile), [rfReplaceAll]);
+    Str := StringReplace(Str, '$main', ExtractFilePath(Parent.InputFile), [rfReplaceAll]);
+    Str := StringReplace(Str, '$compiler', ExtractFilePath(ParamStr(0)), [rfReplaceAll]);
+
+    IncludePaths[I] := Str;
+   End;
+
+   { parse `-bytecode` }
+   VBytecode := getStringOption(opt_bytecode);
+  End;
+
+  { CreateGlobalConstant }
+  Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PExpressionNode);
+  Begin
+   With NamespaceList.Last do
+   Begin
+    SymbolList.Add(TSymbol.Create(stConstant));
+    With SymbolList.Last do
     Begin
-     if (CompileMode <> cmApp) Then // library or bytecode compile mode do not require the 'main' function to exist.
-      Exit(True);
+     Name       := cName;
+     isInternal := True;
+     Visibility := mvPrivate;
 
-     Func := findFunction('main', findNamespace('self')); // search for `main` function in the `self` namespace
-
-     if (Func = nil) Then // not found!
-      Exit(False);
-
-     With Func do
-      Result := (Length(ParamList) = 0) and (type_equal(Return, TYPE_INT));
-    End;
-
-    { ParseCommandLine }
-    Procedure ParseCommandLine;
-    Var I  : Integer;
-        Str: String;
-    Begin
-     { parse `-Cm` }
-     Str := getStringOption(opt_Cm, 'app');
-     Case Str of
-      'app'     : CompileMode := cmApp;
-      'lib'     : CompileMode := cmLibrary;
-      'bytecode': CompileMode := cmBytecode;
-
-      else
-      Begin
-       Writeln('Unknown compile mode (-Cm): `', Str, '`; default set to `app`');
-       CompileMode := cmApp;
-      End;
-     End;
-
-     { parse `-includepath` }
-     IncludePaths               := TStringList.Create;
-     IncludePaths.Delimiter     := ';';
-     IncludePaths.DelimitedText := getStringOption(opt_includepath, '$file;$compiler');
-
-     For I := 0 To IncludePaths.Count-1 Do
+     With mVariable do
      Begin
-      Str := IncludePaths[I];
+      Typ   := cType;
+      Value := cExpr;
 
-      Str := StringReplace(Str, '$file', ExtractFilePath(InputFile), [rfReplaceAll]);
-      Str := StringReplace(Str, '$main', ExtractFilePath(Parent.InputFile), [rfReplaceAll]);
-      Str := StringReplace(Str, '$compiler', ExtractFilePath(ParamStr(0)), [rfReplaceAll]);
-
-      IncludePaths[I] := Str;
-     End;
-
-     { parse `-bytecode` }
-     VBytecode := getStringOption(opt_bytecode);
-    End;
-
-    { CreateGlobalConstant }
-    Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PExpressionNode);
-    Begin
-     With NamespaceList.Last do
-     Begin
-      SymbolList.Add(TSymbol.Create(stConstant));
-      With SymbolList.Last do
-      Begin
-       Name       := cName;
-       isInternal := True;
-       Visibility := mvPrivate;
-
-       With mVariable do
-       Begin
-        Typ   := cType;
-        Value := cExpr;
-
-        Include(Attributes, vaConst);
-       End;
-      End;
+      Include(Attributes, vaConst);
      End;
     End;
+   End;
+  End;
 
-    { CreateSymbols }
-    Procedure CreateSymbols;
-    Begin
-     { init default namespace }
-     NamespaceList := TNamespaceList.Create;
-     NamespaceList.Add(TNamespace.Create);
+  { CreateSymbols }
+  Procedure CreateSymbols;
+  Begin
+   { init default namespace }
+   NamespaceList := TNamespaceList.Create;
+   NamespaceList.Add(TNamespace.Create);
 
-     With NamespaceList.Last do
-     Begin
-      RefSymbol.Name       := 'self';
-      RefSymbol.Visibility := mvPublic;
+   With NamespaceList.Last do
+   Begin
+    RefSymbol.Name       := 'self';
+    RefSymbol.Visibility := mvPublic;
 
-      SymbolList := TSymbolList.Create;
-     End;
+    SymbolList := TSymbolList.Create;
+   End;
 
-     CurrentNamespace := getDefaultNamespace;
-     CurrentFunction  := nil;
+   CurrentNamespace := getDefaultNamespace;
+   CurrentFunction  := nil;
 
-     NamespaceVisibilityList := TNamespaceVisibilityList.Create;
+   NamespaceVisibilityList := TNamespaceVisibilityList.Create;
 
-     { create primary type-table }
-     AddPrimaryType(TYPE_ANY);
-     AddPrimaryType(TYPE_VOID);
-     AddPrimaryType(TYPE_BOOL);
-     AddPrimaryType(TYPE_CHAR);
-     AddPrimaryType(TYPE_INT);
-     AddPrimaryType(TYPE_FLOAT);
-     AddPrimaryType(TYPE_STRING);
+   { create primary type table }
+   AddPrimaryType(TYPE_ANY);
+   AddPrimaryType(TYPE_VOID);
+   AddPrimaryType(TYPE_BOOL);
+   AddPrimaryType(TYPE_CHAR);
+   AddPrimaryType(TYPE_INT);
+   AddPrimaryType(TYPE_FLOAT);
+   AddPrimaryType(TYPE_STRING);
 
-     { create global constants }
-     With NamespaceList.Last do
-     Begin
-      CreateGlobalConstant('null', TYPE_NULL, MakeIntExpression(0));
+   { create global constants }
+   With NamespaceList.Last do
+   Begin
+    CreateGlobalConstant('null', TYPE_NULL, MakeIntExpression(0));
 
-      CreateGlobalConstant('__file', TYPE_STRING, MakeStringExpression(InputFile));
-      CreateGlobalConstant('__date', TYPE_STRING, MakeStringExpression(DateToStr(Date)));
-      CreateGlobalConstant('__time', TYPE_STRING, MakeStringExpression(TimeToStr(Time)));
-      CreateGlobalConstant('__major_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMajor)));
-      CreateGlobalConstant('__minor_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMinor)));
-      CreateGlobalConstant('__version__', TYPE_STRING, MakeStringExpression(Version));
+    CreateGlobalConstant('__file', TYPE_STRING, MakeStringExpression(InputFile));
+    CreateGlobalConstant('__date', TYPE_STRING, MakeStringExpression(DateToStr(Date)));
+    CreateGlobalConstant('__time', TYPE_STRING, MakeStringExpression(TimeToStr(Time)));
+    CreateGlobalConstant('__major_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMajor)));
+    CreateGlobalConstant('__minor_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMinor)));
+    CreateGlobalConstant('__version__', TYPE_STRING, MakeStringExpression(Version));
 
-      CreateGlobalConstant('__major__', TYPE_FLOAT, MakeFloatExpression(vMajor));
-      CreateGlobalConstant('__minor__', TYPE_FLOAT, MakeFloatExpression(vMinor));
-     End;
-    End;
+    CreateGlobalConstant('__major__', TYPE_FLOAT, MakeFloatExpression(vMajor));
+    CreateGlobalConstant('__minor__', TYPE_FLOAT, MakeFloatExpression(vMinor));
+   End;
+  End;
 
-    { ResetParser }
-    Procedure ResetParser;
-    Begin
-     With Scanner do
-     Begin
-      TokenPos   := 0;
-      Visibility := mvPrivate;
-     End;
-    End;
+  { ResetScanner }
+  Procedure ResetScanner;
+  Begin
+   With Scanner do
+   Begin
+    TokenPos   := 0;
+    Visibility := mvPrivate;
+   End;
+  End;
 
-    { Pass1 }
-    Procedure Pass1;
-    Begin
-     Log('Compilation pass 1');
-     ResetParser;
-     CompilePass := _cp1;
+  { Pass1 }
+  Procedure Pass1;
+  Begin
+   Log('Compilation pass 1');
+   ResetScanner;
+   CompilePass := _cp1;
 
-     With Scanner do
-      While (Can) Do
-       ParseToken;
-    End;
+   With Scanner do
+    While (Can) Do
+     ParseToken;
+  End;
 
-    { Pass2 }
-    Procedure Pass2;
-    Begin
-     Log('Compilation pass 2');
-     ResetParser;
-     CompilePass := _cp2;
+  { Pass2 }
+  Procedure Pass2;
+  Begin
+   Log('Compilation pass 2');
+   ResetScanner;
+   CompilePass := _cp2;
 
-     With Scanner do
-      While (Can) Do
-       ParseToken;
-    End;
+   With Scanner do
+    While (Can) Do
+     ParseToken;
+  End;
 
 Begin
  fInputFile  := ReplaceDirSep(fInputFile);
@@ -1493,7 +1493,7 @@ Begin
   Log('Main file: '+InputFile+' => '+OutputFile);
 
  Scanner := TScanner.Create(self, InputFile, UnfinishedComment);
- ResetParser;
+ ResetScanner;
 
  if (UnfinishedComment) Then
  Begin
@@ -1526,7 +1526,9 @@ Begin
    New(IncludeList);
    SetLength(IncludeList^, 0);
   End Else
+  Begin
    IncludeList := Parent.IncludeList;
+  End;
 
   SetLength(Scope, 0);
 
