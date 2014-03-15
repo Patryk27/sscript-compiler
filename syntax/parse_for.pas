@@ -10,7 +10,7 @@ Unit Parse_FOR;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, ExpressionCompiler, Tokens, Messages, Opcodes, FlowGraph;
+Uses SSCompiler, ExpressionCompiler, ExpressionParser, Tokens, Messages, Opcodes, FlowGraph;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);

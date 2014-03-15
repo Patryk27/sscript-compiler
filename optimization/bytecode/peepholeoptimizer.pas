@@ -3,12 +3,18 @@
  All rights reserved.
 *)
 {$MODE DELPHI} // we're using Delphi syntax because using it, there's no need to write the dereference operator (`^`) all the time.
-Unit opt_peephole;
+Unit PeepholeOptimizer;
 
  Interface
- Uses SSCompiler, Variants;
+ Uses Optimizer, Variants;
 
- Procedure OptimizeBytecode(const Compiler: TCompiler);
+ { TPeepholeOptimizer }
+ Type TPeepholeOptimizer =
+      Class (TOptimizer)
+       Private
+       Public
+        Procedure Execute;
+       End;
 
  Implementation
 Uses CompilerUnit, Opcodes, SysUtils, Messages;
@@ -46,11 +52,9 @@ Begin
   Exit(T.Typ = ptStackVal);
 End;
 
-(* OptimizeBytecode *)
-{
- Optimizes bytecode for faster execution.
-}
-Procedure OptimizeBytecode(const Compiler: TCompiler);
+// -------------------------------------------------------------------------- //
+(* TPeepholeOptimizer.Execute *)
+Procedure TPeepholeOptimizer.Execute;
 Var Pos, Pos2            : uint64;
     oCurrent, oNext, oTmp: TMOpcode;
     pCurrent, pNext, pTmp: PMOpcode;
@@ -60,13 +64,13 @@ Var Pos, Pos2            : uint64;
     TmpArg               : TMOpcodeArg;
 
   { isArgumentChanging }
-  Function isArgumentChanging(Param: Byte): Boolean;
+  Function isArgumentChanging(const Param: uint8): Boolean; inline;
   Begin
    Result := (oTmp.Args[Param] = oCurrent.Args[0]) or (oTmp.Args[Param] = oCurrent.Args[1]);
   End;
 
   { __optimize1 }
-  Procedure __optimize1(Param: Byte);
+  Procedure __optimize1(const Param: uint8); inline;
   Begin
    if (oTmp.Args[Param] = oCurrent.Args[0]) Then
    Begin
@@ -207,7 +211,17 @@ Begin
     End;
    End;
 
-   // @TODO: mul(register, 0) -> mov(register, 0)
+   {
+    jmp(a)
+    jmp(b)
+    ->
+    jmp(a)
+   }
+   if (oCurrent.Opcode = o_jmp) and (oNext.Opcode = o_jmp) Then
+   Begin
+    OpcodeList.Remove(pNext);
+    Continue;
+   End;
 
    {
     Copy propagation
@@ -355,4 +369,5 @@ Begin
   Log('Peephole results: removed '+IntToStr(abs(OpcodeCount))+' opcodes');
  End;
 End;
+
 End.

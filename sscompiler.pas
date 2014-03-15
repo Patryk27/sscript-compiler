@@ -75,7 +75,7 @@ Unit SSCompiler;
 
         LabelCounter: uint32; // used in labels like eg.`__while_<somecounter>_begin`, so they don't overwrite each other
 
-        DoNotGenerateCode: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
+        DoNotStoreOpcodes: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
 
         ParsingFORInitInstruction, ParsingForeachHeader: Boolean;
 
@@ -169,38 +169,41 @@ Unit SSCompiler;
          Procedure CompileNote(const Note: TCompileNote);
         End;
 
- Function ReplaceDirSep(FileName: String): String;
- Function makeModuleName(FileName: String): String;
+ Function ReplaceDirSep(const FileName: String): String;
+ Function makeModuleName(const FileName: String): String;
  Function CopyStringToPChar(const Str: String): PChar;
 
  Implementation
-Uses BCCompiler, ExpressionCompiler, opt_peephole;
+Uses BCCompiler, ExpressionCompiler, ExpressionParser, PeepholeOptimizer;
 
 (* ReplaceDirSep *)
 {
  Replaces `/` and/or `\` to the appropriate directory separator
 }
-Function ReplaceDirSep(FileName: String): String;
+Function ReplaceDirSep(const FileName: String): String;
 Const Sep = DirectorySeparator;
 Begin
- FileName := StringReplace(FileName, '/', Sep, [rfReplaceAll]);
- FileName := StringReplace(FileName, '\', Sep, [rfReplaceAll]);
- FileName := StringReplace(FileName, Sep+Sep, Sep, [rfReplaceAll]);
- Exit(FileName);
+ Result := FileName;
+ Result := StringReplace(Result, '/', Sep, [rfReplaceAll]);
+ Result := StringReplace(Result, '\', Sep, [rfReplaceAll]);
+ Result := StringReplace(Result, Sep+Sep, Sep, [rfReplaceAll]);
 End;
 
 (* makeModuleName *)
 {
  Creates a module (bytecode label) name based on FileName in parameter.
 }
-Function makeModuleName(FileName: String): String;
+Function makeModuleName(const FileName: String): String;
 Var Ch: Char;
 Begin
  Result := '';
+
  For Ch in FileName Do // create module name (used in bytecode labels)
+ Begin
   if (Ch in ['a'..'z', 'A'..'Z', '0'..'9', '_']) Then
    Result += Ch Else
    Result += '_';
+ End;
 End;
 
 (* CopyStringToPChar *)
@@ -231,7 +234,6 @@ Begin
  End Else
   Result := fCurrentNode;
 End;
-
 
 (* TCompiler.CompileAsBytecode *)
 {
@@ -813,7 +815,7 @@ Begin
   if (not isValidOpcode(Item^)) Then
    CompileError(Item^.Token^, eBytecode_InvalidOpcode, []);
 
- if (DoNotGenerateCode) Then
+ if (DoNotStoreOpcodes) Then
   Exit(Item);
 
  { ...and add it into the list }
@@ -894,7 +896,7 @@ Begin
    isPublic := False;
   End;
 
-  if (DoNotGenerateCode) Then
+  if (DoNotStoreOpcodes) Then
    Exit(Item);
 
   Exit(OpcodeList[OpcodeList.Add(Item)]);
@@ -1485,7 +1487,7 @@ Begin
 
  PrevRootNodes := TCFGNodeList.Create;
 
- DoNotGenerateCode         := False;
+ DoNotStoreOpcodes         := False;
  ParsingFORInitInstruction := False;
 
  if (isIncluded) Then
@@ -1578,7 +1580,11 @@ Begin
    if (getBoolOption(opt__bytecode_optimize)) Then
    Begin
     Log('-> Optimizing bytecode.');
-    opt_peephole.OptimizeBytecode(self);
+    With TPeepholeOptimizer.Create(self, nil) Do
+    Begin
+     Execute;
+     Free;
+    End;
    End;
   End;
 
@@ -1592,10 +1598,10 @@ Begin
    End;
 
    // the beginning of an application code have to be "main" function call and "stop" opcode.
-   DoNotGenerateCode := True;
+   DoNotStoreOpcodes := True;
    OpcodeList.Insert(0, PutOpcode(o_call, [':'+findFunction('main', findNamespace('self')).LabelName]));
    OpcodeList.Insert(1, PutOpcode(o_stop)); // and, if we back from main(), the program ends (virtual machine stops).
-   DoNotGenerateCode := False;
+   DoNotStoreOpcodes := False;
   End;
 
   { if specified - save bytecode }

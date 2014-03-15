@@ -61,7 +61,7 @@ Unit Scanner;
        End;
 
  Implementation
-Uses CompilerUnit, SSCompiler, ExpressionCompiler, Messages, SysUtils;
+Uses CompilerUnit, SSCompiler, ExpressionCompiler, ExpressionParser, Messages, SysUtils;
 
 (* TScanner.Create *)
 {

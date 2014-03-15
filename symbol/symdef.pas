@@ -187,7 +187,7 @@ Unit symdef;
         SymbolList: TSymbolList; // local symbol list
         FlowGraph : TCFGraph; // control flowgraph
 
-        StackSize: uint8;
+        StackSize: uint16; // number of variables put onto stack
         StackRegs: TStackSavedRegs;
 
         LastLabelID: uint32;
@@ -202,6 +202,8 @@ Unit symdef;
 
         Function findSymbol(const SymName: String): TSymbol;
         Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
+
+        Function generateLabelName: String;
 
         Function getSerializedForm: String;
 
@@ -270,7 +272,7 @@ Unit symdef;
        End;
 
  // functions
- Function type_equal(A, B: TType): Boolean;
+ Function type_equal(const A, B: TType): Boolean;
  Operator in (Token: TToken_P; Range: TRange): Boolean;
  Operator = (A, B: TVarLocationData): Boolean;
 
@@ -284,13 +286,13 @@ Unit symdef;
  Function TYPE_NULL: TType;
 
  Implementation
-Uses CompilerUnit, SSCompiler, ExpressionCompiler, Messages, SysUtils;
+Uses CompilerUnit, SSCompiler, ExpressionParser, Messages, SysUtils;
 
 (* type_equal *)
 {
  Compares two TTypes (except their names)
 }
-Function type_equal(A, B: TType): Boolean;
+Function type_equal(const A, B: TType): Boolean;
 Var I: Integer;
 Begin
  if (A = nil) or (B = nil) Then
@@ -1355,6 +1357,16 @@ Begin
    Exit;
 
  Exit(nil);
+End;
+
+(* TFunction.generateLabelName *)
+{
+ Generates a label name of format: function's label name + "_l_" + previous label's ID
+}
+Function TFunction.generateLabelName: String;
+Begin
+ Result := Format('%s_l_%d', [LabelName, LastLabelID]);
+ Inc(LastLabelID);
 End;
 
 (* TFunction.getSerializedForm *)

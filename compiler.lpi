@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
     <Version Value="9"/>
@@ -31,7 +31,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="input.ss -wait -b bytecode.ssb -O1"/>
+        <CommandLineParams Value="-logo -wait"/>
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -fa monco -fs 10 -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
         <Display Use="True"/>
       </local>
@@ -56,8 +56,8 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="bytecode;optimization\bytecode;optimization\code;expression\gen;expression\gen\internal_functions;syntax;tree;tree\cfg;tree\ssa;symbol;$(ProjOutDir)"/>
-      <OtherUnitFiles Value="bytecode;bytecode\ssm;parser;parser\lexer;syntax;expression;tree;tree\cfg;tree\ssa;optimization\bytecode;optimization\code;symbol"/>
+      <IncludeFiles Value="bytecode;optimization\bytecode;optimization\cfg;optimization\expression;expression\gen;expression\gen\internal_functions;syntax;tree;tree\cfg;tree\ssa;symbol;$(ProjOutDir)"/>
+      <OtherUnitFiles Value="bytecode;bytecode\ssm;parser;parser\lexer;syntax;expression;tree;tree\cfg;tree\ssa;optimization;optimization\bytecode;optimization\cfg;optimization\expression;symbol"/>
       <UnitOutputDirectory Value="lib"/>
     </SearchPaths>
     <Other>

@@ -61,7 +61,9 @@ Unit FlowGraph;
         Function SearchFor(const NodeType: TCFGNodeType): TCFGNode;
 
         Function getToken: PToken_P;
+
         Property getName: String read Name;
+        Property getType: TCFGNodeType read Typ;
        End;
 
  { TCFGraph }
@@ -72,21 +74,24 @@ Unit FlowGraph;
 
        Public { methods }
         Constructor Create;
-        Procedure AddNode(Node: TCFGNode);
+
+        Procedure AddNode(const Node: TCFGNode);
 
         Procedure Validate;
         Procedure CheckReturns(const CompilerPnt: Pointer; const isVoidOrNaked: Boolean);
+
+        Procedure RemapSSA(const SSARemapFrom, SSARemapTo, SSARemapBegin: TCFGNode; const VisitEndNode: Boolean=False);
        End;
 
  Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
 
- Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
+ Function AnythingFromNodePointsAt(const rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 
  Function getVariableCFGCost(Symbol: TObject; rBeginNode, rEndNode: TCFGNode): uint32;
  Function isVariableRead(const VariablePnt: TObject; const rBeginNode, rEndNode: TCFGNode): Boolean;
 
  Implementation
-Uses Math, Classes, SysUtils, SSCompiler, Messages, symdef, ExpressionCompiler;
+Uses Math, Classes, SysUtils, SSCompiler, Messages, symdef, ExpressionParser, CompilerUnit;
 
 (* SaveGraph *)
 Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);
@@ -279,11 +284,11 @@ End;
  Checks if any node coming from `rBeginNode` and ending at `rEndNode` points at `AtWhat`.
  Useful mainly/only for checking loops.
 }
-Function AnythingFromNodePointsAt(rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
+Function AnythingFromNodePointsAt(const rBeginNode, rEndNode, AtWhat: TCFGNode): Boolean;
 Var Visited: TCFGNodeList;
 
   { Visit }
-  Procedure Visit(Node: TCFGNode);
+  Procedure Visit(const Node: TCFGNode);
   Var Edges: TCFGNode;
   Begin
    if (Node = nil) or (Node = rEndNode) or (Visited.IndexOf(Node) <> -1) Then
@@ -543,7 +548,7 @@ Begin
 End;
 
 (* TCFGraph.AddNode *)
-Procedure TCFGraph.AddNode(Node: TCFGNode);
+Procedure TCFGraph.AddNode(const Node: TCFGNode);
 Begin
  if (Node = nil) Then
   raise Exception.Create('TCFGraph.AddNode() -> Node = nil');
@@ -726,6 +731,146 @@ Begin
    Compiler.CompileWarning(Compiler.getScanner.next_pnt(-1), wNotEveryPathReturnsAValue, []);
  Finally
   VisitedNodes.Free;
+ End;
+End;
+
+(* TCFGraph.RemapSSA *)
+{
+ Removes all unreachable SSA definitions from specified range
+
+ First, it gathers all the assignments (and so on) from nodes SSARemapFrom -> SSARemapTo, and
+ in the second stage, it removes all the SSA uses of that variables in SSARemapBegin -> end of the control flow graph.
+
+ Should be called when removing a node(s) or assignment(s) (including operators like `*=` or `++`, see: Expression.MLValueOperators).
+}
+Procedure TCFGraph.RemapSSA(const SSARemapFrom, SSARemapTo, SSARemapBegin: TCFGNode; const VisitEndNode: Boolean);
+Type PSSAData = ^TSSAData;
+     TSSAData =
+     Record
+      Symbol: Pointer;
+      SSA   : uint32;
+     End;
+Type TSSADataList = specialize TFPGList<PSSAData>;
+Var VisitedNodes: TCFGNodeList;
+    SSADataList : TSSADataList;
+    Stage       : uint8;
+
+  { ShouldBeRemoved }
+  Function ShouldBeRemoved(const Symbol: Pointer; const SSA: uint32): Boolean;
+  Var Data: PSSAData;
+  Begin
+   Result := False;
+
+   For Data in SSADataList Do
+    if (Data^.Symbol = Symbol) and (Data^.SSA = SSA) Then
+     Exit(True);
+  End;
+
+  { RemoveElement }
+  Type TArray = Array of LongWord;
+  Procedure RemoveElement(var A: TArray; Index: Integer);
+  Var Len, I: Integer;
+  Begin
+   Len := High(A);
+   For I := Index+1 To Len Do
+    A[I-1] := A[I];
+   SetLength(A, Len);
+  End;
+
+  { VisitExpression }
+  Procedure VisitExpression(const Expr: PExpressionNode);
+  Var Param: PExpressionNode;
+      I    : Integer;
+      Data : PSSAData;
+  Begin
+   if (Expr = nil) Then
+    Exit;
+
+   Case Stage of
+    // first stage
+    1:
+    Begin
+     if (Expr^.Typ in MLValueOperators) Then
+     Begin
+      For I := 0 To High(Expr^.Left^.PostSSA.Values) Do
+      Begin
+       New(Data);
+       Data^.Symbol := Expr^.Left^.Symbol;
+       Data^.SSA    := Expr^.Left^.PostSSA.Values[I];
+       SSADataList.Add(Data);
+      End;
+     End;
+    End;
+
+    // second stage
+    2:
+    Begin
+     if (Expr^.Typ = mtIdentifier) Then
+     Begin
+      I := 0;
+      While (I < Length(Expr^.SSA.Values)) Do
+      Begin
+       if (ShouldBeRemoved(Expr^.Symbol, Expr^.SSA.Values[I])) Then
+        RemoveElement(Expr^.SSA.Values, I) Else
+        Inc(I);
+      End;
+
+      if (Length(Expr^.SSA.Values) = 0) Then
+       DevLog(dvWarning, 'RemapSSA', 'SSA remapping may failed: some variable use (at line '+IntToStr(Expr^.Token.Line)+') has been left without a corresponding SSA ID; this may lead to undefined behavior unless optimizer takes care of it (which is expected to happen).');
+     End;
+    End;
+   End;
+
+   VisitExpression(Expr^.Left);
+   VisitExpression(Expr^.Right);
+   For Param in Expr^.ParamList Do
+    VisitExpression(Param);
+  End;
+
+  { VisitNode }
+  Procedure VisitNode(const Node, EndNode: TCFGNode);
+  Var Edge: TCFGNode;
+  Begin
+   if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
+    Exit;
+   VisitedNodes.Add(Node);
+
+   if (Node = EndNode) Then
+   Begin
+    if (VisitEndNode) Then
+      VisitExpression(Node.Value);
+    Exit;
+   End Else
+   Begin
+    VisitExpression(Node.Value);
+   End;
+
+   For Edge in Node.Edges Do
+    VisitNode(Edge, EndNode);
+  End;
+
+Var Tmp: PSSAData;
+Begin
+ VisitedNodes := TCFGNodeList.Create;
+ SSADataList  := TSSADataList.Create;
+
+ Try
+  // stage 1: gather all the SSA assignments that will be removed when we remove nodes from SSARemapFrom -> SSARemapTo
+  Stage := 1;
+  VisitedNodes.Clear;
+  VisitNode(SSARemapFrom, SSARemapTo);
+
+  // stage 2: alter all nodes appearing after SSARemapBegin
+  Stage := 2;
+  VisitedNodes.Clear;
+  VisitNode(SSARemapBegin, nil);
+ Finally
+  // stage 3: clear everything up
+  For Tmp in SSADataList Do
+   Dispose(Tmp);
+
+  VisitedNodes.Free;
+  SSADataList.Free;
  End;
 End;
 End.

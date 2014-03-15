@@ -10,7 +10,7 @@ Unit Parse_CODE;
  Procedure Parse(const CompilerPnt: Pointer; const DirectBytecode: Boolean=False);
 
  Implementation
-Uses SSCompiler, ExpressionCompiler, Messages, Tokens, Opcodes, FlowGraph, symdef;
+Uses SSCompiler, ExpressionParser, Messages, Tokens, Opcodes, FlowGraph, symdef;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer; const DirectBytecode: Boolean=False);

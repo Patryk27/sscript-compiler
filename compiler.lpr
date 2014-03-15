@@ -1,6 +1,6 @@
 (*
  SScript Compiler
- Copyright © by Patryk Wychowaniec, 2012-2014
+ Copyright © by Patryk Wychowaniec, 2013-2014
 
  -------------------------------------------------------------------------------
  SScript Compiler is free software; you can redistribute it and/or modify
@@ -27,8 +27,7 @@
 {$ENDIF}
 
 Program compiler;
-Uses SysUtils, TypInfo,
-     ExpressionCompiler, CompilerUnit, SSCompiler;
+Uses SysUtils, TypInfo, ExpressionParser, CompilerUnit, SSCompiler;
 Var Input, Output: String;
 
     Options : TCompileOptions;
@@ -210,7 +209,7 @@ Begin
     verbose_mode := True;
 
    Log('SScript Compiler '+Version+' [compiled '+{$I %DATE%}+']');
-   Log('Copyright (c) 2012-2014 by Patryk Wychowaniec');
+   Log('Copyright (c) 2013-2014 by Patryk Wychowaniec');
 
    {$IFDEF NIGHTLY}
     Log;
@@ -278,6 +277,7 @@ Begin
       End;
      End;
     Except
+     Writeln('<unknown>');
     End;
    End;
  End;

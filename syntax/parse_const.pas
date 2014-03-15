@@ -9,7 +9,7 @@ Unit Parse_CONST;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, ExpressionCompiler, Tokens, symdef, Messages, Opcodes;
+Uses SSCompiler, ExpressionParser, Tokens, symdef, Messages, Opcodes;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);

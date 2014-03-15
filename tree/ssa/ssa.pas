@@ -1,3 +1,59 @@
+(*
+ Copyright © by Patryk Wychowaniec, 2014
+ All rights reserved.
+
+ Single static assignment form generator.
+*)
+Unit SSA;
+
+ Interface
+ Uses SSCompiler, symdef;
+
+ { TSSAGenerator }
+ Type TSSAGenerator =
+      Class
+       Private
+        Compiler       : TCompiler;
+        CurrentFunction: TFunction;
+
+       Public
+        Constructor Create(const fCompiler: TCompiler; const fCurrentFunction: TFunction);
+
+        Procedure Execute;
+
+       Public
+        Property getCompiler: TCompiler read Compiler;
+        Property getCurrentFunction: TFunction read CurrentFunction;
+       End;
+
+ Implementation
+Uses SSAStage1, SSAStage2;
+
+(* TSSAGenerator.Create *)
+Constructor TSSAGenerator.Create(const fCompiler: TCompiler; const fCurrentFunction: TFunction);
+Begin
+ Compiler        := fCompiler;
+ CurrentFunction := fCurrentFunction;
+End;
+
+(* TSSAGenerator.Execute *)
+Procedure TSSAGenerator.Execute;
+Begin
+ With TSSAStage1.Create(self) do
+ Begin
+  Execute;
+  Free;
+ End;
+
+ With TSSAStage2.Create(self) do
+ Begin
+  Execute;
+  Free;
+ End;
+End;
+
+End.
+
 (* GenerateSSA *)
 {
  Converts control flow graph to the single static assignment form.
@@ -30,7 +86,7 @@ End;
  First, it gathers all the assignments (and so on) from nodes SSARemapFrom -> SSARemapTo, and
  in the second stage, it removes all the SSA uses of that variables in SSARemapBegin -> end of the control flow graph.
 
- Should be called when removing a node(s) or assignment(s) (including operators like `*=` or `++`, see: Expression.MLValueOperators).
+ Should be called when removing node(s) or assignment(s) (including operators like `*=` or `++`, see: Expression.MLValueOperators).
 }
 Procedure RemapSSA(SSARemapFrom, SSARemapTo, SSARemapBegin{, SSARemapEnd}: TCFGNode; const VisitEndNode: Boolean=False);
 Type PSSAData = ^TSSAData;

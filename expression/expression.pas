@@ -23,6 +23,9 @@ Unit Expression;
        mtNew
       );
 
+ { TExpressionNodeTypeSet }
+ Type TExpressionNodeTypeSet = Set of TExpressionNodeType;
+
  Const ExpressionNodeString: Array[TExpressionNodeType] of String =
  (
   '<nothing>', '<identifier>', '<function call>', '<method call>', '<type cast>', '[]',
@@ -35,7 +38,6 @@ Unit Expression;
   'new'
  );
 
- Type TExpressionNodeTypeSet = Set of TExpressionNodeType;
  Const MLValueOperators: TExpressionNodeTypeSet = [mtAssign, mtPreInc, mtPostInc, mtPreDec, mtPostDec, mtAddEq, mtSubEq, mtMulEq, mtDivEq, mtModEq, mtShlEq, mtShrEq, mtOREq, mtANDEq, mtXOREq];
 
  { TSSAVarID }
@@ -56,8 +58,10 @@ Unit Expression;
         Value    : Variant;
         Token    : TToken_P;
 
-        IdentName: String; // used in expression folding
-        IdentType: TExpressionNodeType; // used in expression folding
+        IdentName : String; // used in expression folding
+        IdentType : TExpressionNodeType; // used in expression folding
+        IdentValue: Variant; // used in late expression folding; value put here is fetched by the constant propagation algorithm
+
         ParamList: Array of PExpressionNode; // for mtFunctionCall
 
         Symbol      : TObject;
@@ -66,8 +70,8 @@ Unit Expression;
         ResultOnStack: Boolean; // equal 'true' if expression's result is left on the stack
 
        Public
-        Function FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
-        Procedure RemoveAssignments(const VarName: String);
+        Function FindAssignment(const VarSymbol: TObject; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
+        Procedure RemoveAssignments(const VarSymbol: TObject);
 
         Function getType: TExpressionNodeType;
 
@@ -126,39 +130,45 @@ End;
 
  @TODO: arrays!
 }
-Function TExpressionNode.FindAssignment(const VarName: String; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
+Function TExpressionNode.FindAssignment(const VarSymbol: TObject; const CheckAllLValueOperators: Boolean): PExpressionNode;
 Var I: Integer;
 Begin
  Result := nil;
 
- if (Typ = mtAssign) and (Left^.IdentName = VarName) Then
+ if (Typ = mtAssign) and (Left^.Symbol = VarSymbol) Then
   Exit(@self);
 
  if (CheckAllLValueOperators) Then
-  if (Typ in MLValueOperators) and (Left^.IdentName = VarName) Then
+ Begin
+  if (Typ in MLValueOperators) and (Left^.Symbol = VarSymbol) Then
    Exit(@self);
+ End;
 
  if (Result = nil) and (Left <> nil) Then
-  Result := Left^.FindAssignment(VarName, CheckAllLValueOperators);
+  Result := Left^.FindAssignment(VarSymbol, CheckAllLValueOperators);
 
  if (Result = nil) and (Right <> nil) Then
-  Result := Right^.FindAssignment(VarName, CheckAllLValueOperators);
+  Result := Right^.FindAssignment(VarSymbol, CheckAllLValueOperators);
 
  For I := Low(ParamList) To High(ParamList) Do
+ Begin
   if (Result = nil) Then
-   Result := ParamList[I]^.FindAssignment(VarName, CheckAllLValueOperators);
+   Result := ParamList[I]^.FindAssignment(VarSymbol, CheckAllLValueOperators) Else
+   Break;
+ End;
 End;
 
 (* TExpressionNode.RemoveAssignments *)
 {
  Removes all assignments to variable named `VarName`, but leaves the right side of the assignment.
 }
-Procedure TExpressionNode.RemoveAssignments(const VarName: String);
+Procedure TExpressionNode.RemoveAssignments(const VarSymbol: TObject);
 Var Assign: PExpressionNode;
 Begin
  While (true) Do
  Begin
-  Assign := FindAssignment(VarName);
+  Assign := FindAssignment(VarSymbol);
+
   if (Assign = nil) Then
    Break;
 
@@ -182,7 +192,7 @@ Begin
  if (@self = nil) Then
   Exit;
 
- if (Typ in [mtFunctionCall, mtMethodCall]) Then // @TODO: unsupported
+ if (Typ in [mtFunctionCall, mtMethodCall]) Then // @TODO
   Exit;
 
  if (Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]) Then

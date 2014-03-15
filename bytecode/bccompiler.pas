@@ -133,13 +133,13 @@ Begin
 
    if (Length(AllocSymbolList) > 0) Then // is there anything to allocate?
    Begin
-    DoNotGenerateCode := True;
+    DoNotStoreOpcodes := True;
 
     For I := Low(AllocSymbolList) To High(AllocSymbolList) Do
      For Q := 1 To AllocSymbolList[I].Size Do
       OpcodeList.Insert(0, PutOpcode(o_byte, [0]));
 
-    DoNotGenerateCode := False;
+    DoNotStoreOpcodes := False;
    End;
   End;
 
@@ -266,8 +266,8 @@ End;
 Procedure TCompiler.Parse(const ResolveReferences: Boolean);
 Var OpcodeBegin: LongWord;
     Opcode     : PMOpcode;
-    Arg        : TMOpcodeArg;
     Tmp        : int32;
+    Arg        : int8;
 
     Str: String;
     Int: int32;
@@ -296,8 +296,9 @@ Begin
 
     write_uint8(ord(Opcode)); // write opcode type
 
-    For Arg in Args Do // write each argument
-     With Arg do
+    For Arg := Low(Args) To High(Args) Do // write each argument
+    Begin
+     With Args[Arg] do
      Begin
       if (Typ = ptLabelAbsoluteReference) Then
       Begin
@@ -390,6 +391,7 @@ Begin
        self.Compiler.CompileError(eInternalError, ['Cannot compile opcode; not a numeric parameter value: `'+VarToStr(Value)+'`']);
       End;
      End;
+    End;
    End;
  End;
 End;

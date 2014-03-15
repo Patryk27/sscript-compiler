@@ -1,3 +1,167 @@
+(*
+ Copyright © by Patryk Wychowaniec, 2014
+ All rights reserved.
+*)
+Unit CFGDeadCode;
+
+ Interface
+ Uses CFGOptimizer, FlowGraph;
+
+ { TCFGDeadCodeRemoval }
+ Type TCFGDeadCodeRemoval =
+      Class (TCFGOptimizer)
+       Private
+        VisitedNodes: TCFGNodeList;
+        Optimized   : Boolean;
+
+       Private
+        Procedure RemoveUnusedAssigns;
+
+       Public
+        Function Execute: Boolean; override;
+       End;
+
+ Implementation
+Uses Expression, symdef;
+
+(* TCFGDeadCodeRemoval.RemoveUnusedAssigns *)
+Procedure TCFGDeadCodeRemoval.RemoveUnusedAssigns;
+Var AnyChange: Boolean;
+
+  { CheckBackward }
+  Function CheckBackward(const Node: TCFGNode; out Current: TCFGNode): Boolean;
+  Var LastAssign: PExpressionNode;
+      Symbol    : TSymbol;
+  Begin
+   // begin from parent
+   Current := Node.Parent;
+
+   // search for last assign to this variable
+   While (Current <> nil) Do
+   Begin
+    if (Current.Value <> nil) Then // if it's an expression
+    Begin
+     LastAssign := Current.Value^.FindAssignment(Node.Value^.Left^.Symbol); // @TODO: what about nested assignments?
+
+     if (LastAssign <> nil) Then // if assign found...
+     Begin
+      Symbol := TSymbol(LastAssign^.Left^.Symbol); // fetch symbol
+
+      if (Symbol = nil) Then // can happen when operating on array elements - give up and move to the parent node
+      Begin
+       Current := Current.Parent;
+       Continue;
+      End;
+
+      if (not isVariableRead(Symbol.mVariable, Current, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
+       Exit(True);
+     End;
+    End;
+
+    Current := Current.Parent;
+   End;
+
+   Current := nil;
+   Exit(False);
+  End;
+
+  { CheckForward }
+  Function CheckForward(const Node: TCFGNode; out FoundNode: TCFGNode): Boolean;
+  Var VisitedNodes: TCFGNodeList;
+      Found       : Boolean = False;
+
+    // Visit
+    Function Visit(const Node: TCFGNode): Boolean;
+    Var Edge: TCFGNode;
+    Begin
+     if (Node = nil) or (VisitedNodes.IndexOf(Node) > -1) Then
+      Exit;
+
+     For Edge in Node.Edges Do
+     Begin
+      if (not Result) Then
+       Exit;
+
+      Result := Result and Visit(Edge);
+     End;
+    End;
+
+  Begin
+   Exit(False); // @TODO
+
+   VisitedNodes := TCFGNodeList.Create;
+
+   Try
+    Visit(Node.Edges[0]);
+   Finally
+    VisitedNodes.Free;
+   End;
+
+   Exit(Found);
+  End;
+
+  { Visit }
+  Procedure Visit(const Node: TCFGNode);
+  Var Edge, Tmp, Found: TCFGNode;
+  Begin
+   if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
+    Exit;
+
+   VisitedNodes.Add(Node);
+
+   Compiler.fCurrentNode := Node;
+
+   if (Node.Value <> nil) and (Node.Value^.Typ = mtAssign) Then // @TODO: assigns can be nested!
+   Begin
+    if (CheckBackward(Node, Found) or CheckForward(Node, Found)) Then // can currently checked assignment be removed?
+    Begin
+     Tmp       := CurrentFunction.createNode(nil, nil);
+     Tmp.Typ   := cetExpression;
+     Tmp.Value := Found.Value;
+     RemovedNodes.Add(Tmp);
+
+     CurrentFunction.FlowGraph.RemapSSA(Found, Found, CurrentFunction.FlowGraph.Root, True);
+
+     Found.Typ   := cetNone; // it's easier than removing node from the graph
+     Found.Value := nil;
+
+     AnyChange := True;
+    End;
+   End;
+
+   For Edge in Node.Edges Do
+    Visit(Edge);
+  End;
+
+Begin
+ Repeat
+  AnyChange := False;
+
+  VisitedNodes.Clear;
+  Visit(CurrentFunction.FlowGraph.Root);
+
+  if (AnyChange) Then
+   Optimized := True;
+ Until (not AnyChange);
+End;
+
+(* TCFGDeadCodeRemoval.Execute *)
+Function TCFGDeadCodeRemoval.Execute: Boolean;
+Begin
+ VisitedNodes := TCFGNodeList.Create;
+ Optimized    := False;
+
+ Try
+  RemoveUnusedAssigns;
+ Finally
+  VisitedNodes.Free;
+ End;
+
+ Result := Optimized;
+End;
+
+End.
+
 (* RemoveUnusedAssigns *)
 Procedure RemoveUnusedAssigns;
 Var AnyChange: Boolean;

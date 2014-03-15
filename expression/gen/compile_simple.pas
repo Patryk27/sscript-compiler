@@ -81,7 +81,7 @@ Begin
  { short-circuit evaluation }
  With Compiler do
  Begin
-  DoNotGenerateCode := True;
+  DoNotStoreOpcodes := True;
 
   if (SCOpcodes[0] <> nil) Then
   Begin
@@ -110,7 +110,7 @@ Begin
    End;
   End;
 
-  DoNotGenerateCode := False;
+  DoNotStoreOpcodes := False;
  End;
 
  With Compiler do
