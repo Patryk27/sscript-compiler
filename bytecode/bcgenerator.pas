@@ -15,6 +15,8 @@ Unit BCGenerator;
         CurrentFunc : TFunction;
         VisitedNodes: TCFGNodeList;
 
+        CatchDepth: uint8;
+
        Private
         Procedure AddPrologCode;
         Procedure AddEpilogCode;
@@ -142,8 +144,6 @@ End;
 
 (* TBCGenerator.CompileNode *)
 Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
-Var ret_stp_sub: uint16 = 0;
-
 Var ArrayVar        : TVariable; // used when compiling array initializer
     ArrayElementType: TType;
     ArrayValues     : Array of PExpressionNode;
@@ -295,14 +295,11 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
   Procedure CompileReturn;
   Var ExprType: TType;
   Begin
-   if (ret_stp_sub > 0) Then // there are some unused data on the stack that we need to remove before leaving function; in fact, we could just check, how deep in "catch" construction we are, but this solution is simpler (and faster)
-   Begin
-    PutOpcode(o_sub, ['stp', ret_stp_sub]);
-    ret_stp_sub := 0;
-   End;
-
    if (Node.Value = nil) Then // return;
    Begin
+    if (CatchDepth > 0) Then // there are some unused data on the stack that we need to remove before leaving function (that is - the exception object)
+     PutOpcode(o_sub, ['stp', CatchDepth]);
+
     if (not CurrentFunc.Return.isVoid) Then // error: cannot do void-return inside non-void function
      CompileError(Node.getToken^, eReturnWithNoValue, []);
 
@@ -318,6 +315,9 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
 
     if (Node.Value^.ResultOnStack) Then // function's result must be in the `e_1` register, not on the stack
      PutOpcode(o_pop, ['e'+CurrentFunc.Return.RegPrefix+'1']);
+
+    if (CatchDepth > 0) Then
+     PutOpcode(o_sub, ['stp', CatchDepth]);
 
     if (not CurrentFunc.isNaked) Then
      PutOpcode(o_jmp, [':'+CurrentFunc.LabelName+'_end']) Else
@@ -368,10 +368,10 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
    PutOpcode(o_icall, ['"vm.restore_exception_state"']); // restore previous exception state
    PutOpcode(o_icall, ['"vm.get_last_exception"']); // get exception
 
-   Inc(ret_stp_sub);
+   Inc(CatchDepth);
    CompileNode(Node.Edges[1]);
    PutOpcode(o_sub, ['stp', 1]); // remove the exception message variable holder
-   Dec(ret_stp_sub);
+   Dec(CatchDepth);
 
    PutLabel(LabelName+'_end');
    CompileNode(Node.Edges[2]);
