@@ -437,26 +437,6 @@ namespace std
   return text;
  }
 
- function<string> streach_index(string text, function<char>(char, int) func)
- {
-  var<int> len = strlen(text);
-
-  for (var<int> i=1; i<=len; i++)
-   text[i] = func(text[i], i);
-
-  return text;
- }
-
- function<string> streach_index_string(string text, function<char>(char, int, string) func)
- {
-  var<int> len = strlen(text);
-
-  for (var<int> i=1; i<=len; i++)
-   text[i] = func(text[i], i, text);
-
-  return text;
- }
-
  function<char[]> stringarray(string text)
  {
   var<int> len = strlen(text);
