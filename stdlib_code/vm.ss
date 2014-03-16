@@ -3,7 +3,7 @@
  vm.ss
 */
 
-@visibility("public")
+public;
 
 namespace std
 {

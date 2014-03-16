@@ -67,6 +67,7 @@ Unit SSCompiler;
         CurrentNamespace: TNamespace; // namespace in which we are (`namespace namespace_ame;`)
 
         NamespaceVisibilityList: TNamespaceVisibilityList; // range of selected namespaces, eg.`use xyz;`
+        VisibilityStack        : Array[0..1024] of TVisibility;
 
         OpcodeList   : TOpcodeList; // output code opcode list
         IncludeList  : PCompilerArray; // global include list
@@ -84,90 +85,91 @@ Unit SSCompiler;
      // Property getCurrentNode: TCFGNode read fCurrentNode;
         Function getCurrentNode: TCFGNode;
 
-         Property getCurrentFunction: TFunction read CurrentFunction;
+        Property getCurrentFunction: TFunction read CurrentFunction;
 
-         Property getScanner: TScanner read Scanner;
+        Property getScanner: TScanner read Scanner;
 
-        Public { methods }
-         Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
-         Function getStringOption(const Name: TCommandLineOption; oDefault: String=''): String; inline;
-         Function getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer; inline;
+       Public { methods }
+        Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
+        Function getStringOption(const Name: TCommandLineOption; oDefault: String=''): String; inline;
+        Function getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer; inline;
 
-         Function SearchFile(const FileName: String; out Found: Boolean): String;
+        Function SearchFile(const FileName: String; out Found: Boolean): String;
 
-        { control flow graph }
-         Procedure setNewRootNode(NewRoot: TCFGNode; const SavePrevious: Boolean=True);
-         Procedure restorePrevRootNode;
+       { control flow graph }
+        Procedure setNewRootNode(NewRoot: TCFGNode; const SavePrevious: Boolean=True);
+        Procedure restorePrevRootNode;
 
-        { parser }
-         Procedure ParseToken;
-         Procedure SkipCodeBlock;
-         Procedure ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
+       { parser }
+        Procedure ParseToken;
+        Procedure SkipCodeBlock;
+        Procedure ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
 
-        { bytecode }
-         Function PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
-         Function PutOpcode(Opcode: TOpcode_E): PMOpcode;
-         Function PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
-         Function PutLabel(fName: String; const asNode: Boolean=False): PMOpcode;
-         Procedure PutComment(fComment: String);
+       { bytecode }
+        Function PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
+        Function PutOpcode(Opcode: TOpcode_E): PMOpcode;
+        Function PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
+        Function PutLabel(fName: String; const asNode: Boolean=False): PMOpcode;
+        Procedure PutComment(fComment: String);
 
-         Function findLabel(Name: String): Integer;
+        Function findLabel(Name: String): Integer;
 
-        { scope }
-         Procedure NewScope(const Typ: TScopeType; LoopBegin: TCFGNode=nil; LoopEnd: TCFGNode=nil);
-         Procedure RemoveScope;
-         Function inRange(Range: TRange; Position: Int64=-1): Boolean;
+       { scope }
+        Procedure NewScope(const Typ: TScopeType; LoopBegin: TCFGNode=nil; LoopEnd: TCFGNode=nil);
+        Procedure RemoveScope;
+        Function inRange(Range: TRange; Position: Int64=-1): Boolean;
 
-        { types }
-         Function CreateFunctionType(Func: TFunction): TType;
-         Function findTypeCandidate(const TypeName: String; const Namespace: TNamespace; const Token: TToken_P): TType;
+       { types }
+        Function CreateFunctionType(Func: TFunction): TType;
+        Function findTypeCandidate(const TypeName: String; const Namespace: TNamespace; const Token: TToken_P): TType;
 
-        { variables }
-         Procedure __variable_create_stackpos(fName: String; fTyp: TType; fStackPos: int8; fAttributes: TVariableAttributes);
-         Function findVariableCandidate(const VarName: String; const Namespace: TNamespace; const Token: TToken_P): TVariable;
+       { variables }
+        Procedure __variable_create_stackpos(fName: String; fTyp: TType; fStackPos: int8; fAttributes: TVariableAttributes);
+        Function findVariableCandidate(const VarName: String; const Namespace: TNamespace; const Token: TToken_P): TVariable;
 
-        { functions }
-         Function findFunction(const FuncName: String; Namespace: TNamespace=nil): TFunction;
-         Function findFunctionByLabel(const LabelName: String): TFunction;
-         Function findFunctionCallCandidate(const FuncName: String; const Namespace: TNamespace; const Token: TToken_P): TFunction;
+       { functions }
+        Function findFunction(const FuncName: String; Namespace: TNamespace=nil): TFunction;
+        Function findFunctionByLabel(const LabelName: String): TFunction;
+        Function findFunctionCallCandidate(const FuncName: String; const Namespace: TNamespace; const Token: TToken_P): TFunction;
 
-         Procedure CFGAddNode(Node: TCFGNode);
+        Procedure CFGAddNode(Node: TCFGNode);
 
-        { namespaces }
-         Function getCurrentNamespace: TNamespace;
-         Function getDefaultNamespace: TNamespace;
+       { namespaces }
+        Function getCurrentNamespace: TNamespace;
+        Function getDefaultNamespace: TNamespace;
 
-         Function findNamespace(const Name: String): TNamespace;
+        Function findNamespace(const Name: String): TNamespace;
 
-        { global things }
-         Function inFunction: Boolean;
+       { global things }
+        Function inFunction: Boolean;
 
-         Function findCandidate(const IdentName: String; const Namespace: TNamespace; const Token: TToken_P): TSymbol;
-         Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
+        Function findCandidate(const IdentName: String; const Namespace: TNamespace; const Token: TToken_P): TSymbol;
+        Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 
-        { compiling }
-         Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
+       { compiling }
+        Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
 
-         Procedure CompileError(const Token: TToken_P; const Error: TCompileError; const Args: Array of Const);
-         Procedure CompileError(const Token: PToken_P; const Error: TCompileError; const Args: Array of Const);
-         Procedure CompileError(const Error: TCompileError; const Args: Array of Const);
-         Procedure CompileError(const Error: TCompileError);
+       { error reporting }
+        Procedure CompileError(const Token: TToken_P; const Error: TCompileError; const Args: Array of Const);
+        Procedure CompileError(const Token: PToken_P; const Error: TCompileError; const Args: Array of Const);
+        Procedure CompileError(const Error: TCompileError; const Args: Array of Const);
+        Procedure CompileError(const Error: TCompileError);
 
-         Procedure CompileWarning(const Token: TToken_P; const Warning: TCompileWarning; const Args: Array of Const);
-         Procedure CompileWarning(const Token: PToken_P; const Warning: TCompileWarning; const Args: Array of Const);
-         Procedure CompileWarning(const Warning: TCompileWarning; const Args: Array of Const);
-         Procedure CompileWarning(const Warning: TCompileWarning);
+        Procedure CompileWarning(const Token: TToken_P; const Warning: TCompileWarning; const Args: Array of Const);
+        Procedure CompileWarning(const Token: PToken_P; const Warning: TCompileWarning; const Args: Array of Const);
+        Procedure CompileWarning(const Warning: TCompileWarning; const Args: Array of Const);
+        Procedure CompileWarning(const Warning: TCompileWarning);
 
-         Procedure CompileHint(const Token: TToken_P; const Hint: TCompileHint; const Args: Array of Const);
-         Procedure CompileHint(const Token: PToken_P; const Hint: TCompileHint; const Args: Array of Const);
-         Procedure CompileHint(const Hint: TCompileHint; const Args: Array of Const);
-         Procedure CompileHint(const Hint: TCompileHint);
+        Procedure CompileHint(const Token: TToken_P; const Hint: TCompileHint; const Args: Array of Const);
+        Procedure CompileHint(const Token: PToken_P; const Hint: TCompileHint; const Args: Array of Const);
+        Procedure CompileHint(const Hint: TCompileHint; const Args: Array of Const);
+        Procedure CompileHint(const Hint: TCompileHint);
 
-         Procedure CompileNote(const Token: TToken_P; const Note: TCompileNote; const Args: Array of Const);
-         Procedure CompileNote(const Token: PToken_P; const Note: TCompileNote; const Args: Array of Const);
-         Procedure CompileNote(const Note: TCompileNote; const Args: Array of Const);
-         Procedure CompileNote(const Note: TCompileNote);
-        End;
+        Procedure CompileNote(const Token: TToken_P; const Note: TCompileNote; const Args: Array of Const);
+        Procedure CompileNote(const Token: PToken_P; const Note: TCompileNote; const Args: Array of Const);
+        Procedure CompileNote(const Note: TCompileNote; const Args: Array of Const);
+        Procedure CompileNote(const Note: TCompileNote);
+       End;
 
  Function ReplaceDirSep(const FileName: String): String;
  Function makeModuleName(const FileName: String): String;
@@ -280,7 +282,7 @@ Begin
    Begin
     Case isPublic of
      True : OutputCode.Add(Name+': .public');
-     False: OutputCode.Add(Name+':'); // labels are private by the convention so there's no need to add the `.private` modifier here.
+     False: OutputCode.Add(Name+':'); // labels are implicitly private so there's no need to add the `.private` modifier here.
     End;
     Continue; // proceed to the next opcode
    End;
@@ -467,59 +469,77 @@ End;
 
 (* TCompiler.ParseToken *)
 {
- Parses current token (basing on current scanner's scope)
+ Parses current token (basing on current scanner scope)
 }
 Procedure TCompiler.ParseToken;
 
 {$I parse_break_continue.pas}
-{$I parse_macro.pas}
 {$I parse_use.pas}
 
 // main block
-Var Token : TToken_P;
-    TmpVis: TVisibility;
-    Node  : TCFGNode;
+Var TmpVisibility: TVisibility;
+    Token        : TToken_P;
+    Deep         : uint32;
+    Node         : TCFGNode;
 Begin
  With Scanner do
  Begin
   Token := read;
 
-  if (not inFunction) Then // outside any function
+  if (not inFunction) Then // in global scope
   Begin
    Case Token.Token of
-    { public }
-    _PUBLIC:
+    { public/private }
+    _PUBLIC, _PRIVATE:
     Begin
-     TmpVis     := Visibility;
-     Visibility := mvPublic;
-     ParseToken;
-     Visibility := TmpVis;
-    End;
+     TmpVisibility := Visibility;
 
-    { private }
-    _PRIVATE:
-    Begin
-     TmpVis     := Visibility;
-     Visibility := mvPrivate;
-     ParseToken;
-     Visibility := TmpVis;
+     if (Token.Token = _PUBLIC) Then
+      Visibility := mvPublic Else
+      Visibility := mvPrivate;
+
+     if (next_t = _SEMICOLON) Then // "public;" or "private;"
+     Begin
+      eat(_SEMICOLON);
+      Exit;
+     End;
+
+     Deep := CurrentDeep;
+
+     Repeat // parse declaration(s)
+      ParseToken;
+     Until (CurrentDeep = Deep);
+
+     Visibility := TmpVisibility;
     End;
 
     { other }
-    _BRACKET3_OP: Inc(CurrentDeep);
-    _BRACKET3_CL: Dec(CurrentDeep);
+    _BRACKET3_OP:
+    Begin
+     Inc(CurrentDeep);
+     VisibilityStack[CurrentDeep] := Visibility;
+    End;
+
+    _BRACKET3_CL:
+    Begin
+     if (CurrentDeep = 0) Then
+      CompileError(eExpectedDeclOrDef, [Token.Value]);
+
+     Visibility := VisibilityStack[CurrentDeep];
+     Dec(CurrentDeep);
+    End;
 
     _NAMESPACE: Parse_NAMESPACE.Parse(self);
     _USE      : Parse_USE;
     _CONST    : Parse_CONST.Parse(self);
     _VAR      : Parse_VAR.Parse(self);
     _FUNCTION : Parse_Function.Parse(self);
-    _AT       : ParseMacro_Outside;
+    _AT       : Parse_include.Parse(self);
     _TYPE     : Parse_TYPE.Parse(self);
 
     else CompileError(eExpectedDeclOrDef, [Token.Value]);
    End;
-  End Else // inside some function
+  End Else // in function scope
   Begin
    Case Token.Token of
     _BRACKET3_OP: Inc(CurrentDeep);

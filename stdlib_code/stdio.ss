@@ -4,207 +4,196 @@
 */
 
 @("numbers.ss")
-@visibility("public")
+
+public;
 
 namespace std
 {
-
-/* ===== writing text on screen ===== */
-
-function<void> print(any text) naked
-{
- :CODE
+ function<void> print(any text) naked
  {
-  push(%text)
-  icall("output.print")
+  :CODE
+  {
+   push(%text)
+   icall("output.print")
+  }
  }
-}
 
-function<void> println(any text) naked
-{
- :CODE
+ function<void> println(any text) naked
  {
-  push(%text)
-  icall("output.print")
+  :CODE
+  {
+   push(%text)
+   icall("output.print")
 
-  push(#10) // char(10) = newline char
-  icall("output.print")
+   push(#10) // char(10) = newline char
+   icall("output.print")
 
-  push(#13) // char(13) = caret return
-  icall("output.print")
+   push(#13) // char(13) = caret return
+   icall("output.print")
+  }
  }
-}
 
-function<void> newline() naked
-{
- :CODE
+ function<void> newline() naked
  {
-  push(#10)
-  icall("output.print")
+  :CODE
+  {
+   push(#10)
+   icall("output.print")
 
-  push(#13)
-  icall("output.print")
+   push(#13)
+   icall("output.print")
+  }
  }
-}
 
-/* ===== reading text from user ===== */
-
-function<bool> key_pressed() naked
-{
- :CODE
+ function<bool> key_pressed() naked
  {
-  icall("input.keypressed")
-  pop(eb1)
+  :CODE
+  {
+   icall("input.keypressed")
+   pop(eb1)
+  }
  }
-}
 
-function<char> get_char() naked
-{
- :CODE
+ function<char> get_char() naked
  {
-  icall("input.getchar")
-  pop(ec1)
+  :CODE
+  {
+   icall("input.getchar")
+   pop(ec1)
+  }
  }
-}
 
-// read_char
-function<char> read_char() naked
-{
- :CODE
+ function<char> read_char() naked
  {
-  icall("input.readchar")
-  pop(ec1)
+  :CODE
+  {
+   icall("input.readchar")
+   pop(ec1)
+  }
  }
-}
 
-function<char> read_char_t(string text)
-{
- print(text);
- return read_char();
-}
-
-// read_string
-function<string> read_string() naked
-{
- :CODE
+ function<char> read_char_t(string text)
  {
-  icall("input.read")
-  pop(es1)
+  print(text);
+  return read_char();
  }
-}
 
-function<string> read_string_t(string text)
-{
- print(text);
- return read_string();
-}
-
-// read_int
-function<int> read_int()
-{
- return strint(read_string());
-}
-
-function<int> read_int_t(string text)
-{
- print(text);
- return read_int();
-}
-
-// read_float
-function<float> read_float()
-{
- return strflt(read_string());
-}
-
-function<float> read_float_t(string text)
-{
- print(text);
- return read_float();
-}
-
-function<string> read_until(char terminator)
-{
- var<string> result = "";
-
- while (true)
+ function<string> read_string() naked
  {
-  var<char> ch = read_char();
+  :CODE
+  {
+   icall("input.read")
+   pop(es1)
+  }
+ }
 
-  if (ch == terminator) // read until the terminator char (excluding it from the string)
-   return result;
+ function<string> read_string_t(string text)
+ {
+  print(text);
+  return read_string();
+ }
+
+ function<int> read_int()
+ {
+  return strint(read_string());
+ }
+
+ function<int> read_int_t(string text)
+ {
+  print(text);
+  return read_int();
+ }
+
+ function<float> read_float()
+ {
+  return strflt(read_string());
+ }
+
+ function<float> read_float_t(string text)
+ {
+  print(text);
+  return read_float();
+ }
+
+ function<string> read_until(char terminator)
+ {
+  var<string> result = "";
+
+  while (true)
+  {
+   var<char> ch = read_char();
+
+   if (ch == terminator) // read until the terminator char (excluding it from the string)
+    return result;
   
-  result += ch;
+   result += ch;
+  }
  }
-}
 
-function<string> read_until_t(string text, char terminator)
-{
- print(text);
- return read_until(terminator);
-}
-
-function<void> wait_for(char ch)
-{
- if (ch == null) // wait for any key
+ function<string> read_until_t(string text, char terminator)
  {
-  while (!key_pressed()) ;
- } else // wait for specified key
- {
-  while (get_char() != ch) ;
+  print(text);
+  return read_until(terminator);
  }
-}
 
-function<void> wait_for_t(string text, char ch)
-{
- print(text);
- wait_for(ch);
-}
-
-/* ===== console settings ===== */
-
-function<void> set_size_ex(int console_width, int console_height, int crtwindow_width, int crtwindow_height) naked
-{
- :CODE
+ function<void> wait_for(char ch)
  {
-  sub(stp, 1)
-  icall("output.set_size")
-  add(stp, 5)
+  if (ch == null) // wait for any key
+  {
+   while (!key_pressed()) ;
+  } else // wait for specified key
+  {
+   while (get_char() != ch) ;
+  }
  }
-}
 
-function<void> set_size(int width, int height)
-{
- set_size_ex(width, height, width, height);
-}
-
-function<void> set_buffered(bool buffered) naked
-{
- :CODE
+ function<void> wait_for_t(string text, char ch)
  {
-  push(%buffered)
-  icall("output.set_buffered")
+  print(text);
+  wait_for(ch);
  }
-}
 
-function<void> flush() naked
-{
- :CODE icall("output.flush")
-}
+ function<void> set_size_ex(int console_width, int console_height, int crtwindow_width, int crtwindow_height) naked
+ {
+  :CODE
+  {
+   sub(stp, 1)
+   icall("output.set_size")
+   add(stp, 5)
+  }
+ }
 
-function<void> clear() naked
-{
- :CODE icall("output.clear")
-}
+ function<void> set_size(int width, int height)
+ {
+  set_size_ex(width, height, width, height);
+ }
 
-function<void> show_cursor() naked
-{
- :CODE icall("output.cursor_show")
-}
+ function<void> set_buffered(bool buffered) naked
+ {
+  :CODE
+  {
+   push(%buffered)
+   icall("output.set_buffered")
+  }
+ }
 
-function<void> hide_cursor() naked
-{
- :CODE icall("output.cursor_hide")
-}
+ function<void> flush() naked
+ {
+  :CODE icall("output.flush")
+ }
 
+ function<void> clear() naked
+ {
+  :CODE icall("output.clear")
+ }
+
+ function<void> show_cursor() naked
+ {
+  :CODE icall("output.cursor_show")
+ }
+
+ function<void> hide_cursor() naked
+ {
+  :CODE icall("output.cursor_hide")
+ }
 }

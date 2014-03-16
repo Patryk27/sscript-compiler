@@ -25,7 +25,7 @@ Unit Scanner;
        Public { fields }
         TokenPos: int64; // current token ID (counting from 0)
 
-        CurrentDeep: Integer; // current brackets' deep (`{` = +1, `}` = -1)
+        CurrentDeep: uint32; // current brackets' deep (`{` = +1, `}` = -1)
         Visibility : TVisibility; // current visibility
 
         Property getPosition: Int64 read TokenPos; // current token position
@@ -79,7 +79,7 @@ Begin
  inLongComment := False;
 
  if (Compiler = nil) Then
-  raise Exception.Create('TScanner.Create() -> expected a TCompiler instance as first parameter!');
+  raise Exception.Create('TScanner.Create() -> expected a TCompiler instance as first parameter');
 
  TokenPos    := 0;
  CurrentDeep := 0;

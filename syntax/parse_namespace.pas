@@ -14,7 +14,7 @@ Uses SSCompiler, symdef, Tokens, Messages;
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
 Var nName: String;
-    Deep : Integer;
+    Deep : uint32;
 Begin
  With TCompiler(CompilerPnt), getScanner do
  Begin
