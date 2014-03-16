@@ -386,7 +386,7 @@ Var Scanner  : TScanner;
     if (Namespace = nil) Then // error: namespace not found
     Begin
      Compiler.CompileError(Token, eUnknownNamespace, [NamespaceName]);
-     Exit;
+     Exit(nil);
     End;
 
     Exit(Namespace.findSymbol(IdentifierName)); // assume no multiple symbols with the same name exist in one namespace
@@ -439,7 +439,6 @@ Var Scanner  : TScanner;
     { a variable or a function/method call }
     _IDENTIFIER:
     Begin
-     // @TODO: true/false
      if (Scanner.next_t <> _DOUBLE_COLON) Then
      Begin
       if (Token.Value = 'true') Then // "true" built-in constant
@@ -452,10 +451,7 @@ Var Scanner  : TScanner;
      Symbol := ReadSymbol(NamespaceName, IdentifierName, mNamespace);
 
      if (Symbol = nil) Then
-     Begin
       Compiler.CompileError(Token, eUnknownIdentifier, [IdentifierName]);
-      Exit;
-     End;
 
      // fetch symbol
      Result            := CreateNode(nil, nil, mtIdentifier, null, First);
@@ -500,11 +496,8 @@ Var Scanner  : TScanner;
 
      Symbol := (Result^.Symbol as TSymbol);
 
-     if (not (Symbol.Typ in [stFunction, stVariable])) Then
-     Begin
-      Compiler.CompileError(Result^.Token, eCannotBeCalled, [Symbol.Name]);
-      Exit;
-     End;
+     if (Symbol <> nil) and (not (Symbol.Typ in [stFunction, stVariable])) Then
+      Compiler.CompileError(Result^.Token, eCannotBeCalled, [Result^.Left^.IdentName]);
     End Else
 
     if (First.Token = _BRACKET2_CL) Then // array element call -> array[10]()
@@ -863,7 +856,7 @@ Begin
 
  if (not (Scanner.next_t in EndTokens)) Then // if finished parsing too early
  Begin
-  Compiler.CompileError(Scanner.next, eExpectedOperator, [Scanner.next.Value]);
+  Compiler.CompileError(Scanner.next, eExpectedValue, [Scanner.next.Value]);
  End;
 
  Scanner.read;
