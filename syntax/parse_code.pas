@@ -16,7 +16,7 @@ Uses SSCompiler, ExpressionParser, Messages, Tokens, Opcodes, FlowGraph, symdef;
 Procedure Parse(const CompilerPnt: Pointer; const DirectBytecode: Boolean=False);
 Var Opcode: PMOpcode;
 
-    Deep : Integer;
+    Deep : uint32;
     Token: TToken_P;
 
     Variable: TVariable;

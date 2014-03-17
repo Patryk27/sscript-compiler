@@ -56,9 +56,9 @@ Unit symdef;
       TVariableList  = specialize TFPGList<TVariable>;
       TSymbolList    = specialize TFPGList<TSymbol>;
 
- { TParam }
- Type PParam = ^TParam;
-      TParam =
+ { TFunctionParam }
+ Type PFunctionParam = ^TFunctionParam;
+      TFunctionParam =
       Record
        Name        : String;
        Typ         : TType;
@@ -68,7 +68,7 @@ Unit symdef;
        isVar       : Boolean; // `isPassedByRef`
       End;
 
- Type TParamList = Array of TParam;
+ Type TFunctionParamList = Array of TFunctionParam;
 
  { TSymdefObject }
  Type TSymdefObject =
@@ -89,7 +89,7 @@ Unit symdef;
 
         // for function types
         FuncReturn: TType;
-        FuncParams: TParamList;
+        FuncParams: TFunctionParamList;
 
         // for enumeration types
         EnumBase    : TType;
@@ -183,7 +183,7 @@ Unit symdef;
 
         Return: TType; // return type
 
-        ParamList : TParamList; // parameter list
+        ParamList : TFunctionParamList; // parameter list
         SymbolList: TSymbolList; // local symbol list
         FlowGraph : TCFGraph; // control flowgraph
 
@@ -213,7 +213,7 @@ Unit symdef;
  { TNamespace }
  Type TNamespace =
       Class(TSymdefObject)
-       Public { fields }
+       Public { fields } // @TODO: should be private
         SymbolList: TSymbolList; // global symbol list
 
        Public { methods }
@@ -222,6 +222,9 @@ Unit symdef;
         Function findSymbol(const SymName: String): TSymbol;
         Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
         Function findFunction(const FuncName: String): TFunction;
+
+       Public
+        Property getSymbolList: TSymbolList read SymbolList;
        End;
 
  { TRefSymbol }
@@ -1374,7 +1377,7 @@ End;
  Returns serialized form of function.
 }
 Function TFunction.getSerializedForm: String;
-Var P: TParam;
+Var P: TFunctionParam;
 Begin
  Result := '(';
 

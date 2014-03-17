@@ -414,8 +414,8 @@ Var Base, Typ, TmpType: TType;
 
     I         : Integer;
     FuncReturn: TType;
-    FuncParams: TParamList;
-    FuncParam : PParam;
+    FuncParams: TFunctionParamList;
+    FuncParam : PFunctionParam;
 
     isArray, isStringBased, isFunction: Boolean;
     RequireDefaultValue               : Boolean = False;

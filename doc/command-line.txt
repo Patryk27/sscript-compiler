@@ -12,6 +12,7 @@ By default, all switches are disabled.
 		-Cm app		compiles file as an application (default)
 		-Cm lib		compiles file as a library
 		-Cm bytecode	compiles file as a bytecode
+		-Cm libinfo	enables library info mode (see point 6. below)
 
 	--internal-const / -iconst	enable special (internal) constants like `__self` and `__line`
 
@@ -25,7 +26,7 @@ By default, all switches are disabled.
 
 	--constant-propagation / -Oc	enables constant propagation (it's a bit expensive operation)
 
-	--optimize-branches / -Ob	optimizes condition jumps (it's an expensive optimization; it works the best combined with `--constant-folding` and `--remove-dead`, otherwise it's almost unusable)
+	--optimize-branches / -Ob	optimizes condition jumps (it's an expensive optimization; it works the best combined with `--constant-folding` and `--remove-dead`, otherwise it's almost useless)
 
 	-O1	enables `--register-alloc`, `--constant-folding`, `--tree-simplify` and `--bytecode-optimize`
 	-O2	enables `-O1`, `--remove-dead` and `--constant-propagation`
@@ -39,4 +40,35 @@ By default, all switches are disabled.
 	-wait		waits for `enter` key when finished
 	-silent		doesn't display any unnecessary messages (like compiler version) except hints/warnings/errors
 	-verbose / -v	enables `verbose` mode
-	-devlog	/ -vv	shows devlog (even more information about the compilation process; usable only for compiler debugging)
+	-devlog	/ -vv	shows devlog (even more information about the compilation process; useful only in compiler debugging)
+
+6.Library information mode.
+	To get list of all public symbols located inside some library, "--compile-mode libinfo" construction should be used.
+	Eg.: compiler library.ssm --Cm libinfo
+
+	Output is generated in format:
+		namespace namespace_name
+	And then all symbols which belong to that namespace:
+		symbol kind; name=symbol name; other symbol traits;
+
+	Traits depend of symbol kind:
+	For functions: "return" (return type name), "parameter_count" and "parameter_types" (names of each function parameters' types separated by a comma)
+	For variables: "type" (type name)
+
+	Eg.:
+		namespace Foo
+		constant; name=something;
+		var; name=separator; type=Bar::my_type;
+		function; name=hello; return=self::void; parameter_count=0; parameter_types=;
+		function; name=world; return=self::void; parameter_count=0; parameter_types=;
+		function; name=sum; return=self::int; parameter_count=2; parameter_types=self::int, self::int;
+
+	The output 'range markers' are "libinfo begin" and "libinfo end", ie.:
+		libinfo begin
+		(all the "namespace" (...) data is here)
+		libinfo end
+
+	If exception occurs during the parsing of library (file couldn't have been found or it's corrupted), a message is generated:
+		libinfo exception
+		(exception message here)
+	And further parsing stops.

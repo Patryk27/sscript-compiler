@@ -52,8 +52,7 @@ Unit SSMParser;
       Class
        Private { fields }
         FileName: String;
-
-        Zip: TZipper;
+        Zip     : TZipper;
 
         SSCompiler: SSCompiler.TCompiler;
         BCCompiler: BCCompiler.TCompiler;

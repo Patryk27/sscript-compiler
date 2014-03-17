@@ -2,7 +2,7 @@ Procedure ParseCall(const isMethodCall: Boolean);
 Var Symbol: Pointer;
 
 { RequiredParamCount }
-Function RequiredParamCount(const ParamList: TParamList): Integer;
+Function RequiredParamCount(const ParamList: TFunctionParamList): Integer;
 Var I: Integer;
 Begin
  Result := 0;
@@ -14,7 +14,7 @@ Begin
 End;
 
 { ParseParamList }
-Procedure ParseParamList(const FuncName: String; const ParamList: TParamList);
+Procedure ParseParamList(const FuncName: String; const ParamList: TFunctionParamList);
 Var ParamID: Integer;
     Param  : PExpressionNode;
     TypeID : TType;
@@ -49,7 +49,7 @@ Begin
 End;
 
 { CleanAfterCall }
-Procedure CleanAfterCall(const ParamList: TParamList);
+Procedure CleanAfterCall(const ParamList: TFunctionParamList);
 Var Param: Integer;
     rVar : TRVariable;
 Begin
@@ -75,7 +75,7 @@ End;
 Function CastCall: TType;
 Var TypeID       : TType;
     Param        : Integer;
-    FuncParamList: TParamList;
+    FuncParamList: TFunctionParamList;
 Begin
  TypeID := Parse(Left, 1, 'r');
  RePop(Left, TypeID, 1);
@@ -119,7 +119,7 @@ End;
 Function VarCall: TType;
 Var TypeID       : TType;
     Param        : Integer;
-    FuncParamList: TParamList;
+    FuncParamList: TFunctionParamList;
     TmpVar       : TRVariable;
     IdentName    : String;
 Begin

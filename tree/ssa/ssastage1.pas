@@ -67,7 +67,7 @@ End;
 Procedure TSSAStage1.VisitExpression(const Node: PExpressionNode);
 Var Param : PExpressionNode;
     I     : Integer;
-    PList : TParamList;
+    PList : TFunctionParamList;
     Symbol: TSymbol;
 Begin
  if (Node = nil) Then

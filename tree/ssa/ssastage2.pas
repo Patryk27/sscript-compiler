@@ -57,7 +57,7 @@ Function TSSAStage2.FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGN
   { fsVisitExpression }
   Function fsVisitExpression(const Expr: PExpressionNode): TSSAVarID;
   Var Param: PExpressionNode;
-      PList: TParamList;
+      PList: TFunctionParamList;
       I    : Integer;
       Sym  : TSymbol;
   Begin
