@@ -286,7 +286,7 @@ Unit symdef;
  Function TYPE_NULL: TType;
 
  Implementation
-Uses CompilerUnit, SSCompiler, ExpressionParser, Messages, SysUtils;
+Uses Logging, SSCompiler, ExpressionParser, Messages, SysUtils;
 
 (* type_equal *)
 {

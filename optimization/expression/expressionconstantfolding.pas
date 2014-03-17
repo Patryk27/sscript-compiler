@@ -6,7 +6,7 @@
 Unit ExpressionConstantFolding;
 
  Interface
- Uses ExpressionOptimizer, ExpressionParser, Expression;
+ Uses ExpressionOptimizer, Expression;
 
  { TExpressionConstantFolding }
  Type TExpressionConstantFolding =

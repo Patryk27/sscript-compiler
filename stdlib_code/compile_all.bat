@@ -21,7 +21,7 @@ goto :begin
 	echo --] '%~1.ss' ^-^> '%outputfile%'
 
 	if exist %outputfile% del /Q %outputfile% > nul
-	..\compiler %~1.ss -o %outputfile% -Cm lib -O3
+	..\compiler %~1.ss -o %outputfile% -Cm lib -O3 -silent
 	if not exist %outputfile% goto :fail
 
 	goto :eof

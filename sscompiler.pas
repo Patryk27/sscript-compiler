@@ -5,8 +5,8 @@
 Unit SSCompiler;
 
  Interface
- Uses Classes, SysUtils, Variants, FGL, Math, FlowGraph,
-      Scanner, Tokens, CompilerUnit, Opcodes, Messages, Expression, symdef,
+ Uses Classes, SysUtils, Variants, FGL, Math,
+      Logging, CommandLine, FlowGraph, Scanner, Tokens, Opcodes, Messages, Expression, symdef,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include,
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW, Parse_FOREACH;
 
@@ -60,7 +60,6 @@ Unit SSCompiler;
         InputFile       : String; // input file name
         OutputFile      : String; // output file name
         ModuleName      : String; // module name
-        Options         : TCompileOptions; // compile options
         IncludePaths    : TStringList; // list of include paths
 
         CurrentFunction : TFunction; // currently parsed (or compiled) function
@@ -90,10 +89,6 @@ Unit SSCompiler;
         Property getScanner: TScanner read Scanner;
 
        Public { methods }
-        Function getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean; inline;
-        Function getStringOption(const Name: TCommandLineOption; oDefault: String=''): String; inline;
-        Function getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer; inline;
-
         Function SearchFile(const FileName: String; out Found: Boolean): String;
 
        { control flow graph }
@@ -147,7 +142,7 @@ Unit SSCompiler;
         Procedure RedeclarationCheck(Name: String; const SkipNamespaces: Boolean=False);
 
        { compiling }
-        Procedure CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
+        Procedure CompileCode(fInputFile, fOutputFile: String; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
 
        { error reporting }
         Procedure CompileError(const Token: TToken_P; const Error: TCompileError; const Args: Array of Const);
@@ -364,56 +359,6 @@ Begin
  OutputCode.Free;
 End;
 
-(* TCompiler.getBoolOption *)
-{
- Gets a specified option's value, casts it into `boolean` - when casting was successful, returns that value; when casting
- failed or option couldn't been found, returns `oDefault`.
-}
-Function TCompiler.getBoolOption(const Name: TCommandLineOption; oDefault: Boolean=False): Boolean;
-Var Option: TCompileOption;
-Begin
- Result := oDefault;
-
- For Option in Options Do
-  if (Option.Option = Name) Then
-  Begin
-   Case LowerCase(VarToStr(Option.Value)) of
-    'true', '1': Exit(True); // `true`, `1` => true
-    else // anything else => false
-     Exit(False);
-   End;
-  End;
-End;
-
-(* TCompiler.getStringOption *)
-{
- See TCompiler.getBoolOption
-}
-Function TCompiler.getStringOption(const Name: TCommandLineOption; oDefault: String=''): String;
-Var Option: TCompileOption;
-Begin
- Result := oDefault;
-
- For Option in Options Do
-  if (Option.Option = Name) Then
-   Exit(VarToStr(Option.Value));
-End;
-
-(* TCompiler.getIntOption *)
-{
- See TCompiler.getBoolOption
-}
-Function TCompiler.getIntOption(const Name: TCommandLineOption; oDefault: Integer): Integer;
-Var Option: TCompileOption;
-Begin
- Result := oDefault;
-
- For Option in Options Do
-  if (Option.Option = Name) Then
-   if (not TryStrToInt(VarToStr(Option.Value), Result)) Then
-    Exit(oDefault);
-End;
-
 (* TCompiler.SearchFile *)
 {
  Searches for file `FileName` (based on `-includepath`).
@@ -607,7 +552,7 @@ End;
   }
 }
 Procedure TCompiler.ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
-Var Deep: Integer;
+Var Deep: uint32;
 Begin
  With Scanner do
  Begin
@@ -644,7 +589,7 @@ End;
  Creates an opcode basing on parameter list and adds it into the opcode list.
  When opcode is invalid, displays `eBytecode_InvalidOpcode`
 }
-Function TCompiler.PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
+Function TCompiler.PutOpcode(fOpcode: TOpcode_E; fArgs: Array of const; fToken: PToken_P): PMOpcode;
 Var I, T: Integer;
     Str : String;
     iTmp: Int64;
@@ -855,7 +800,7 @@ End;
 {
  Creates opcode from the `Opcode` string and calls `TCompiler.PutOpcode` with suitable parameters
 }
-Function TCompiler.PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
+Function TCompiler.PutOpcode(Opcode: String; Args: Array of const; fToken: PToken_P): PMOpcode;
 Begin
  if (GetOpcodeID(Opcode) = -1) Then
   CompileError(Scanner.next(-1), eBytecode_InvalidOpcode, []);
@@ -1311,16 +1256,15 @@ End;
  Required parameters:
    fInputFile  -> input *.ss file
    fOutputFile -> output compiled file
-   fOptions    -> compiler options
 
- Parameters set automatically during compilation (leave them alone):
+ Parameters automatically set during the compilation (leave them alone):
    isIncluded        -> when `true`, no output code is saved into any file
    Pass1Only         -> pretty self-explanatory
    fParent           -> parent compiler
    fSupervisor       -> see @Parse_include
    fPreviousInstance -> see @Parse_include and @Parse_FUNCTION
 }
-Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; fOptions: TCompileOptions; isIncluded: Boolean=False; Pass1Only: Boolean=False; fParent: TCompiler=nil; fSupervisor: TCompiler=nil; fPreviousInstance: TCompiler=nil);
+Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; isIncluded: Boolean; Pass1Only: Boolean; fParent: TCompiler; fSupervisor: TCompiler; fPreviousInstance: TCompiler);
 Var Compiler2: BCCompiler.TCompiler;
 
     VBytecode        : String = '';
@@ -1355,23 +1299,20 @@ Var Compiler2: BCCompiler.TCompiler;
       Str: String;
   Begin
    { parse `-Cm` }
-   Str := getStringOption(opt_Cm, 'app');
+   Str := CmdLine.getStringSwitch(opt__compile_mode, 'app');
    Case Str of
     'app'     : CompileMode := cmApp;
     'lib'     : CompileMode := cmLibrary;
     'bytecode': CompileMode := cmBytecode;
 
     else
-    Begin
-     Writeln('Unknown compile mode (-Cm): `', Str, '`; default set to `app`');
-     CompileMode := cmApp;
-    End;
+     raise ECommandLineException.CreateFmt('Unknown compile mode: %s', [Str]);
    End;
 
    { parse `-includepath` }
    IncludePaths               := TStringList.Create;
    IncludePaths.Delimiter     := ';';
-   IncludePaths.DelimitedText := getStringOption(opt_includepath, '$file;$compiler');
+   IncludePaths.DelimitedText := CmdLine.getStringSwitch(opt_includepath, '$file;$compiler');
 
    For I := 0 To IncludePaths.Count-1 Do
    Begin
@@ -1385,7 +1326,7 @@ Var Compiler2: BCCompiler.TCompiler;
    End;
 
    { parse `-bytecode` }
-   VBytecode := getStringOption(opt_bytecode);
+   VBytecode := CmdLine.getStringSwitch(opt_bytecode);
   End;
 
   { CreateGlobalConstant }
@@ -1497,7 +1438,6 @@ Begin
 
  InputFile        := fInputFile;
  OutputFile       := fOutputFile;
- Options          := fOptions;
  LabelCounter     := 0;
  ModuleName       := '';
  AnyError         := False;
@@ -1597,7 +1537,7 @@ Begin
   Begin
    Log('-> Bytecode generated.');
 
-   if (getBoolOption(opt__bytecode_optimize)) Then
+   if (CmdLine.getBoolSwitch(opt__bytecode_optimize)) Then
    Begin
     Log('-> Optimizing bytecode.');
     With TPeepholeOptimizer.Create(self, nil) Do

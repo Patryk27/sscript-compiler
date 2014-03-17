@@ -5,11 +5,12 @@
 Unit Parse_include;
 
  Interface
+ Uses Classes, SysUtils;
 
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses Classes, SysUtils, SSCompiler, CompilerUnit, Tokens, Messages, SSMParser, symdef;
+Uses Logging, SSCompiler, Tokens, Messages, SSMParser, symdef;
 
 (* isZipFile *)
 Function isZipFile(const FileName: String): Boolean;
@@ -157,7 +158,7 @@ Var NewC: TCompiler;
 Begin
  NewC := TCompiler.Create;
 
- NewC.CompileCode(FileName, FileName+'.ssc', Compiler.Options, True, CircularRef, Compiler.Parent, Compiler, CpTmp);
+ NewC.CompileCode(FileName, FileName+'.ssc', True, CircularRef, Compiler.Parent, Compiler, CpTmp);
 
  if (not CircularRef) Then
  Begin

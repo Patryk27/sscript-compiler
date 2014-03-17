@@ -20,7 +20,7 @@
 Unit CFGBranchSimplification;
 
  Interface
- Uses CFGOptimizer;
+ Uses CFGOptimizer, SysUtils;
 
  { TCFGBranchSimplification }
  Type TCFGBranchSimplification =
@@ -37,7 +37,7 @@ Unit CFGBranchSimplification;
        End;
 
  Implementation
-Uses SysUtils, SSCompiler, CompilerUnit, FlowGraph, Expression, Messages, CFGExpressions;
+Uses Logging, SSCompiler, FlowGraph, Expression, Messages, CFGExpressions;
 
 (* TCFGBranchSimplification.OptimizeConstantBranches *)
 Procedure TCFGBranchSimplification.OptimizeConstantBranches;

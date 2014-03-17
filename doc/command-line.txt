@@ -2,18 +2,18 @@ To enable option, write `option+` or just `option`; to disable: `option-`.
 By default, all switches are disabled.
 
 1.Compiler
-	-bytecode / -b =<file>	saves generated verbal bytecode into specified file
-	-output / -o =<file>	changes output file name
+	-bytecode / -b <file>	saves generated verbal bytecode into specified file
+	-output / -o <file>	changes output file name
 
 	-includepath <path>	changes the include path; default: `$file;$compiler`
 
 2.Code
-	-Cm <mode>
+	--compile-mode / -Cm <mode>
 		-Cm app		compiles file as an application (default)
 		-Cm lib		compiles file as a library
 		-Cm bytecode	compiles file as a bytecode
 
-	-internal-const / -Cconst	enable special (internal) constants like `__self` and `__line`
+	--internal-const / -iconst	enable special (internal) constants like `__self` and `__line`
 
 3.Optimizations
 	--register-alloc / -Or		enables advanced register allocator
@@ -33,11 +33,10 @@ By default, all switches are disabled.
 
 4.Debug
 	--strip-debug / -Sd	strips debug symbols from the file (but do not removes debug symbols from eg.linked libraries)
-	--dump-cfg		dumps CFG graphs in 'DOT' file format into 2 directories: `optimized` and `not_optimized`. Use only for compiler debugging, as it will generate a lots of files (2*number of functions)!
+	--dump-cfg		dumps CFG graphs in 'DOT' file format into 2 directories: `optimized` and `not_optimized`. Use only for compiler debugging, as it will generate a lots of files (2*number of compiled functions)!
 
 5.Other options
-	-logo		displays only the compiler's information (like compile date), forces to doesn't compile anything
-	-version	displays only the compiler's version
-	-wait		waits for `enter` when finished
+	-wait		waits for `enter` key when finished
+	-silent		doesn't display any unnecessary messages (like compiler version) except hints/warnings/errors
 	-verbose / -v	enables `verbose` mode
 	-devlog	/ -vv	shows devlog (even more information about the compilation process; usable only for compiler debugging)

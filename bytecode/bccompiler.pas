@@ -6,7 +6,7 @@
 Unit BCCompiler;
 
  Interface
- Uses CompilerUnit, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
+ Uses Logging, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
 
  Const bytecode_version_major: uint8 = 0;
        bytecode_version_minor: uint8 = 42;

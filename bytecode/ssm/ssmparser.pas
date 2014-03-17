@@ -101,7 +101,7 @@ Unit SSMParser;
        End;
 
  Implementation
-Uses SysUtils, Variants, CompilerUnit, Serialization;
+Uses SysUtils, Variants, Logging, Serialization;
 
 (* SplitByDot *)
 Procedure SplitByDot(const Str: String; out Pre, Post: String);

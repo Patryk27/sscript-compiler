@@ -62,7 +62,7 @@ Unit CFGExpressions;
        End;
 
  Implementation
-Uses CompilerUnit, ExpressionCompiler;
+Uses CommandLine, ExpressionCompiler;
 
 (* TCFGExpressionSimplification.VisitNode *)
 Procedure TCFGExpressionSimplification.VisitNode(const Node: TCFGNode);
@@ -209,7 +209,7 @@ Begin
    Optimized := False;
 
    // do constant folding
-   if (Compiler.getBoolOption(opt__constant_folding)) Then
+   if (CmdLine.getBoolSwitch(opt__constant_folding)) Then
    Begin
     Handler := @ConstantFolding;
     VisitedNodes.Clear;
@@ -217,7 +217,7 @@ Begin
    End;
 
    // do constant propagation
-   if (Compiler.getBoolOption(opt__constant_propagation)) Then
+   if (CmdLine.getBoolSwitch(opt__constant_propagation)) Then
    Begin
     Handler := @ConstantPropagation;
     VisitedNodes.Clear;

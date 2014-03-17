@@ -10,8 +10,10 @@ Unit Parse_FUNCTION;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, Messages, Opcodes, ExpressionParser, symdef, FlowGraph, CompilerUnit,
-     SSA,
+Uses Logging, CommandLine,
+     SSCompiler, Messages,
+     Opcodes, ExpressionParser,
+     symdef, FlowGraph, SSA,
      VariableAllocator, RegisterAllocator, StackAllocator,
      CFGOptimizer, CFGBranchSimplification, CFGDeadCode, CFGExpressions,
      BCGenerator;
@@ -195,7 +197,7 @@ Var Func: TFunction; // our new function
      End;
 
      // --tree-simplify
-     if (Compiler.getBoolOption(opt__tree_simplify)) Then
+     if (CmdLine.getBoolSwitch(opt__tree_simplify)) Then
      Begin
       {
        @Note:
@@ -215,7 +217,7 @@ Var Func: TFunction; // our new function
      End;
 
      // --dump-cfg
-     if (Compiler.getBoolOption(opt__dump_cfg)) Then // @TODO: should it be saved before --tree-simplify is performed?
+     if (CmdLine.getBoolSwitch(opt__dump_cfg)) Then // @TODO: should it be saved before --tree-simplify is performed?
      Begin
       SaveGraph(Func.FlowGraph, 'not_optimized/'+Func.RefSymbol.Name+'.d');
      End;
@@ -225,14 +227,14 @@ Var Func: TFunction; // our new function
      RunOptimizer(TCFGExpressionOptimization.Create(Compiler, Func)); // as it performs few optimizations at once, no "if" here @TODO
 
      // optimize branches
-     if (Compiler.getBoolOption(opt__optimize_branches)) Then
+     if (CmdLine.getBoolSwitch(opt__optimize_branches)) Then
      Begin
       DevLog(dvInfo, 'Parse', 'Optimizing branches...');
       RunOptimizer(TCFGBranchSimplification.Create(Compiler, Func));
      End;
 
      // remove dead code
-     if (Compiler.getBoolOption(opt__remove_dead)) Then
+     if (CmdLine.getBoolSwitch(opt__remove_dead)) Then
      Begin
       DevLog(dvInfo, 'Parse', 'Removing dead code...');
       RunOptimizer(TCFGDeadCodeRemoval.Create(Compiler, Func));
@@ -241,7 +243,7 @@ Var Func: TFunction; // our new function
      // allocate variables
      DevLog(dvInfo, 'Parse', 'Allocating variables...');
 
-     if (Compiler.getBoolOption(opt__register_alloc)) Then
+     if (CmdLine.getBoolSwitch(opt__register_alloc)) Then
       Allocator := TRegisterAllocator.Create(Compiler, Func) Else
       Allocator := TStackAllocator.Create(Compiler, Func);
 
@@ -427,7 +429,7 @@ Begin
       __variable_create_stackpos(ParamList[I].Name, ParamList[I].Typ, -I-1, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
 
     { add special constants (if `--internal-const` enabled) }
-    if (getBoolOption(opt_internal_const)) Then
+    if (CmdLine.getBoolSwitch(opt__internal_const)) Then
     Begin
      NewConst('__self', TYPE_STRING, MakeStringExpression(Func.RefSymbol.Name));
     End;
@@ -494,7 +496,7 @@ Begin
    DevLog(dvInfo, 'Parse', 'Function '''+Func.RefSymbol.Name+''' has been compiled!');
    DevLog;
 
-   if (getBoolOption(opt__dump_cfg)) Then
+   if (CmdLine.getBoolSwitch(opt__dump_cfg)) Then
     SaveGraph(Func.FlowGraph, 'optimized/'+Func.RefSymbol.Name+'.d');
 
    RemoveScope; // ... and - as we finished compiling this function - remove scope

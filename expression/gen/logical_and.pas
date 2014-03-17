@@ -5,7 +5,7 @@ Var TypeLeft, TypeRight: TType;
 Begin
  With Compiler do
  Begin
-  if (getBoolOption(opt__short_circuit, True)) Then
+  if (CmdLine.getBoolSwitch(opt__short_circuit, True)) Then
   Begin
    ShortCircuit      := scAND;
    ShortCircuitLabel := ExprLabel+'__treeexit_'+IntToStr(LabelCounter);

@@ -91,7 +91,9 @@ Unit FlowGraph;
  Function isVariableRead(const VariablePnt: TObject; const rBeginNode, rEndNode: TCFGNode): Boolean;
 
  Implementation
-Uses Math, Classes, SysUtils, SSCompiler, Messages, symdef, ExpressionParser, CompilerUnit;
+Uses Math, Classes, SysUtils,
+     Logging,
+     SSCompiler, Messages, symdef, ExpressionParser;
 
 (* SaveGraph *)
 Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);

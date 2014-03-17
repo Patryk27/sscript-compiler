@@ -22,7 +22,7 @@ Unit ExpressionCompiler;
  Function CompileExpression(const CompilerPnt: Pointer; const Expr: PExpressionNode): TType;
 
  Implementation
-Uses CompilerUnit, Opcodes, Messages,
+Uses Logging, CommandLine, Opcodes, Messages,
      ExpressionConstantInsertion, ExpressionConstantFolding, ExpressionTreeSimplification;
 
 (* OptimizeExpression *)
@@ -77,7 +77,7 @@ Begin
   Begin
    Options -= [oGetFromCommandLine];
 
-   if (Compiler.getBoolOption(opt__constant_folding)) Then
+   if (CmdLine.getBoolSwitch(opt__constant_folding)) Then
     Options += [oInsertConstants, oConstantFolding];
   End;
 
@@ -387,46 +387,56 @@ Begin
   Begin
    Variable := getVariable(Expr, False, True);
 
-   if (Variable.Symbol = nil) Then // variable not found
+   if (Variable.Symbol = nil) Then // variable not found - maybe a internal one?
    Begin
-    { special variable: `__line` }
-    if (Variable.Name = '__line') and (Compiler.getBoolOption(opt_internal_const)) Then
+    if (CmdLine.getBoolSwitch(opt__internal_const)) Then
     Begin
-     if (FinalRegChar = #0) Then
-      FinalRegChar := 'i';
+     Case Variable.Name of
+     { __line }
+      '__line':
+      Begin
+       if (FinalRegID > 0) Then // load into register
+       Begin
+        if (FinalRegChar = #0) Then
+         FinalRegChar := 'i';
 
-     if (FinalRegID > 0) Then // put into register?
-     Begin
-      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line]);
-     End Else
-     Begin // push onto stack?
-      Compiler.PutOpcode(o_push, [Expr^.Token.Line]);
-      Inc(PushedValues);
+        Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), Expr^.Token.Line]);
+       End Else
+       Begin // load onto stack
+        Compiler.PutOpcode(o_push, [Expr^.Token.Line]);
+        Inc(PushedValues);
+       End;
+
+       Exit(TYPE_INT);
+      End;
+
+     { __linestr }
+      '__linestr':
+      Begin
+       if (FinalRegID > 0) Then // put into register?
+       Begin
+        if (FinalRegChar = #0) Then
+         FinalRegChar := 's';
+
+        Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), '"'+IntToStr(Expr^.Token.Line)+'"']);
+       End Else
+       Begin // push onto stack?
+        Compiler.PutOpcode(o_push, ['"'+IntToStr(Expr^.Token.Line)+'"']);
+        Inc(PushedValues);
+       End;
+
+       Exit(TYPE_STRING);
+      End;
+
+      { other - show error }
+      else
+      Begin
+       Error(eUnknownVariable, [Variable.Name]);
+       Exit;
+      End;
      End;
-
-     Exit(TYPE_INT);
     End Else
-
-    { special variable: `__linestr` }
-    if (Variable.Name = '__linestr') and (Compiler.getBoolOption(opt_internal_const)) Then
-    Begin
-     if (FinalRegChar = #0) Then
-      FinalRegChar := 's';
-
-     if (FinalRegID > 0) Then // put into register?
-     Begin
-      Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), '"'+IntToStr(Expr^.Token.Line)+'"']);
-     End Else
-     Begin // push onto stack?
-      Compiler.PutOpcode(o_push, ['"'+IntToStr(Expr^.Token.Line)+'"']);
-      Inc(PushedValues);
-     End;
-
-     Exit(TYPE_STRING);
-    End Else
-
-    { not a special variable thus show "var not found" error }
-    Begin
+    Begin // error: unknown variable
      Error(eUnknownVariable, [Variable.Name]);
      Exit;
     End;

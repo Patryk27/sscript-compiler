@@ -17,7 +17,7 @@ Unit PeepholeOptimizer;
        End;
 
  Implementation
-Uses CompilerUnit, Opcodes, SysUtils, Messages;
+Uses Logging, Opcodes, SysUtils, Messages;
 
 (* isRegister *)
 {

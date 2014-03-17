@@ -32,7 +32,7 @@ Unit BCGenerator;
        End;
 
  Implementation
-Uses SysUtils, Expression, ExpressionCompiler, Messages, CompilerUnit, Tokens, Opcodes;
+Uses SysUtils, CommandLine, Expression, ExpressionCompiler, Messages, Tokens, Opcodes;
 
 (* TBCGenerator.AddPrologCode *)
 Procedure TBCGenerator.AddPrologCode;
@@ -325,7 +325,7 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
    End;
 
    // compile further code
-   Compiler.DoNotStoreOpcodes := Compiler.getBoolOption(opt__remove_dead); // code after 'return' is generated but deleted, as it would be never executed anyway
+   Compiler.DoNotStoreOpcodes := CmdLine.getBoolSwitch(opt__remove_dead); // code after 'return' is generated but deleted, as it would be never executed anyway
 
    if (Node.Edges.Count > 0) Then
     CompileNode(Node.Edges.First);

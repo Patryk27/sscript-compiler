@@ -28,7 +28,7 @@ Unit SSAStage2;
        End;
 
  Implementation
-Uses CompilerUnit, Messages, SysUtils;
+Uses Logging, Messages, SysUtils;
 
 (* Coalesce *)
 Procedure Coalesce(var Input: TSSAVarID; const What: TSSAVarID);
