@@ -172,6 +172,22 @@ Unit symdef;
         Function getSerializedForm: String;
        End;
 
+ { TFunctionLineData }
+ Type TFunctionLineData =
+      Class
+       Private
+        LineData: Array of uint32; // LineData[OpcodeNo] := LineNo;
+
+       Private
+        Function getLineData(const Index: uint32): uint32;
+
+       Public
+        Procedure Insert(const LineNo: uint32);
+
+       Public
+        Property getLineAtOpcode[Index: uint32]: uint32 read getLineData; default;
+       End;
+
  { TFunction }
  Type TFunction =
       Class(TSymdefObject)
@@ -192,10 +208,13 @@ Unit symdef;
 
         LastLabelID: uint32;
 
+        LineData: TFunctionLineData;
+
         Attributes: TFunctionAttributes;
 
        Public { methods }
         Constructor Create;
+        Destructor Destroy; override;
 
         Function createNode(const fParent: TCFGNode; const ffToken: PToken_P=nil): TCFGNode;
         Function createNode(const fParent: TCFGNode; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P=nil): TCFGNode;
@@ -468,8 +487,21 @@ Begin
  End;
 End;
 
-(* ---------- TType ---------- *)
+// -------------------------------------------------------------------------- //
+(* TFunctionLineData.getLineData *)
+Function TFunctionLineData.getLineData(const Index: uint32): uint32;
+Begin
+ Result := LineData[Index];
+End;
 
+(* TFunctionLineData.Insert *)
+Procedure TFunctionLineData.Insert(const LineNo: uint32);
+Begin
+ SetLength(LineData, Length(LineData)+1);
+ LineData[High(LineData)] := LineNo;
+End;
+
+// -------------------------------------------------------------------------- //
 (* TType.Create *)
 {
  Constructor for TType
@@ -878,7 +910,7 @@ Begin
 
  if (ArrayBase = self) Then
  Begin
-  DevLog(dvError, 'TType.Clone', 'ArrayBase = self; cannot do the entire type cloning');
+  DevLog(dvError, 'ArrayBase = self; cannot do the entire type cloning');
   Result.ArrayBase := ArrayBase;
   Exit;
  End;
@@ -955,7 +987,7 @@ Begin
 
   if (InternalID > High(PrimaryTypeNames)) Then
   Begin
-   DevLog(dvError, 'TType.asString', 'InternalID > High(PrimaryTypeNames) ['+IntToStr(InternalID)+' > '+IntToStr(High(PrimaryTypeNames))+']; returned `erroneous type`');
+   DevLog(dvError, 'InternalID > High(PrimaryTypeNames) [%d > %d]; returned `erroneous type`', [InternalID, High(PrimaryTypeNames)]);
    Exit('erroneous type');
   End;
 
@@ -992,7 +1024,7 @@ Begin
 
  if (self = nil) or (T2 = nil) Then
  Begin
-  DevLog(dvWarning, 'TType.CanBeAssignedTo', 'comparing erroneous types; returned `true`');
+  DevLog(dvWarning, 'comparing erroneous types; returned `true`');
   Exit(True);
  End;
 
@@ -1142,13 +1174,13 @@ Function TType.CanBeCastedTo(T2: TType): Boolean;
 Begin
  if (self = nil) Then
  Begin
-  DevLog(dvWarning, 'TType.CanBeCastedTo', 'self = nil; returned `false`');
+  DevLog(dvWarning, 'self = nil; returned `false`');
   Exit(False);
  End;
 
  if (T2 = nil) Then
  Begin
-  DevLog(dvWarning, 'TType.CanBeCastedTo', 'T2 = nil; returned `false`');
+  DevLog(dvWarning, 'T2 = nil; returned `false`');
   Exit(False);
  End;
 
@@ -1182,8 +1214,7 @@ Begin
  Exit(False);
 End;
 
-(* ---------- TVariable ---------- *)
-
+// -------------------------------------------------------------------------- //
 (* TVariable.Create *)
 Constructor TVariable.Create;
 Begin
@@ -1293,8 +1324,7 @@ Begin
  Result += ')';
 End;
 
-(* ---------- TFunction ---------- *)
-
+// -------------------------------------------------------------------------- //
 (* TFunction.Create *)
 Constructor TFunction.Create;
 Begin
@@ -1313,7 +1343,22 @@ Begin
  StackSize := 0;
  StackRegs := TStackSavedRegs.Create;
 
+ LineData := TFunctionLineData.Create;
+
  Attributes := [];
+End;
+
+(* TFunction.Destroy *)
+Destructor TFunction.Destroy;
+Begin
+// RefSymbol.Free; @TODO: what if the caller is the RefSymbol instance?
+
+ FlowGraph.Free;
+ SymbolList.Free;
+ StackRegs.Free;
+ LineData.Free;
+
+ inherited Destroy;
 End;
 
 (* TFunction.createNode *)
@@ -1412,8 +1457,7 @@ Begin
  Result := (faNaked in Attributes);
 End;
 
-(* ---------- TNamespace ---------- *)
-
+// -------------------------------------------------------------------------- //
 (* TNamespace.Create *)
 Constructor TNamespace.Create;
 Begin
@@ -1461,8 +1505,7 @@ Begin
   Result := nil;
 End;
 
-(* ---------- TRefSymbol ---------- *)
-
+// -------------------------------------------------------------------------- //
 (* TRefSymbol.Create *)
 Constructor TRefSymbol.Create;
 Begin
@@ -1507,9 +1550,9 @@ End;
 {
  Returns symbol's full name.
  It's either:
-   namespace <separator> symbol's name
+   namespace <separator> symbol name
  or
-   namespace <separator> function <separator> symbol's name
+   namespace <separator> function <separator> symbol name
 }
 Function TRefSymbol.getFullName(const Separator: String='.'): String;
 Begin
@@ -1537,8 +1580,7 @@ Begin
  Result := (DeclFunction = nil);
 End;
 
-(* ---------- TSymbol ---------- *)
-
+// -------------------------------------------------------------------------- //
 (* TSymbol.Create *)
 Constructor TSymbol.Create(const SymbolType: TSymbolType; const CreateInstance: Boolean=True);
 Begin

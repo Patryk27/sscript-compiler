@@ -107,7 +107,7 @@ Var AnythingOptimized: Boolean = False;
     Begin
      Value := Node.Value^.Value;
 
-     DevLog(dvInfo, 'TCFGBranchSimplification', 'Branch at line '+IntToStr(Node.Value^.Token.Line)+' has been removed (it always evaluates to '+BoolToStr(Value, 'true', 'false')+').');
+     DevLog(dvInfo, 'Branch at line %d has been removed (it always evaluates to %s).', [Node.Value^.Token.Line, BoolToStr(Value, 'true', 'false')]);
 
      NewParent := Node.Edges[ord(not Value)]; // taken (true) = left edge, not taken (false) = right edge
      RemovedNodes.Add(Node.Edges[ord(Value)]);
@@ -176,7 +176,7 @@ Begin
   VisitedNodes.Free;
  End;
 
- DevLog(dvInfo, 'TCFGBranchSimplification', Format('Optimized constant branches: %d', [OptBranches]));
+ DevLog(dvInfo, 'Optimized %d constant branches.', [OptBranches]);
 End;
 
 (* TCFGBranchSimplification.OptimizeBranchesFlow *)
@@ -224,7 +224,7 @@ Begin
   VisitedNodes.Free;
  End;
 
- DevLog(dvInfo, 'TCFGBranchSimplification', Format('Optimized branches flow: %d', [OptBranches]));
+ DevLog(dvInfo, 'Optimized flow of %d branches.', [OptBranches]);
 End;
 
 (* TCFGBranchSimplification.Execute *)

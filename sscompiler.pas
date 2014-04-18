@@ -224,7 +224,7 @@ Begin
  Begin
   if (fCurrentRoot = nil) Then
   Begin
-   DevLog(dvError, 'TCompiler.getCurrentNode', 'everything is nil!');
+   DevLog(dvError, 'Everything is nil!');
    Result := nil;
   End Else
    Result := fCurrentRoot;
@@ -372,17 +372,17 @@ Begin
  Result := FileName;
  Found  := False;
 
- DevLog(dvInfo, 'TCompiler.SearchFile', 'Searching for file: `'+FileName+'`');
+ DevLog(dvInfo, 'Searching for file: %s', [FileName]);
 
  For I := 0 To IncludePaths.Count-1 Do
  Begin
   Tmp := ReplaceDirSep(IncludePaths[I]+'\'+FileName);
 
-  DevLog(dvInfo, 'TCompiler.SearchFile', 'Trying: `'+Tmp+'`');
+  DevLog(dvInfo, 'Trying: %s', [Tmp]);
 
   if (FileExists(Tmp)) Then
   Begin
-   DevLog(dvInfo, 'TCompiler.SearchFile', 'Found!');
+   DevLog(dvInfo, 'Found!');
    Found := True;
    Exit(Tmp);
   End;
@@ -1306,7 +1306,7 @@ Var Compiler2: BCCompiler.TCompiler;
     'bytecode': CompileMode := cmBytecode;
 
     else
-     raise ECommandLineException.CreateFmt('Unknown compile mode: %s', [Str]);
+     raise ECommandLineException.CreateFmt('Unknown compile mode: ''%s'' (available: app, lib, bytecode)', [Str]);
    End;
 
    { parse `-includepath` }
@@ -1451,8 +1451,8 @@ Begin
  ParsingFORInitInstruction := False;
 
  if (isIncluded) Then
-  Log('Module: '+InputFile) Else
-  Log('Main file: '+InputFile+' => '+OutputFile);
+  Log('Module: %s', [InputFile]) Else
+  Log('Main file: %s => %s', [InputFile, OutputFile]);
 
  Scanner := TScanner.Create(self, InputFile, UnfinishedComment);
  ResetScanner;
@@ -1467,12 +1467,12 @@ Begin
   { no parent specified }
   if (Parent = nil) Then
   Begin
-   DevLog(dvInfo, 'TCompiler.CompileCode', 'no `parent` specified!');
+   DevLog(dvInfo, 'No parent specified!');
    Parent := self;
 
    if (isIncluded) Then
    Begin
-    DevLog(dvFatal, 'TCompiler.CompileCode', 'no `parent` specified and compiling as unit!');
+    DevLog(dvFatal, 'No parent specified and compiling as an unit!');
     CompileError(eInternalError, ['Parent = nil']);
    End;
   End;

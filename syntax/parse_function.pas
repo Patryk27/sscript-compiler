@@ -204,12 +204,12 @@ Var Func: TFunction; // our new function
        Tree simplification can be done before generating the SSA form because it doesn't use the SSA, and as it changes the whole expression trees, after
        this optimization new SSA would have to be generated again anyway.
       }
-      DevLog(dvInfo, 'Parse', 'Simplifing expression trees...');
+      DevLog(dvInfo, 'Simplifing expression trees...');
       RunOptimizer(TCFGExpressionSimplification.Create(Compiler, Func));
      End;
 
      // generate SSA
-     DevLog(dvInfo, 'Parse', 'Generating SSA form...');
+     DevLog(dvInfo, 'Generating SSA form...');
      With TSSAGenerator.Create(Compiler, Func) do
      Begin
       Execute;
@@ -223,25 +223,25 @@ Var Func: TFunction; // our new function
      End;
 
      // optimize expression
-     DevLog(dvInfo, 'Parse', 'Optimizing expressions...');
+     DevLog(dvInfo, 'Optimizing expressions...');
      RunOptimizer(TCFGExpressionOptimization.Create(Compiler, Func)); // as it performs few optimizations at once, no "if" here @TODO
 
      // optimize branches
      if (CmdLine.getBoolSwitch(opt__optimize_branches)) Then
      Begin
-      DevLog(dvInfo, 'Parse', 'Optimizing branches...');
+      DevLog(dvInfo, 'Optimizing branches...');
       RunOptimizer(TCFGBranchSimplification.Create(Compiler, Func));
      End;
 
      // remove dead code
      if (CmdLine.getBoolSwitch(opt__remove_dead)) Then
      Begin
-      DevLog(dvInfo, 'Parse', 'Removing dead code...');
+      DevLog(dvInfo, 'Removing dead code...');
       RunOptimizer(TCFGDeadCodeRemoval.Create(Compiler, Func));
      End;
 
      // allocate variables
-     DevLog(dvInfo, 'Parse', 'Allocating variables...');
+     DevLog(dvInfo, 'Allocating variables...');
 
      if (CmdLine.getBoolSwitch(opt__register_alloc)) Then
       Allocator := TRegisterAllocator.Create(Compiler, Func) Else
@@ -254,7 +254,7 @@ Var Func: TFunction; // our new function
      End;
 
      // generate bytecode
-     DevLog(dvInfo, 'Parse', 'Generating bytecode...');
+     DevLog(dvInfo, 'Generating bytecode...');
      BCGenerator := TBCGenerator.Create(Compiler);
      BCGenerator.CompileFunction(Func);
     End;
@@ -493,7 +493,7 @@ Begin
    // now we have the full control flow graph of this function, so let's optimize and generate bytecode
    DoOptimizationsAndCompile;
 
-   DevLog(dvInfo, 'Parse', 'Function '''+Func.RefSymbol.Name+''' has been compiled!');
+   DevLog(dvInfo, 'Function '''+Func.RefSymbol.Name+''' has been compiled!');
    DevLog;
 
    if (CmdLine.getBoolSwitch(opt__dump_cfg)) Then

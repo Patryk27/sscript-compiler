@@ -48,7 +48,7 @@ Begin
 
   if (TypeID = nil) Then
   Begin
-   DevLog(dvError, 'ParseAssign', 'TypeID = nil; leaving function...');
+   DevLog(dvError, 'TypeID = nil; leaving function...');
    Exit;
   End;
 

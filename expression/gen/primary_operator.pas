@@ -27,7 +27,7 @@ Begin
 
  if (Result = nil) or (TypeLeft = nil) or (TypeRight = nil) Then
  Begin
-  DevLog(dvWarning, 'ParseArithmeticOperator', 'CompileSimple() returned `nil`; leaving function...');
+  DevLog(dvWarning, 'CompileSimple() returned `nil`; leaving function...');
   Exit;
  End;
 

@@ -6,7 +6,7 @@
 Unit BCCompiler;
 
  Interface
- Uses Logging, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, Zipper, Stream;
+ Uses Logging, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
 
  Const bytecode_version_major: uint8 = 0;
        bytecode_version_minor: uint8 = 42;
@@ -29,19 +29,24 @@ Unit BCCompiler;
        Size    : uint8;
       End;
 
+ { arrays }
+ Type TBCLabelList           = specialize TList<TBCLabel>;
+      TBCAllocatedSymbolList = specialize TList<TBCAllocatedSymbol>;
+
  { TCompiler }
  Type TCompiler =
       Class
        Public { fields }
-        BytecodeStream : TStream;
         HeaderStream   : TStream;
+        LineDataStream : TStream;
+        BytecodeStream : TStream;
         ReferenceStream: TStream;
 
         Compiler: SSCompiler.TCompiler;
         Bytecode: TWriter;
 
-        LabelList      : Array of TBCLabel;
-        AllocSymbolList: Array of TBCAllocatedSymbol;
+        LabelList      : TBCLabelList;
+        AllocSymbolList: TBCAllocatedSymbolList;
 
        Private { methods }
         Function getLabelID(const Name: String): int32;
@@ -52,7 +57,10 @@ Unit BCCompiler;
         Procedure Parse(const ResolveReferences: Boolean);
 
        Public { methods }
-        Procedure Compile(fCompiler: SSCompiler.TCompiler; SaveAs_SSM: Boolean);
+        Constructor Create;
+        Destructor Destroy; override;
+
+        Procedure Compile(const fCompiler: SSCompiler.TCompiler; const SaveAs_SSM: Boolean);
        End;
 
  Implementation
@@ -63,7 +71,8 @@ Function TCompiler.getLabelID(const Name: String): int32;
 Var I: Integer;
 Begin
  Result := -1;
- For I := Low(LabelList) To High(LabelList) Do
+
+ For I := 0 To LabelList.Count-1 Do
   if (LabelList[I].Name = Name) Then
    Exit(I);
 End;
@@ -77,12 +86,14 @@ End;
 
 (* TCompiler.AllocateGlobalVar *)
 Function TCompiler.AllocateGlobalVar(const Name: String): uint32;
-Var I, Pos, Size: int32;
-    Data        : TUnserializer;
+Var Data        : TUnserializer;
+    AllocSymbol : TBCAllocatedSymbol;
+    I, Pos, Size: int32;
 Begin
  Pos := 0;
 
- For I := Low(AllocSymbolList) To High(AllocSymbolList) Do
+ // allocate symbol after the last one
+ For I := 0 To AllocSymbolList.Count-1 Do
  Begin
   Inc(Pos, AllocSymbolList[I].Size);
 
@@ -90,7 +101,7 @@ Begin
    Exit(AllocSymbolList[I].Position);
  End;
 
- // We need to fetch variable's length from its serialized form.
+ // fetch variable's length from its serialized form
  Data := TUnserializer.Create(Name);
 
  Try
@@ -99,11 +110,16 @@ Begin
   Data.Free;
  End;
 
- SetLength(AllocSymbolList, Length(AllocSymbolList)+1);
- AllocSymbolList[High(AllocSymbolList)].Name     := Name;
- AllocSymbolList[High(AllocSymbolList)].Position := Pos;
- AllocSymbolList[High(AllocSymbolList)].Size     := Size;
- Result                                          := Pos;
+ // prepare allocsymbol
+ AllocSymbol.Name     := Name;
+ AllocSymbol.Position := Pos;
+ AllocSymbol.Size     := Size;
+
+ // insert it onto the list
+ AllocSymbolList.Add(AllocSymbol);
+
+ // return its position
+ Exit(Pos);
 End;
 
 (* TCompiler.Preparse *)
@@ -112,7 +128,9 @@ Var I, Q    : uint32;
     Int     : Integer;
     Str, Tmp: String;
 
-    OpcodeLen: LongWord = 0;
+    OpcodeLen: uint32 = 0;
+
+    BCLabel: TBCLabel;
 Begin
  With Compiler do
  Begin
@@ -125,19 +143,25 @@ Begin
   if (AllocateGlobalVars) Then
   Begin
    For I := 0 To OpcodeList.Count-1 Do // each opcode
+   Begin
     With OpcodeList[I]^ do
      if (Length(Args) > 0) Then
       For Q := Low(Args) To High(Args) Do // each argument
        if (Args[Q].Typ = ptSymbolMemRef) Then
         AllocateGlobalVar(Args[Q].Value);
+   End;
 
-   if (Length(AllocSymbolList) > 0) Then // is there anything to allocate?
+   // are there any symbols to allocate?
+   if (AllocSymbolList.Count > 0) Then
    Begin
     DoNotStoreOpcodes := True;
 
-    For I := Low(AllocSymbolList) To High(AllocSymbolList) Do
+    For I := 0 To AllocSymbolList.Count-1 Do
+    Begin
+     // @TODO: this can be done more efficient way (o_word, o_extended (...))
      For Q := 1 To AllocSymbolList[I].Size Do
       OpcodeList.Insert(0, PutOpcode(o_byte, [0]));
+    End;
 
     DoNotStoreOpcodes := False;
    End;
@@ -145,6 +169,7 @@ Begin
 
   // parse opcodes and labels
   For I := 0 To OpcodeList.Count-1 Do
+  Begin
    With OpcodeList[I]^ do
     if (not isComment) and (not isLabel) Then // if opcode
     Begin
@@ -162,7 +187,9 @@ Begin
 
      Inc(OpcodeLen, sizeof(Byte)); // opcode type
      if (Length(Args) > 0) Then // are there any arguments?
+     Begin
       For Q := Low(Args) To High(Args) Do // for each parameter
+      Begin
        With Args[Q] do
        Begin
         Inc(OpcodeLen, sizeof(Byte)); // parameter type
@@ -243,22 +270,29 @@ Begin
          ptLabelAbsoluteReference : Inc(OpcodeLen, 8);
          ptSymbolMemRef           : Inc(OpcodeLen, 8);
 
-         else
+         Else
           Inc(OpcodeLen, 4);
         End;
        End;
-    End Else // if label
+      End;
+     End;
+    End Else
+
+    // if label
     if (isLabel) Then
     Begin
-     SetLength(LabelList, Length(LabelList)+1);
-     LabelList[High(LabelList)].Name       := Name;
-     LabelList[High(LabelList)].Position   := OpcodeLen;
-     LabelList[High(LabelList)].isPublic   := isPublic;
-     LabelList[High(LabelList)].isFunction := isFunction;
+     BCLabel.Name       := Name;
+     BCLabel.Position   := OpcodeLen;
+     BCLabel.isPublic   := isPublic;
+     BCLabel.isFunction := isFunction;
 
      if (isFunction) Then
-      LabelList[High(LabelList)].FunctionSymbol := FunctionSymbol;
+      BCLabel.FunctionSymbol := FunctionSymbol Else
+      BCLabel.FunctionSymbol := nil;
+
+     LabelList.Add(BCLabel);
     End;
+  End;
  End;
 End;
 
@@ -275,6 +309,7 @@ Begin
  With BytecodeStream do
  Begin
   For Opcode in Compiler.OpcodeList Do
+  Begin
    With Opcode^ do
    Begin
     OpcodeBegin := BytecodeStream.Position;
@@ -393,35 +428,56 @@ Begin
      End;
     End;
    End;
+  End;
  End;
 End;
 
-(* TCompiler.Compile *)
-Procedure TCompiler.Compile(fCompiler: SSCompiler.TCompiler; SaveAs_SSM: Boolean);
-Var Zip   : TZipper;
-    Output: String;
+(* TCompiler.Create *)
+Constructor TCompiler.Create;
+Begin
+ LabelList       := TBCLabelList.Create;
+ AllocSymbolList := TBCAllocatedSymbolList.Create;
+End;
 
-    { AddFile }
-    Procedure AddFile(const Stream: TStream; FileName: String);
-    Begin
-     Stream.SaveToFile(Output+FileName);
-     Zip.Entries.AddFileEntry(Output+FileName, FileName);
-    End;
+(* TCompiler.Destroy *)
+Destructor TCompiler.Destroy;
+Begin
+ LabelList.Free;
+ AllocSymbolList.Free;
+
+ inherited Destroy;
+End;
+
+(* TCompiler.Compile *)
+Procedure TCompiler.Compile(const fCompiler: SSCompiler.TCompiler; const SaveAs_SSM: Boolean);
+Var Output: String;
+    Zip   : TZipper;
+
+  { AddFile }
+  Procedure AddFile(const Stream: TStream; FileName: String);
+  Begin
+   Stream.SaveToFile(Output+FileName);
+   Zip.Entries.AddFileEntry(Output+FileName, FileName);
+  End;
 
 Begin
  Compiler := fCompiler;
+ Output   := Compiler.OutputFile;
 
- Output := Compiler.OutputFile;
-
+ // create classes
  HeaderStream    := TStream.Create;
- ReferenceStream := TStream.Create;
+ LineDataStream  := TStream.Create;
  BytecodeStream  := TStream.Create;
- Zip             := TZipper.Create;
+ ReferenceStream := TStream.Create;
 
+ Zip := TZipper.Create;
+
+ // preparse bytecode
  Preparse(not SaveAs_SSM);
 
  Try
-  Parse(not SaveAs_SSM); // resolve references only when compiling to a program
+  // parse bytecode
+  Parse(not SaveAs_SSM);
 
   // save header
   With HeaderStream do
@@ -436,11 +492,14 @@ Begin
    write_uint8(bytecode_version_minor);
   End;
 
-  Log('Header size: '+IntToStr(HeaderStream.Size)+' bytes');
-  Log('References data size: '+IntToStr(ReferenceStream.Size)+' bytes');
-  Log('Bytecode size: '+IntToStr(BytecodeStream.Size)+' bytes');
+  // log some data
+  Log('Header size: %d bytes', [HeaderStream.Size]);
+  Log('References data size: %d bytes', [ReferenceStream.Size]);
+  Log('Line data size: %d byte', [LineDataStream.Size]);
+  Log('Bytecode size: %d bytes', [BytecodeStream.Size]);
 
-  if (SaveAs_SSM) Then // save as a library?
+  // save as library?
+  if (SaveAs_SSM) Then
   Begin
    With TSSMWriter.Create(Compiler.OutputFile, fCompiler, self) do
    Begin
@@ -451,18 +510,22 @@ Begin
    Exit;
   End;
 
-  { make zip archive }
+  // make zip archive
   AddFile(HeaderStream, '.header');
+  AddFile(LineDataStream, '.linedata');
   AddFile(BytecodeStream, '.bytecode');
 
-  { save it }
+  // save it
   Zip.FileName := Output;
   Zip.ZipAllFiles;
  Finally
+  HeaderStream.Free;
+  LineDataStream.Free;
   BytecodeStream.Free;
   Zip.Free;
 
   DeleteFile(Output+'.header');
+  DeleteFile(Output+'.linedata');
   DeleteFile(Output+'.bytecode');
  End;
 End;

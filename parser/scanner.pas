@@ -118,7 +118,7 @@ Begin
 
   if (Token.Token = _EOF) Then
   Begin
-   DevLog(dvInfo, 'TScanner.Create', 'reached `EOF` - finishing code parsing...');
+   DevLog(dvInfo, 'reached end of file - finishing code parsing...');
    Break;
   End;
 
@@ -645,7 +645,7 @@ Begin
 
  if (Expr^.Value = null) Then
  Begin
-  DevLog(dvError, 'TScanner.read_constant_expr_int', 'Error: TScanner.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
+  DevLog(dvError, 'Error: TScanner.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
   Exit(0);
  End;
 

@@ -247,7 +247,7 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
   Begin
    if (Value = null) Then
    Begin
-    DevLog(dvWarning, 'getType', 'Value = null; returned `nil`');
+    DevLog(dvWarning, 'Value = null; returned `nil`');
     Exit(nil);
    End;
 
@@ -533,7 +533,7 @@ Over:
 
  if (Result = nil) Then
  Begin
-  DevLog(dvInfo, 'CompileExpression::Parse', 'Result = nil; assuming `TYPE_ANY`');
+  DevLog(dvInfo, 'Result = nil; assuming `TYPE_ANY`');
   Exit(TYPE_ANY);
  End;
 
@@ -543,9 +543,15 @@ Over:
  if (FinalRegChar <> #0) Then
  Begin
   if (Push_IF_reg) Then
-   Compiler.PutOpcode(o_push, ['if']) Else // when values are compared, the comparing result is in the 'if' register
+  Begin
+   // when values are compared, the comparing result is in the 'if' register
+   Compiler.PutOpcode(o_push, ['if']);
+  End Else
+  Begin
    if (FinalRegChar in ['b', 'c', 'i', 'f', 's', 'r']) Then // is it valid FinalRegChar?
     Compiler.PutOpcode(o_push, ['e'+FinalRegChar+'1']); // save value onto the stack
+  End;
+
   Expr^.ResultOnStack := True;
 
   Inc(PushedValues);

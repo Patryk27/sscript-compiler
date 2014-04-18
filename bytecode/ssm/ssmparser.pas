@@ -1,26 +1,31 @@
 (*
  Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
+
+ SSM file writer and reader.
 *)
 {$H+}
 Unit SSMParser;
 
  Interface
- Uses SSCompiler, BCCompiler, Opcodes, Messages, symdef, Classes, Stream, Zipper;
+ Uses SSCompiler, BCCompiler, Opcodes, Messages, symdef, Classes, List, SysUtils, Stream, Zipper;
 
- Const SSM_version: uint16 = 2;
+ Const SSM_version: uint16 = 2; // 3
+
+ { ESSMParserExeption }
+ Type ESSMParserException = Class(Exception);
 
  { TBCFunction }
  Type TBCFunction =
       Record
-       Signature: String;
+       Signature: String; // 'Signature' is basically serialized form of the function
        Position : uint32;
       End;
 
  { TBCType }
  Type TBCType =
       Record
-       Name, Signature: String; // 'Signature' is basically serialized form of the type
+       Name, Signature: String;
       End;
 
  { TBCVariable }
@@ -29,22 +34,35 @@ Unit SSMParser;
        Name, Signature: String;
       End;
 
+ { TBCLineData }
+ Type TBCLineData =
+      Record
+       FileName, FunctionName: String;
+       FunctionLine          : uint32;
+      End;
+
+ { arrays }
+ Type TBCFunctionList = specialize TList<TBCFunction>;
+      TBCTypeList     = specialize TList<TBCType>;
+      TBCVariableList = specialize TList<TBCVariable>;
+      TBCLineDataList = specialize TList<TBCLineData>;
+
  { TSSMData }
  Type TSSMData =
       Record
        SSM_version: uint16;
 
-       LabelCount: uint32;
-       LabelList : Array of TBCLabel;
-
+       LabelCount   : uint32;
        FunctionCount: uint32;
-       FunctionList : Array of TBCFunction;
+       TypeCount    : uint32;
+       VarCount     : uint32;
+       LineDataCount: uint32;
 
-       TypeCount: uint32;
-       TypeList : Array of TBCType;
-
-       VarCount: uint32;
-       VarList : Array of TBCVariable;
+       LabelList   : TBCLabelList;
+       FunctionList: TBCFunctionList;
+       TypeList    : TBCTypeList;
+       VarList     : TBCVariableList;
+       LineDataList: TBCLineDataList;
       End;
 
  { TSSMWriter }
@@ -88,7 +106,9 @@ Unit SSMParser;
         Procedure ParseFunctions;
         Procedure ParseVariables;
 
+        Function findType(const NamespaceName, TypeName: String): TType;
         Function findNamespace(const Name: String): TNamespace;
+        Function findOrCreateNamespace(const Name: String): TNamespace;
 
        Public { methods }
         Constructor Create(const fFileName: String);
@@ -100,7 +120,7 @@ Unit SSMParser;
        End;
 
  Implementation
-Uses SysUtils, Variants, Logging, Serialization;
+Uses Variants, Logging, Serialization;
 
 (* SplitByDot *)
 Procedure SplitByDot(const Str: String; out Pre, Post: String);
@@ -128,98 +148,127 @@ Procedure TSSMWriter.Save;
    Zip.Entries.AddFileEntry(FileName+FName, FName);
   End;
 
-Var DataStream  : TStream;
-    LabelList   : Array of TBCLabel;
-    FunctionList: Array of TBCFunction;
-    TypeList    : Array of TBCType;
-    VarList     : Array of TBCVariable;
-    I           : int32; // keep this variable "signed"
-    Namespace   : TNamespace;
-    Symbol      : TSymbol;
+Var DataStream: TStream;
+
+    LabelList   : TBCLabelList;
+    FunctionList: TBCFunctionList;
+    TypeList    : TBCTypeList;
+    VarList     : TBCVariableList;
+    LineDataList: TBCLineDataList;
+
+    Namespace: TNamespace;
+    Symbol   : TSymbol;
+
+    BCLabel   : TBCLabel;
+    BCFunction: TBCFunction;
+    BCType    : TBCType;
+    BCVariable: TBCVariable;
 Begin
- Log('Saving a SSM file to: '+FileName);
+ Log('Saving a SSM file to: %s', [FileName]);
 
  // create classes
  Zip        := TZipper.Create;
  DataStream := TStream.Create;
 
  Try
-  SetLength(LabelList, 0);
-  SetLength(FunctionList, 0);
-  SetLength(TypeList, 0);
-  SetLength(VarList, 0);
+  LabelList := TBCLabelList.Create;
 
-  // prepare label list
-  For I := Low(BCCompiler.LabelList) To High(BCCompiler.LabelList) Do
-   if (BCCompiler.LabelList[I].isPublic) and (not BCCompiler.LabelList[I].isFunction) Then
+  FunctionList := TBCFunctionList.Create;
+  TypeList     := TBCTypeList.Create;
+  VarList      := TBCVariableList.Create;
+  LineDataList := TBCLineDataList.Create;
+
+  Try
+   // prepare label and function list
+   For BCLabel in BCCompiler.LabelList Do
    Begin
-    SetLength(LabelList, Length(LabelList)+1);
-    LabelList[High(LabelList)].Name     := BCCompiler.LabelList[I].Name;
-    LabelList[High(LabelList)].Position := BCCompiler.LabelList[I].Position;
-   End;
+    // skip private labels
+    if (not BCLabel.isPublic) Then
+     Break;
 
-  // prepare function list
-  For I := Low(BCCompiler.LabelList) To High(BCCompiler.LabelList) Do
-   if (BCCompiler.LabelList[I].isPublic) and (BCCompiler.LabelList[I].isFunction) and (BCCompiler.LabelList[I].FunctionSymbol.mFunction.RefSymbol.Visibility = mvPublic) Then
-   Begin
-    SetLength(FunctionList, Length(FunctionList)+1);
-    FunctionList[High(FunctionList)].Signature := BCCompiler.LabelList[I].Name;
-    FunctionList[High(FunctionList)].Position  := BCCompiler.LabelList[I].Position;
-   End;
+    // add it into the label list
+    LabelList.Add(BCLabel);
 
-  // prepare type list
-  For Namespace in SSCompiler.NamespaceList Do
-   For Symbol in Namespace.SymbolList Do
-    if (Symbol.Typ = stType) Then
+    // ... and check if it's a function label
+    if (BCLabel.isFunction) and (BCLabel.FunctionSymbol.Visibility = mvPublic) Then
     Begin
-     SetLength(TypeList, Length(TypeList)+1);
-     TypeList[High(TypeList)].Name      := Symbol.getFullName;
-     TypeList[High(TypeList)].Signature := Symbol.mType.getSerializedForm;
+     BCFunction.Signature := BCLabel.Name;
+     BCFunction.Position  := BCLabel.Position;
+
+     FunctionList.Add(BCFunction);
+    End;
+   End;
+
+   // prepare type and variable list
+   For Namespace in SSCompiler.NamespaceList Do
+   Begin
+    For Symbol in Namespace.SymbolList Do
+    Begin
+     // if type
+     if (Symbol.Typ = stType) Then // @TODO: why save internal types?
+     Begin
+      BCType.Name      := Symbol.getFullName;
+      BCType.Signature := Symbol.mType.getSerializedForm;
+
+      TypeList.Add(BCType);
+     End Else
+
+     // if variable
+     if (Symbol.Typ = stVariable) and (not Symbol.isInternal) Then
+     Begin
+      BCVariable.Name      := Symbol.getFullName;
+      BCVariable.Signature := Symbol.mVariable.getSerializedForm;
+
+      VarList.Add(BCVariable);
+     End;
+    End;
+   End;
+
+   // write SSM data
+   With DataStream do
+   Begin
+    write_uint16(SSM_version);
+
+    write_uint32(LabelList.Count);
+    write_uint32(FunctionList.Count);
+    write_uint32(TypeList.Count);
+    write_uint32(VarList.Count);
+
+    // write labels
+    For BCLabel in LabelList Do
+    Begin
+     write_string(BCLabel.Name);
+     write_uint32(BCLabel.Position);
     End;
 
-  // prepare var list
-  For Namespace in SSCompiler.NamespaceList Do
-   For Symbol in Namespace.SymbolList Do
-    if (Symbol.Typ = stVariable) and (not Symbol.isInternal) Then
+    // write functions
+    For BCFunction in FunctionList Do
     Begin
-     SetLength(VarList, Length(VarList)+1);
-     VarList[High(VarList)].Name      := Symbol.getFullName;
-     VarList[High(VarList)].Signature := Symbol.mVariable.getSerializedForm;
+     write_string(BCFunction.Signature);
+     write_uint32(BCFunction.Position);
     End;
 
-  // write SSM data
-  With DataStream do
-  Begin
-   write_uint16(SSM_version);
+    // write types
+    For BCType in TypeList Do
+    Begin
+     write_string(BCType.Name);
+     write_string(BCType.Signature);
+    End;
 
-   write_uint32(Length(LabelList));
-   write_uint32(Length(FunctionList));
-   write_uint32(Length(TypeList));
-   write_uint32(Length(VarList));
-
-   For I := Low(LabelList) To High(LabelList) Do
-   Begin
-    write_string(LabelList[I].Name);
-    write_uint32(LabelList[I].Position);
+    // write variables
+    For BCVariable in VarList Do
+    Begin
+     write_string(BCVariable.Name);
+     write_string(BCVariable.Signature);
+    End;
    End;
-
-   For I := Low(FunctionList) To High(FunctionList) Do
-   Begin
-    write_string(FunctionList[I].Signature);
-    write_uint32(FunctionList[I].Position);
-   End;
-
-   For I := Low(TypeList) To High(TypeList) Do
-   Begin
-    write_string(TypeList[I].Name);
-    write_string(TypeList[I].Signature);
-   End;
-
-   For I := Low(VarList) To High(VarList) Do
-   Begin
-    write_string(VarList[I].Name);
-    write_string(VarList[I].Signature);
-   End;
+  Finally
+   // free resources
+   LabelList.Free;
+   FunctionList.Free;
+   TypeList.Free;
+   VarList.Free;
+   LineDataList.Free;
   End;
 
   // save ZIP
@@ -252,13 +301,13 @@ Procedure TSSMReader.ReadHeader(const AStream: TStream);
 Var magic_number                : uint32;
     version_major, version_minor: uint8;
 
-    { EndingZero }
-    Function EndingZero(const Text: String): String;
-    Begin
-     if (Length(Text) = 1) Then
-      Exit(Text+'0') Else
-      Exit(Text);
-    End;
+  { EndingZero }
+  Function EndingZero(const Text: String): String;
+  Begin
+   if (Length(Text) = 1) Then
+    Exit(Text+'0') Else
+    Exit(Text);
+  End;
 
 Begin
  magic_number := AStream.read_uint32;
@@ -283,11 +332,17 @@ End;
 
 (* TSSMReader.ReadSSMData *)
 Procedure TSSMReader.ReadSSMData(const AStream: TStream);
-Var I: uint32;
-Begin
- SSMData.SSM_version := AStream.read_uint16; // read version
+Var BCLabel   : TBCLabel;
+    BCFunction: TBCFunction;
+    BCType    : TBCType;
+    BCVariable: TBCVariable;
 
- { check version }
+    I: uint32;
+Begin
+ // read version
+ SSMData.SSM_version := AStream.read_uint16;
+
+ // check version
  if (SSMData.SSM_version <> SSM_version) Then
  Begin
   Log('Invalid SSM file version: '+IntToStr(SSMData.SSM_version)+', expecting: '+IntToStr(SSM_version));
@@ -297,64 +352,77 @@ Begin
 
  With SSMData do
  Begin
+  // read few numbers
   LabelCount    := AStream.read_uint32;
   FunctionCount := AStream.read_uint32;
   TypeCount     := AStream.read_uint32;
   VarCount      := AStream.read_uint32;
 
-  Log(IntToStr(LabelCount)+' labels to be read.');
-  Log(IntToStr(FunctionCount)+' functions to be read.');
-  Log(IntToStr(TypeCount)+' types to be read.');
-  Log(IntToStr(VarCount)+' variables to be read.');
+  Log('%d labels to be read.', [LabelCount]);
+  Log('%d functions to be read.', [FunctionCount]);
+  Log('%d types to be read.', [TypeCount]);
+  Log('%d variables to be read.', [VarCount]);
 
-  // allocate arrays
-  SetLength(LabelList, LabelCount);
-  SetLength(FunctionList, FunctionCount);
-  SetLength(TypeList, TypeCount);
-  SetLength(VarList, VarCount);
+  // allocate lists
+  LabelList    := TBCLabelList.Create(LabelCount);
+  FunctionList := TBCFunctionList.Create(FunctionCount);
+  TypeList     := TBCTypeList.Create(TypeCount);
+  VarList      := TBCVariableList.Create(VarCount);
 
   // read label list
   if (LabelCount > 0) Then
+  Begin
    For I := 0 To LabelCount-1 Do
    Begin
-    LabelList[I].Name     := AStream.read_string;
-    LabelList[I].Position := AStream.read_uint32;
+    BCLabel.Name     := AStream.read_string;
+    BCLabel.Position := AStream.read_uint32;
 
-    DevLog(dvInfo, 'TSSMReader.ReadHeader', 'Label #'+IntToStr(I)+' -> name='''+LabelList[I].Name+'''; position=0x'+IntToHex(LabelList[I].Position, 8));
+    DevLog(dvInfo, 'Label #%d -> name=''%s''; position=0x%x', [I, BCLabel.Name, BCLabel.Position]);
+    LabelList[I] := BCLabel;
    End;
+  End;
 
   // read function list
   if (FunctionCount > 0) Then
+  Begin
    For I := 0 To FunctionCount-1 Do
    Begin
-    FunctionList[I].Signature := AStream.read_string;
-    FunctionList[I].Position  := AStream.read_uint32;
+    BCFunction.Signature := AStream.read_string;
+    BCFunction.Position  := AStream.read_uint32;
 
-    DevLog(dvInfo, 'TSSMReader.ReadHeader', 'Function #'+IntToStr(I)+' -> signature='''+FunctionList[I].Signature+'''; position=0x'+IntToHex(FunctionList[I].Position, 8));
+    DevLog(dvInfo, 'Function #%d -> signature=''%s''; position=0x%x', [I, BCFunction.Signature, BCFunction.Position]);
+    FunctionList[I] := BCFunction;
    End;
+  End;
 
   // read type list
   if (TypeCount > 0) Then
+  Begin
    For I := 0 To TypeCount-1 Do
    Begin
-    TypeList[I].Name      := AStream.read_string;
-    TypeList[I].Signature := AStream.read_string;
+    BCType.Name      := AStream.read_string;
+    BCType.Signature := AStream.read_string;
 
-    DevLog(dvInfo, 'TSSMReader.ReadHeader', 'Type #'+IntToStr(I)+' -> name='''+TypeList[I].Name+'''; signature='''+TypeList[I].Signature+'''');
+    DevLog(dvInfo, 'Type #%d -> name=''%s''; signature==''%s''', [I, BCType.Name, BCType.Signature]);
+    TypeList[I] := BCType;
    End;
+  End;
 
   // read variable list
   if (VarCount > 0) Then
+  Begin
    For I := 0 To VarCount-1 Do
    Begin
-    VarList[I].Name      := AStream.read_string;
-    VarList[I].Signature := AStream.read_string;
+    BCVariable.Name      := AStream.read_string;
+    BCVariable.Signature := AStream.read_string;
 
-    DevLog(dvInfo, 'TSSMReader.ReadHeader', 'Variable #'+IntToStr(I)+' -> name='''+VarList[I].Name+'''; signature='''+VarList[I].Signature+'''');
+    DevLog(dvInfo, 'Variable #%d -> name=''%s''; signature=''%s''', [I, BCVariable.Name, BCVariable.Signature]);
+    VarList[I] := BCVariable;
    End;
+  End;
 
   if (AStream.Can) Then
-   Log('This SSM file is possibly broken - some unread data are still in the ''.ssm_data'' ('+IntToStr(AStream.Size-AStream.Position)+' bytes left)');
+   Log('This SSM file is possibly broken - some unread data are still in the ''.ssm_data'' (%d bytes left)', [AStream.Size-AStream.Position]);
  End;
 End;
 
@@ -375,30 +443,54 @@ End;
  Reads and parses opcodes from the stream
 }
 Procedure TSSMReader.ReadOpcodes(const AStream: TStream);
-Var I, ParamC: int32;
-    MOpcode  : PMOpcode;
-    LabelName: String;
+Var StreamPosition: uint32;
+    LabelName     : String;
+    MOpcode       : PMOpcode;
+
+    FunctionList: TBCFunctionList;
+    LabelList   : TBCLabelList;
+
+    I, ParamC: int32;
 Begin
- { read opcodes }
+ // prepare variables
+ FunctionList := SSMData.FunctionList;
+ LabelList    := SSMData.LabelList;
+
+ // read opcodes
  While (AStream.Can) Do
  Begin
-  LabelName := '';
+  LabelName      := '';
+  StreamPosition := AStream.Position;
 
-  For I := 0 To High(SSMData.FunctionList) Do
-   if (SSMData.FunctionList[I].Position = AStream.Position) Then // function label declaration
+  // check if some function shouldn't be placed at this position
+  For I := 0 To FunctionList.Count-1 Do
+  Begin
+   if (FunctionList[I].Position = StreamPosition) Then
    Begin
-    LabelName := SSMData.FunctionList[I].Signature;
+    LabelName := FunctionList[I].Signature;
     Break;
    End;
 
+   // @TODO: if (FunctionList[I].Position > StreamPosition) Then Break; (?)
+   //        or save previous read function index and begin the next loop fom that index
+  End;
+
+  // if no function, maybe some label
   if (Length(LabelName) = 0) Then
-   For I := 0 To High(SSMData.LabelList) Do
-    if (SSMData.LabelList[I].Position = AStream.Position) Then // some public label declaration
+  Begin
+   For I := 0 To LabelList.Count-1 Do
+   Begin
+    if (LabelList[I].Position = StreamPosition) Then // some public label declaration
     Begin
-     LabelName := SSMData.LabelList[I].Name;
+     LabelName := LabelList[I].Name;
      Break;
     End;
+   End;
 
+   // @TODO: as to FunctionLists
+  End;
+
+  // place label
   if (Length(LabelName) > 0) Then
   Begin
    New(MOpcode);
@@ -422,7 +514,9 @@ Begin
 
   // read opcode's parameters
   With MOpcode^ do
+  Begin
    For I := 0 To ParamC-1 Do
+   Begin
     With Args[I] do
     Begin
      Typ := TPrimaryType(AStream.read_uint8);
@@ -441,6 +535,8 @@ Begin
        Value := AStream.read_int32;
      End;
     End;
+   End;
+  End;
 
   // add opcode onto the list
   OpcodeList.Add(MOpcode);
@@ -470,7 +566,7 @@ Begin
   '.bytecode'  : ReadOpcodes(NStream);
 
   else
-   raise Exception.CreateFmt('Unknown archive file name: %s', [AItem.ArchiveFileName]);
+   raise ESSMParserException.CreateFmt('Unknown archive file name: %s', [AItem.ArchiveFileName]);
  End;
 
  AStream.Free;
@@ -478,201 +574,228 @@ End;
 
 (* TSSMReader.ParseTypes *)
 Procedure TSSMReader.ParseTypes;
-Var ID                     : uint32;
-    Data                   : TUnserializer;
-    mType                  : TType;
-    mNamespace             : TNamespace;
+Var BCType: TBCType;
+    Data  : TUnserializer;
+
+    mType     : TType;
+    mNamespace: TNamespace;
+
     NamespaceName, TypeName: String;
 Begin
- Log('Parsing types...');
+ // log
+ Log('Parsing types (%d to parse)...', [SSMData.TypeCount]);
 
+ // check if we have anything to parse
  if (SSMData.TypeCount = 0) Then
   Exit;
 
- With SSMData do
+ // iterate each type
+ For BCType in SSMData.TypeList Do
  Begin
-  For ID := Low(TypeList) To High(TypeList) Do
-  Begin
-   SplitByDot(TypeList[ID].Name, NamespaceName, TypeName); // namespace_name . type_name
+  SplitByDot(BCType.Name, NamespaceName, TypeName); // namespace_name . type_name
 
-   mNamespace := findNamespace(NamespaceName);
-   if (mNamespace = nil) Then
-   Begin
-    mNamespace                := TNamespace.Create;
-    mNamespace.RefSymbol.Name := NamespaceName;
-    NamespaceList.Add(mNamespace);
-   End;
+  mNamespace := findOrCreateNamespace(NamespaceName);
 
-   Data := TUnserializer.Create(TypeList[ID].Signature);
+  Data := TUnserializer.Create(BCType.Signature);
+  Try
+   mType                         := TType.Create(Data);
+   mType.RefSymbol.Name          := TypeName;
+   mType.RefSymbol.DeclNamespace := mNamespace;
 
-   Try
-    mType                         := TType.Create(Data);
-    mType.RefSymbol.Name          := TypeName;
-    mType.RefSymbol.DeclNamespace := mNamespace;
-
-    mNamespace.SymbolList.Add(TSymbol.Create(stType, mType));
-   Finally
-    Data.Free;
-   End;
+   mNamespace.SymbolList.Add(TSymbol.Create(stType, mType));
+  Finally
+   Data.Free;
   End;
  End;
 End;
 
 (* TSSMReader.ParseFunctions *)
 Procedure TSSMReader.ParseFunctions;
-Var ID, Q                                : uint32;
-    Data                                 : TUnserializer;
-    mSymbol                              : TSymbol;
-    mFunction                            : TFunction;
-    FuncNamespace, TmpNamespace          : TNamespace;
+Var Param: int8;
+
+    BCFunction: TBCFunction;
+    Data      : TUnserializer;
+
+    mFunction: TFunction;
+
+    ParamListNode: Serialization.TNode;
+
+    FuncNamespace                        : TNamespace;
     NamespaceName, FunctionName, TypeName: String;
 Begin
- Log('Parsing functions...');
+ // log
+ Log('Parsing functions (%d to parse)...', [SSMData.FunctionCount]);
 
+ // check if we have anything to parse
  if (SSMData.FunctionCount = 0) Then
   Exit;
 
- With SSMData do
+ // iterate each function
+ For BCFunction in SSMData.FunctionList Do
  Begin
-  For ID := Low(FunctionList) To High(FunctionList) Do
-  Begin
-   Data := TUnserializer.Create(FunctionList[ID].Signature);
+  Data := TUnserializer.Create(BCFunction.Signature);
 
-   Try
-    if (Data.getRoot[0].getString <> 'function') Then
-     raise Exception.Create('TSSMReader.ParseFunctions() failed -> expected a function signature.');
+  Try
+   // basic check
+   if (Data.getRoot[0].getString <> 'function') Then
+    raise ESSMParserException.Create('Expected a function signature.');
 
-    SplitByDot(Data.getRoot[1].getString, NamespaceName, FunctionName); // namespace_name . function_name
+   // separate namespace and function name
+   SplitByDot(Data.getRoot[1].getString, NamespaceName, FunctionName);
 
-    FuncNamespace := findNamespace(NamespaceName);
-    if (FuncNamespace = nil) Then
+   // fetch namespace
+   FuncNamespace := findOrCreateNamespace(NamespaceName);
+
+   // create this function
+   mFunction           := TFunction.Create;
+   mFunction.LabelName := BCFunction.Signature;
+
+   mFunction.RefSymbol.Name          := FunctionName;
+   mFunction.RefSymbol.DeclNamespace := FuncNamespace;
+  // mFunction.RefVar @TODO
+
+   // parse return type
+   if (Data.getRoot[3].getType = ntValue) Then
+   Begin
+    // separate namespace and type name
+    SplitByDot(Data.getRoot[3].getString, NamespaceName, TypeName);
+
+    // find type
+    mFunction.Return := findType(NamespaceName, TypeName);
+   End Else
+   Begin
+    // parse type
+    mFunction.Return := TType.Create(Data.getRoot[3]);
+   End;
+
+   // check return type
+   if (mFunction.Return = nil) Then
+    raise ESSMParserException.Create('Couldn''t parse function return type.');
+
+   // parse parameter list
+   SetLength(mFunction.ParamList, Data.getRoot[4].getInt);
+
+   ParamListNode := Data.getRoot[5];
+   For Param := 0 To High(mFunction.ParamList) Do
+   Begin
+    if (ParamListNode[Param].getType = ntValue) Then
     Begin
-     FuncNamespace                := TNamespace.Create;
-     FuncNamespace.RefSymbol.Name := NamespaceName;
-     NamespaceList.Add(FuncNamespace);
-    End;
+     // split name
+     SplitByDot(ParamListNode[Param].getString, NamespaceName, TypeName);
 
-    mFunction                         := TFunction.Create; // create a new function
-    mFunction.LabelName               := FunctionList[ID].Signature;
-    mFunction.RefSymbol.Name          := FunctionName;
-    mFunction.RefSymbol.DeclNamespace := FuncNamespace;
-   // mFunction.RefVar @TODO
-
-    { parse return type }
-    if (Data.getRoot[3].getType = ntValue) Then
-    Begin
-     SplitByDot(Data.getRoot[3].getString, NamespaceName, TypeName); // namespace_name . type_name
-
-     TmpNamespace := findNamespace(NamespaceName); // find namespace
-     if (TmpNamespace = nil) Then
-      raise Exception.CreateFmt('TSSMReader.ParseFunctions() failed -> unknown namespace: ''%s'' (tried to parse return type ''%s'' of function ''%s'')', [NamespaceName, TypeName, FunctionName]);
-
-     mSymbol := TmpNamespace.findSymbol(TypeName); // find symbol
-     if (mSymbol = nil) Then
-      raise Exception.CreateFmt('TSSMReader.ParseFunctions() failed -> unknown type: ''%s'' (tried to parse return type of function ''%s'')', [TypeName, FunctionName]);
-
-     mFunction.Return := mSymbol.mType;
+     // find type
+     mFunction.ParamList[Param].Typ := findType(NamespaceName, TypeName);
     End Else
     Begin
-     mFunction.Return := TType.Create(Data.getRoot[3]);
+     // parse type
+     mFunction.ParamList[Param].Typ := TType.Create(ParamListNode[Param]);
     End;
 
-    { parse parameter list }
-    SetLength(mFunction.ParamList, Data.getRoot[4].getInt);
-    if (Length(mFunction.ParamList) > 0) Then
-     For Q := 0 To High(mFunction.ParamList) Do
-     Begin
-      if (Data.getRoot[5][Q].getType = ntValue) Then
-      Begin
-       SplitByDot(Data.getRoot[5][Q].getString, NamespaceName, TypeName);
-
-       TmpNamespace := findNamespace(NamespaceName); // find namespace
-       if (TmpNamespace = nil) Then
-        raise Exception.CreateFmt('TSSMReader.ParseFunctions() failed -> unknown namespace: ''%s'' (tried to parse parameter type #%d of function ''%s'')', [NamespaceName, Q, FunctionName]);
-
-       mSymbol := TmpNamespace.findSymbol(TypeName); // find symbol
-       if (mSymbol = nil) Then
-        raise Exception.CreateFmt('TSSMReader.ParseFunctions() failed -> unknown type: ''%s'' (tried to parse parameter #%d of function ''%s'')', [TypeName, Q, FunctionName]);
-
-       mFunction.ParamList[Q].Typ := mSymbol.mType;
-      End Else
-      Begin
-       mFunction.ParamList[Q].Typ := TType.Create(Data.getRoot[5][Q]);
-      End;
-     End;
-
-    { add this function to the symbol list }
-    FuncNamespace.SymbolList.Add(TSymbol.Create(stFunction, mFunction));
-   Finally
-    Data.Free;
+    if (mFunction.ParamList[Param].Typ = nil) Then
+     raise ESSMParserException.CreateFmt('Couldn''t parse function parameter (param index=%d)', [Param]);
    End;
+
+   // eventualy insert this function to the symbol list
+   FuncNamespace.SymbolList.Add(TSymbol.Create(stFunction, mFunction));
+  Finally
+   Data.Free;
   End;
  End;
 End;
 
 (* TSSMReader.ParseVariables *)
 Procedure TSSMReader.ParseVariables;
-Var ID                              : uint32;
-    Data                            : TUnserializer;
-    mSymbol                         : TSymbol;
-    mVariable                       : TVariable;
-    TmpNamespace, VarNamespace      : TNamespace;
+Var BCVariable: TBCVariable;
+    Data      : TUnserializer;
+
+    mVariable: TVariable;
+
+    VarNamespace                    : TNamespace;
     NamespaceName, VarName, TypeName: String;
 Begin
- Log('Parsing variables...');
+ // log
+ Log('Parsing variables (%d to parse)...', [SSMData.VarCount]);
 
+ // check if we have anything to parse
  if (SSMData.VarCount = 0) Then
   Exit;
 
- With SSMData do
+ // iterate each varible
+ For BCVariable in SSMData.VarList Do
  Begin
-  For ID := Low(VarList) To High(VarList) Do
-  Begin
-   SplitByDot(VarList[ID].Name, NamespaceName, VarName); // namespeace_name . variable_name
+  // separate namespace and variable name
+  SplitByDot(BCVariable.Name, NamespaceName, VarName);
 
-   VarNamespace := findNamespace(NamespaceName);
-   if (VarNamespace = nil) Then
+  // fetch namespace
+  VarNamespace := findOrCreateNamespace(NamespaceName);
+
+  // unserialize variable
+  Data := TUnserializer.Create(BCVariable.Signature);
+
+  Try
+   mVariable                         := TVariable.Create(Data);
+   mVariable.RefSymbol.Name          := VarName;
+   mVariable.RefSymbol.DeclNamespace := VarNamespace;
+
+   if (mVariable.Typ = nil) Then
    Begin
-    VarNamespace                := TNamespace.Create;
-    VarNamespace.RefSymbol.Name := NamespaceName;
-    NamespaceList.Add(VarNamespace);
+    // split namespace and type name
+    SplitByDot(Data.getRoot[2].getString, NamespaceName, TypeName);
+
+    // find type
+    mVariable.Typ := findType(NamespaceName, TypeName);
    End;
 
-   Data := TUnserializer.Create(VarList[ID].Signature);
+   mVariable.LocationData.Location      := vlMemory;
+   mVariable.LocationData.MemSymbolName := BCVariable.Signature;
 
-   Try
-    mVariable                         := TVariable.Create(Data);
-    mVariable.RefSymbol.Name          := VarName;
-    mVariable.RefSymbol.DeclNamespace := VarNamespace;
-
-    if (mVariable.Typ = nil) Then
-    Begin
-     { parse variable type }
-     SplitByDot(Data.getRoot[2].getString, NamespaceName, TypeName); // namespace_name . type_name
-
-     TmpNamespace := findNamespace(NamespaceName);
-     if (TmpNamespace = nil) Then
-      raise Exception.CreateFmt('TSSMReader.ParseVariables() failed -> unknown namespace: ''%s'' (tried to parse type ''%s'' of variable ''%s'')', [NamespaceName, TypeName, VarName]);
-
-     mSymbol := TmpNamespace.findSymbol(TypeName);
-     if (mSymbol = nil) Then
-      raise Exception.CreateFmt('TSSMReader.ParseVariables() failed -> unknown symbol: ''%s'' (tried to parse type of variable ''%s'')', [TypeName, VarName]);
-
-     mVariable.Typ := mSymbol.mType;
-    End;
-
-    mVariable.LocationData.Location      := vlMemory;
-    mVariable.LocationData.MemSymbolName := VarList[ID].Signature;
-
-    VarNamespace.SymbolList.Add(TSymbol.Create(stVariable, mVariable));
-   Finally
-    Data.Free;
-   End;
+   // insert variable to the symbol list
+   VarNamespace.SymbolList.Add(TSymbol.Create(stVariable, mVariable));
+  Finally
+   Data.Free;
   End;
  End;
 End;
 
+(* TSSMReader.findType *)
+{
+ Returns type with specified name and namespace (or nil, if such wasn't be found).
+}
+Function TSSMReader.findType(const NamespaceName, TypeName: String): TType;
+Var Namespace: TNamespace;
+    Symbol   : TSymbol;
+Begin
+ // get namespace
+ Namespace := findNamespace(NamespaceName);
+ if (Namespace = nil) Then
+ Begin
+  DevLog(dvWarning, 'Unknown namespace: %s', [NamespaceName]);
+  Exit(nil);
+ End;
+
+ // get symbol
+ Symbol := Namespace.findSymbol(TypeName);
+ if (Symbol = nil) Then
+ Begin
+  DevLog(dvWarning, 'Unknown symbol: %s::%s', [NamespaceName, TypeName]);
+  Exit(nil);
+ End;
+
+ // check symbol kind
+ if (Symbol.Typ <> stType) Then
+ Begin
+  DevLog(dvWarning, 'Invalid symbol type (symbol: %s::%s)', [NamespaceName, TypeName]);
+  Exit(nil);
+ End;
+
+ // eventually return the type
+ Result := Symbol.mType;
+End;
+
 (* TSSMReader.findNamespace *)
+{
+ Returns namespace with specified name (or nil, if such wasn't have been found).
+}
 Function TSSMReader.findNamespace(const Name: String): TNamespace;
 Begin
  For Result in NamespaceList Do
@@ -680,6 +803,22 @@ Begin
    Exit;
 
  Exit(nil);
+End;
+
+(* TSSMReader.findOrCreateNamespace *)
+{
+ Returns namespace with specified name or creates and returns it.
+}
+Function TSSMReader.findOrCreateNamespace(const Name: String): TNamespace;
+Begin
+ Result := findNamespace(Name);
+
+ if (Result = nil) Then
+ Begin
+  Result                := TNamespace.Create;
+  Result.RefSymbol.Name := Name;
+  NamespaceList.Add(Result);
+ End;
 End;
 
 (* TSSMReader.Create *)

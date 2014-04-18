@@ -1,6 +1,6 @@
 Bytecode version: 0.42
 
-1 byte - byte - opcode type (see `\bytecode\Opcodes.pas` for the opcode list)
+1 byte - byte - opcode type (see `\bytecode\opcodes.pas` for the opcode list)
   [for each opcode argument (parameter)]
 	1 byte - byte - argument type
 	
@@ -23,7 +23,7 @@ Bytecode version: 0.42
 		x bytes - byte/char - subsequent ASCII chars; string is null-terminated (it means it ends with char `0x00`)
 
 	[if `type` is `constant memory reference`]
-		
+		4 bytes - uint64 - referenced address
 
 	[if `type` is anything else]
 		4 bytes - integer - signed integer value

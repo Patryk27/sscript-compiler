@@ -230,7 +230,7 @@ Var Origin: TCFGNode;
 Begin
  if (Symbol = nil) Then
  Begin
-  DevLog(dvError, 'FetchSSAVarID', 'Function called with `Symbol = nil` (shouldn''t happen!)');
+  DevLog(dvError, 'Function called with `Symbol = nil`');
   Exit;
  End;
 
@@ -251,7 +251,7 @@ Begin
 
  if (Length(Result.Values) = 0) Then
  Begin
-  DevLog(dvWarning, 'FetchSSAVarID', 'Couldn''t fetch variable''s SSA id; var = '+TSymbol(Symbol).Name+', line = '+IntToStr(Origin.getToken^.Line));
+  DevLog(dvWarning, 'Couldn''t fetch variable''s SSA id; var=%s, line=%d', [TSymbol(Symbol).Name, Origin.getToken^.Line]);
 
   With TSymbol(Symbol).mVariable do
    if (not isConst) and (not isFuncParam) and (not isCatchVar) and (RefSymbol.isLocal) Then

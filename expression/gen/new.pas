@@ -37,7 +37,7 @@ Begin
 
   if (TmpType = nil) Then
   Begin
-   DevLog(dvInfo, 'ParseNEW', 'TmpType = nil; leaving...');
+   DevLog(dvInfo, 'TmpType = nil; leaving...');
    Exit;
   End;
 

@@ -96,7 +96,7 @@ Begin
 
   if (OpcodeList.Count = 0) Then
   Begin
-   DevLog(dvInfo, 'OptimizeBytecode', 'OpcodeList.Count = 0; no optimization(s) can be done!');
+   DevLog(dvInfo, 'OpcodeList.Count = 0; no optimization(s) can be done!');
    Exit;
   End;
 

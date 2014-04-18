@@ -818,7 +818,8 @@ Var VisitedNodes: TCFGNodeList;
       End;
 
       if (Length(Expr^.SSA.Values) = 0) Then
-       DevLog(dvWarning, 'RemapSSA', 'SSA remapping may failed: some variable use (at line '+IntToStr(Expr^.Token.Line)+') has been left without a corresponding SSA ID; this may lead to undefined behavior unless optimizer takes care of it (which is expected to happen).');
+       DevLog(dvWarning, 'SSA remapping may failed: some variable use (at line %d) has been left without a corresponding SSA ID;'+
+                         'this may lead to undefined behavior unless optimizer takes care of it (which is expected to happen).', [Expr^.Token.Line]);
      End;
     End;
    End;

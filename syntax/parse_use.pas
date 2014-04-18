@@ -15,20 +15,20 @@ Begin
   While (true) Do
   Begin
    // next namespace
-   Name := read_ident;
-
+   Name      := read_ident;
    Namespace := findNamespace(Name);
+
    if (Namespace = nil) Then
    Begin
     CompileError(eUnknownNamespace, [Name]);
-    Exit;
+   End Else
+   Begin
+    New(NamespaceVisibility);
+    NamespaceVisibility^.Namespace := Namespace;
+    NamespaceVisibility^.Range     := getCurrentRange;
+
+    NamespaceVisibilityList.Add(NamespaceVisibility);
    End;
-
-   New(NamespaceVisibility);
-   NamespaceVisibility^.Namespace := Namespace;
-   NamespaceVisibility^.Range     := getCurrentRange;
-
-   NamespaceVisibilityList.Add(NamespaceVisibility);
 
    // check
    if (next_t = _SEMICOLON) Then
