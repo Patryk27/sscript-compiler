@@ -50,26 +50,19 @@ Var Frame, Address: Pointer;
 
     FunctionName, SourceFile: ShortString;
     FunctionLine            : Integer;
-
-    Counter: uint8 = 0;
 Begin
  if (DevlogEnabled) Then
  Begin
-  Repeat
-   FunctionName := 'unknown';
-   SourceFile   := 'unknown';
-   FunctionLine := -1;
+  FunctionName := 'unknown';
+  SourceFile   := 'unknown';
+  FunctionLine := -1;
 
-   Frame   := get_frame;
-   Address := get_caller_addr(Frame);
+  Frame   := get_caller_frame(get_frame);
+  Address := get_caller_addr(Frame);
 
-   GetLineInfo(uint32(Address), FunctionName, SourceFile, FunctionLine);
+  GetLineInfo(uint32(Address), FunctionName, SourceFile, FunctionLine);
 
-   Frame := get_caller_frame(Frame);
-   Inc(Counter);
-  Until (FunctionName <> 'DEVLOG') or (Counter > 3); // small trick, because it used not to return valid caller name but "DEVLOG" sometimes
-
-  Writeln('[', VerbosityStr[Verbosity], '] ', FunctionName, '() -> ', SysUtils.Format(Format, Args));
+  Writeln('[', VerbosityStr[Verbosity], '] ', FunctionName, '():', FunctionLine, ' -> ', SysUtils.Format(Format, Args));
  End;
 End;
 
