@@ -384,6 +384,9 @@ Var N, I: uint32;
     Tmp : TDBGLineData;
 Begin
  // @TODO: use quicksort or sth
+ if (dbgLineDataList.Count < 2) Then
+  Exit;
+
  N := dbgLineDataList.Count-1;
 
  Repeat
