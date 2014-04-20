@@ -11,6 +11,8 @@ Unit Lexer;
  Type TLexer =
       Class
        Private
+        FileName: String;
+
         Input   : String;
         Position: uint32;
 
@@ -25,7 +27,7 @@ Unit Lexer;
         Function getToken: TToken;
 
        Public
-        Constructor Create(Lines: TStringList);
+        Constructor Create(const fFileName: String; const Lines: TStringList);
 
         Function getToken_P: TToken_P;
         Function Can: Boolean;
@@ -492,9 +494,13 @@ End;
 {
  Tokenizes code given in `TStringList`.
 }
-Constructor TLexer.Create(Lines: TStringList);
+Constructor TLexer.Create(const fFileName: String; const Lines: TStringList);
 Var I: Integer;
 Begin
+ // save file name for future use
+ FileName := fFileName;
+
+ // concatenate lines
  Input := '';
 
  For I := 0 To Lines.Count-1 Do
@@ -548,8 +554,9 @@ Begin
  Result.Value    := null;
  Result.Position := Position;
 
- Result.Line := getLine;
- Result.Char := getChar;
+ Result.Line     := getLine;
+ Result.Char     := getChar;
+ Result.FileName := FileName;
 
  if (Result.Char > 0) Then
   Dec(Result.Char);

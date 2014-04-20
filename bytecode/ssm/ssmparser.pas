@@ -8,9 +8,9 @@
 Unit SSMParser;
 
  Interface
- Uses SSCompiler, BCCompiler, Opcodes, Messages, symdef, Classes, List, SysUtils, Stream, Zipper;
+ Uses BCCompiler, SSCompiler, BCDebug, Opcodes, Messages, symdef, Classes, List, SysUtils, Stream, Zipper;
 
- Const SSM_version: uint16 = 2; // 3
+ Const SSM_version: uint16 = 3;
 
  { ESSMParserExeption }
  Type ESSMParserException = Class(Exception);
@@ -20,6 +20,8 @@ Unit SSMParser;
       Record
        Signature: String; // 'Signature' is basically serialized form of the function
        Position : uint32;
+
+       Symbol: TSymbol; // not saved to the SSM file - used only as helper during the generation of the debug data
       End;
 
  { TBCType }
@@ -34,35 +36,27 @@ Unit SSMParser;
        Name, Signature: String;
       End;
 
- { TBCLineData }
- Type TBCLineData =
-      Record
-       FileName, FunctionName: String;
-       FunctionLine          : uint32;
-      End;
-
  { arrays }
  Type TBCFunctionList = specialize TList<TBCFunction>;
       TBCTypeList     = specialize TList<TBCType>;
       TBCVariableList = specialize TList<TBCVariable>;
-      TBCLineDataList = specialize TList<TBCLineData>;
 
  { TSSMData }
  Type TSSMData =
       Record
+       // SSM file version
        SSM_version: uint16;
 
+       // file data
        LabelCount   : uint32;
        FunctionCount: uint32;
        TypeCount    : uint32;
        VarCount     : uint32;
-       LineDataCount: uint32;
 
        LabelList   : TBCLabelList;
        FunctionList: TBCFunctionList;
        TypeList    : TBCTypeList;
        VarList     : TBCVariableList;
-       LineDataList: TBCLineDataList;
       End;
 
  { TSSMWriter }
@@ -89,13 +83,18 @@ Unit SSMParser;
         LoadOK  : Boolean;
 
         SSMData      : TSSMData;
+        DebugData    : TDebugData;
         References   : String;
         NamespaceList: TNamespaceList;
         OpcodeList   : TOpcodeList;
 
+        SSCompiler        : SSCompiler.TCompiler;
+        LastCompilerOpcode: PMOpcode;
+
        Private { methods }
         Procedure ReadHeader(const AStream: TStream);
         Procedure ReadSSMData(const AStream: TStream);
+        Procedure ReadDebugData(const AStream: TStream);
         Procedure ReadReferences(const AStream: TStream);
         Procedure ReadOpcodes(const AStream: TStream);
 
@@ -106,21 +105,27 @@ Unit SSMParser;
         Procedure ParseFunctions;
         Procedure ParseVariables;
 
+        Function findLabel(const Name: String): PMOpcode;
+
         Function findType(const NamespaceName, TypeName: String): TType;
         Function findNamespace(const Name: String): TNamespace;
         Function findOrCreateNamespace(const Name: String): TNamespace;
 
        Public { methods }
-        Constructor Create(const fFileName: String);
+        Constructor Create(const fSSCompiler: SSCompiler.TCompiler; const fFileName: String);
+
         Function Load: Boolean;
 
         Property getFileName: String read FileName;
+        Property getSSMData: TSSMData read SSMData;
+        Property getDebugData: TDebugData read DebugData;
         Property getNamespaceList: TNamespaceList read NamespaceList;
         Property getOpcodeList: TOpcodeList read OpcodeList;
+        Property getLastCompilerOpcode: PMOpcode read LastCompilerOpcode;
        End;
 
  Implementation
-Uses Variants, Logging, Serialization;
+Uses Tokens, Variants, Logging, Serialization;
 
 (* SplitByDot *)
 Procedure SplitByDot(const Str: String; out Pre, Post: String);
@@ -140,31 +145,31 @@ End;
 
 (* TSSMWriter.Save *)
 Procedure TSSMWriter.Save;
-
-  { AddFile }
-  Procedure AddFile(const Stream: TStream; FName: String); inline;
-  Begin
-   Stream.SaveToFile(FileName+FName);
-   Zip.Entries.AddFileEntry(FileName+FName, FName);
-  End;
-
-Var DataStream: TStream;
+Var DataStream, DebugDataStream: TStream;
 
     LabelList   : TBCLabelList;
     FunctionList: TBCFunctionList;
     TypeList    : TBCTypeList;
     VarList     : TBCVariableList;
-    LineDataList: TBCLineDataList;
+
+  { AddFile }
+  Procedure AddFile(const Stream: TStream; FName: String); inline;
+  Begin
+   Stream.Position := 0;
+   Zip.Entries.AddFileEntry(Stream, FName);
+  End;
+
+Var BCLabel   : TBCLabel;
+    BCFunction: TBCFunction;
+    BCType    : TBCType;
+    BCVariable: TBCVariable;
 
     Namespace: TNamespace;
     Symbol   : TSymbol;
 
-    BCLabel   : TBCLabel;
-    BCFunction: TBCFunction;
-    BCType    : TBCType;
-    BCVariable: TBCVariable;
+    Debug: TBCDebugWriter = nil;
 Begin
- Log('Saving a SSM file to: %s', [FileName]);
+ Log('Saving the SSM file as: %s', [FileName]);
 
  // create classes
  Zip        := TZipper.Create;
@@ -176,7 +181,6 @@ Begin
   FunctionList := TBCFunctionList.Create;
   TypeList     := TBCTypeList.Create;
   VarList      := TBCVariableList.Create;
-  LineDataList := TBCLineDataList.Create;
 
   Try
    // prepare label and function list
@@ -184,7 +188,7 @@ Begin
    Begin
     // skip private labels
     if (not BCLabel.isPublic) Then
-     Break;
+     Continue;
 
     // add it into the label list
     LabelList.Add(BCLabel);
@@ -194,6 +198,7 @@ Begin
     Begin
      BCFunction.Signature := BCLabel.Name;
      BCFunction.Position  := BCLabel.Position;
+     BCFunction.Symbol    := BCLabel.FunctionSymbol;
 
      FunctionList.Add(BCFunction);
     End;
@@ -268,12 +273,16 @@ Begin
    FunctionList.Free;
    TypeList.Free;
    VarList.Free;
-   LineDataList.Free;
   End;
+
+  // generate debug data
+  Debug           := TBCDebugWriter.Create(SSCompiler, BCCompiler);
+  DebugDataStream := Debug.Generate;
 
   // save ZIP
   AddFile(BCCompiler.HeaderStream, '.header');
   AddFile(DataStream, '.ssm_data');
+  AddFile(DebugDataStream, '.debug_data');
   AddFile(BCCompiler.ReferenceStream, '.references');
   AddFile(BCCompiler.BytecodeStream, '.bytecode');
 
@@ -282,13 +291,8 @@ Begin
  Finally
   // free classes
   DataStream.Free;
+  Debug.Free;
   Zip.Free;
-
-  // remove unused files
-  DeleteFile(FileName+'.header');
-  DeleteFile(FileName+'.ssm_data');
-  DeleteFile(FileName+'.references');
-  DeleteFile(FileName+'.bytecode');
  End;
 End;
 
@@ -311,20 +315,20 @@ Var magic_number                : uint32;
 
 Begin
  magic_number := AStream.read_uint32;
- AStream.ReadByte; // is_runnable
+ AStream.ReadByte; // isRunnable attribute is skipped (it doesn't matter here)
  version_major := AStream.read_uint8;
  version_minor := AStream.read_uint8;
 
  if (magic_number <> $0DEFACED) Then
  Begin
-  Log('Invalid magic number: 0x'+IntToHex(magic_number, 2*sizeof(LongWord)));
+  Log('Invalid magic number: 0x'+IntToHex(magic_number, 2*sizeof(uint32)));
   LoadOK := False;
   Exit;
  End;
 
  if (version_major <> bytecode_version_major) or (version_minor <> bytecode_version_minor) Then
  Begin
-  Log('Invalid bytecode version: '+IntToStr(version_major)+'.'+EndingZero(IntToStr(version_minor)));
+  Log('Invalid bytecode version: %d.%s', [version_major, EndingZero(IntToStr(version_minor))]);
   LoadOK := False;
   Exit;
  End;
@@ -345,14 +349,14 @@ Begin
  // check version
  if (SSMData.SSM_version <> SSM_version) Then
  Begin
-  Log('Invalid SSM file version: '+IntToStr(SSMData.SSM_version)+', expecting: '+IntToStr(SSM_version));
+  Log('Invalid SSM file version: %d (expected: %d)', [SSMData.SSM_version, SSM_version]);
   LoadOK := False;
   Exit;
  End;
 
  With SSMData do
  Begin
-  // read few numbers
+  // read sizes
   LabelCount    := AStream.read_uint32;
   FunctionCount := AStream.read_uint32;
   TypeCount     := AStream.read_uint32;
@@ -420,9 +424,22 @@ Begin
     VarList[I] := BCVariable;
    End;
   End;
+ End;
+End;
 
-  if (AStream.Can) Then
-   Log('This SSM file is possibly broken - some unread data are still in the ''.ssm_data'' (%d bytes left)', [AStream.Size-AStream.Position]);
+(* TSSMReader.ReadDebugData *)
+{
+ Reads SSM file debug data.
+}
+Procedure TSSMReader.ReadDebugData(const AStream: TStream);
+Var Debug: TBCDebugReader;
+Begin
+ Debug := TBCDebugReader.Create(AStream);
+
+ Try
+  DebugData := Debug.Read;
+ Finally
+  Debug.Free;
  End;
 End;
 
@@ -445,16 +462,41 @@ End;
 Procedure TSSMReader.ReadOpcodes(const AStream: TStream);
 Var StreamPosition: uint32;
     LabelName     : String;
-    MOpcode       : PMOpcode;
+    MOpcode       : PMOpcode = nil;
 
     FunctionList: TBCFunctionList;
     LabelList   : TBCLabelList;
 
+    dbgFileList    : TDBGFileList;
+    dbgFunctionList: TDBGFunctionList;
+    dbgLineDataList: TDBGLineDataList;
+
+    FileID, FunctionID: uint32; // used to fetch the debug data
+    TotalSize         : uint32; // ditto
+    CurrentLine       : uint32 = 0; // fetched from the debug data if available
+
     I, ParamC: int32;
 Begin
+ if (SSCompiler <> nil) Then
+ Begin
+  With SSCompiler.OpcodeList do
+  Begin
+   if (Count > 0) Then
+    LastCompilerOpcode := Last;
+  End;
+ End;
+
  // prepare variables
  FunctionList := SSMData.FunctionList;
  LabelList    := SSMData.LabelList;
+
+ dbgFileList     := DebugData.FileList;
+ dbgFunctionList := DebugData.FunctionList;
+ dbgLineDataList := DebugData.LineDataList;
+
+ // find file ID in the debug data
+ FileID     := High(uint32);
+ FunctionID := High(uint32);
 
  // read opcodes
  While (AStream.Can) Do
@@ -475,7 +517,7 @@ Begin
    //        or save previous read function index and begin the next loop fom that index
   End;
 
-  // if no function, maybe some label
+  // if not function, maybe some other label
   if (Length(LabelName) = 0) Then
   Begin
    For I := 0 To LabelList.Count-1 Do
@@ -494,20 +536,94 @@ Begin
   if (Length(LabelName) > 0) Then
   Begin
    New(MOpcode);
-   MOpcode^.isFunction := False;
-   MOpcode^.isLabel    := True;
    MOpcode^.Name       := LabelName;
+   MOpcode^.isLabel    := True;
+   MOpcode^.isFunction := False;
+   MOpcode^.Token      := nil;
    OpcodeList.Add(MOpcode);
+
+   // check for function label
+   For I := 0 To dbgFunctionList.Count-1 Do
+   Begin
+    if (dbgFunctionList[I].LabelName = LabelName) Then
+    Begin
+     FunctionID  := I;
+     CurrentLine := 0;
+
+     MOpcode^.isFunction     := True;
+     MOpcode^.FunctionSymbol := nil; // set inside TSSMReader.ParseFunctions()
+    End;
+   End;
+  End;
+
+  // check file debug data
+  if (dbgFileList.Count > 0) Then
+  Begin
+   TotalSize := 0;
+
+   For FileID := 0 To dbgFileList.Count-1 Do
+   Begin
+    Inc(TotalSize, dbgFileList[FileID].BytecodeSize);
+
+    if (StreamPosition < TotalSize) Then
+     Break;
+   End;
+  End;
+
+  // check line debug data
+  For I := 0 To dbgLineDataList.Count-1 Do
+  Begin
+   if (dbgLineDataList[I].FileID = FileID) and (dbgLineDataList[I].FunctionID = FunctionID) Then
+   Begin
+    if (dbgLineDataList[I].Opcode = StreamPosition) and (dbgLineDataList[I].Line > CurrentLine) Then
+    Begin
+     CurrentLine := dbgLineDataList[I].Line;
+
+     Break;
+    End;
+   End;
+  End;
+
+  // special case - function beginning label has to have its token
+  if (MOpcode <> nil) and (MOpcode^.isFunction) Then
+  Begin
+   if (CurrentLine > 0) Then
+   Begin
+    New(MOpcode^.Token);
+
+    With MOpcode^.Token^ Do
+    Begin
+     Token    := noToken;
+     Line     := CurrentLine;
+     Char     := 0;
+     FileName := dbgFileList[FileID].FileName;
+    End;
+   End;
   End;
 
   // read and prepare opcode
   New(MOpcode);
   MOpcode^.Opcode     := TOpcode_E(AStream.read_uint8);
-  MOpcode^.Compiler   := nil;
   MOpcode^.isComment  := False;
   MOpcode^.isLabel    := False;
   MOpcode^.isFunction := False;
-  MOpcode^.Token      := nil;
+
+  MOpcode^.Compiler := nil;
+  MOpcode^.Token    := nil;
+
+  // debug data available?
+  if (CurrentLine > 0) Then
+  Begin
+   New(MOpcode^.Token);
+
+   With MOpcode^.Token^ Do
+   Begin
+    Token    := noToken;
+    Line     := CurrentLine;
+    Char     := 0;
+    FileName := dbgFileList[FileID].FileName;
+   End;
+  End;
 
   ParamC := Opcodes.OpcodeList[ord(MOpcode^.Opcode)].ParamC;
   SetLength(MOpcode^.Args, ParamC);
@@ -553,7 +669,7 @@ End;
 Procedure TSSMReader.OnDoneStream(Sender: TObject; var AStream: Classes.TStream; AItem: TFullZipFileEntry);
 Var NStream: TStream;
 Begin
- Log('Reading SSM archive file: '+AItem.ArchiveFileName);
+ Log('Reading SSM archive file: %s (%d bytes)', [AItem.ArchiveFileName, AStream.Size]);
 
  AStream.Position := 0;
 
@@ -562,12 +678,16 @@ Begin
  Case AItem.ArchiveFileName of
   '.header'    : ReadHeader(NStream);
   '.ssm_data'  : ReadSSMData(NStream);
+  '.debug_data': ReadDebugData(NStream);
   '.references': ReadReferences(NStream);
   '.bytecode'  : ReadOpcodes(NStream);
 
   else
    raise ESSMParserException.CreateFmt('Unknown archive file name: %s', [AItem.ArchiveFileName]);
  End;
+
+ if (NStream.Can) Then
+  Log('There are still some unread data in this file! (%d bytes left)', [AStream.Size-AStream.Position]);
 
  AStream.Free;
 End;
@@ -611,17 +731,20 @@ End;
 
 (* TSSMReader.ParseFunctions *)
 Procedure TSSMReader.ParseFunctions;
-Var Param: int8;
-
-    BCFunction: TBCFunction;
+Var BCFunction: TBCFunction;
     Data      : TUnserializer;
 
-    mFunction: TFunction;
+    FuncID: int32;
+    Param : int8;
+
+    mFunction, mNextFunction: TFunction;
 
     ParamListNode: Serialization.TNode;
 
     FuncNamespace                        : TNamespace;
     NamespaceName, FunctionName, TypeName: String;
+
+    FunctionLabel: PMOpcode;
 Begin
  // log
  Log('Parsing functions (%d to parse)...', [SSMData.FunctionCount]);
@@ -631,9 +754,10 @@ Begin
   Exit;
 
  // iterate each function
- For BCFunction in SSMData.FunctionList Do
+ For FuncID := 0 To SSMData.FunctionList.Count-1 Do
  Begin
-  Data := TUnserializer.Create(BCFunction.Signature);
+  BCFunction := SSMData.FunctionList[FuncID];
+  Data       := TUnserializer.Create(BCFunction.Signature);
 
   Try
    // basic check
@@ -650,9 +774,20 @@ Begin
    mFunction           := TFunction.Create;
    mFunction.LabelName := BCFunction.Signature;
 
+   // set refsymbol
    mFunction.RefSymbol.Name          := FunctionName;
    mFunction.RefSymbol.DeclNamespace := FuncNamespace;
-  // mFunction.RefVar @TODO
+// mFunction.RefVar @TODO
+
+   // find label
+   FunctionLabel := findLabel(mFunction.LabelName);
+
+   if (FunctionLabel = nil) Then
+    raise ESSMParserException.CreateFmt('No function label found! (parsing %s)', [mFunction.RefSymbol.getFullName('::')]);
+
+   // fix function token
+   mFunction.RefSymbol.DeclToken := FunctionLabel^.Token;
+   mFunction.FirstOpcode         := FunctionLabel;
 
    // parse return type
    if (Data.getRoot[3].getType = ntValue) Then
@@ -697,8 +832,33 @@ Begin
 
    // eventualy insert this function to the symbol list
    FuncNamespace.SymbolList.Add(TSymbol.Create(stFunction, mFunction));
+
+   FunctionLabel^.FunctionSymbol := FuncNamespace.SymbolList.Last;
+   BCFunction.Symbol             := FuncNamespace.SymbolList.Last;
+
+   SSMData.FunctionList[FuncID] := BCFunction;
   Finally
    Data.Free;
+  End;
+ End;
+
+ // one more thing has to be done - we need to set bounds for the functions, so that debug data won't be lost
+ With SSMData do
+ Begin
+  For FuncID := 0 To FunctionList.Count-1 Do
+  Begin
+   mFunction := FunctionList[FuncID].Symbol.mFunction;
+
+   if (FuncID = FunctionList.Count-1) Then
+   Begin
+    mFunction.LastOpcode := OpcodeList.Last;
+   End Else
+   Begin
+    // end function one opcode before the next one starts and hopefully expect it to be the "ret" opcode
+    mNextFunction := FunctionList[FuncID+1].Symbol.mFunction;
+
+    mFunction.LastOpcode := OpcodeList[OpcodeList.indexOf(mNextFunction.FirstOpcode)-1];
+   End;
   End;
  End;
 End;
@@ -757,9 +917,22 @@ Begin
  End;
 End;
 
+(* TSSMReader.findLabel *)
+{
+ Returns label with specified name from the opcode list (or nil, if such couldn't have been found).
+}
+Function TSSMReader.findLabel(const Name: String): PMOpcode;
+Begin
+ For Result in OpcodeList Do
+  if (Result^.isLabel) and (Result^.Name = Name) Then
+   Exit;
+
+ Exit(nil);
+End;
+
 (* TSSMReader.findType *)
 {
- Returns type with specified name and namespace (or nil, if such wasn't be found).
+ Returns type with specified name and namespace (or nil, if such couldn't have been found).
 }
 Function TSSMReader.findType(const NamespaceName, TypeName: String): TType;
 Var Namespace: TNamespace;
@@ -794,7 +967,7 @@ End;
 
 (* TSSMReader.findNamespace *)
 {
- Returns namespace with specified name (or nil, if such wasn't have been found).
+ Returns namespace with specified name (or nil, if such couldn't have been found).
 }
 Function TSSMReader.findNamespace(const Name: String): TNamespace;
 Begin
@@ -822,11 +995,13 @@ Begin
 End;
 
 (* TSSMReader.Create *)
-Constructor TSSMReader.Create(const fFileName: String);
+Constructor TSSMReader.Create(const fSSCompiler: SSCompiler.TCompiler; const fFileName: String);
 Begin
  FileName      := fFileName;
  OpcodeList    := TOpcodeList.Create;
  NamespaceList := TNamespaceList.Create;
+
+ SSCompiler := fSSCompiler;
 End;
 
 (* TSSMReader.Load *)
@@ -871,6 +1046,10 @@ Begin
   if (not LoadFile('.ssm_data')) Then
    Exit;
 
+  // load SSM debug data
+  if (not LoadFile('.debug_data')) Then
+   Exit;
+
   // load references data
   if (not LoadFile('.references')) Then
    Exit;
@@ -890,5 +1069,4 @@ Begin
 
  Exit(LoadOK);
 End;
-
 End.

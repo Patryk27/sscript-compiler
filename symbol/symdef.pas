@@ -172,22 +172,6 @@ Unit symdef;
         Function getSerializedForm: String;
        End;
 
- { TFunctionLineData }
- Type TFunctionLineData =
-      Class
-       Private
-        LineData: Array of uint32; // LineData[OpcodeNo] := LineNo;
-
-       Private
-        Function getLineData(const Index: uint32): uint32;
-
-       Public
-        Procedure Insert(const LineNo: uint32);
-
-       Public
-        Property getLineAtOpcode[Index: uint32]: uint32 read getLineData; default;
-       End;
-
  { TFunction }
  Type TFunction =
       Class(TSymdefObject)
@@ -208,7 +192,7 @@ Unit symdef;
 
         LastLabelID: uint32;
 
-        LineData: TFunctionLineData;
+        FirstOpcode, LastOpcode: Pointer; // first and last function opcode (defines function bounds); the first is always the function's label and the last is the "ret" opcode
 
         Attributes: TFunctionAttributes;
 
@@ -485,20 +469,6 @@ Begin
 
   Attributes += [taNull];
  End;
-End;
-
-// -------------------------------------------------------------------------- //
-(* TFunctionLineData.getLineData *)
-Function TFunctionLineData.getLineData(const Index: uint32): uint32;
-Begin
- Result := LineData[Index];
-End;
-
-(* TFunctionLineData.Insert *)
-Procedure TFunctionLineData.Insert(const LineNo: uint32);
-Begin
- SetLength(LineData, Length(LineData)+1);
- LineData[High(LineData)] := LineNo;
 End;
 
 // -------------------------------------------------------------------------- //
@@ -1343,7 +1313,8 @@ Begin
  StackSize := 0;
  StackRegs := TStackSavedRegs.Create;
 
- LineData := TFunctionLineData.Create;
+ FirstOpcode := nil;
+ LastOpcode  := nil;
 
  Attributes := [];
 End;
@@ -1356,7 +1327,6 @@ Begin
  FlowGraph.Free;
  SymbolList.Free;
  StackRegs.Free;
- LineData.Free;
 
  inherited Destroy;
 End;

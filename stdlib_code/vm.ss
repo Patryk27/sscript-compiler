@@ -15,14 +15,4 @@ namespace std
    icall("vm.exit")
   }
  }
-
- function<int> vm_loadlibrary(string libfile) naked
- {
-  :CODE
-  {
-   push(%libfile)
-   icall("vm.loadlibrary")
-   pop(ei1)
-  }
- }
 }

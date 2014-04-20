@@ -26,7 +26,7 @@ Var Reader: TSSMReader;
 
     I: uint32;
 Begin
- Reader := TSSMReader.Create(InputFile);
+ Reader := TSSMReader.Create(nil, InputFile);
 
  Try
   Try

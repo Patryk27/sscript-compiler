@@ -473,12 +473,16 @@ Begin
     FinalRegChar := Result.RegPrefix;
 
    if (FinalRegID > 0) Then
-    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), getValueFromExpression(Expr)]) Else // load a const value into the register
-    Begin
-     Compiler.PutOpcode(o_push, [getValueFromExpression(Expr)]); // otherwise push onto the stack
-     Expr^.ResultOnStack := True;
-     Inc(PushedValues);
-    End;
+   Begin
+    // load a const value into the register
+    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), getValueFromExpression(Expr)]);
+   End Else
+   Begin
+    // otherwise push onto the stack
+    Compiler.PutOpcode(o_push, [getValueFromExpression(Expr)]);
+    Expr^.ResultOnStack := True;
+    Inc(PushedValues);
+   End;
   End;
   Exit;
  End;

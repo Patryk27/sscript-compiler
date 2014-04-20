@@ -42,9 +42,12 @@ Var Symbol  : TSymbol;
 Begin
  With Compiler do
  Begin
+  fCurrentNode := CurrentFunc.FlowGraph.Root;
+
   { function info }
   PutComment('--------------------------------- //');
   PutComment('Function name   : '+CurrentFunc.RefSymbol.Name);
+  PutComment('Declared in file: '+CurrentFunc.RefSymbol.DeclToken^.FileName);
   PutComment('Declared at line: '+IntToStr(CurrentFunc.RefSymbol.DeclToken^.Line));
   PutComment('--------------------');
 
@@ -66,7 +69,7 @@ Begin
   Begin
    StackDec := StackSize;
 
-   { if register is taken by (a) variable(s), we need to at first save this register's value (and restore it at the end of the function) }
+   { if register is taken by (a) variable(s), at first we need to save that register value (and restore it at the end of the function) }
    if (not isNaked) Then
    Begin
     For StackReg in StackRegs Do
@@ -94,7 +97,7 @@ Begin
    End;
   End;
 
-  { new label (main function's body; nothing should jump here - it's just facilitation for optimizer so it doesn't possibly remove the epilog code) }
+  { new label (main function's body; nothing should jump here - it's just facilitation for the peephole optimizer so it doesn't remove the epilog code) }
   PutLabel(CurrentFunc.LabelName+'_body');
  End;
 End;
@@ -117,7 +120,7 @@ Begin
     PutOpcode(o_pop, ['e'+StackRegs[I]^.RegChar+IntToStr(StackRegs[I]^.RegID)]);
   End;
 
-  PutOpcode(o_ret);
+  CurrentFunc.LastOpcode := PutOpcode(o_ret);
  End;
 End;
 
@@ -340,7 +343,7 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
    if (not ExprType.isString) Then // error: invalid type
     CompileError(Node.getToken^, eWrongType, [ExprType.asString, 'string']);
 
-   PutOpcode(o_pop, ['es1']);
+   PutOpcode(o_pop, ['es1']); // @TODO: what's the point of these two opcodes? Casting or what?
    PutOpcode(o_push, ['es1']);
    PutOpcode(o_icall, ['"vm.throw"']);
 
@@ -486,9 +489,9 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
 
   { cetBytecode }
   Procedure CompileBytecode;
-  Var I      : int8;
+  Var ArgList: PVarRecArray;
       Symbol : TSymbol;
-      ArgList: PVarRecArray;
+      I      : int8;
   Begin
    if (Node.Bytecode.OpcodeName = '') Then
    Begin

@@ -32,7 +32,7 @@ Unit Scanner;
         Property getVisibility: TVisibility read Visibility; // current visibility state
 
        Public { methods }
-        Constructor Create(const CompilerObject: TObject; InputFile: String; out inLongComment: Boolean);
+        Constructor Create(const CompilerObject: TObject; const InputFile: String; out inLongComment: Boolean);
         Destructor Destroy; override;
 
         Function getToken(const Index: uint32): TToken_P;
@@ -67,7 +67,7 @@ Uses Logging, SSCompiler, ExpressionCompiler, ExpressionParser, Messages, SysUti
 {
  Loads code from file and preparses it (removes comments etc.)
 }
-Constructor TScanner.Create(const CompilerObject: TObject; InputFile: String; out inLongComment: Boolean);
+Constructor TScanner.Create(const CompilerObject: TObject; const InputFile: String; out inLongComment: Boolean);
 Var Lexer: TLexer; // lexer
     Code : TStringList; // TScanner needs a TStringList to parse code
 
@@ -91,7 +91,8 @@ Begin
  { parse it }
  TokenList := TTokenList.Create;
 
- Lexer := TLexer.Create(Code);
+ Lexer := TLexer.Create(InputFile, Code);
+
  if (not Lexer.Can) Then // an empty file
  Begin
   New(PToken);

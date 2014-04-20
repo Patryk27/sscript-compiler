@@ -11,6 +11,9 @@ Unit BCCompiler;
  Const bytecode_version_major: uint8 = 0;
        bytecode_version_minor: uint8 = 42;
 
+ { EBCCompilerException }
+ Type EBCCompilerException = Class(Exception);
+
  { TBCLabel }
  Type TBCLabel =
       Record
@@ -38,7 +41,7 @@ Unit BCCompiler;
       Class
        Public { fields }
         HeaderStream   : TStream;
-        LineDataStream : TStream;
+        DebugDataStream: TStream;
         BytecodeStream : TStream;
         ReferenceStream: TStream;
 
@@ -64,7 +67,7 @@ Unit BCCompiler;
        End;
 
  Implementation
-Uses SSMParser, Serialization;
+Uses SSMParser, BCDebug, Serialization;
 
 (* TCompiler.getLabelID *)
 Function TCompiler.getLabelID(const Name: String): int32;
@@ -124,11 +127,17 @@ End;
 
 (* TCompiler.Preparse *)
 Procedure TCompiler.Preparse(const AllocateGlobalVars: Boolean);
-Var I, Q    : uint32;
-    Int     : Integer;
-    Str, Tmp: String;
+Var OpcodesLength: uint32 = 0;
+    OpcodeSize   : uint32 = 0;
 
-    OpcodeLen: uint32 = 0;
+    OpcodeID: uint32;
+    ArgID   : int8;
+    Op      : PMOpcode = nil;
+    Arg     : PMOpcodeArg = nil;
+
+    Value, TmpValue: String;
+    CharCode       : int32;
+    Pnt            : Pointer;
 
     BCLabel: TBCLabel;
 Begin
@@ -137,18 +146,18 @@ Begin
   if (OpcodeList.Count = 0) Then
    SSCompiler.TCompiler(Compiler).CompileError(eInternalError, ['OpcodeList.Count = 0']);
 
-  OpcodeLen := 0;
+  OpcodesLength := 0;
 
   // allocate global variables
   if (AllocateGlobalVars) Then
   Begin
-   For I := 0 To OpcodeList.Count-1 Do // each opcode
+   // iterate each opcode
+   For Op in OpcodeList Do
    Begin
-    With OpcodeList[I]^ do
-     if (Length(Args) > 0) Then
-      For Q := Low(Args) To High(Args) Do // each argument
-       if (Args[Q].Typ = ptSymbolMemRef) Then
-        AllocateGlobalVar(Args[Q].Value);
+    // each argument
+    For ArgID := 0 To High(Op^.Args) Do
+     if (Op^.Args[ArgID].Typ = ptSymbolMemRef) Then
+      AllocateGlobalVar(Op^.Args[ArgID].Value);
    End;
 
    // are there any symbols to allocate?
@@ -156,10 +165,10 @@ Begin
    Begin
     DoNotStoreOpcodes := True;
 
-    For I := 0 To AllocSymbolList.Count-1 Do
+    For OpcodeID := 0 To AllocSymbolList.Count-1 Do
     Begin
      // @TODO: this can be done more efficient way (o_word, o_extended (...))
-     For Q := 1 To AllocSymbolList[I].Size Do
+     For ArgID := 1 To AllocSymbolList[OpcodeID].Size Do
       OpcodeList.Insert(0, PutOpcode(o_byte, [0]));
     End;
 
@@ -168,130 +177,145 @@ Begin
   End;
 
   // parse opcodes and labels
-  For I := 0 To OpcodeList.Count-1 Do
+  For OpcodeID := 0 To OpcodeList.Count Do
   Begin
-   With OpcodeList[I]^ do
-    if (not isComment) and (not isLabel) Then // if opcode
-    Begin
-     if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then
-     Begin
-      Case Opcode of
-       o_byte    : Inc(OpcodeLen, 1);
-       o_word    : Inc(OpcodeLen, 2);
-       o_integer : Inc(OpcodeLen, 4);
-       o_extended: Inc(OpcodeLen, 10);
-      End;
+   if (Op <> nil) Then // save the size of the *previous* opcode
+   Begin
+    Op^.OpcodeSize := OpcodeSize;
+    Inc(OpcodesLength, OpcodeSize);
+   End;
 
-      Continue;
+   if (OpcodeID = OpcodeList.Count) Then
+    Break;
+
+   Op            := OpcodeList[OpcodeID];
+   Op^.OpcodePos := OpcodesLength;
+   Op^.OpcodeID  := OpcodeID;
+
+   OpcodeSize := 0;
+
+   // if opcode
+   if (not (Op^.isComment or Op^.isLabel)) Then
+   Begin
+    if (Op^.Opcode in [o_byte, o_word, o_integer, o_extended]) Then
+    Begin
+     Case Op^.Opcode of
+      o_byte    : OpcodeSize := 1;
+      o_word    : OpcodeSize := 2;
+      o_integer : OpcodeSize := 4;
+      o_extended: OpcodeSize := 10;
      End;
 
-     Inc(OpcodeLen, sizeof(Byte)); // opcode type
-     if (Length(Args) > 0) Then // are there any arguments?
+     Continue;
+    End;
+
+    Inc(OpcodeSize, 1); // opcode type is always one byte long
+
+    // iterate each argument
+    For ArgID := 0 To High(Op^.Args) Do
+    Begin
+     Arg := @Op^.Args[ArgID];
+
+     Inc(OpcodeSize, sizeof(Byte)); // parameter type is always one byte long
+
+     if (Arg^.Typ <> ptString) Then // if not string
      Begin
-      For Q := Low(Args) To High(Args) Do // for each parameter
+      Value := VarToStr(Arg^.Value);
+
+      // label reference
+      if (Length(Value) > 2) and (Value[1] in [':', '@']) Then
       Begin
-       With Args[Q] do
+       TmpValue := Copy(Value, 2, Length(Value));
+
+       if (Copy(TmpValue, 1, 10) = '$function.') Then
        Begin
-        Inc(OpcodeLen, sizeof(Byte)); // parameter type
+        Delete(TmpValue, 1, 10);
 
-        Str := VarToStr(Value);
+        Pnt      := Pointer(StrToInt(TmpValue));
+        TmpValue := TFunction(Pnt).LabelName;
 
-        if (Typ <> ptString) Then
-        Begin
-         if (Length(Str) > 2) and (Str[1] in [':', '@']) Then
-         Begin
-          Tmp := Copy(Str, 2, Length(Str));
-          if (Copy(Tmp, 1, 10) = '$function.') Then
-          Begin
-           Delete(Tmp, 1, 10);
-           Int := StrToInt(Tmp);
-           Tmp := TFunction(Int).LabelName;
+        if (Length(TmpValue) = 0) Then
+         raise EBCCompilerException.CreateFmt('Couldn''t fetch function''s label name; function: %s', [TFunction(Pnt).RefSymbol.getFullName('::')]);
 
-           if (Length(Tmp) = 0) Then
-            SSCompiler.TCompiler(Compiler).CompileError(eInternalError, ['Couldn''t fetch function''s label name; funcname = '+TSymbol(Int).mFunction.RefSymbol.Name]);
-
-           Str   := Str[1] + Tmp;
-           Value := Str;
-          End;
-         End;
-
-         { label relative address }
-         if (Copy(Str, 1, 1) = ':') Then
-          Typ := ptInt;
-
-         { label absolute address }
-         if (Copy(Str, 1, 1) = '@') Then
-         Begin
-          Typ   := ptLabelAbsoluteReference;
-          Value := CreateReference(Copy(Str, 2, Length(Str))); // remove the beginning `@` char
-         End;
-
-         { char }
-         if (Copy(Str, 1, 1) = '#') Then
-         Begin
-          Typ := ptChar;
-
-          Delete(Str, 1, 1);
-
-          if (TryStrToInt(Str, Int)) Then
-           Value := Int Else
-           Value := 0;
-         End;
-
-         { register }
-         if (isRegisterName(Str)) Then
-         Begin
-          Typ   := TPrimaryType(Byte(getRegister(Str).Typ)-Byte(ptBool)); // get register's type
-          Value := getRegister(Str).ID;
-         End;
-
-         { boolean truth }
-         if (Str = 'true') or (Str = 'True') Then
-         Begin
-          Typ   := ptBool;
-          Value := 1;
-         End;
-
-         { boolean false }
-         if (Str = 'false') or (Str = 'False') Then
-         Begin
-          Typ   := ptBool;
-          Value := 0;
-         End;
-        End;
-
-        Case Typ of
-         ptBoolReg..ptReferenceReg: Inc(OpcodeLen, 1);
-         ptBool, ptChar           : Inc(OpcodeLen, 1);
-         ptInt                    : Inc(OpcodeLen, 8);
-         ptFloat                  : Inc(OpcodeLen, 10);
-         ptString                 : Inc(OpcodeLen, Length(VarToStr(Value))+1); // string + terminator char (0x00)
-         ptConstantMemRef         : Inc(OpcodeLen, 8);
-         ptLabelAbsoluteReference : Inc(OpcodeLen, 8);
-         ptSymbolMemRef           : Inc(OpcodeLen, 8);
-
-         Else
-          Inc(OpcodeLen, 4);
-        End;
+        Arg^.Value := Value[1] + TmpValue; // copy ':' or '@' and append actual function''s label name
        End;
       End;
+
+      // label relative address
+      if (Copy(Value, 1, 1) = ':') Then
+       Arg^.Typ := ptInt;
+
+      // label absolute address
+      if (Copy(Value, 1, 1) = '@') Then
+      Begin
+       Arg^.Typ   := ptLabelAbsoluteReference;
+       Arg^.Value := CreateReference(Copy(Value, 2, Length(Value))); // remove the beginning `@` char
+      End;
+
+      // char
+      if (Copy(Value, 1, 1) = '#') Then
+      Begin
+       Arg^.Typ := ptChar;
+
+       Delete(Value, 1, 1);
+
+       if (TryStrToInt(Value, CharCode)) Then
+        Arg^.Value := CharCode Else
+        raise EBCCompilerException.CreateFmt('Invalid char code: %s', [Value]);
+      End;
+
+      // register
+      if (isRegisterName(Value)) Then
+      Begin
+       Arg^.Typ   := TPrimaryType(uint8(getRegister(Value).Typ) - uint8(ptBool)); // get register type
+       Arg^.Value := getRegister(Value).ID;
+      End;
+
+      // boolean truth
+      if (Value = 'true') or (Value = 'True') Then
+      Begin
+       Arg^.Typ   := ptBool;
+       Arg^.Value := 1;
+      End;
+
+      // boolean false
+      if (Value = 'false') or (Value = 'False') Then
+      Begin
+       Arg^.Typ   := ptBool;
+       Arg^.Value := 0;
+      End;
      End;
-    End Else
 
-    // if label
-    if (isLabel) Then
-    Begin
-     BCLabel.Name       := Name;
-     BCLabel.Position   := OpcodeLen;
-     BCLabel.isPublic   := isPublic;
-     BCLabel.isFunction := isFunction;
+     Case Arg^.Typ of
+      ptBoolReg..ptReferenceReg: Inc(OpcodeSize, 1);
+      ptBool, ptChar           : Inc(OpcodeSize, 1);
+      ptInt                    : Inc(OpcodeSize, 8);
+      ptFloat                  : Inc(OpcodeSize, 10);
+      ptString                 : Inc(OpcodeSize, Length(VarToStr(Arg^.Value))+1); // string + terminator char (0x00)
+      ptConstantMemRef         : Inc(OpcodeSize, 8);
+      ptLabelAbsoluteReference : Inc(OpcodeSize, 8);
+      ptSymbolMemRef           : Inc(OpcodeSize, 8);
 
-     if (isFunction) Then
-      BCLabel.FunctionSymbol := FunctionSymbol Else
-      BCLabel.FunctionSymbol := nil;
-
-     LabelList.Add(BCLabel);
+      Else
+       Inc(OpcodeSize, 4);
+     End;
     End;
+   End Else
+
+   // if label
+   if (Op^.isLabel) Then
+   Begin
+    BCLabel.Name       := Op^.Name;
+    BCLabel.Position   := OpcodesLength;
+    BCLabel.isPublic   := Op^.isPublic;
+    BCLabel.isFunction := Op^.isFunction;
+
+    if (BCLabel.isFunction) Then
+     BCLabel.FunctionSymbol := Op^.FunctionSymbol Else
+     BCLabel.FunctionSymbol := nil;
+
+    LabelList.Add(BCLabel);
+   End;
   End;
  End;
 End;
@@ -403,7 +427,9 @@ Begin
 
          Value := 0;
         End Else // label found
-         Value := Int64(LabelList[Int].Position)-OpcodeBegin; // jumps have to be relative against the current opcode
+        Begin
+         Value := Int64(LabelList[Int].Position)-OpcodeBegin; // jumps have to be relative against the beginning of the current opcode
+        End;
       End;
 
       Try
@@ -454,19 +480,20 @@ Var Output: String;
     Zip   : TZipper;
 
   { AddFile }
-  Procedure AddFile(const Stream: TStream; FileName: String);
+  Procedure AddFile(const Stream: TStream; const FileName: String);
   Begin
-   Stream.SaveToFile(Output+FileName);
-   Zip.Entries.AddFileEntry(Output+FileName, FileName);
+   Stream.Position := 0;
+   Zip.Entries.AddFileEntry(Stream, FileName);
   End;
 
+Var Debug: TBCDebugWriter;
 Begin
  Compiler := fCompiler;
  Output   := Compiler.OutputFile;
 
  // create classes
  HeaderStream    := TStream.Create;
- LineDataStream  := TStream.Create;
+ DebugDataStream := TStream.Create;
  BytecodeStream  := TStream.Create;
  ReferenceStream := TStream.Create;
 
@@ -495,10 +522,9 @@ Begin
   // log some data
   Log('Header size: %d bytes', [HeaderStream.Size]);
   Log('References data size: %d bytes', [ReferenceStream.Size]);
-  Log('Line data size: %d byte', [LineDataStream.Size]);
   Log('Bytecode size: %d bytes', [BytecodeStream.Size]);
 
-  // save as library?
+  // save as a library?
   if (SaveAs_SSM) Then
   Begin
    With TSSMWriter.Create(Compiler.OutputFile, fCompiler, self) do
@@ -510,23 +536,30 @@ Begin
    Exit;
   End;
 
+  // generate debug data
+  Debug := TBCDebugWriter.Create(fCompiler, self);
+
+  Try
+   DebugDataStream := Debug.Generate(True);
+  Finally
+   Debug.Free;
+  End;
+
+  Log('Debug data size: %d bytes', [DebugDataStream.Size]);
+
   // make zip archive
   AddFile(HeaderStream, '.header');
-  AddFile(LineDataStream, '.linedata');
   AddFile(BytecodeStream, '.bytecode');
+  AddFile(DebugDataStream, '.debug');
 
   // save it
   Zip.FileName := Output;
   Zip.ZipAllFiles;
  Finally
-  HeaderStream.Free;
-  LineDataStream.Free;
-  BytecodeStream.Free;
   Zip.Free;
-
-  DeleteFile(Output+'.header');
-  DeleteFile(Output+'.linedata');
-  DeleteFile(Output+'.bytecode');
+  HeaderStream.Free;
+  DebugDataStream.Free;
+  BytecodeStream.Free;
  End;
 End;
 

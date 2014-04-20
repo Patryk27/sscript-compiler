@@ -8,6 +8,9 @@ Unit Stream;
  Interface
  Uses SysUtils, Classes;
 
+ { EStreamException }
+ Type EStreamException = Class(Exception);
+
  { TStream }
  Type TStream =
       Class (Classes.TMemoryStream)
@@ -103,7 +106,7 @@ Begin
  For Ch in V Do
  Begin
   if (Ch = #0) Then
-   raise Exception.Create('TStream.write_string: terminator char (0x00) found in string content!');
+   raise EStreamException.Create('TStream.write_string: terminator char (0x00) found in the string content!');
 
   write_uint8(ord(Ch));
  End;
@@ -183,7 +186,7 @@ Begin
  Begin
   Ch := read_uint8;
 
-  if (Ch = 0) Then // stop on terminator char (0x00)
+  if (Ch = 0) Then // stop on the terminator char (0x00)
    Break;
 
   Result += char(Ch);

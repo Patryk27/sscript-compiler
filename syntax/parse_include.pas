@@ -38,52 +38,56 @@ Var Reader                       : TSSMReader;
     NewSymbol                    : TSymbol;
     I                            : int32;
 Begin
- Reader := TSSMReader.Create(FileName);
+ // create reader instance
+ Reader := TSSMReader.Create(Compiler, FileName);
 
- Try
-  if (not Reader.Load) Then
-  Begin
-   Compiler.CompileError(eCorruptedSSMFile, [FileName]);
-   Exit;
-  End;
-
-  { copy symbols }
-  For NewNamespace in Reader.getNamespaceList Do // each namespace
-  Begin
-   ParentNamespace := Compiler.findNamespace(NewNamespace.RefSymbol.Name);
-
-   if (ParentNamespace = nil) Then
-   Begin
-    ParentNamespace := TNamespace.Create;
-    Compiler.NamespaceList.Add(ParentNamespace);
-
-    With ParentNamespace.RefSymbol do
-    Begin
-     Name       := NewNamespace.RefSymbol.Name;
-     Visibility := mvPrivate;
-     mCompiler  := Compiler;
-     Range      := Compiler.getScanner.getCurrentRange;
-     DeclToken  := Compiler.getScanner.next_pnt(0);
-    End;
-   End;
-
-   For NewSymbol in NewNamespace.SymbolList Do // each symbol
-   Begin
-    NewSymbol.Visibility    := mvPrivate; // imported symbols have to be `private`
-    NewSymbol.Range         := Compiler.getScanner.getCurrentRange;
-    NewSymbol.DeclNamespace := ParentNamespace;
-
-    ParentNamespace.SymbolList.Add(NewSymbol);
-   End;
-  End;
-
-  { copy bytecode }
-  if (Reader.getOpcodeList.Count > 0) Then
-   For I := 0 To Reader.getOpcodeList.Count-1 Do
-    Compiler.OpcodeList.Add(Reader.getOpcodeList[I]);
- Finally
-  Reader.Free;
+ // try to load
+ if (not Reader.Load) Then
+ Begin
+  Compiler.CompileError(eCorruptedSSMFile, [FileName]);
+  Exit;
  End;
+
+ { copy symbols }
+ // each namespace
+ For NewNamespace in Reader.getNamespaceList Do
+ Begin
+  ParentNamespace := Compiler.findNamespace(NewNamespace.RefSymbol.Name);
+
+  if (ParentNamespace = nil) Then
+  Begin
+   ParentNamespace := TNamespace.Create;
+   Compiler.NamespaceList.Add(ParentNamespace);
+
+   With ParentNamespace.RefSymbol do
+   Begin
+    Name       := NewNamespace.RefSymbol.Name;
+    Visibility := mvPrivate;
+    mCompiler  := Compiler;
+    Range      := Compiler.getScanner.getCurrentRange;
+    DeclToken  := Compiler.getScanner.next_pnt(0);
+   End;
+  End;
+
+  // each symbol
+  For NewSymbol in NewNamespace.SymbolList Do
+  Begin
+   NewSymbol.Visibility    := mvPrivate; // imported symbols have to be private
+   NewSymbol.Range         := Compiler.getScanner.getCurrentRange;
+   NewSymbol.DeclNamespace := ParentNamespace;
+
+   ParentNamespace.SymbolList.Add(NewSymbol);
+  End;
+ End;
+
+ // copy bytecode
+ if (Reader.getOpcodeList.Count > 0) Then
+ Begin
+  For I := 0 To Reader.getOpcodeList.Count-1 Do
+   Compiler.OpcodeList.Add(Reader.getOpcodeList[I]);
+ End;
+
+ Compiler.SSMReaderList.Add(Reader);
 End;
 
 (* IncludeModule *)
@@ -94,9 +98,10 @@ Var ParentNamespace, NewNamespace, TmpNamespace: TNamespace;
     I                                          : uint32;
 Begin
  { copy symbols }
- For NewNamespace in Module.NamespaceList Do // each namespace
+ // each namespace
+ For NewNamespace in Module.NamespaceList Do
  Begin
-  if (NewNamespace.RefSymbol.Visibility = mvPrivate) Then // skip the private ones
+  if (NewNamespace.RefSymbol.Visibility = mvPrivate) Then // ... except the private ones
    Continue;
 
   TmpNamespace := Parent.findNamespace(NewNamespace.RefSymbol.Name);
@@ -118,9 +123,10 @@ Begin
    ParentNamespace := TmpNamespace;
   End;
 
+  // each symbol
   For Symbol in NewNamespace.SymbolList Do
   Begin
-   if (Symbol.Visibility = mvPrivate) or (Symbol.isInternal) or (ParentNamespace.findSymbol(Symbol.Name) <> nil) Then // skip private, internal and redeclared symbols
+   if (Symbol.Visibility = mvPrivate) or (Symbol.isInternal) or (ParentNamespace.findSymbol(Symbol.Name) <> nil) Then // but skip private, internal and redeclared ones
     Continue;
 
    AddSymbol := False;
@@ -148,8 +154,10 @@ Begin
 
  { copy bytecode }
  if (Module.OpcodeList.Count > 0) Then
+ Begin
   For I := 0 To Module.OpcodeList.Count-1 Do
    Parent.OpcodeList.Add(Module.OpcodeList[I]);
+ End;
 End;
 
 (* IncludeModule *)

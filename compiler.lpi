@@ -31,7 +31,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="input.ss -o project.ssc -wait -O1"/>
+        <CommandLineParams Value="-wait"/>
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -fa monco -fs 10 -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
         <Display Use="True"/>
       </local>
@@ -74,7 +74,7 @@
     </Other>
   </CompilerOptions>
   <Debugging>
-    <Exceptions Count="10">
+    <Exceptions Count="13">
       <Item1>
         <Name Value="EAbort"/>
       </Item1>
@@ -105,6 +105,15 @@
       <Item10>
         <Name Value="EListException"/>
       </Item10>
+      <Item11>
+        <Name Value="ESSMParserException"/>
+      </Item11>
+      <Item12>
+        <Name Value="EBCDebugGeneratorException"/>
+      </Item12>
+      <Item13>
+        <Name Value="EBCDebugReaderException"/>
+      </Item13>
     </Exceptions>
   </Debugging>
 </CONFIG>

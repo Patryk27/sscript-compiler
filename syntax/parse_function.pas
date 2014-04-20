@@ -472,7 +472,9 @@ Begin
    CurrentFunction := Func;
 
    { new label (function beginning) }
-   With PutLabel(Func.LabelName)^ do
+   Func.FirstOpcode := PutLabel(Func.LabelName);
+
+   With PMOpcode(Func.FirstOpcode)^ do
    Begin
     isPublic       := (Func.RefSymbol.Visibility = mvPublic);
     isFunction     := True;

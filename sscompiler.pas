@@ -6,6 +6,7 @@ Unit SSCompiler;
 
  Interface
  Uses Classes, SysUtils, Variants, FGL, Math,
+      List,
       Logging, CommandLine, FlowGraph, Scanner, Tokens, Opcodes, Messages, Expression, symdef,
       Parse_FUNCTION, Parse_VAR, Parse_CONST, Parse_RETURN, Parse_CODE, Parse_FOR, Parse_IF, Parse_WHILE, Parse_include,
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW, Parse_FOREACH;
@@ -24,7 +25,12 @@ Unit SSCompiler;
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
 
- Type TScopeType = (sctFunction, sctFor, sctForeach, sctIf, sctWhile, sctTryCatch);
+ { TScopeType }
+ Type TScopeType =
+      (sctFunction, sctFor, sctForeach, sctIf, sctWhile, sctTryCatch);
+
+ { TSSMReaderList }
+ Type TSSMReaderList = specialize TList<TObject>; // we cannot specialize TList to TSSMReader because we'd have a circural reference
 
  { TScope }
  Type TScope =
@@ -34,7 +40,7 @@ Unit SSCompiler;
       End;
 
  { TCompiler }
- Type TCompiler =
+ Type TCompiler = // @TODO: refactor this whole class - everything shouldn't be public!
       Class
        Private { methods }
         Procedure CompileAsBytecode;
@@ -76,6 +82,8 @@ Unit SSCompiler;
         LabelCounter: uint32; // used in labels like eg.`__while_<somecounter>_begin`, so they don't overwrite each other
 
         DoNotStoreOpcodes: Boolean; // when equal `true`, any `PutOpcode` will not insert bytecode into the bytecode list. Affects also labels! Default: `false`.
+
+        SSMReaderList: TSSMReaderList; // used to correctly reparse debug data in libraries - it points at Parent.SSMReaderList (or its actual instance, if this is the parent)
 
         ParsingFORInitInstruction, ParsingForeachHeader: Boolean;
 
@@ -601,7 +609,11 @@ Begin
  DoCheck := (fToken <> nil); // check only bytecode written by user
 
  if (fToken = nil) Then
-  fToken := Scanner.next_pnt;
+ Begin
+  if (inFunction) and (fCurrentNode <> nil) Then
+   fToken := fCurrentNode.getToken Else
+   fToken := Scanner.next_pnt;
+ End;
 
  New(Item);
  With Item^ do
@@ -612,8 +624,9 @@ Begin
   Token      := fToken;
 
   Opcode := fOpcode;
-  SetLength(Args, Length(fArgs)); // save args
+  SetLength(Args, Length(fArgs));
   For I := 0 To High(fArgs) Do
+  Begin
    With Args[I] do
    Begin
     Str := #0;
@@ -771,11 +784,12 @@ Begin
 
      CompileError(eInternalError, ['Unknown parameter type: T='+IntToStr(T)]);
    End;
+  End;
 
   Compiler := self;
  End;
 
- { check opcode }
+ // check opcode
  if (DoCheck) Then
   if (not isValidOpcode(Item^)) Then
    CompileError(Item^.Token^, eBytecode_InvalidOpcode, []);
@@ -783,7 +797,7 @@ Begin
  if (DoNotStoreOpcodes) Then
   Exit(Item);
 
- { ...and add it into the list }
+ // ...and add it into the list
  Result := OpcodeList[OpcodeList.Add(Item)];
 End;
 
@@ -859,6 +873,8 @@ Begin
    isFunction := False;
 
    isPublic := False;
+
+   Token := nil;
   End;
 
   if (DoNotStoreOpcodes) Then
@@ -1447,6 +1463,10 @@ Begin
 
  PrevRootNodes := TCFGNodeList.Create;
 
+ if (Parent = nil) Then
+  SSMReaderList := TSSMReaderList.Create Else
+  SSMReaderList := Parent.SSMReaderList;
+
  DoNotStoreOpcodes         := False;
  ParsingFORInitInstruction := False;
 
@@ -1514,6 +1534,13 @@ Begin
    ModuleName := makeModuleName(fInputFile);
   End;
 
+  { add prolog code }
+  if (CompileMode = cmApp) and (not isIncluded) Then
+  Begin
+   PutOpcode(o_call, [':']); // dummy call, changed later
+   PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
+  End;
+
   { create symbol list }
   CreateSymbols;
 
@@ -1548,7 +1575,7 @@ Begin
    End;
   End;
 
-  { check for valid "main" function existence and add prolog code }
+  { check for valid "main" function existence and modify the prolog code }
   if (CompileMode = cmApp) and (not isIncluded) Then
   Begin
    if (not CheckMain) Then
@@ -1557,11 +1584,7 @@ Begin
     Exit;
    End;
 
-   // the beginning of an application code have to be "main" function call and "stop" opcode.
-   DoNotStoreOpcodes := True;
-   OpcodeList.Insert(0, PutOpcode(o_call, [':'+findFunction('main', findNamespace('self')).LabelName]));
-   OpcodeList.Insert(1, PutOpcode(o_stop)); // and, if we back from main(), the program ends (virtual machine stops).
-   DoNotStoreOpcodes := False;
+   OpcodeList[0]^.Args[0].Value := ':'+findFunction('main', findNamespace('self')).LabelName;
   End;
 
   { if specified - save bytecode }

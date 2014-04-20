@@ -5,9 +5,9 @@
 Unit Tokens;
 
  Interface
- Uses TypInfo;                                                    
+ Uses TypInfo;
 
- Const IdentAllowed = ['a'..'z', 'A'..'Z', '0'..'9', '_']; // chars allowed in identifiers; don't change it if you don't know what you're doing.
+ Const IdentAllowed = ['a'..'z', 'A'..'Z', '0'..'9', '_']; // chars allowed in identifiers; don't mess with it if unless know what you're doing.
  Const Keywords     : Array[0..25] of String = ('function', 'var', 'const', 'return', 'naked', 'for', 'if', 'else', 'while', 'break', 'continue',
                                                 'in', 'do', 'public', 'private', 'type', 'new', 'namespace', 'use', 'cast', 'strict', 'try',
                                                 'catch', 'throw', 'enum', 'foreach');
@@ -224,12 +224,16 @@ Unit Tokens;
  Type PToken_P = ^TToken_P;
       TToken_P =
       Record
+       // token
        Token    : TToken;
        TokenName: String;
 
+       // its value
        Value: Variant;
 
+       // and attributes
        Position, Line, Char: uint32;
+       FileName            : String;
       End;
 
  Function getTokenName(const T: TToken): String;

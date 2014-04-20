@@ -102,7 +102,8 @@ Unit Opcodes;
       );
 
  { TMOpcodeArg }
- Type TMOpcodeArg = // a single opcode argument
+ Type PMOpcodeArg = ^TMOpcodeArg;
+      TMOpcodeArg = // a single opcode argument
       Record
        Typ  : TPrimaryType; // parameter type (register, integer value etc.)
        Value: Variant;
@@ -112,16 +113,26 @@ Unit Opcodes;
  Type PMOpcode = ^TMOpcode;
       TMOpcode =
       Record
-       Name  : String;
+       // opcode name
+       Name: String;
+
+       // opcode data
        Opcode: TOpcode_E;
        Args  : Array of TMOpcodeArg;
 
+       // attributes
        isLabel  : Boolean;
        isComment: Boolean;
 
        isPublic, isFunction: Boolean;
        FunctionSymbol      : TSymbol; // if 'isFunction' equals 'true'
 
+       // opcode data
+       OpcodePos : uint32; // size of all the previous opcodes; filled by BCCompiler.TCompiler during preparsing
+       OpcodeSize: uint32; // size of this opcode; ditto
+       OpcodeID  : uint32; // opcode number in the opcode table; ditto
+
+       // compiler data
        Token   : PToken_P;
        Compiler: Pointer;
       End;
