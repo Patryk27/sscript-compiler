@@ -34,6 +34,7 @@ Unit Lexer;
        End;
 
  Implementation
+Uses Variants;
 Const NewlineChar = #13; // this can be pretty any char, except that printable ones - it doesn't depend on any system settings
 
 (* TLexer.__readChar *)
@@ -220,7 +221,7 @@ Begin
    if (Length(Str) = 0) Then // invalid use of `+` or `-`
     Break;
 
-   if not (Str[Length(Str)] in ['e', 'E']) Then // invalid use of `+` or `-`
+   if (not (Str[Length(Str)] in ['e', 'E'])) Then // invalid use of `+` or `-`
     Break;
   End;
 
@@ -277,7 +278,7 @@ Var C1, C2, C3: Char;
     3: Result := (Str[1] = C1) and (Str[2] = C2) and (Str[3] = C3);
 
     else
-     raise Exception.CreateFmt('TLexer.getToken::Match() called with invalid argument (str = %s)', [Str]);
+     raise Exception.CreateFmt('TLexer.getToken::Match() called with invalid argument (str = ''%s'')', [Str]);
    End;
   End;
 
@@ -606,21 +607,39 @@ Begin
    Begin
     Result.Token := _FLOAT;
    End Else // is integer?
+   Begin
     Result.Token := _INT;
+   End;
 
    if (not OK) Then // not a valid number?
+   Begin
     if (isFloat) Then
      Result.Token := _INVALID_FLOAT Else
      Result.Token := _INVALID_INT;
+   End;
 
-   Case isFloat of
-    True:
-     if (not TryStrToFloat(Result.Value, Flt)) Then // check for over or underflow
-      Result.Token := _INVALID_FLOAT;
+   if (OK) Then
+   Begin
+    // check for underflow and overflow
+    Case isFloat of
+     // floats
+     True:
+      if (not TryStrToFloat(Result.Value, Flt)) Then
+       Result.Token := _INVALID_FLOAT;
 
-    False:
-     if (not TryStrToInt64(Result.Value, Int)) Then // check for over or underflow
-      Result.Token := _INVALID_INT;
+     // integers
+     False:
+      if (not TryStrToInt64(Result.Value, Int)) Then
+      Begin
+       if (TryStrToFloat(Result.Value, Flt)) Then
+       Begin
+        Result.Token := _FLOAT;
+       End Else
+       Begin
+        Result.Token := _INVALID_INT;
+       End;
+      End;
+    End;
    End;
   End;
  End;
