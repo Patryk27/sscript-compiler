@@ -37,10 +37,12 @@ Begin
 
    Writeln('libinfo begin');
 
+   // each namespace
    For Namespace in NamespaceList Do
    Begin
     Writeln('namespace ', Namespace.RefSymbol.Name);
 
+    // each symbol
     For Symbol in Namespace.getSymbolList Do
     Begin
      Case Symbol.Typ of

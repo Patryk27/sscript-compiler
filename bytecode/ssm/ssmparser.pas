@@ -194,7 +194,7 @@ Begin
     LabelList.Add(BCLabel);
 
     // ... and check if it's a function label
-    if (BCLabel.isFunction) and (BCLabel.FunctionSymbol.Visibility = mvPublic) Then
+    if (BCLabel.isFunction) and (BCLabel.FunctionSymbol.mFunction.RefSymbol.Visibility = mvPublic) Then
     Begin
      BCFunction.Signature := BCLabel.Name;
      BCFunction.Position  := BCLabel.Position;
@@ -210,21 +210,27 @@ Begin
     For Symbol in Namespace.SymbolList Do
     Begin
      // if type
-     if (Symbol.Typ = stType) Then // @TODO: why save internal types?
+     if (Symbol.Typ = stType) Then
      Begin
-      BCType.Name      := Symbol.getFullName;
-      BCType.Signature := Symbol.mType.getSerializedForm;
+      if (Symbol.isInternal) or (Symbol.Visibility = mvPublic) Then // internal types are saved so that functions like "function<void> foo()" can be properly re-sparsed
+      Begin
+       BCType.Name      := Symbol.getFullName;
+       BCType.Signature := Symbol.mType.getSerializedForm;
 
-      TypeList.Add(BCType);
+       TypeList.Add(BCType);
+      End;
      End Else
 
      // if variable
-     if (Symbol.Typ = stVariable) and (not Symbol.isInternal) Then
+     if (Symbol.Typ = stVariable) Then
      Begin
-      BCVariable.Name      := Symbol.getFullName;
-      BCVariable.Signature := Symbol.mVariable.getSerializedForm;
+      if (not Symbol.isInternal) and (Symbol.Visibility = mvPublic) Then
+      Begin
+       BCVariable.Name      := Symbol.getFullName;
+       BCVariable.Signature := Symbol.mVariable.getSerializedForm;
 
-      VarList.Add(BCVariable);
+       VarList.Add(BCVariable);
+      End;
      End;
     End;
    End;
