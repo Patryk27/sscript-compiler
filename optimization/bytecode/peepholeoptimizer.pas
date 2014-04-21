@@ -21,7 +21,7 @@ Uses Logging, Opcodes, SysUtils, Messages;
 
 (* isRegister *)
 {
- Returns `true` when passed primary type is a register
+ Returns `true` when passed primary type is a register.
 }
 Function isRegister(const T: TPrimaryType): Boolean; inline;
 Begin
@@ -30,7 +30,7 @@ End;
 
 (* isInt *)
 {
- Returns `true` when passed primary type is an int
+ Returns `true` when passed primary type is an int.
 }
 Function isInt(const T: TPrimaryType): Boolean; inline;
 Begin

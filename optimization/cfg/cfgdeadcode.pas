@@ -54,7 +54,9 @@ Var AnyChange: Boolean;
       End;
 
       if (not isVariableRead(Symbol.mVariable, Current, Node)) Then // if variable's value is not used between assignments, we can remove that first assign
+      Begin
        Exit(True);
+      End;
      End;
     End;
 

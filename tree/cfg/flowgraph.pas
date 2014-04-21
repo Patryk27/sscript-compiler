@@ -91,7 +91,7 @@ Unit FlowGraph;
  Function isVariableRead(const VariablePnt: TObject; const rBeginNode, rEndNode: TCFGNode): Boolean;
 
  Implementation
-Uses Math, Classes, SysUtils,
+Uses Classes, SysUtils,
      Logging,
      SSCompiler, Messages, symdef, ExpressionParser;
 
@@ -399,24 +399,19 @@ End;
 }
 Function isVariableRead(const VariablePnt: TObject; const rBeginNode, rEndNode: TCFGNode): Boolean;
 Var Visited : TCFGNodeList;
-    VarName : String;
-    VarRange: TRange;
 
   { isRead }
   Function isRead(const Node: TCFGNode; const Expr: PExpressionNode): Boolean;
-  Var I    : Integer;
-      Range: Boolean;
+  Var I: Integer;
   Begin
    Result := False;
 
    if (Expr = nil) Then
     Exit(False);
 
-   if (Expr^.Typ = mtIdentifier) Then
+   if (Expr^.Typ = mtIdentifier) and (Expr^.Symbol <> nil) Then
    Begin
-    Range := inRange(Expr^.Token.Position, VarRange.PBegin.Position, VarRange.PEnd.Position);
-
-    if (Range) and (Expr^.IdentName = VarName) Then
+    if (TSymbol(Expr^.Symbol).mVariable = VariablePnt) Then
      Exit(True);
    End;
 
@@ -428,16 +423,14 @@ Var Visited : TCFGNodeList;
     Result := isRead(Node, Expr^.Right);
    End Else
    Begin
-    if (Expr^.Left <> nil) Then
-     Result := Result or isRead(Node, Expr^.Left);
-
-    if (Expr^.Right <> nil) Then
-     Result := Result or isRead(Node, Expr^.Right);
+    Result := isRead(Node, Expr^.Left) or isRead(Node, Expr^.Right);
 
     if (not Result) Then
+    Begin
      For I := 0 To High(Expr^.ParamList) Do
       if (isRead(Node, Expr^.ParamList[I])) Then
        Exit(True);
+    End;
    End;
   End;
 
@@ -445,7 +438,7 @@ Var Visited : TCFGNodeList;
   Procedure Visit(Node: TCFGNode);
   Var Edges: TCFGNode;
   Begin
-   if (Node = nil) or (Node = rEndNode) or (Visited.IndexOf(Node) <> -1) Then
+   if (Node = nil) or (Visited.IndexOf(Node) <> -1) Then
     Exit;
 
    Visited.Add(Node);
@@ -462,15 +455,15 @@ Var Visited : TCFGNodeList;
     Exit;
    End;
 
+   if (Node = rEndNode) Then
+    Exit;
+
    For Edges in Node.Edges Do
     Visit(Edges);
   End;
 
 Begin
  Result := False;
-
- VarName  := TVariable(VariablePnt).RefSymbol.Name;
- VarRange := TVariable(VariablePnt).RefSymbol.Range;
 
  Visited := TCFGNodeList.Create;
  Try
