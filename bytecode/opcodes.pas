@@ -97,7 +97,8 @@ Unit Opcodes;
        o_strjoin,
        o_not, o_or, o_xor, o_and, o_shl, o_shr,
        o_mod,
-       o_arset, o_arget, o_arcrt, o_arlen, o_strlen,
+       o_arset, o_arget, o_arcrt, o_arlen,
+       o_strset, o_strget, o_strlen,
        o_byte, o_word, o_integer, o_extended
       );
 
@@ -219,17 +220,23 @@ Unit Opcodes;
   (* ===== MOD () ===== *)
   (Name: 'mod'; ParamC: 2; ParamT: (ptAnyReg, ptAny, ptNone)),
 
-  (* ===== ARSET (refreg, indexes count, value) ===== *)
+  (* ===== ARSET (arrayReference, indexCount, newValue) ===== *)
   (Name: 'arset'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAny)),
 
-  (* ===== ARGET (refreg, indexes count, out reg) ===== *)
+  (* ===== ARGET (arrayReference, indexCount, out outValue) ===== *)
   (Name: 'arget'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAnyReg)),
 
-  (* ===== ARCRT (refreg, primary type id, array dim count) ===== *)
+  (* ===== ARCRT (out arrayReference, int arrayType, int dimensionCount) ===== *)
   (Name: 'arcrt'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptInt)),
 
-  (* ===== ARLEN (refreg, dimension, out reg) ===== *)
+  (* ===== ARLEN (arrayReference, int dimensionId, out int arrayLength) ===== *)
   (Name: 'arlen'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptIntReg)),
+
+  (* ===== STRSET (string modString, int charIndex, char newValue) ===== *)
+  (Name: 'strset'; ParamC: 3; ParamT: (ptStringReg, ptInt, ptChar)),
+
+  (* ===== STRGET (string modString, int charIndex, out char outValue) ===== *)
+  (Name: 'strget'; ParamC: 3; ParamT: (ptString, ptInt, ptCharReg)),
 
   (* ===== STRLEN (strreg, out int reg) ===== *)
   (Name: 'strlen'; ParamC: 2; ParamT: (ptStringReg, ptIntReg, ptNone)),

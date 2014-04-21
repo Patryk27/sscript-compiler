@@ -1,58 +1,99 @@
-Procedure ParseArrayElement;
-Var TmpType, Typ, ArrayType: TType;
-    IndexCount             : Integer;
-    TmpExpr                : PExpressionNode;
+(* __string_char_get *)
+Procedure __string_char_get;
+Var IndexType: TType;
 Begin
- { find array 'origin' (a variable, cast (...)) }
- TmpExpr := Expr;
- While (TmpExpr^.Typ = mtArrayElement) Do
-  TmpExpr := TmpExpr^.Left;
+ // parse the left side (to ei1, preferably)
+ IndexType := Parse(Right, 1, 'i');
 
- ArrayType := Parse(TmpExpr, 1); // load array reference to the 'er1' register
- Typ       := ArrayType.Clone;
+ // ensure it's int
+ if (not IndexType.isInt) Then
+ Begin
+  Error(Right^.Token, eInvalidArraySubscript, ['string', IndexType.asString]);
+  Exit;
+ End;
 
- { push indexes onto the stack }
- TmpExpr    := Expr;
+ // repop
+ RePop(Right, IndexType, 1);
+
+ // put opcode
+ if (FinalRegChar = 'c') and (FinalRegID > 0) Then
+ Begin
+  Compiler.PutOpcode(o_strget, ['es1', 'ei1', getFinalReg]);
+
+  FinalRegChar := 'x';
+  FinalRegID   := 0;
+ End Else
+ Begin
+  Compiler.PutOpcode(o_strget, ['es1', 'ei1', 'ec1']);
+ End;
+
+ Result := TYPE_CHAR;
+End;
+
+(* __array_get *)
+Procedure __array_get(const ArrayType: TType);
+Var Typ, IndexType: TType;
+    IndexCount    : Integer;
+    Index         : PExpressionNode;
+Begin
+ Typ := ArrayType.Clone;
+
+ // push indexes onto the stack
  IndexCount := 0;
+ Index      := Expr;
 
  Repeat
-  TmpType := Parse(TmpExpr^.Right);
-  With Compiler do // array subscript must be an integer value
-   if (not TmpType.isInt) or (Typ.ArrayDimCount = 0) Then
-   Begin
-    Error(TmpExpr^.Right^.Token, eInvalidArraySubscript, [Typ.asString, TmpType.asString]);
-    Exit;
-   End;
+  IndexType := Parse(Index^.Right);
 
-  TmpExpr := TmpExpr^.Left;
+  // make sure array subscript is an integer value
+  if (not IndexType.isInt) or (Typ.ArrayDimCount = 0) Then
+  Begin
+   Error(Index^.Right^.Token, eInvalidArraySubscript, [Typ.asString, IndexType.asString]);
+   Exit;
+  End;
+
+  Index := Index^.Left;
 
   Dec(Typ.ArrayDimCount);
   Inc(IndexCount);
- Until (TmpExpr^.Typ <> mtArrayElement);
+ Until (Index^.Typ <> mtArrayElement);
 
- { type change }
+ // output type change
  if (Typ.ArrayDimCount = 0) Then
  Begin
   Typ.RegPrefix := Typ.ArrayBase.RegPrefix;
- End; {Else
-  Begin // invalid conversion (except strings)
-   if not ((Typ.isString) and (Typ.ArrayDimCount = 1)) Then
-   Begin
-    Error(eInvalidConversion, [Typ.asString, Typ.ArrayBase.asString]);
-    Exit;
-   End;
-  End;}
+ End;
 
- if (Typ{.ArrayBase}.isString and (Typ.ArrayDimCount = 1)) Then // `string`
+ if (Typ.isString and (Typ.ArrayDimCount = 1)) Then // `string`
   Typ := TYPE_STRING;
 
- if (Typ{.ArrayBase}.isString and (Typ.ArrayDimCount = 0)) Then // `string`
+ if (Typ.isString and (Typ.ArrayDimCount = 0)) Then // `string`
   Typ := TYPE_CHAR;
 
- { get value }
+ // get value
  Compiler.PutOpcode(o_arget, ['e'+ArrayType.RegPrefix+'1', IndexCount, 'e'+Typ.RegPrefix+'1']);
  Dec(PushedValues, IndexCount);
 
- { set result value }
+ // set result value
  Result := Typ;
+End;
+
+(* ParseArrayElement *)
+Procedure ParseArrayElement;
+Var ArrayType: TType;
+    Origin   : PExpressionNode;
+Begin
+ // find array origin (a variable, function call, type cast...)
+ Origin := Expr;
+ While (Origin^.Typ = mtArrayElement) Do
+  Origin := Origin^.Left;
+
+ // load array/string reference (preferably to the er1/es1 register)
+ ArrayType := Parse(Origin, 1);
+ RePop(Origin, ArrayType, 1);
+
+ // call the appropriate code generator (as there's a difference between "string[index]" and "intarray[index]" in opcodes)
+ if (ArrayType.isString) and (ArrayType.ArrayDimCount = 1) Then
+  __string_char_get() Else
+  __array_get(ArrayType);
 End;

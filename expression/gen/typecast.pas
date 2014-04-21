@@ -21,7 +21,9 @@ Begin
    PutOpcode(o_pop, ['e'+TypeID.RegPrefix+'1']);
    Dec(PushedValues);
   End Else
+  Begin
    PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', 'e'+Typ.RegPrefix+'1']);
+  End;
  End;
 
  Result := TypeID;

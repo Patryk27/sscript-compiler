@@ -298,6 +298,12 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
    End;
   End;
 
+  { getFinalReg }
+  Function getFinalReg: String;
+  Begin
+   Result := 'e'+FinalRegChar+IntToStr(FinalRegID);
+  End;
+
 { variable handling }
 {$I variable_handling.pas}
 
@@ -550,13 +556,15 @@ Over:
   Begin
    // when values are compared, the comparing result is in the 'if' register
    Compiler.PutOpcode(o_push, ['if']);
+   Expr^.ResultOnStack := True;
   End Else
   Begin
    if (FinalRegChar in ['b', 'c', 'i', 'f', 's', 'r']) Then // is it valid FinalRegChar?
+   Begin
     Compiler.PutOpcode(o_push, ['e'+FinalRegChar+'1']); // save value onto the stack
+    Expr^.ResultOnStack := True;
+   End;
   End;
-
-  Expr^.ResultOnStack := True;
 
   Inc(PushedValues);
  End;

@@ -305,11 +305,11 @@ End;
 // -------------------------------------------------------------------------- //
 (* TSSMReader.ReadHeader *)
 {
- Reads and parses header from the stream
+ Reads and parses header data from the stream.
 }
 Procedure TSSMReader.ReadHeader(const AStream: TStream);
-Var magic_number                : uint32;
-    version_major, version_minor: uint8;
+Var MagicNumber: uint32;
+    Version    : TBytecodeVersion;
 
   { EndingZero }
   Function EndingZero(const Text: String): String;
@@ -320,21 +320,23 @@ Var magic_number                : uint32;
   End;
 
 Begin
- magic_number := AStream.read_uint32;
- AStream.ReadByte; // isRunnable attribute is skipped (it doesn't matter here)
- version_major := AStream.read_uint8;
- version_minor := AStream.read_uint8;
+ // read
+ MagicNumber   := AStream.read_uint32;
+ Version.Major := AStream.read_uint8;
+ Version.Minor := AStream.read_uint8;
 
- if (magic_number <> $0DEFACED) Then
+ // check magic number
+ if (MagicNumber <> $0DEFACED) Then
  Begin
-  Log('Invalid magic number: 0x'+IntToHex(magic_number, 2*sizeof(uint32)));
+  Log('Invalid magic number: 0x%x', [MagicNumber]);
   LoadOK := False;
   Exit;
  End;
 
- if (version_major <> bytecode_version_major) or (version_minor <> bytecode_version_minor) Then
+ // check version
+ if (Version.Major <> BytecodeVersion.Major) or (Version.Minor <> BytecodeVersion.Minor) Then
  Begin
-  Log('Invalid bytecode version: %d.%s', [version_major, EndingZero(IntToStr(version_minor))]);
+  Log('Invalid bytecode version: %d.%s', [Version.Major, EndingZero(IntToStr(Version.Minor))]);
   LoadOK := False;
   Exit;
  End;

@@ -1,4 +1,4 @@
-Bytecode version: 0.42
+Bytecode version: 0.43
 
 1 byte - byte - opcode type (see `\bytecode\opcodes.pas` for the opcode list)
   [for each opcode argument (parameter)]

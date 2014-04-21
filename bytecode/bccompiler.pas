@@ -8,8 +8,14 @@ Unit BCCompiler;
  Interface
  Uses Logging, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
 
- Const bytecode_version_major: uint8 = 0;
-       bytecode_version_minor: uint8 = 42;
+ { TBytecodeVersion }
+ Type TBytecodeVersion =
+      Record
+       Major, Minor: uint8;
+      End;
+
+ Const BytecodeVersion: TBytecodeVersion =
+       (Major: 0; Minor: 43);
 
  { EBCCompilerException }
  Type EBCCompilerException = Class(Exception);
@@ -511,12 +517,12 @@ Begin
   Begin
    write_uint32($0DEFACED);
 
+   write_uint8(BytecodeVersion.Major);
+   write_uint8(BytecodeVersion.Minor);
+
    if (SaveAs_SSM) Then
     write_uint8(0) { not runnable } else
     write_uint8(1) { runnable };
-
-   write_uint8(bytecode_version_major);
-   write_uint8(bytecode_version_minor);
   End;
 
   // log some data
