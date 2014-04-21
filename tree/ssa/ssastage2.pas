@@ -56,19 +56,34 @@ Function TSSAStage2.FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGN
 
   { fsVisitExpression }
   Function fsVisitExpression(const Expr: PExpressionNode): TSSAVarID;
-  Var Param: PExpressionNode;
-      PList: TFunctionParamList;
-      I    : Integer;
-      Sym  : TSymbol;
+  Var TmpExpr, Param: PExpressionNode;
+      PList         : TFunctionParamList;
+
+      Sym: TSymbol;
+      I  : Integer;
   Begin
+   // reset result
    SetLength(Result.Values, 0);
 
+   // give up if end of the tree
    if (Expr = nil) Then
     Exit;
 
-   if (Expr^.Typ in MLValueOperators) and (Expr^.Left^.Symbol = Symbol) Then
-    Exit(Expr^.Left^.PostSSA);
+   // =, +=, -=, >>= and so on
+   if (Expr^.Typ in MLValueOperators) Then
+   Begin
+    TmpExpr := Expr^.Left;
 
+    // skip array indexes
+    While (TmpExpr^.Typ = mtArrayElement) Do
+     TmpExpr := TmpExpr^.Left;
+
+    // check symbol
+    if (TmpExpr^.Symbol = Symbol) Then
+     Exit(TmpExpr^.PostSSA);
+   End;
+
+   // function call on symbol
    if (Expr^.Typ = mtFunctionCall) and (Expr^.Symbol <> nil) Then
    Begin
     Sym := TSymbol(Expr^.Symbol);
@@ -76,17 +91,22 @@ Function TSSAStage2.FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGN
     Case Sym.Typ of
      stFunction: PList := Sym.mFunction.ParamList;
      stVariable: PList := Sym.mVariable.Typ.FuncParams;
+
      else
       Generator.getCompiler.CompileError(eInternalError, ['TSSAStage2.fsVisitExpression: unknown symbol type ('+IntToStr(ord(Sym.Typ))+')!']);
     End;
 
     For I := Low(PList) To High(PList) Do // iterate each parameter
+    Begin
      if (PList[I].isVar) Then
+     Begin
       if (I <= High(Expr^.ParamList)) Then
       Begin
        if (Expr^.ParamList[I]^.Symbol = Symbol) Then
         Exit(Expr^.ParamList[I]^.SSA);
       End;
+     End;
+    End;
    End;
 
    Result := fsVisitExpression(Expr^.Left);

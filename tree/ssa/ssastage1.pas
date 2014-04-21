@@ -19,7 +19,7 @@ Unit SSAStage1;
         VarMap      : TVarMap;
 
        Private
-        Procedure IncreaseSSA(const Node: PExpressionNode; const PostSSAOnly: Boolean);
+        Procedure IncreaseSSA(Node: PExpressionNode; const PostSSAOnly: Boolean);
 
         Procedure VisitExpression(const Node: PExpressionNode);
         Procedure VisitNode(const Node, EndNode: TCFGNode);
@@ -34,10 +34,13 @@ Unit SSAStage1;
 Uses SysUtils, Messages;
 
 (* TSSAStage1.IncreaseSSA *)
-Procedure TSSAStage1.IncreaseSSA(const Node: PExpressionNode; const PostSSAOnly: Boolean);
+Procedure TSSAStage1.IncreaseSSA(Node: PExpressionNode; const PostSSAOnly: Boolean);
 Var mVar: TVariable;
     ID  : Integer;
 Begin
+ While (Node^.Typ = mtArrayElement) Do
+  Node := Node^.Left;
+
  if (Node^.Symbol = nil) Then // probably shouldn't happen
   Exit;
 
@@ -65,10 +68,10 @@ End;
 
 (* TSSAStage1.VisitExpression *)
 Procedure TSSAStage1.VisitExpression(const Node: PExpressionNode);
-Var Param : PExpressionNode;
-    I     : Integer;
+Var Symbol: TSymbol;
+    Param : PExpressionNode;
     PList : TFunctionParamList;
-    Symbol: TSymbol;
+    I     : Integer;
 Begin
  if (Node = nil) Then
   Exit;
