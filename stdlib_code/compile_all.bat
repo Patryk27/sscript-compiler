@@ -29,23 +29,27 @@ goto :begin
 :begin
 if not exist "..\compiler.exe" goto :compiler_not_found
 
-echo -] STRING
+echo -] String
 call :compile "string"
 
 echo.
-echo -] MATH
+echo -] Math
 call :compile "math"
 call :compile "numbers"
 call :compile "float"
 
 echo.
-echo -] TIME
+echo -] Time
 call :compile "time"
 
 echo.
-echo -] STDIO
+echo -] Standard input/output
 call :compile "stdio"
 
 echo.
 echo -] VM
 call :compile "vm"
+
+echo.
+echo -] miscellaneous
+call :compile "random"
