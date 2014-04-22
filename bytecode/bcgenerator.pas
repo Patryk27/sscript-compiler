@@ -452,7 +452,7 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
 
   { cetArrayInitializer }
   Procedure CompileArrayInitializer;
-  Var I: int8;
+  Var I: uint8;
   Begin
    ArrayVar         := (Node.ArrayInitializer.VarSymbol as TSymbol).mVariable;
    ArrayElementType := ArrayVar.Typ.ArrayBase;
