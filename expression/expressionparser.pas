@@ -26,8 +26,6 @@ Unit ExpressionParser;
         Function Parse(const EndTokens: TTokenSet): PExpressionNode;
        End;
 
- Function EmptyExpression(const Token: PToken_P=nil): PExpressionNode;
-
  Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpressionNode;
  Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpressionNode;
  Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
@@ -43,80 +41,34 @@ Unit ExpressionParser;
  Implementation
 Uses Messages;
 
-(* EmptyExpression *)
-Function EmptyExpression(const Token: PToken_P=nil): PExpressionNode;
-Begin
- New(Result);
-
- With Result^ do
- Begin
-  Left  := nil;
-  Right := nil;
-
-  Typ   := mtNothing;
-  Value := 0;
-
-  IdentName  := '';
-  IdentType  := mtNothing;
-  IdentValue := null;
-
-  SetLength(ParamList, 0);
-  SetLength(SSA.Values, 0);
-  SetLength(PostSSA.Values, 0);
-
-  ResultOnStack := False;
-
-  Symbol := nil;
-  isNull := False;
- End;
-
- if (Token <> nil) Then
-  Result^.Token := Token^;
-End;
-
 (* MakeBoolExpression *)
 Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression(Token);
-
- Result^.Typ   := mtBool;
- Result^.Value := Value;
+ Result := TExpressionNode.Create(mtBool, Value, Token);
 End;
 
 (* MakeIntExpression *)
 Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression(Token);
-
- Result^.Typ   := mtInt;
- Result^.Value := Value;
+ Result := TExpressionNode.Create(mtInt, Value, Token);
 End;
 
 (* MakeIntExpression *)
 Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression(Token);
-
- Result^.Typ   := mtInt;
- Result^.Value := Value;
+ Result := TExpressionNode.Create(mtInt, Value, Token);
 End;
 
 (* MakeFloatExpression *)
 Function MakeFloatExpression(const Value: Extended; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression(Token);
-
- Result^.Typ   := mtFloat;
- Result^.Value := Value;
+ Result := TExpressionNode.Create(mtFloat, Value, Token);
 End;
 
 (* MakeStringExpression *)
 Function MakeStringExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
 Begin
- Result := EmptyExpression(Token);
-
- Result^.Typ   := mtString;
- Result^.Value := Value;
+ Result := TExpressionNode.Create(mtString, Value, Token);
 End;
 
 (* MakeNullExpression *)
@@ -338,12 +290,10 @@ End;
 (* TExpressionParser.CreateNode *)
 Function TExpressionParser.CreateNode(const Left, Right: PExpressionNode; const Typ: TExpressionNodeType; const Value: Variant; const Token: TToken_P): PExpressionNode;
 Begin
- Result := EmptyExpression(@Token);
+ Result := TExpressionNode.Create(Typ, Value, @Token);
 
  Result^.Left  := Left;
  Result^.Right := Right;
- Result^.Typ   := Typ;
- Result^.Value := Value;
 End;
 
 (* TExpressionParser.Create *)

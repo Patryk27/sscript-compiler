@@ -6,9 +6,12 @@
 Unit Expression;
 
  Interface
- Uses Tokens;
+ Uses Serialization, Tokens, SysUtils, Variants;
 
  Type TIntegerArray = Array of Integer;
+
+ { EExpressionNodeException }
+ Type EExpressionNodeException = Class(Exception);
 
  { TExpressionNodeType }
  Type TExpressionNodeType =
@@ -72,6 +75,11 @@ Unit Expression;
         isNull: Boolean; // special case for the "null" variable
 
        Public
+        Class Function Create(const fType: TExpressionNodeType=mtNothing; const fToken: PToken_P=nil): PExpressionNode; static;
+        Class Function Create(const fType: TExpressionNodeType; const fValue: Variant; const fToken: PToken_P=nil): PExpressionNode; static;
+
+        Class Function Create(const Node: Serialization.TNode): PExpressionNode; static;
+
         Function FindAssignment(const VarSymbol: TObject; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
         Procedure RemoveAssignments(const VarSymbol: TObject);
 
@@ -80,6 +88,8 @@ Unit Expression;
         Function containsCall: Boolean;
         Function hasValue: Boolean;
         Function isConstant: Boolean;
+
+        Function getSerializedForm: String;
        End;
 
  // primary types; order (those numbers) is important, as it is the same in the virtual machine!
@@ -97,7 +107,7 @@ Unit Expression;
  Operator in (A: Integer; B: Array of LongWord): Boolean;
 
  Implementation
-Uses SysUtils, symdef;
+Uses symdef;
 
 (* TSSAVarID = TSSAVarID *)
 Operator = (A, B: TSSAVarID): Boolean;
@@ -125,6 +135,53 @@ Begin
 End;
 
 // -------------------------------------------------------------------------- //
+(* TExpressionNode.Create *)
+Class Function TExpressionNode.Create(const fType: TExpressionNodeType; const fToken: PToken_P): PExpressionNode;
+Begin
+ New(Result);
+
+ With Result^ do
+ Begin
+  Left  := nil;
+  Right := nil;
+
+  Typ   := fType;
+  Value := 0;
+
+  IdentName  := '';
+  IdentType  := mtNothing;
+  IdentValue := null;
+
+  SetLength(ParamList, 0);
+  SetLength(SSA.Values, 0);
+  SetLength(PostSSA.Values, 0);
+
+  ResultOnStack := False;
+
+  Symbol := nil;
+  isNull := False;
+ End;
+
+ if (fToken <> nil) Then
+  Result^.Token := fToken^;
+End;
+
+(* TExpressionNode.Create *)
+Class Function TExpressionNode.Create(const fType: TExpressionNodeType; const fValue: Variant; const fToken: PToken_P): PExpressionNode;
+Begin
+ Result        := TExpressionNode.Create(fType, fToken);
+ Result^.Value := fValue;
+End;
+
+(* TExpressionNode.Create *)
+{
+ Creates a contant node from serialized form of expression.
+}
+Class Function TExpressionNode.Create(const Node: Serialization.TNode): PExpressionNode;
+Begin
+ Result := TExpressionNode.Create(TExpressionNodeType(Node[0].getInt), Node[1].getVariant);
+End;
+
 (* TExpressionNode.FindAssignment *)
 {
  Finds the first assignment to a variable named `VarName` and returns it, otherwise returns `nil`.
@@ -282,5 +339,18 @@ Begin
   Exit(False);
 
  Result := (Left = nil) and (Right = nil) and (Typ in [mtBool, mtChar, mtInt, mtFloat, mtString]);
+End;
+
+(* TExpressionNode.getSerializedForm *)
+{
+ Returns serialized form of a constant node.
+ If node isn't a contant, throws exception.
+}
+Function TExpressionNode.getSerializedForm: String;
+Begin
+ if (not isConstant) Then
+  raise EExpressionNodeException.Create('Cannot generate serialized form of not constant expression!');
+
+ Result := Format('(%d$%s)', [ord(Typ), VarToStr(Value)]);
 End;
 End.

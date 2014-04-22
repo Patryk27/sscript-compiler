@@ -9,7 +9,7 @@ Unit Parse_CONST;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, ExpressionParser, Tokens, symdef, Messages, Opcodes;
+Uses SSCompiler, ExpressionParser, Expression, Tokens, symdef, Messages, Opcodes;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
@@ -60,7 +60,7 @@ Begin
     End Else // if it's not - show error
     Begin
      CompileError(eExpectedConstant, []);
-     Variable.Value := EmptyExpression;
+     Variable.Value := TExpressionNode.Create();
     End;
    End;
 

@@ -1287,9 +1287,8 @@ Begin
   Result += Typ.getSerializedForm+'$' Else
   Result += Typ.RefSymbol.getFullName+'$';
 
- if (Value = nil) Then
-  Result += '$' Else
-  Result += ExpressionToString(Value)+'$';
+ if (Value <> nil) Then
+  Result += Value^.getSerializedForm;
 
  Result += ')';
 End;
@@ -1409,9 +1408,18 @@ Begin
  Result += '(';
 
  For P in ParamList Do
+ Begin
+  Result += '(';
+
   if (P.Typ.RefSymbol.Name = '') Then
    Result += P.Typ.getSerializedForm+'$' Else
    Result += P.Typ.RefSymbol.getFullName+'$';
+
+  if (P.DefaultValue <> nil) Then
+   Result += P.DefaultValue^.getSerializedForm;
+
+  Result += ')$';
+ End;
 
  Result += ')';
 

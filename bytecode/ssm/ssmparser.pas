@@ -125,7 +125,7 @@ Unit SSMParser;
        End;
 
  Implementation
-Uses Tokens, Variants, Logging, Serialization;
+Uses Expression, Tokens, Variants, Logging, Serialization;
 
 (* SplitByDot *)
 Procedure SplitByDot(const Str: String; out Pre, Post: String);
@@ -747,7 +747,7 @@ Var BCFunction: TBCFunction;
 
     mFunction, mNextFunction: TFunction;
 
-    ParamListNode: Serialization.TNode;
+    ParamListNode, ParamNode: Serialization.TNode;
 
     FuncNamespace                        : TNamespace;
     NamespaceName, FunctionName, TypeName: String;
@@ -821,17 +821,26 @@ Begin
    ParamListNode := Data.getRoot[5];
    For Param := 0 To High(mFunction.ParamList) Do
    Begin
-    if (ParamListNode[Param].getType = ntValue) Then
+    ParamNode := ParamListNode[Param];
+
+    // parse parameter type
+    if (ParamNode[0].getType = ntValue) Then
     Begin
      // split name
-     SplitByDot(ParamListNode[Param].getString, NamespaceName, TypeName);
+     SplitByDot(ParamNode[0].getString, NamespaceName, TypeName);
 
      // find type
      mFunction.ParamList[Param].Typ := findType(NamespaceName, TypeName);
     End Else
     Begin
      // parse type
-     mFunction.ParamList[Param].Typ := TType.Create(ParamListNode[Param]);
+     mFunction.ParamList[Param].Typ := TType.Create(ParamNode[0]);
+    End;
+
+    // parse parameter default value
+    if (ParamNode.getChildren.Count > 1) Then
+    Begin
+     mFunction.ParamList[Param].DefaultValue := TExpressionNode.Create(ParamNode[1]);
     End;
 
     if (mFunction.ParamList[Param].Typ = nil) Then

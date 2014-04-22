@@ -172,9 +172,8 @@ Begin
  { '(-numexprA)+numexprB' -> 'numexprB-numexprA' }
  if (Node^.Typ = mtAdd) and (Node^.Left^.Typ = mtNeg) and (isNumeric(Node^.Left)) and (isNumeric(Node^.Right)) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
+  Tmp := TExpressionNode.Create(mtSub, @Node^.Token);
 
-  Tmp^.Typ   := mtSub;
   Tmp^.Left  := Node^.Right;
   Tmp^.Right := Node^.Left^.Left;
 
@@ -185,9 +184,8 @@ Begin
  { 'numexprA+(-numexprB)' -> 'numexprA-numexprB' }
  if (Node^.Typ = mtAdd) and (Node^.Right^.Typ = mtNeg) and (isNumeric(Node^.Left)) and (isNumeric(Node^.Right)) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
+  Tmp := TExpressionNode.Create(mtSub, @Node^.Token);
 
-  Tmp^.Typ   := mtSub;
   Tmp^.Left  := Node^.Left;
   Tmp^.Right := Node^.Right^.Left;
 
@@ -212,9 +210,7 @@ Begin
  { 'numexpr*(-1)' -> '-numexpr' }
  if (Node^.Typ = mtMul) and (isEqual(Node^.Right, -1)) and (isNumeric(Node^.Left)) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
-
-  Tmp^.Typ  := mtNeg;
+  Tmp       := TExpressionNode.Create(mtNeg, @Node^.Token);
   Tmp^.Left := Node^.Left;
 
   Node   := Tmp;
@@ -224,9 +220,7 @@ Begin
  { '(-1)*numexpr' -> '-numexpr' }
  if (Node^.Typ = mtMul) and (isEqual(Node^.Left, -1)) and (isNumeric(Node^.Right)) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
-
-  Tmp^.Typ  := mtNeg;
+  Tmp       := TExpressionNode.Create(mtNeg, @Node^.Token);
   Tmp^.Left := Node^.Right;
 
   Node   := Tmp;
@@ -243,9 +237,7 @@ Begin
  { 'numexpr/(-1)' -> '-numexpr' }
  if (Node^.Typ = mtDiv) and (isEqual(Node^.Right, -1)) and (isNumeric(Node^.Left)) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
-
-  Tmp^.Typ  := mtNeg;
+  Tmp       := TExpressionNode.Create(mtNeg, @Node^.Token);
   Tmp^.Left := Node^.Left;
 
   Node   := Tmp;
@@ -279,13 +271,11 @@ Begin
     (isVariable(Node^.Left^.Right)) and (isVariable(Node^.Right)) and (isNumericVar(Node^.Right^.Symbol)) and
     (Node^.Left^.Right^.Symbol = Node^.Right^.Symbol) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
+  Tmp := TExpressionNode.Create(mtMul, @Node^.Token);
 
-  Tmp^.Typ   := mtMul;
-  Tmp^.Left  := Node^.Left^.Right;
-  Tmp^.Right := EmptyExpression;
+  Tmp^.Left := Node^.Left^.Right;
 
-  Tmp^.Right^.Typ   := mtSub;
+  Tmp^.Right        := TExpressionNode.Create(mtSub);
   Tmp^.Right^.Left  := Node^.Left^.Left;
   Tmp^.Right^.Right := MakeIntExpression(1);
 
@@ -299,13 +289,11 @@ Begin
     (isVariable(Node^.Left^.Left)) and (isVariable(Node^.Right)) and (isNumericVar(Node^.Right^.Symbol)) and
     (Node^.Left^.Left^.Symbol = Node^.Right^.Symbol) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
+  Tmp := TExpressionNode.Create(mtMul, @Node^.Token);
 
-  Tmp^.Typ   := mtMul;
-  Tmp^.Left  := Node^.Left^.Left;
-  Tmp^.Right := EmptyExpression(@Node^.Right^.Token);
+  Tmp^.Left := Node^.Left^.Left;
 
-  Tmp^.Right^.Typ   := Node^.Typ;
+  Tmp^.Right        := TExpressionNode.Create(Node^.Typ, @Node^.Right^.Token);
   Tmp^.Right^.Left  := Node^.Left^.Right;
   Tmp^.Right^.Right := MakeIntExpression(1);
 
@@ -328,11 +316,9 @@ Begin
     (Node^.Left^.Typ = mtMul) and (Node^.Left^.Left^.hasValue) and (Node^.Left^.Right^.hasValue) and
     (Node^.Right^.Typ = mtMul) and (Node^.Right^.Left^.hasValue) and (Node^.Right^.Right^.hasValue) Then
  Begin
-  Tmp := EmptyExpression(@Node^.Token);
+  Tmp := TExpressionNode.Create(mtMul, @Node^.Token);
 
-  Tmp^.Typ        := mtMul;
-  Tmp^.Right      := EmptyExpression(@Node^.Right^.Token);
-  Tmp^.Right^.Typ := Node^.Typ;
+  Tmp^.Right := TExpressionNode.Create(Node^.Typ, @Node^.Right^.Token);
 
   if (isNumericVar(Node^.Left^.Left)) and (isNumericVar(Node^.Right^.Left)) and (Node^.Left^.Left^.Symbol = Node^.Right^.Left^.Symbol) Then // first and second case
   Begin

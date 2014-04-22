@@ -5,7 +5,7 @@
 Unit Serialization;
 
  Interface
- Uses SysUtils, FGL;
+ Uses Variants, SysUtils, FGL;
 
  Type EInvalidSerializedData = class(Exception);
 
@@ -28,17 +28,20 @@ Unit Serialization;
         Constructor Create(const fValue: String);
         Destructor Destroy; override;
 
-        Function getChild(const Index: uint16): TNode;
+        Function getChild(const Index: uint32): TNode;
 
-        Property getType: TNodeType read Typ;
         Function getString: String;
-        Function getInt: int32;
+        Function getInt: int64;
+        Function getFloat: Extended;
         Function getBool: Boolean;
+        Function getVariant: Variant;
 
+       Public
+        Property getType: TNodeType read Typ;
         Property getValue: String read Value;
         Property getChildren: TNodeList read Children;
 
-        Property Child[Index: uint16]: TNode read getChild; default;
+        Property Child[Index: uint32]: TNode read getChild; default;
        End;
 
  { TUnserializer }
@@ -82,7 +85,7 @@ Begin
 End;
 
 (* TNode.getChild *)
-Function TNode.getChild(const Index: uint16): TNode;
+Function TNode.getChild(const Index: uint32): TNode;
 Begin
  Result := Children[Index];
 End;
@@ -94,15 +97,48 @@ Begin
 End;
 
 (* TNode.getInt *)
-Function TNode.getInt: int32;
+Function TNode.getInt: int64;
 Begin
- Result := StrToInt(Value); // @TODO: any invalid data protection?
+ Result := StrToInt64(Value); // @TODO: any invalid data protection?
+End;
+
+(* TNode.getFloat *)
+Function TNode.getFloat: Extended;
+Begin
+ Result := StrToFloat(Value);
 End;
 
 (* TNode.getBool *)
 Function TNode.getBool: Boolean;
 Begin
- Result := (getInt = 1);
+ Result := (LowerCase(getString) = 'true') or (getInt = 1);
+End;
+
+(* TNode.getVariant *)
+Function TNode.getVariant: Variant;
+Var Str  : String;
+    Int  : int64;
+    Float: Extended;
+Begin
+ Str := getString;
+
+ // try converting to an int
+ if (TryStrToInt64(Str, Int)) Then
+  Exit(Int);
+
+ // try converting to a float
+ if (TryStrToFloat(Str, Float)) Then
+  Exit(Float);
+
+ // maybe a bool then?
+ if (LowerCase(Str) = 'true') Then
+  Exit(True);
+
+ if (LowerCase(Str) = 'false') Then
+  Exit(False);
+
+ // so it's a string
+ Exit(Str);
 End;
 
 // -------------------------------------------------------------------------- //
