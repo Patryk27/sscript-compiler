@@ -30,7 +30,7 @@ public namespace std
 
    if (y&1 == 0)
    {
-    mt[i] = mt[i] ^ 0x9908b0df;
+    mt[i] ^= 0x9908b0df;
    }
   }
  }

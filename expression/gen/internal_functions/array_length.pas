@@ -1,5 +1,4 @@
 Procedure __array_length;
-Var Param: TType;
 Begin
  {
   `array.length` can be called in 2 ways:

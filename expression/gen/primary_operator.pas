@@ -17,27 +17,29 @@ Begin
   End;
 
   Variable := getVariable(Left, True);
+
   if (Variable.Symbol = nil) Then // variable not found
    Exit;
  End Else
+ Begin
   Variable.getArray := 0;
+ End;
 
  { compile both sides }
  Result := CompileSimple(TypeLeft, TypeRight, WithAssign);
 
- if (Result = nil) or (TypeLeft = nil) or (TypeRight = nil) Then
+ if (Result = nil) Then
  Begin
   DevLog(dvWarning, 'CompileSimple() returned `nil`; leaving function...');
   Exit;
  End;
 
  // `array <operator> array` is an invalid construction
- With Compiler do
-  if (TypeLeft.isArray(False) and TypeRight.isArray(False)) Then
-  Begin
-   Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
-   Exit;
-  End;
+ if (TypeLeft.isArray(False) and TypeRight.isArray(False)) Then
+ Begin
+  Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
+  Exit;
+ End;
 
  { prepare opcode }
  Case Expr^.Typ of

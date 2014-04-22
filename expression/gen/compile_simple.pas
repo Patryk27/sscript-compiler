@@ -24,12 +24,24 @@ Begin
 
  SCCannotPredict := ShortCircuitLabel+'_cannotpredict';
 
- if (isLeftVariable) Then // if the left side is a variable
+ // if the left side is a variable
+ if (isLeftVariable) Then
  Begin
   Variable := getVariable(Left, False);
 
   TypeLeft  := Variable.Typ;
   TypeRight := Parse(Right, 2);
+
+  For I := 1 To Variable.getArray Do
+  Begin
+   if (not TypeLeft.isArray) Then
+   Begin
+    TypeLeft := nil;
+    Exit;
+   End;
+
+   TypeLeft := TypeLeft.getLowerArray;
+  End;
  End Else
  Begin
   if (countLeaves(Right) > countLeaves(Left)) Then
