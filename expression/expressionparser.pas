@@ -56,11 +56,17 @@ Begin
   Typ   := mtNothing;
   Value := 0;
 
-  ResultOnStack := False;
+  IdentName  := '';
+  IdentType  := mtNothing;
+  IdentValue := null;
 
+  SetLength(ParamList, 0);
   SetLength(SSA.Values, 0);
   SetLength(PostSSA.Values, 0);
 
+  ResultOnStack := False;
+
+  Symbol := nil;
   isNull := False;
  End;
 
