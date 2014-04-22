@@ -68,11 +68,11 @@ public namespace std
  }
 
  /*
-  @name: random_32
+  @name: random
 
   Returns a random 32-bit number.
  */
- function<int> random_32()
+ function<int> random()
  {
   if (index == 0)
    generate_table();
@@ -96,7 +96,7 @@ public namespace std
  */
  function<int> random_8()
  {
-  return random_32() & 0xFF;
+  return random() & 0xFF;
  }
 
  /*
@@ -106,17 +106,27 @@ public namespace std
  */
  function<int> random_16()
  {
-  return random_32() & 0xFFFF;
+  return random() & 0xFFFF;
  }
 
  /*
   @name: random
 
+  Returns a random 32-bit number.
+ */
+ function<int> random_32()
+ {
+  return random();
+ } 
+
+ /*
+  @name: random_64
+
   Returns a random 64-bit number.
  */
- function<int> random()
+ function<int> random_64()
  {
-  return (random_32() << 32) | random_32();
+  return (random() << 32) | random();
  }
 
  /*
