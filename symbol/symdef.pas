@@ -635,7 +635,7 @@ End;
 {
  Returns 'lower' type of array type.
  When type is 'int[][]', it returns 'int[]',
- When type is 'string' it returns 'char', and so on.
+ When type is 'string' it returns 'char' and so on.
 }
 Function TType.getLowerArray: TType;
 Begin
@@ -652,7 +652,7 @@ Begin
   Result.RefSymbol     := RefSymbol;
   Result.Attributes    := Attributes;
 
-  if (isString) Then
+  if (isString) and (ArrayDimCount = 2) Then
   Begin
    Result.ArrayBase  := ArrayBase.ArrayBase;
    Result.RegPrefix  := ArrayBase.RegPrefix;

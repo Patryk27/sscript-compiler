@@ -33,6 +33,7 @@ Unit ExpressionParser;
  Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
  Function MakeFloatExpression(const Value: Extended; const Token: PToken_P=nil): PExpressionNode;
  Function MakeStringExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
+ Function MakeNullExpression: PExpressionNode;
 
  Function getValueFromExpression(const Expr: PExpressionNode; const Beautify: Boolean=False): String;
  Function getTypeFromExpression(const Expr: PExpressionNode): TType;
@@ -59,6 +60,8 @@ Begin
 
   SetLength(SSA.Values, 0);
   SetLength(PostSSA.Values, 0);
+
+  isNull := False;
  End;
 
  if (Token <> nil) Then
@@ -108,6 +111,13 @@ Begin
 
  Result^.Typ   := mtString;
  Result^.Value := Value;
+End;
+
+(* MakeNullExpression *)
+Function MakeNullExpression: PExpressionNode;
+Begin
+ Result         := MakeIntExpression(0);
+ Result^.isNull := True;
 End;
 
 (* getValueFromExpression *)
@@ -162,6 +172,7 @@ Begin
   mtInt   : Result := 'int';
   mtFloat : Result := 'float';
   mtString: Result := 'string';
+
   else
    Result := 'erroneous type';
  End;
@@ -321,21 +332,12 @@ End;
 (* TExpressionParser.CreateNode *)
 Function TExpressionParser.CreateNode(const Left, Right: PExpressionNode; const Typ: TExpressionNodeType; const Value: Variant; const Token: TToken_P): PExpressionNode;
 Begin
- New(Result);
+ Result := EmptyExpression(@Token);
 
- Result^.Left          := Left;
- Result^.Right         := Right;
- Result^.Typ           := Typ;
- Result^.Value         := Value;
- Result^.Token         := Token;
- Result^.Symbol        := nil;
- Result^.IdentName     := '';
- Result^.IdentType     := mtNothing;
- Result^.IdentValue    := null;
- Result^.ResultOnStack := False;
-
- SetLength(Result^.SSA.Values, 0);
- SetLength(Result^.ParamList, 0);
+ Result^.Left  := Left;
+ Result^.Right := Right;
+ Result^.Typ   := Typ;
+ Result^.Value := Value;
 End;
 
 (* TExpressionParser.Create *)
@@ -593,14 +595,18 @@ Var Scanner  : TScanner;
       next : TToken;
       Token: TToken_P;
       Tmp  : PExpressionNode;
+
+      UnspecifiedDimensions: uint8 = 0;
   Begin
    next := Scanner.next_t;
 
-   if (next = _NEW) Then // "new" operator
+   // "new" operator
+   if (next = _NEW) Then
    Begin
     Token := Scanner.read; // `new`
     mType := Scanner.read_type(False); // read type
 
+    // create node
     Result := CreateNode
               (
                CreateNode(nil, nil, mtInt, uint32(mType), Token),
@@ -612,11 +618,36 @@ Var Scanner  : TScanner;
 
     Tmp := Result;
 
+    // read dimension sizes
     While (true) Do
     Begin
-     Token      := Scanner.eat(_BRACKET2_OP);
-     Tmp^.Right := CreateNode(Parse([_BRACKET2_CL]), nil, mtArrayElement, null, Token);
-     Tmp        := Tmp^.Right;
+     Token := Scanner.eat(_BRACKET2_OP);
+
+     if (UnspecifiedDimensions > 0) Then
+      Compiler.CompileError(Token, eUnexpected, [Token.Value]);
+
+     // "new type[size][]"
+     if (Scanner.next_t = _BRACKET2_CL) Then
+     Begin
+      if (Result^.Right = nil) Then // "new type[]" is wrong
+       Compiler.CompileError(Scanner.next_pnt, eExpectedValue, [']']);
+
+      if (UnspecifiedDimensions > 0) Then // and so is "new type[10][][]"
+       Compiler.CompileError(Scanner.next_pnt, eExpectedValue, [']']);
+
+      Scanner.eat(_BRACKET2_CL);
+
+      Tmp^.Right := CreateNode(nil, nil, mtArrayElement, null, Token);
+      Tmp        := Tmp^.Right;
+
+      Inc(UnspecifiedDimensions);
+     End Else
+
+     // "new type[size]"
+     Begin
+      Tmp^.Right := CreateNode(Parse([_BRACKET2_CL]), nil, mtArrayElement, null, Token);
+      Tmp        := Tmp^.Right;
+     End;
 
      if (Scanner.next_t = _BRACKET2_OP) Then
       Continue Else
@@ -626,24 +657,28 @@ Var Scanner  : TScanner;
     Exit;
    End;
 
-   if (next = _MINUS) Then // unary '-'
+   // unary '-'
+   if (next = _MINUS) Then
    Begin
     Token := Scanner.read;
     Exit(CreateNode(ParseOrder8(), nil, mtNeg, null, Token));
    End;
 
-   if (next = _EXCLM_MARK) Then // unary '!'
+   // unary '!'
+   if (next = _EXCLM_MARK) Then
    Begin
     Token := Scanner.read;
     Exit(CreateNode(ParseOrder8(), nil, mtLogicalNOT, null, Token));
    End;
 
-   if (next = _TILDE) Then // unary '~'
+   // unary '~'
+   if (next = _TILDE) Then
    Begin
     Token := Scanner.read;
     Exit(CreateNode(ParseOrder8(), nil, mtBitwiseNOT, null, Token));
    End;
 
+   // other operators
    Result := ParseOrder9();
 
    While (WhileCondition(Order8)) Do

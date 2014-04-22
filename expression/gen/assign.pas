@@ -2,7 +2,7 @@
 { variable = value; }
 Procedure __simple_assign(const Variable: TRVariable);
 Label WrongTypeInAssign;
-Var TypeID: TType;
+Var AssignedType: TType;
 Begin
  // check for invalid variable use - like "intvar[index] = 0xCAFEBABE;" ('int' is not an array).
  if (Left^.Typ = mtArrayElement) Then
@@ -14,22 +14,22 @@ Begin
  // if variable is stored in a register, we can directly set this variable's value (without using a helper register)
  if (Variable.isStoredInRegister) Then
  Begin
-  TypeID := Parse(Right, Variable.LocationData.RegisterID, Variable.RegChar);
+  AssignedType := Parse(Right, Variable.LocationData.RegisterID, Variable.RegChar);
  End Else
 
  // otherwise use a helper register
  Begin
   // parse expression and load it into a helper register (e_1)
-  TypeID := Parse(Right, 1);
+  AssignedType := Parse(Right, 1);
 
-  if (TypeID = nil) Then
+  if (AssignedType = nil) Then
    goto WrongTypeInAssign;
 
   // repop value back to the register (if it was put on the stack)
-  RePop(Right, TypeID, 1);
+  RePop(Right, AssignedType, 1);
 
   // set variable value
-  __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
+  __variable_setvalue_reg(Variable, 1, AssignedType.RegPrefix);
  End;
 
  // quick chech for "foo = foo;" assignments.
@@ -38,20 +38,20 @@ Begin
   Hint(hExpressionHasNoEffect, []);
  End;
 
- if (TypeID = nil) Then
+ if (AssignedType = nil) Then
  Begin
-  DevLog(dvError, 'TypeID = nil; leaving function...');
+  DevLog(dvError, 'AssignedType = nil; leaving function...');
   Exit;
  End;
 
  // put opcode
- Compiler.PutOpcode(o_mov, ['e'+TypeID.RegPrefix+'1', Variable.PosStr]);
+ Compiler.PutOpcode(o_mov, ['e'+AssignedType.RegPrefix+'1', Variable.PosStr]);
 
  // do type check
- if (not TypeID.CanBeAssignedTo(Variable.Typ)) Then
+ if (not AssignedType.CanBeAssignedTo(Variable.Typ)) Then
  Begin
   WrongTypeInAssign:
-  Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, Variable.Typ.asString]);
+  Error(eWrongTypeInAssign, [Variable.Name, AssignedType.asString, Variable.Typ.asString]);
   Exit;
  End;
 
@@ -103,8 +103,9 @@ End;
 { array[index] = value; }
 { array[a][b] = value; }
 Procedure __array_assign(const Variable: TRVariable);
-Var TypeID, TmpType: TType;
-    Index, DimCount: Byte;
+Var IndexType, AssignedType, TmpType: TType;
+
+    Index, DimCount: uint8;
     ShouldFail     : Boolean;
 Begin
  Index := 0;
@@ -112,11 +113,11 @@ Begin
  // push indexes onto the stack
  While (Left^.Typ <> mtIdentifier) do
  Begin
-  TypeID := Parse(Left^.Right);
+  IndexType := Parse(Left^.Right);
 
   // make sure subscript is an integer
-  if (not TypeID.isInt) Then
-   Error(eInvalidArraySubscript, [Variable.Typ.asString, TypeID.asString]);
+  if (not IndexType.isInt) Then
+   Error(eInvalidArraySubscript, [Variable.Typ.asString, IndexType.asString]);
 
   Left := Left^.Left;
   Inc(Index);
@@ -127,59 +128,56 @@ Begin
  Begin
   if (Variable.isStoredInRegister) Then
   Begin
-   TypeID := Parse(Right, Variable.LocationData.RegisterID, Variable.RegChar);
+   AssignedType := Parse(Right, Variable.LocationData.RegisterID, Variable.RegChar);
   End Else
   Begin
-   TypeID := Parse(Right, 1); // this value will be our new pointer
-   RePop(Right, TypeID, 1);
+   AssignedType := Parse(Right, 1); // this value will be our new pointer
+   RePop(Right, AssignedType, 1);
   End;
 
   // type check
-  With Compiler do
+  if (not AssignedType.CanBeAssignedTo(Variable.Typ)) Then
   Begin
-   if (not TypeID.CanBeAssignedTo(Variable.Typ)) Then
-   Begin
-    Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, Variable.Typ.asString]);
-    Exit;
-   End;
+   Error(eWrongTypeInAssign, [Variable.Name, AssignedType.asString, Variable.Typ.asString]);
+   Exit;
   End;
 
   // set new pointer, if not done already
   if (not Variable.isStoredInRegister) Then
-   Result := __variable_setvalue_reg(Variable, 1, TypeID.RegPrefix);
+   Result := __variable_setvalue_reg(Variable, 1, AssignedType.RegPrefix);
 
   Exit;
  End;
 
  // so it isn't a pointer assignment - we're modyfing real array elements here
-
  DimCount := Variable.Typ.ArrayDimCount;
 
- if (Index <> DimCount) Then
- Begin
-  // special case: strings
-  if (Index = DimCount-1) and (Variable.Typ.isString) Then
-  Begin
-   // nothing here
-  End Else
-  Begin
-   Error(eInvalidArrayAssign, []);
-   Exit;
-  End;
- End;
-
- TypeID := Parse(Right, 1); // this value will be saved into the array
- RePop(Right, TypeID, 1);
+ AssignedType := Parse(Right, 1); // this value will be saved into the array
+ RePop(Right, AssignedType, 1);
 
  // do type check
  With Compiler do
  Begin
-  TmpType    := Variable.Typ.ArrayBase;
+  TmpType := Variable.Typ;
+
+  // get lower array type
+  For DimCount := 1 To Index Do
+  Begin
+   TmpType := TmpType.getLowerArray;
+
+   if (TmpType = nil) Then
+   Begin
+    Error(eInvalidArrayAssign, []);
+    Exit;
+   End;
+  End;
+
+  // another type check
   ShouldFail := False;
 
   if (TmpType.isString and (Integer(Variable.Typ.ArrayDimCount)-Index <= 0)) Then
   Begin
-   ShouldFail := not TypeID.isChar;
+   ShouldFail := not AssignedType.isChar;
    TmpType    := TYPE_CHAR;
   End;
 
@@ -199,15 +197,15 @@ Begin
    That's what this `if` above does.
   }
 
-  if (not TypeID.CanBeAssignedTo(TmpType)) or (ShouldFail) Then
-   Error(eWrongTypeInAssign, [Variable.Name, TypeID.asString, TmpType.asString]);
+  if (not AssignedType.CanBeAssignedTo(TmpType)) or (ShouldFail) Then
+   Error(eWrongTypeInAssign, [Variable.Name, AssignedType.asString, TmpType.asString]);
  End;
 
  // set new array's element's value
- Compiler.PutOpcode(o_arset, [Variable.PosStr, Index, 'e'+TypeID.RegPrefix+'1']);
+ Compiler.PutOpcode(o_arset, [Variable.PosStr, Index, 'e'+AssignedType.RegPrefix+'1']);
  Dec(PushedValues, Index);
 
- Result := TypeID;
+ Result := TmpType;
 End;
 
 (* ParseAssign *)
@@ -231,7 +229,7 @@ Begin
   Exit;
 
  // jump to the right code generator
- if (not Variable.Typ.isArray) or (Right^.Typ = mtNew) Then
+ if (not Variable.Typ.isArray) {or (Right^.Typ = mtNew)} Then
   __simple_assign(Variable) Else
 
  if (Variable.Typ.isString) and (Variable.Typ.ArrayDimCount = 1) and (Left^.Typ = mtArrayElement) Then

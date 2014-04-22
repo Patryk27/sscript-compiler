@@ -473,7 +473,9 @@ Begin
   }
   End Else
   Begin // if const value
-   Result := getTypeFromMExpr(Expr);
+   if (Expr^.isNull) Then
+    Result := TYPE_NULL Else
+    Result := getTypeFromMExpr(Expr);
 
    if (FinalRegChar = #0) Then
     FinalRegChar := Result.RegPrefix;
@@ -481,7 +483,7 @@ Begin
    if (FinalRegID > 0) Then
    Begin
     // load a const value into the register
-    Compiler.PutOpcode(o_mov, ['e'+FinalRegChar+IntToStr(FinalRegID), getValueFromExpression(Expr)]);
+    Compiler.PutOpcode(o_mov, [getFinalReg, getValueFromExpression(Expr)]);
    End Else
    Begin
     // otherwise push onto the stack

@@ -69,6 +69,8 @@ Unit Expression;
 
         ResultOnStack: Boolean; // equal 'true' if expression's result is left on the stack
 
+        isNull: Boolean; // special case for the "null" variable
+
        Public
         Function FindAssignment(const VarSymbol: TObject; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
         Procedure RemoveAssignments(const VarSymbol: TObject);

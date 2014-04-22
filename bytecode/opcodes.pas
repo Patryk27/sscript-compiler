@@ -229,8 +229,8 @@ Unit Opcodes;
   (* ===== ARCRT (out arrayReference, int arrayType, int dimensionCount) ===== *)
   (Name: 'arcrt'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptInt)),
 
-  (* ===== ARLEN (arrayReference, int dimensionId, out int arrayLength) ===== *)
-  (Name: 'arlen'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptIntReg)),
+  (* ===== ARLEN (arrayReference, out int arrayLength) ===== *)
+  (Name: 'arlen'; ParamC: 2; ParamT: (ptReferenceReg, ptIntReg, ptNone)),
 
   (* ===== STRSET (string modString, int charIndex, char newValue) ===== *)
   (Name: 'strset'; ParamC: 3; ParamT: (ptStringReg, ptInt, ptChar)),
