@@ -207,7 +207,7 @@ Begin
 
   if (not Found) Then // error: included file does not exist!
   Begin
-   CompileError(eUnknownInclude, [FileName]);
+   CompileError(next(-2), eUnknownInclude, [FileName]);
    Exit;
   End;
 
