@@ -7,7 +7,10 @@
 Unit SSA;
 
  Interface
- Uses SSCompiler, symdef;
+ Uses HLCompiler, symdef, SysUtils;
+
+ { ESSAGeneratorException }
+ Type ESSAGeneratorException = Class(Exception);
 
  { TSSAGenerator }
  Type TSSAGenerator =

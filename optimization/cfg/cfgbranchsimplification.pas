@@ -37,7 +37,7 @@ Unit CFGBranchSimplification;
        End;
 
  Implementation
-Uses Logging, SSCompiler, FlowGraph, Expression, Messages, CFGExpressions;
+Uses Logging, HLCompiler, FlowGraph, Expression, Messages, CFGExpressions;
 
 (* TCFGBranchSimplification.OptimizeConstantBranches *)
 Procedure TCFGBranchSimplification.OptimizeConstantBranches;
@@ -123,7 +123,7 @@ Var AnythingOptimized: Boolean = False;
       NewParent := NewParent.Edges[0];
 
       if (NewParent = nil) Then
-       Compiler.CompileError(eInternalError, ['NewParent = nil']);
+       raise ECFGOptimizerException.Create('NewParent = nil');
      End;
 
      VisitedNodes.Clear;

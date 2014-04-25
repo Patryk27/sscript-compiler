@@ -10,7 +10,7 @@ Unit Parse_TRY_CATCH;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, FlowGraph, symdef, Opcodes, Tokens;
+Uses HLCompiler, FlowGraph, symdef, Opcodes, Tokens;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);

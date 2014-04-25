@@ -97,7 +97,7 @@ Begin
     stVariable: PList := Symbol.mVariable.Typ.FuncParams;
 
     else
-     Generator.getCompiler.CompileError(eInternalError, [Format('TSSAStage1.VisitExpression() -> unknown symbol type: %d', [ord(Symbol.Typ)])]);
+     raise ESSAGeneratorException.CreateFmt('Unknown symbol type: %d', [ord(Symbol.Typ)]);
    End;
 
    For I := Low(PList) To High(PList) Do // iterate each parameter

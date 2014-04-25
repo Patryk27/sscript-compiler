@@ -212,14 +212,13 @@ End;
 Procedure ParseAssign;
 Var Variable: TRVariable;
 Begin
- { left side is l-value (variable), right side is the expression to parse (a value, which we'll assign into the variable) }
+ { left side is l-value, right side is the expression to parse (a value, which we'll assign into the l-value) }
  if (not isLValue(Left)) Then
  Begin
   Error(Left^.Token, eLValueExpected, []);
   Exit;
  End;
 
- // fetch variable
  Variable := getVariable(Left, True);
 
  if (Variable.Symbol = nil) Then // variable not found

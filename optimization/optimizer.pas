@@ -5,7 +5,7 @@
 Unit Optimizer;
 
  Interface
- Uses SSCompiler, symdef;
+ Uses HLCompiler, symdef;
 
  { TOptimizer }
  Type TOptimizer =

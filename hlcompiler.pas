@@ -2,7 +2,7 @@
  Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
-Unit SSCompiler;
+Unit HLCompiler;
 
  Interface
  Uses Classes, SysUtils, Variants, FGL, Math,
@@ -18,6 +18,8 @@ Unit SSCompiler;
 
  { types }
  Type TCompiler = class;
+
+ Type EHLCompilerException = Class(Exception);
 
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
  Type TCompilePass = (_cp1, _cp2); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `_cp3` enum
@@ -325,11 +327,11 @@ Begin
      if (Copy(Tmp, 1, 10) = '$function.') Then
      Begin
       Delete(Tmp, 1, 10);
-      Int   := StrToInt(Tmp);
-      Tmp   := TFunction(Int).LabelName;
+      Int := StrToInt(Tmp);
+      Tmp := TFunction(Int).LabelName;
 
       if (Length(Tmp) = 0) Then
-       SSCompiler.TCompiler(Compiler).CompileError(eInternalError, ['Couldn''t fetch function''s label name; funcname = '+TSymbol(Int).mFunction.RefSymbol.Name]);
+       raise EHLCompilerException.CreateFmt('Couldn''t fetch label-name of the function %s', [TSymbol(Int).mFunction.RefSymbol.getFullName('::')]);
 
       Str := Str[1] + Tmp;
      End;
@@ -659,8 +661,11 @@ Begin
       'f': Typ := ptFloatReg;
       's': Typ := ptStringReg;
       'r': Typ := ptReferenceReg;
-      else CompileError(eInternalError, ['Unknown register: '+Str]);
+
+      else
+       raise EHLCompilerException.CreateFmt('Unknown register: %s', [Str]);
      End;
+
      Value := Str[3]; // register id
     End Else
 
@@ -716,7 +721,7 @@ Begin
       Delete(Str, Length(Str), 1);
 
       if (Length(Str) <> 1) Then
-       CompileError(eInternalError, ['Char literals must have ''length'' = ''1''']);
+       raise EHLCompilerException.Create('Invalid char literal.');
 
       Typ   := ptChar;
       Value := ord(Str[1]);
@@ -782,7 +787,7 @@ Begin
      Typ   := ptChar;
     End Else
 
-     CompileError(eInternalError, ['Unknown parameter type: T='+IntToStr(T)]);
+     raise EHLCompilerException.CreateFmt('Unknown parameter type (T=%d)', [T]);
    End;
   End;
 
@@ -970,7 +975,7 @@ End;
 Procedure TCompiler.RemoveScope;
 Begin
  if (Length(Scope) = 0) Then
-  CompileError(eInternalError, ['Cannot remove scope - no scope has been set.']);
+  raise EHLCompilerException.Create('Cannot remove scope - no scope has been set.');
 
  SetLength(Scope, High(Scope));
 End;
@@ -1081,7 +1086,7 @@ End;
 Procedure TCompiler.CFGAddNode(Node: TCFGNode);
 Begin
  if (Node = nil) Then
-  CompileError(eInternalError, ['Node = nil']);
+  raise EHLCompilerException.Create('Node = nil');
 
  if (fCurrentRoot = nil) Then
  Begin
@@ -1493,7 +1498,7 @@ Begin
    if (isIncluded) Then
    Begin
     DevLog(dvFatal, 'No parent specified and compiling as an unit!');
-    CompileError(eInternalError, ['Parent = nil']);
+    raise EHLCompilerException.Create('Parent = nil');
    End;
   End;
 
@@ -1607,16 +1612,11 @@ End;
  Displays an error; when passed error is a `eInternalError` or belongs to `error_stop`, function also stops the compiler.
 }
 Procedure TCompiler.CompileError(const Token: TToken_P; const Error: TCompileError; const Args: Array of const);
-Var Str: String;
 Begin
  if (Parent <> nil) Then
   Parent.AnyError := True;
 
- Str := InputFile+'('+IntToStr(Token.Line)+','+IntToStr(Token.Char)+') Error: '+Format(CompileError_fmt[Error], Args);
- if (Error = eInternalError) Then
-  raise Exception.Create(Str);
-
- Writeln(Str);
+ Writeln(Format('%s(%d, %d) Error: %s', [InputFile, Token.Line, Token.Char, Format(CompileError_fmt[Error], Args)]));
 
  if (Error in error_stop) Then
   raise Exception.Create(''); // used to stop the compiler
@@ -1657,7 +1657,7 @@ End;
 }
 Procedure TCompiler.CompileWarning(const Token: TToken_P; const Warning: TCompileWarning; const Args: Array of const);
 Begin
- Writeln(InputFile+'('+IntToStr(Token.Line)+','+IntToStr(Token.Char)+') Warning: '+Format(CompileWarning_fmt[Warning], Args));
+ Writeln(Format('%s(%d, %d) Warning: %s', [InputFile, Token.Line, Token.Char, Format(CompileWarning_fmt[Warning], Args)]));
 End;
 
 (* TCompiler.CompileWarning *)
@@ -1695,7 +1695,7 @@ End;
 }
 Procedure TCompiler.CompileHint(const Token: TToken_P; const Hint: TCompileHint; const Args: Array of const);
 Begin
- Writeln(InputFile+'('+IntToStr(Token.Line)+','+IntToStr(Token.Char)+') Hint: '+Format(CompileHint_fmt[Hint], Args));
+ Writeln(Format('%s(%d, %d) Hint: %s', [InputFile, Token.Line, Token.Char, Format(CompileHint_fmt[Hint], Args)]));
 End;
 
 (* TCompiler.CompileHint *)

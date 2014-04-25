@@ -5,7 +5,7 @@
 Unit VariableAllocator;
 
  Interface
- Uses SSCompiler, symdef;
+ Uses HLCompiler, symdef;
 
  { TVariableAllocator }
  Type TVariableAllocator =

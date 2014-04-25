@@ -10,7 +10,10 @@
 Unit ExpressionParser;
 
  Interface
- Uses SysUtils, SSCompiler, Expression, Scanner, symdef, Tokens, Variants, TypInfo;
+ Uses SysUtils, HLCompiler, Expression, Scanner, symdef, Tokens, Variants, TypInfo;
+
+ { EExpressionParserException }
+ Type EExpressionParserException = Class(Exception);
 
  { TExpressionParser }
  Type TExpressionParser =
@@ -645,7 +648,7 @@ Var Scanner  : TScanner;
      _AMPERSAND: Op := mtBitwiseAND;
 
      else
-      Compiler.CompileError(eInternalError, ['ParseOrder8() -> unexpected token']);
+      raise EExpressionParserException.Create('ParseOrder8() -> unexpected token');
     End;
 
     Result := CreateNode(Result, ParseOrder9(), Op, null, LoopToken);
@@ -721,7 +724,7 @@ Var Scanner  : TScanner;
      _PERCENT: Op := mtMod;
 
      else
-      Compiler.CompileError(eInternalError, ['ParseOrder6() -> unexpected token']);
+      raise EExpressionParserException.Create('ParseOrder6() -> unexpected token');
     End;
 
     Result := CreateNode(Result, ParseOrder7(), Op, null, LoopToken);
@@ -741,7 +744,7 @@ Var Scanner  : TScanner;
      _MINUS: Op := mtSub;
 
      else
-      Compiler.CompileError(eInternalError, ['ParseOrder5() -> unexpected token']);
+      raise EExpressionParserException.Create('ParseOrder5() -> unexpected token');
     End;
 
     Result := CreateNode(Result, ParseOrder6(), Op, null, LoopToken);
@@ -761,7 +764,7 @@ Var Scanner  : TScanner;
      _DOUBLE_GREATER: Op := mtSHR;
 
      else
-      Compiler.CompileError(eInternalError, ['ParseOrder4() -> unexpected token']);
+      raise EExpressionParserException.Create('ParseOrder4() -> unexpected token');
     End;
 
     Result := CreateNode(Result, ParseOrder5(), Op, null, LoopToken);
@@ -785,7 +788,7 @@ Var Scanner  : TScanner;
      _DIFFERENT    : Op := mtDifferent;
 
      else
-      Compiler.CompileError(eInternalError, ['ParseOrder3() -> unexpected token']);
+      raise EExpressionParserException.Create('ParseOrder3() -> unexpected token');
     End;
 
     Result := CreateNode(Result, ParseOrder4(), Op, null, LoopToken);
@@ -805,7 +808,7 @@ Var Scanner  : TScanner;
      _DOUBLE_AMPERSAND: Op := mtLogicalAND;
 
      else
-      Compiler.CompileError(eInternalError, ['ParseOrder2() -> unexpected token']);
+      raise EExpressionParserException.Create('ParseOrder2() -> unexpected token');
     End;
 
     Result := CreateNode(Result, ParseOrder3(), Op, null, LoopToken);
@@ -834,7 +837,7 @@ Var Scanner  : TScanner;
      _CARON_EQUAL      : Op := mtXOREq;
 
      else
-      Compiler.CompileError(eInternalError, ['ParseOrder1() -> unexpected token']);
+      raise EExpressionParserException.Create('ParseOrder1() -> unexpected token');
     End;
 
     Result := CreateNode(Result, ParseOrder2(), Op, null, LoopToken);

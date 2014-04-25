@@ -61,7 +61,7 @@ Unit Scanner;
        End;
 
  Implementation
-Uses Logging, SSCompiler, ExpressionCompiler, ExpressionParser, Messages, SysUtils;
+Uses Logging, HLCompiler, ExpressionCompiler, ExpressionParser, Messages, SysUtils;
 
 (* TScanner.Create *)
 {
@@ -591,7 +591,7 @@ Begin
 
    if (Base.InternalID = TYPE_ANY_id) Then // ... as well, as `any`-typed array
    Begin
-    CompileError(next, eInternalError, ['Cannot create an ''any''-typed array!']);
+    CompileError(next, eAnyArray, []);
     Exit;
    End;
   End;

@@ -5,7 +5,10 @@
 Unit symdef;
 
  Interface
- Uses FGL, Expression, FlowGraph, Tokens, Serialization;
+ Uses FGL, Expression, FlowGraph, Tokens, Serialization, SysUtils;
+
+ { ESymdefException }
+ Type ESymdefException = Class(Exception);
 
  (* forward declarations *)
  Type TType      = class;
@@ -292,7 +295,7 @@ Unit symdef;
  Function TYPE_NULL: TType;
 
  Implementation
-Uses Logging, SSCompiler, ExpressionParser, Messages, SysUtils;
+Uses Logging, ExpressionParser, Messages;
 
 (* type_equal *)
 {
@@ -972,7 +975,7 @@ Begin
   End Else
   Begin
    if (ArrayBase.isArray) Then
-    TCompiler(RefSymbol.mCompiler).CompileError(eInternalError, ['ArrayBase.isArray()']);
+    raise ESymdefException.Create('ArrayBase.isArray()');
 
    I      := ArrayDimCount;
    Result += ArrayBase.asString;

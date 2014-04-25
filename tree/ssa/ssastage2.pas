@@ -93,7 +93,7 @@ Function TSSAStage2.FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGN
      stVariable: PList := Sym.mVariable.Typ.FuncParams;
 
      else
-      Generator.getCompiler.CompileError(eInternalError, ['TSSAStage2.fsVisitExpression: unknown symbol type ('+IntToStr(ord(Sym.Typ))+')!']);
+      raise ESSAGeneratorException.CreateFmt('Unknown symbol type: %d', [ord(Sym.Typ)]);
     End;
 
     For I := Low(PList) To High(PList) Do // iterate each parameter

@@ -6,7 +6,7 @@
 Unit BCCompiler;
 
  Interface
- Uses Logging, SSCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
+ Uses Logging, HLCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
 
  { TBytecodeVersion }
  Type TBytecodeVersion =
@@ -51,7 +51,7 @@ Unit BCCompiler;
         BytecodeStream : TStream;
         ReferenceStream: TStream;
 
-        Compiler: SSCompiler.TCompiler;
+        Compiler: HLCompiler.TCompiler;
         Bytecode: TWriter;
 
         LabelList      : TBCLabelList;
@@ -69,7 +69,7 @@ Unit BCCompiler;
         Constructor Create;
         Destructor Destroy; override;
 
-        Procedure Compile(const fCompiler: SSCompiler.TCompiler; const SaveAs_SSM: Boolean);
+        Procedure Compile(const fCompiler: HLCompiler.TCompiler; const SaveAs_SSM: Boolean);
        End;
 
  Implementation
@@ -150,7 +150,7 @@ Begin
  With Compiler do
  Begin
   if (OpcodeList.Count = 0) Then
-   SSCompiler.TCompiler(Compiler).CompileError(eInternalError, ['OpcodeList.Count = 0']);
+   raise EBCCompilerException.Create('OpcodeList.Count = 0');
 
   OpcodesLength := 0;
 
@@ -424,12 +424,12 @@ Begin
 
        Int := getLabelID(Str);
 
-       With SSCompiler.TCompiler(Compiler) do
+       With HLCompiler.TCompiler(Compiler) do
         if (Int = -1) Then // label not found
         Begin
          if (Token = nil) Then
-          SSCompiler.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
-          SSCompiler.TCompiler(Compiler).CompileError(Token, eBytecode_LabelNotFound, [Str]);
+          HLCompiler.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
+          HLCompiler.TCompiler(Compiler).CompileError(Token, eBytecode_LabelNotFound, [Str]);
 
          Value := 0;
         End Else // label found
@@ -455,7 +455,7 @@ Begin
          write_int32(Value);
        End;
       Except
-       self.Compiler.CompileError(eInternalError, ['Cannot compile opcode; not a numeric parameter value: `'+VarToStr(Value)+'`']);
+       raise EBCCompilerException.CreateFmt('Cannot compile opcode. Invalid parameter value: %s', [VarToStr(Value)]);
       End;
      End;
     End;
@@ -481,7 +481,7 @@ Begin
 End;
 
 (* TCompiler.Compile *)
-Procedure TCompiler.Compile(const fCompiler: SSCompiler.TCompiler; const SaveAs_SSM: Boolean);
+Procedure TCompiler.Compile(const fCompiler: HLCompiler.TCompiler; const SaveAs_SSM: Boolean);
 Var Output: String;
     Zip   : TZipper;
 

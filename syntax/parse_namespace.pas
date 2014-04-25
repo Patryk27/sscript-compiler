@@ -9,7 +9,7 @@ Unit Parse_NAMESPACE;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, symdef, Tokens, Messages;
+Uses HLCompiler, symdef, Tokens, Messages;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
@@ -58,7 +58,7 @@ Begin
    CurrentNamespace := findNamespace(read_ident);
 
    if (CurrentNamespace = nil) Then
-    CompileError(eInternalError, ['CurrentNamespace = nil']);
+    raise EHLCompilerException.Create('CurrentNamespace = nil');
   End;
 
   { parse namespace }

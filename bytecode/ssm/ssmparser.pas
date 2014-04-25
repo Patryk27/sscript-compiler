@@ -8,7 +8,7 @@
 Unit SSMParser;
 
  Interface
- Uses BCCompiler, SSCompiler, BCDebug, Opcodes, Messages, symdef, Classes, List, SysUtils, Stream, Zipper;
+ Uses BCCompiler, HLCompiler, BCDebug, Opcodes, Messages, symdef, Classes, List, SysUtils, Stream, Zipper;
 
  Const SSM_version: uint16 = 3;
 
@@ -66,11 +66,11 @@ Unit SSMParser;
         FileName: String;
         Zip     : TZipper;
 
-        SSCompiler: SSCompiler.TCompiler;
+        HLCompiler: HLCompiler.TCompiler;
         BCCompiler: BCCompiler.TCompiler;
 
        Public { methods }
-        Constructor Create(const fFileName: String; const fSSCompiler: SSCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+        Constructor Create(const fFileName: String; const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
         Procedure Save;
        End;
 
@@ -88,7 +88,7 @@ Unit SSMParser;
         NamespaceList: TNamespaceList;
         OpcodeList   : TOpcodeList;
 
-        SSCompiler        : SSCompiler.TCompiler;
+        HLCompiler        : HLCompiler.TCompiler;
         LastCompilerOpcode: PMOpcode;
 
        Private { methods }
@@ -112,7 +112,7 @@ Unit SSMParser;
         Function findOrCreateNamespace(const Name: String): TNamespace;
 
        Public { methods }
-        Constructor Create(const fSSCompiler: SSCompiler.TCompiler; const fFileName: String);
+        Constructor Create(const fHLCompiler: HLCompiler.TCompiler; const fFileName: String);
 
         Function Load: Boolean;
 
@@ -136,10 +136,10 @@ End;
 
 // -------------------------------------------------------------------------- //
 (* TSSMWriter.Create *)
-Constructor TSSMWriter.Create(const fFileName: String; const fSSCompiler: SSCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+Constructor TSSMWriter.Create(const fFileName: String; const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
 Begin
  FileName   := fFileName;
- SSCompiler := fSSCompiler;
+ HLCompiler := fHLCompiler;
  BCCompiler := fBCCompiler;
 End;
 
@@ -205,7 +205,7 @@ Begin
    End;
 
    // prepare type and variable list
-   For Namespace in SSCompiler.NamespaceList Do
+   For Namespace in HLCompiler.NamespaceList Do
    Begin
     For Symbol in Namespace.SymbolList Do
     Begin
@@ -282,7 +282,7 @@ Begin
   End;
 
   // generate debug data
-  Debug           := TBCDebugWriter.Create(SSCompiler, BCCompiler);
+  Debug           := TBCDebugWriter.Create(HLCompiler, BCCompiler);
   DebugDataStream := Debug.Generate;
 
   // save ZIP
@@ -485,9 +485,9 @@ Var StreamPosition: uint32;
 
     I, ParamC: int32;
 Begin
- if (SSCompiler <> nil) Then
+ if (HLCompiler <> nil) Then
  Begin
-  With SSCompiler.OpcodeList do
+  With HLCompiler.OpcodeList do
   Begin
    if (Count > 0) Then
     LastCompilerOpcode := Last;
@@ -1012,13 +1012,13 @@ Begin
 End;
 
 (* TSSMReader.Create *)
-Constructor TSSMReader.Create(const fSSCompiler: SSCompiler.TCompiler; const fFileName: String);
+Constructor TSSMReader.Create(const fHLCompiler: HLCompiler.TCompiler; const fFileName: String);
 Begin
  FileName      := fFileName;
  OpcodeList    := TOpcodeList.Create;
  NamespaceList := TNamespaceList.Create;
 
- SSCompiler := fSSCompiler;
+ HLCompiler := fHLCompiler;
 End;
 
 (* TSSMReader.Load *)

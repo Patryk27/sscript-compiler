@@ -9,7 +9,7 @@ Unit Parse_IF;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, ExpressionCompiler, Tokens, FlowGraph;
+Uses HLCompiler, ExpressionCompiler, Tokens, FlowGraph;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);

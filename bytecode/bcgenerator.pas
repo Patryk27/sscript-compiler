@@ -5,7 +5,10 @@
 Unit BCGenerator;
 
  Interface
- Uses SSCompiler, symdef, FlowGraph;
+ Uses HLCompiler, symdef, FlowGraph, SysUtils;
+
+ { EBCGeneratorException }
+ Type EBCGeneratorException = Class(Exception);
 
  { TBCGenerator }
  Type TBCGenerator =
@@ -32,7 +35,7 @@ Unit BCGenerator;
        End;
 
  Implementation
-Uses SysUtils, CommandLine, Expression, ExpressionCompiler, Messages, Tokens, Opcodes;
+Uses CommandLine, Expression, ExpressionCompiler, Messages, Tokens, Opcodes;
 
 (* TBCGenerator.AddPrologCode *)
 Procedure TBCGenerator.AddPrologCode;
@@ -559,7 +562,7 @@ Begin
    cetBytecode        : CompileBytecode;
 
    else
-    Compiler.CompileError(eInternalError, [Format('TBCCompiler.CompileNode() -> invalid node type: %d', [ord(Node.Typ)])]);
+    raise EBCGeneratorException.CreateFmt('Invalid node type: %d', [ord(Node.Typ)]);
   End;
  Finally
   Compiler.DoNotStoreOpcodes := PrevDNSO;

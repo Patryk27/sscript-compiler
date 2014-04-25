@@ -288,5 +288,5 @@ Begin
  if (TSymbol(Symbol).Typ = stFunction) Then
   GlobalFuncCall Else
 
-  Compiler.CompileError(eInternalError, ['call.pas -> don''t know what to do!']);
+  raise EExpressionCompilerException.Create('Don''t know what to do!');
 End;

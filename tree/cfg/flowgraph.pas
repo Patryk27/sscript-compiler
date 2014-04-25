@@ -93,7 +93,7 @@ Unit FlowGraph;
  Implementation
 Uses Classes, SysUtils,
      Logging,
-     SSCompiler, Messages, symdef, ExpressionParser;
+     HLCompiler, Messages, symdef, ExpressionParser;
 
 (* SaveGraph *)
 Procedure SaveGraph(const Graph: TCFGraph; const FileName: String);

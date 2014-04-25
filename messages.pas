@@ -9,11 +9,11 @@ Unit Messages;
  { errors }
  Type TCompileError =
  (
-  eInternalError, eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedString,
+  eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedString,
   eExpectedInt, eNotAllowed,
   eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
-  eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
+  eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eAnyArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
   eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
@@ -30,7 +30,6 @@ Unit Messages;
 
  Const CompileError_fmt: Array[TCompileError] of String =
  (
-  'Internal error: %s',
   'Unexpected end-of-file',
   'Syntax error: unexpected `%s`',
   'Syntax error: expected `%s` but `%s` found',
@@ -60,7 +59,8 @@ Unit Messages;
   'Variable ''%s'' declared as void',
   'Parameter ''%s'' declared as void',
   'Cannot cast from or to ''void'' type',
-  'Array declared as void',
+  'Array declared as ''void''',
+  'Array declared as ''any''',
   'Expected constant value',
   'Wrong type (in call to ''%s'', param #%d) - got `%s` expected `%s`',
   'Wrong type (in assignment to ''%s'') - got `%s` expected `%s`',

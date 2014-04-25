@@ -7,7 +7,7 @@
  Will add opcode:
   mov(ei3, ei4)
 *)
-Function __variable_setvalue_reg(_var: TRVariable; RegID: Byte; RegChar: Char): TType;
+Function __variable_setvalue_reg(const _var: TRVariable; const RegID: uint8; const RegChar: Char): TType;
 Var RegStr: String;
 Begin
  Result := _var.Typ;
@@ -22,12 +22,12 @@ End;
  See description above for info about `PushedValues`.
 
  Example:
- We have a string variable (with ID 2) loaded onto the `es4` and we want to load it's value into `es1`:
-  __variable_getvalue_reg(2, 4, 's');
- This will add one opcode:
-  mov(es1, es4)
+   We have a string variable (with ID 2) loaded onto the `es4` and we want to load it's value into `es1`:
+   > __variable_getvalue_reg(2, 4, 's');
+   This will add one opcode:
+    mov(es1, es4)
 *)
-Function __variable_getvalue_reg(_var: TRVariable; RegID: Byte; RegChar: Char): TType;
+Function __variable_getvalue_reg(const _var: TRVariable; const RegID: uint8; const RegChar: Char): TType;
 Var RegStr: String;
 Begin
  Result := _var.Typ;
@@ -44,12 +44,13 @@ End;
  Pushes variable's value onto the stack.
  See examples and descriptions above.
 *)
-Function __variable_getvalue_stack(_var: TRVariable): TType;
+Function __variable_getvalue_stack(const _var: TRVariable): TType;
 Var Reg: String;
 Begin
  Result := _var.Typ;
 
  With Compiler do
+ Begin
   if (_var.isConst) and (_var.Value <> nil) Then
   Begin
    PutOpcode(o_push, [getValueFromExpression(_var.Value)]);
@@ -75,6 +76,7 @@ Begin
     PutOpcode(o_push, [_var.PosStr]);
    End;
   End;
+ End;
 
  Inc(PushedValues);
 End;
@@ -83,7 +85,7 @@ End;
 (*
  See description of @__variable_getvalue_reg
 *)
-Function __variable_getvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpressionNode): TType;
+Function __variable_getvalue_array_reg(const _var: TRVariable; const RegID: uint8; const RegChar: Char; const ArrayElements: PExpressionNode): TType;
 Var RegStr: String;
 Begin
  RegStr := 'e'+RegChar+IntToStr(RegID);
@@ -94,9 +96,9 @@ Begin
    Exit(TYPE_ANY);
 
   if (ArrayElements = nil) Then
-   Error(eInternalError, ['ArrayElements = nil']);
+   raise EExpressionParserException.Create('ArrayElements = nil');
 
-  if (ArrayElements^.Typ = mtIdentifier) Then // @what?!
+  if (ArrayElements^.Typ = mtIdentifier) Then
    Exit(_var.Typ); // return variable's type and exit procedure
 
   Result := Parse(ArrayElements);
@@ -106,7 +108,9 @@ Begin
    PutOpcode(o_pop, [RegStr]);
    Dec(PushedValues);
   End Else
+  Begin
    PutOpcode(o_mov, [RegStr, 'e'+Result.RegPrefix+'1']);
+  End;
  End;
 
  ArrayElements^.ResultOnStack := False;
@@ -116,7 +120,7 @@ End;
 (*
  See description of @__variable_setvalue_reg
 *)
-Function __variable_setvalue_array_reg(_var: TRVariable; RegID: Byte; RegChar: Char; ArrayElements: PExpressionNode): TType;
+Function __variable_setvalue_array_reg(const _var: TRVariable; const RegID: uint8; const RegChar: Char; ArrayElements: PExpressionNode): TType;
 Var RegStr    : String;
     TmpType   : TType;
     TmpExpr   : PExpressionNode;
@@ -132,7 +136,7 @@ Begin
    Exit(TYPE_ANY);
 
   if (ArrayElements = nil) Then
-   Error(eInternalError, ['ArrayElements = nil']);
+   raise EExpressionCompilerException.Create('ArrayElements = nil');
 
   { find variable }
   TmpExpr := ArrayElements;
@@ -145,12 +149,13 @@ Begin
 
   Repeat
    TmpType := Parse(ArrayElements^.Right);
-   With Compiler do // array subscript must be an integer value
-    if (not TmpType.isInt) Then
-    Begin
-     Error(eInvalidArraySubscript, [Variable.Typ.asString, TmpType.asString]);
-     Exit;
-    End;
+
+   // array subscript must be an integer value
+   if (not TmpType.isInt) Then
+   Begin
+    Error(eInvalidArraySubscript, [Variable.Typ.asString, TmpType.asString]);
+    Exit;
+   End;
 
    ArrayElements := ArrayElements^.Left;
    Inc(IndexCount);

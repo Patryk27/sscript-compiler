@@ -27,7 +27,7 @@
 {$ENDIF}
 
 Program compilerprog;
-Uses SysUtils, TypInfo, Logging, CommandLine, SSCompiler, ExpressionParser, LibInfo, symdef;
+Uses SysUtils, TypInfo, Logging, CommandLine, HLCompiler, ExpressionParser, LibInfo, symdef;
 Var InputFile, OutputFile: String;
 
     LibInfoMode: (limDisabled, limEnabled);

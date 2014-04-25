@@ -11,7 +11,7 @@ Unit Parse_FUNCTION;
 
  Implementation
 Uses Logging, CommandLine,
-     SSCompiler, Messages,
+     HLCompiler, Messages,
      Opcodes, ExpressionParser,
      symdef, FlowGraph, SSA,
      VariableAllocator, RegisterAllocator, StackAllocator,
@@ -369,7 +369,7 @@ Begin
      End;
 
     if (TmpSymbol = nil) Then
-     CompileError(eInternalError, ['TmpSymbol = nil']);
+     raise EHLCompilerException.Create('TmpSymbol = nil');
 
     getCurrentNamespace.SymbolList.Add(TmpSymbol);
    End Else

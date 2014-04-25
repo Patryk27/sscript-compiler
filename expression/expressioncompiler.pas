@@ -9,8 +9,12 @@
 Unit ExpressionCompiler;
 
  Interface
- Uses SysUtils, Math, SSCompiler, Expression, symdef, Tokens, ExpressionParser, Variants, TypInfo;
+ Uses SysUtils, Math, HLCompiler, Expression, symdef, Tokens, ExpressionParser, Variants, TypInfo;
 
+ { EExpressionCompilerException }
+ Type EExpressionCompilerException = Class(Exception);
+
+ { TOptimizerOption }
  Type TOptimizerOption = (oGetFromCommandLine, oInsertConstants, oConstantFolding, oTreeSimplification, oDisplayParseErrors);
       TOptimizerOptions = Set of TOptimizerOption;
 
@@ -179,7 +183,7 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
    if (Expr^.ResultOnStack) Then
    Begin
     if (not (Reg in [1..4])) Then
-     Error(eInternalError, ['RePop called with invalid register ID: '+IntToStr(Reg)]);
+     raise EExpressionCompilerException.CreateFmt('Invalid register index: %d', [Reg]);
 
     Compiler.PutOpcode(o_pop, ['e'+TypeID.RegPrefix+IntToStr(Reg)]);
     Expr^.ResultOnStack := False;
@@ -579,7 +583,7 @@ Begin
  Compiler := TCompiler(CompilerPnt);
 
  if (not Compiler.inFunction) Then
-  Compiler.CompileError(Expr^.Token, eInternalError, ['CompileExpression() called outside any of compiled function.']);
+  raise EExpressionCompilerException.Create('CompileExpression() called outside function scope.');
 
  Compiler.PutComment(IntToStr(Expr^.Token.Line)+': '+ExpressionToString(Expr));
 

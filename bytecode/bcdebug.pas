@@ -8,7 +8,7 @@
 Unit BCDebug;
 
  Interface
- Uses symdef, BCCompiler, SSCompiler, Opcodes, Stream, List, SysUtils;
+ Uses symdef, BCCompiler, HLCompiler, Opcodes, Stream, List, SysUtils;
 
  Const DebugDataVersion: uint16 = 1;
 
@@ -62,7 +62,7 @@ Unit BCDebug;
  Type TBCDebugWriter =
       Class
        Private
-        SSCompiler: SSCompiler.TCompiler;
+        HLCompiler: HLCompiler.TCompiler;
         BCCompiler: BCCompiler.TCompiler;
 
         Output: TStream;
@@ -86,7 +86,7 @@ Unit BCDebug;
         Procedure WriteData;
 
        Public
-        Constructor Create(const fSSCompiler: SSCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+        Constructor Create(const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
         Destructor Destroy; override;
 
         Function Generate(const DoSorting: Boolean=False): TStream;
@@ -232,7 +232,7 @@ Begin
  LineData.FunctionID := FunctionID;
 
  // fetch opdode list
- OpcodeList := SSCompiler.OpcodeList;
+ OpcodeList := HLCompiler.OpcodeList;
 
  // fetch function bounds
  First := mFunction.FirstOpcode;
@@ -320,9 +320,9 @@ Var Compiler : TCompiler;
     Debug : TDebugData;
     I     : int32;
 Begin
- For I := 0 To SSCompiler.SSMReaderList.Count-1 Do
+ For I := 0 To HLCompiler.SSMReaderList.Count-1 Do
  Begin
-  Reader := TSSMReader(SSCompiler.SSMReaderList[I]);
+  Reader := TSSMReader(HLCompiler.SSMReaderList[I]);
   Debug  := Reader.getDebugData;
 
   FixOpcodePositions(Reader.getLastCompilerOpcode, Debug);
@@ -330,10 +330,10 @@ Begin
   AppendDebugData(Debug);
  End;
 
- List := SSCompiler.IncludeList^;
+ List := HLCompiler.IncludeList^;
 
  SetLength(List, Length(List)+1);
- List[High(List)] := SSCompiler;
+ List[High(List)] := HLCompiler;
 
  // each compiler
  For Compiler in List Do
@@ -452,9 +452,9 @@ Begin
 End;
 
 (* TBCDebugWriter.Create *)
-Constructor TBCDebugWriter.Create(const fSSCompiler: SSCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+Constructor TBCDebugWriter.Create(const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
 Begin
- SSCompiler := fSSCompiler;
+ HLCompiler := fHLCompiler;
  BCCompiler := fBCCompiler;
 End;
 

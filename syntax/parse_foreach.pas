@@ -9,7 +9,7 @@ Unit Parse_FOREACH;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, ExpressionCompiler, FlowGraph, Messages, symdef, Tokens;
+Uses HLCompiler, ExpressionCompiler, FlowGraph, Messages, symdef, Tokens;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);

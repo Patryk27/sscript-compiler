@@ -9,7 +9,7 @@ Unit Parse_VAR;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses SSCompiler, Expression, ExpressionCompiler, Tokens, symdef, Messages, Opcodes, FlowGraph;
+Uses HLCompiler, Expression, ExpressionCompiler, Tokens, symdef, Messages, Opcodes, FlowGraph;
 
 (* ReadArrayInitializer *)
 Procedure ReadArrayInitializer(const CompilerPnt, SymbolPnt: Pointer);

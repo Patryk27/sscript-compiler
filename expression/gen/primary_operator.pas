@@ -58,7 +58,7 @@ Begin
   mtXOREq: Opcode := o_xor;
 
   else
-   TCompiler(Compiler).CompileError(eInternalError, ['Unexpected Expr^.Typ = '+IntToStr(ord(Expr^.Typ))]);
+   raise EExpressionCompilerException.CreateFmt('Unexpected Expr^.Typ = %d', [ord(Expr^.Typ)]);
  End;
 
  { not arrays }

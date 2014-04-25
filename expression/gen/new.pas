@@ -25,10 +25,10 @@ Begin
 
  // some more checks
  if (Right^.Typ <> mtArrayElement) Then
-  Error(eInternalError, ['`Right^.Typ` should be a `mtArrayElement`, but for some reason it''s not...']);
+  raise EExpressionCompilerException.Create('Right^.Typ <> mtArrayElement');
 
  if (type_equal(BaseType, TYPE_ANY)) Then
-  Error(eInternalError, ['Cannot create an `any`-typed array!']);
+  Error(eAnyArray, []);
 
  // make an array from that base type
  While (Right <> nil) Do

@@ -5,7 +5,10 @@
 Unit CFGOptimizer;
 
  Interface
- Uses SSCompiler, Optimizer, FlowGraph, symdef;
+ Uses HLCompiler, Optimizer, FlowGraph, symdef, SysUtils;
+
+ { ECFGOptimizerException }
+ Type ECFGOptimizerException = Class(Exception);
 
  { TCFGOptimizer }
  Type TCFGOptimizer =

@@ -10,7 +10,7 @@ Unit Parse_include;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses Logging, SSCompiler, Tokens, Messages, SSMParser, symdef;
+Uses Logging, HLCompiler, Tokens, Messages, SSMParser, symdef;
 
 (* isZipFile *)
 Function isZipFile(const FileName: String): Boolean;
