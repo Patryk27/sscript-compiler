@@ -584,16 +584,10 @@ Begin
   if (next_t = _BRACKET2_OP) Then
   Begin
    if (Base.isVoid) Then // `void` array cannot be created (it would destroy our universe)...
-   Begin
     CompileError(next, eVoidArray, []);
-    Exit;
-   End;
 
    if (Base.InternalID = TYPE_ANY_id) Then // ... as well, as `any`-typed array
-   Begin
     CompileError(next, eAnyArray, []);
-    Exit;
-   End;
   End;
 
   { is it an array (is the next token a `[`)? }
@@ -646,7 +640,7 @@ Begin
 
  if (Expr^.Value = null) Then
  Begin
-  DevLog(dvError, 'Error: TScanner.read_constant_expr_int() -> Expr^.Value = null; returned `0`');
+  DevLog(dvError, 'Expr^.Value = null; returned `0`');
   Exit(0);
  End;
 
