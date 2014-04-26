@@ -681,7 +681,8 @@ Begin
 
  AStream.Position := 0;
 
- NStream := TStream(AStream);
+ NStream := TStream.Create(True);
+ NStream.LoadFromStream(AStream);
 
  Case AItem.ArchiveFileName of
   '.header'    : ReadHeader(NStream);
@@ -697,6 +698,7 @@ Begin
  if (NStream.Can) Then
   Log('There are still some unread data in this file! (%d bytes left)', [AStream.Size-AStream.Position]);
 
+ NStream.Free;
  AStream.Free;
 End;
 
