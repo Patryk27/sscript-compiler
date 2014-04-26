@@ -50,6 +50,7 @@ Unit List;
 
         Function Add(const Item: T): uint32;
         Procedure Remove(const Index: uint32);
+        Function Last: T;
 
         Function getEnumerator: TSpecListEnumerator;
 
@@ -168,6 +169,20 @@ Begin
  // shrink array, if more than 50 elements are unused (empty)
  if (uint32(Length(Data)) - Position > 50) Then
   SetLength(Data, Length(Data)-50);
+End;
+
+(* TList.Last *)
+{
+ Returns last element on the list.
+}
+Function TList.Last: T;
+Begin
+ // check if list is not empty
+ if (Position = 0) Then
+  raise EListException.Create('List is empty!');
+
+ // return last element
+ Result := Data[Position];
 End;
 
 (* TList.getEnumerator *)

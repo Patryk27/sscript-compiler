@@ -31,17 +31,22 @@ Uses Logging, CommandLine, Opcodes, Messages,
 
 (* OptimizeExpression *)
 {
- Optimizes expression with given options.
- Returns `true` if anything has been optimized.
+ Optimizes expression.
+ Returns `true` if node has been modified.
 }
 Function OptimizeExpression(const Compiler: TCompiler; var Tree: PExpressionNode; const Options: TOptimizerOptions): Boolean;
+Var CurrentFunction: TFunction;
 Begin
  Result := False;
+
+ if (Compiler = nil) Then
+  CurrentFunction := nil Else
+  CurrentFunction := Compiler.getCurrentFunction;
 
  // constant insertion
  if (oInsertConstants in Options) Then
  Begin
-  With TExpressionConstantInsertion.Create(Compiler, Compiler.getCurrentFunction, oDisplayParseErrors in Options) do
+  With TExpressionConstantInsertion.Create(Compiler, CurrentFunction, oDisplayParseErrors in Options) do
   Begin
    Result := Result or Execute(Tree);
    Free;
@@ -51,7 +56,7 @@ Begin
  // constant folding
  if (oConstantFolding in Options) Then
  Begin
-  With TExpressionConstantFolding.Create(Compiler, Compiler.getCurrentFunction, oDisplayParseErrors in Options) do
+  With TExpressionConstantFolding.Create(Compiler, CurrentFunction, oDisplayParseErrors in Options) do
   Begin
    Result := Result or Execute(Tree);
    Free;
@@ -61,7 +66,7 @@ Begin
  // tree simplification
  if (oTreeSimplification in Options) Then
  Begin
-  With TExpressionTreeSimplification.Create(Compiler, Compiler.getCurrentFunction, oDisplayParseErrors in Options) do
+  With TExpressionTreeSimplification.Create(Compiler, CurrentFunction, oDisplayParseErrors in Options) do
   Begin
    Result := Result or Execute(Tree);
    Free;
@@ -223,10 +228,13 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
 
    With Result do
    Begin
-    mVariable    := TSymbol(Result.Symbol).mVariable;
+    mVariable := TSymbol(Result.Symbol).mVariable;
 
     if (mVariable = nil) Then
      goto Failed;
+
+    if (mVariable.Typ = nil) Then
+     raise EExpressionCompilerException.Create('Variable type pointer is null!');
 
     LocationData := mVariable.LocationData;
     Typ          := mVariable.Typ;

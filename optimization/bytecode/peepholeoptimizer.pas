@@ -28,6 +28,15 @@ Begin
  Result := T in [ptBoolReg, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg];
 End;
 
+(* isMemoryRef *)
+{
+ Returns `true` if passed primary type is a memory reference.
+}
+Function isMemoryRef(const T: TPrimaryType): Boolean; inline;
+Begin
+ Result := T in [ptSymbolMemRef, ptConstantMemRef];
+End;
+
 (* isInt *)
 {
  Returns `true` when passed primary type is an int.
@@ -41,7 +50,8 @@ End;
 {
  Returns `true` when passed opcode argument is a variable-holder.
 
- @Note: 'variable-holders' are registers `e_3` and `e_4`, and also stackvals - as only there variables can be allocated.
+ @Note: 'variable-holders' are registers `e_3` and `e_4`, and also stackvals and
+        memory references.
 }
 Function isVariableHolder(const T: TMOpcodeArg): Boolean; inline;
 Begin
@@ -49,7 +59,7 @@ Begin
 
  if (Result) Then
   Exit(StrToInt(VarToStr(T.Value)) in [2..4]) Else
-  Exit(T.Typ = ptStackVal);
+  Exit(isMemoryRef(T.Typ) or (T.Typ = ptStackVal));
 End;
 
 // -------------------------------------------------------------------------- //
@@ -111,7 +121,7 @@ Begin
    oCurrent := pCurrent^;
    oNext    := pNext^;
 
-   if (oCurrent.isLabel) or (oCurrent.isComment) or (oCurrent.Opcode in [o_byte, o_word, o_integer, o_extended]) Then
+   if (oCurrent.isLabel) or (oCurrent.isComment) or (oCurrent.Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then
    Begin
     Inc(Pos);
     Continue;

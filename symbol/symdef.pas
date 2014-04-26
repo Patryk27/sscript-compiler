@@ -156,7 +156,7 @@ Unit symdef;
         LocationData: TVarLocationData;
 
         Typ  : TType;
-        Value: PExpressionNode; // if it's a constant
+        Value: PExpressionNode; // if it's either a constant or a global variable
 
         Attributes: TVariableAttributes;
 
@@ -299,9 +299,9 @@ Uses Logging, ExpressionParser, Messages;
 
 (* type_equal *)
 {
- Compares two TTypes (except their names)
+ Compares two TTypes (everything but their names).
 }
-Function type_equal(const A, B: TType): Boolean;
+Function type_equal(const A, B: TType): Boolean; // @TODO: change this function name
 Var I: Integer;
 Begin
  if (A = nil) or (B = nil) Then
@@ -514,7 +514,7 @@ Begin
   Exit;
 
  if (Root[0].getValue <> 'type') Then
-  raise Exception.Create('TType.Create() -> invalid serialized form!');
+  raise ESymdefException.Create('TType.Create() -> invalid serialized form!');
 
  RegPrefix  := Root[1].getValue[1];
  InternalID := Root[2].getInt;
@@ -627,10 +627,11 @@ Begin
   'c': Result := 1;
   'i': Result := 8;
   'f': Result := 10;
-  's': Result := 4;
-  'r': Result := 4;
+  's': Result := 8;
+  'r': Result := 8;
+
   else
-   raise Exception.CreateFmt('TType.getBytecodeSize() -> invalid ''self.RegPrefix=#%d''!', [ord(RegPrefix)]);
+   raise ESymdefException.CreateFmt('TType.getBytecodeSize() -> invalid ''self.RegPrefix=#%d''!', [ord(RegPrefix)]);
  End;
 End;
 
@@ -643,7 +644,7 @@ End;
 Function TType.getLowerArray: TType;
 Begin
  if (not isArray) Then
-  raise Exception.Create('TType.getLowerArray() called on non-array type');
+  raise ESymdefException.Create('TType.getLowerArray() called on non-array type');
 
  if (ArrayDimCount = 1) Then
  Begin
@@ -1208,22 +1209,30 @@ End;
 
 (* TVariable.Create *)
 Constructor TVariable.Create(const Root: TNode);
+Var Name: String;
 Begin
  Create();
 
- if (Root.getChildren.Count = 0) Then // no data to parse, leave
+ // if no data to parse, leave
+ if (Root.getChildren.Count = 0) Then
   Exit;
 
+ // check types
  if (Root[0].getValue <> 'variable') Then
-  raise Exception.Create('TVariable.Create() -> invalid serialized form!');
+  raise ESymdefException.Create('Not a serialized variable!');
 
- if (Root[2].getType = ntParent) Then
-  Typ := TType.Create(Root[2]);
+ // parse refsymbol | @TODO: namespace name
+ Name := Root[2].getValue;
+ Delete(Name, Pos('.', Name), Length(Name));
 
- if (Length(Root[3].getValue) > 0) Then // @TODO
- Begin
-  raise Exception.Create('TVariable.Create() -> unserializing variable''s value has not been implemented yet.');
- End;
+ RefSymbol.Name := Name;
+
+ // parse type
+ Typ := TType.Create(Root[3]);
+
+ // parse value
+ if (Root.getChildren.Count > 4) and (Length(Root[4].getValue) > 0) Then
+  Value := Root[4].getExpression;
 End;
 
 (* TVariable.isConst *)
@@ -1284,13 +1293,20 @@ Begin
  Result := '(';
 
  Result += 'variable$';
- Result += IntToStr(Typ.getBytecodeSize)+'$';
+ Result += RefSymbol.getFullName+'$';
 
- if (Typ.RefSymbol.Name = '') Then
-  Result += Typ.getSerializedForm+'$' Else
-  Result += Typ.RefSymbol.getFullName+'$';
+ if (Typ.isString) and (Value <> nil) Then
+ Begin
+  Result += IntToStr(Length(Value^.Value))+'$';
+ End Else
+ Begin
+  Result += IntToStr(Typ.getBytecodeSize)+'$';
+ End;
 
- if (Value <> nil) Then
+ Result += Typ.getSerializedForm+'$';
+
+ if (Value = nil) Then
+  Result += '()' Else
   Result += Value^.getSerializedForm;
 
  Result += ')';
@@ -1512,10 +1528,10 @@ End;
 Procedure TRefSymbol.CopyTo(const Symbol: TRefSymbol);
 Begin
  if (Symbol = nil) Then
-  raise Exception.Create('Invalid method call! `Symbol = nil`');
+  raise ESymdefException.Create('Invalid method call! `Symbol = nil`');
 
  if (self = nil) Then
-  raise Exception.Create('Invalid method call! `self = nil`');
+  raise ESymdefException.Create('Invalid method call! `self = nil`');
 
  Symbol.Name          := Name;
  Symbol.Range         := Range;

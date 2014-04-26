@@ -83,6 +83,7 @@ Unit Expression;
         Function FindAssignment(const VarSymbol: TObject; const CheckAllLValueOperators: Boolean=False): PExpressionNode;
         Procedure RemoveAssignments(const VarSymbol: TObject);
 
+        Function getValue: PExpressionNode;
         Function getType: TExpressionNodeType;
 
         Function containsCall: Boolean;
@@ -107,7 +108,7 @@ Unit Expression;
  Operator in (A: Integer; B: Array of LongWord): Boolean;
 
  Implementation
-Uses symdef;
+Uses ExpressionCompiler, symdef;
 
 (* TSSAVarID = TSSAVarID *)
 Operator = (A, B: TSSAVarID): Boolean;
@@ -179,6 +180,11 @@ End;
 }
 Class Function TExpressionNode.Create(const Node: Serialization.TNode): PExpressionNode;
 Begin
+ // check if it's a valid node
+ if (Node.getChildren.Count = 0) Then
+  Exit(nil);
+
+ // create node
  Result := TExpressionNode.Create(TExpressionNodeType(Node[0].getInt), Node[1].getVariant);
 End;
 
@@ -233,6 +239,24 @@ Begin
 
   Assign^ := Assign^.Right^;
  End;
+End;
+
+(* TExpressionNode.getValue *)
+{
+ Tries to compute node value.
+ Eg. "2+2*2" returns "6" and so on.
+ Returns 'nil' if failed.
+}
+Function TExpressionNode.getValue: PExpressionNode;
+Var Tree: PExpressionNode;
+Begin
+ Tree := @self;
+
+ OptimizeExpression(nil, Tree, [oInsertConstants, oConstantFolding]);
+
+ if (Tree^.isConstant) Then
+  Result := Tree Else
+  Result := nil;
 End;
 
 (* TExpressionNode.getType *)

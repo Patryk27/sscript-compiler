@@ -138,8 +138,7 @@ Begin
 
        _PERCENT { % }:
        Begin
-        Arg := read_ident;
-
+        Arg      := read_ident;
         Variable := findVariableCandidate(Arg, nil, Token);
 
         if (Variable = nil) Then { var not found }
@@ -151,7 +150,8 @@ Begin
          if (Variable.RefSymbol.DeclFunction <> nil) Then
          Begin
           With Variable do
-           if (isConst) and (Value <> nil) Then // if constant...
+          Begin
+           if (isConst) and (Value <> nil) Then
            Begin
             Arg := getValueFromExpression(Value);
            End Else
@@ -159,11 +159,16 @@ Begin
             Attributes += [vaVolatile]; // optimizer could remove this variable or do any other optimization to it, which could break the user's bytecode, so we're just letting optimizer know, that it mustn't do anything with this variable
             Arg        := 'localvar.'+IntToStr(LongWord(Variable)); // a bit lame solution, but I have no idea how to make it work in a better way
            End;
+          End;
          End Else
+         Begin
           With Variable do
+          Begin
            if (isConst) Then
             Arg := getValueFromExpression(Value) Else
             Arg := Variable.getAllocationPos;
+          End;
+         End;
         End;
        End;
 

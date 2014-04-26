@@ -795,8 +795,10 @@ Begin
 
  // check opcode
  if (DoCheck) Then
+ Begin
   if (not isValidOpcode(Item^)) Then
    CompileError(Item^.Token^, eBytecode_InvalidOpcode, []);
+ End;
 
  if (DoNotStoreOpcodes) Then
   Exit(Item);

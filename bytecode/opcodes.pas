@@ -99,7 +99,7 @@ Unit Opcodes;
        o_mod,
        o_arset, o_arget, o_arcrt, o_arlen,
        o_strset, o_strget, o_strlen,
-       o_byte, o_word, o_integer, o_extended
+       o_bool, o_char, o_int, o_float, o_string
       );
 
  { TMOpcodeArg }
@@ -242,10 +242,11 @@ Unit Opcodes;
   (Name: 'strlen'; ParamC: 2; ParamT: (ptStringReg, ptIntReg, ptNone)),
 
   (* ===== ===== ===== ===== *)
-  (Name: 'db'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),
-  (Name: 'dw'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),
+  (Name: 'db'; ParamC: 1; ParamT: (ptBool, ptNone, ptNone)),
+  (Name: 'dc'; ParamC: 1; ParamT: (ptChar, ptNone, ptNone)),
   (Name: 'di'; ParamC: 1; ParamT: (ptInt, ptNone, ptNone)),
-  (Name: 'de'; ParamC: 1; ParamT: (ptFloat, ptNone, ptNone))
+  (Name: 'df'; ParamC: 1; ParamT: (ptFloat, ptNone, ptNone)),
+  (Name: 'ds'; ParamC: 1; ParamT: (ptString, ptNone, ptNone))
  );
 
  Operator = (const A, B: TMOpcodeArg): Boolean;

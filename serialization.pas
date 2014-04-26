@@ -35,6 +35,7 @@ Unit Serialization;
         Function getFloat: Extended;
         Function getBool: Boolean;
         Function getVariant: Variant;
+        Function getExpression: Pointer;
 
        Public
         Property getType: TNodeType read Typ;
@@ -58,6 +59,7 @@ Unit Serialization;
        End;
 
  Implementation
+Uses Expression;
 
 (* TNode.Create *)
 Constructor TNode.Create;
@@ -141,6 +143,12 @@ Begin
  Exit(Str);
 End;
 
+(* TNode.getExpression *)
+Function TNode.getExpression: Pointer;
+Begin
+ Result := TExpressionNode.Create(self);
+End;
+
 // -------------------------------------------------------------------------- //
 (* TUnserializer.Create *)
 Constructor TUnserializer.Create(const SerializedData: String);
@@ -206,7 +214,7 @@ Var Position: uint32 = 1;
      Inc(Position);
     End;
    End Else
-    raise EInvalidSerializedData.CreateFmt('Expected a node opening at %d in "%s"', [Position, SerializedData]);
+    raise EInvalidSerializedData.CreateFmt('Expected node opening at %d in "%s"', [Position, SerializedData]);
   End;
 
 Begin

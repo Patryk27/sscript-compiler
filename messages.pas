@@ -17,16 +17,16 @@ Unit Messages;
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
   eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
-  eInvalidArrayInitializer, eCannotBeCalled, eNotAType, eCannotBeUsedAsFunction, eUnknownIdentifier, eReturnWithNoValue,
+  eInvalidArrayInitializer, eCannotBeCalled, eNotAType, eCannotBeUsedAsFunction, eUnknownIdentifier, eReturnWithNoValue, eGlobalArrayInitializer,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference
  );
 
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedString,
-                                           eExpectedInt, eUnknownType, eFileNotFound, eDivByZero,
+                                           eExpectedInt, eUnknownType, eFileNotFound, eDivByZero, eVarArrayRequired,
                                            eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
                                            eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidIntegerValue, eInvalidFloatValue,
-                                           eExpectedFewerElements, eExpectedMoreElements];
+                                           eExpectedFewerElements, eExpectedMoreElements, eGlobalArrayInitializer];
 
  Const CompileError_fmt: Array[TCompileError] of String =
  (
@@ -61,7 +61,7 @@ Unit Messages;
   'Cannot cast from or to ''void'' type',
   'Array declared as ''void''',
   'Array declared as ''any''',
-  'Expected constant value',
+  'A constant value was expected',
   'Wrong type (in call to ''%s'', param #%d) - got `%s` expected `%s`',
   'Wrong type (in assignment to ''%s'') - got `%s` expected `%s`',
   'Invalid array assignment',
@@ -72,7 +72,7 @@ Unit Messages;
   'Identifier `%s` is ambiguous in current context',
   'Parameter declared as void',
   'No valid `main` function found',
-  'Not a constant-var: `%s`',
+  'Not a constant var: `%s`',
   'Tried to call method `%s` on non-object (`%s`)',
   'Method `%s` not found in object `%s`',
   'Invalid conversion from `%s` to `%s`',
@@ -92,6 +92,7 @@ Unit Messages;
   'Expression of type `%s` cannot be used as a function',
   'Unknown identifier: `%s`',
   'Return with no value in function returning non-void',
+  'Global array initializers cannot be declared',
 
   '[Bytecode] Label not found: `%s`',
   '[Bytecode] Export (label) not found: `%s`',

@@ -6,7 +6,7 @@
 Unit LLCompiler;
 
  Interface
- Uses Logging, HLCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
+ Uses Logging, HLCompiler, Expression, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
 
  { TBytecodeVersion }
  Type TBytecodeVersion =
@@ -17,8 +17,8 @@ Unit LLCompiler;
  Const BytecodeVersion: TBytecodeVersion =
        (Major: 0; Minor: 43);
 
- { EBCCompilerException }
- Type EBCCompilerException = Class(Exception);
+ { ELLCompilerException }
+ Type ELLCompilerException = Class(Exception);
 
  { TBCLabel }
  Type TBCLabel =
@@ -33,7 +33,9 @@ Unit LLCompiler;
  { TBCAllocatedSymbol }
  Type TBCAllocatedSymbol =
       Record
-       Name    : String;
+       Name : String;
+       Value: PExpressionNode;
+
        Position: uint32;
        Size    : uint8;
       End;
@@ -95,11 +97,22 @@ End;
 
 (* TCompiler.AllocateGlobalVar *)
 Function TCompiler.AllocateGlobalVar(const Name: String): uint32;
-Var Data        : TUnserializer;
-    AllocSymbol : TBCAllocatedSymbol;
-    I, Pos, Size: int32;
+Var Data       : TUnserializer;
+    AllocSymbol: TBCAllocatedSymbol;
+
+    Size : int32;
+    Value: PExpressionNode;
+
+    I, Pos: int32;
 Begin
- Pos := 0;
+ Pos := 0
+
+ // call()
+ +1 +1 +8
+
+ // stop()
+ +1
+ ;
 
  // allocate symbol after the last one
  For I := 0 To AllocSymbolList.Count-1 Do
@@ -110,17 +123,22 @@ Begin
    Exit(AllocSymbolList[I].Position);
  End;
 
- // fetch variable's length from its serialized form
+ // fetch data from serialized form of the variable
  Data := TUnserializer.Create(Name);
 
  Try
-  Size := Data.getRoot[1].getInt;
+  Size  := Data.getRoot[2].getInt;
+  Value := Data.getRoot[4].getExpression;
+
+  if (Value <> nil) and (Value^.getType = mtString) Then
+   Inc(Size, 2); // count the '0xFF' special byte and the terminator char
  Finally
   Data.Free;
  End;
 
  // prepare allocsymbol
  AllocSymbol.Name     := Name;
+ AllocSymbol.Value    := Value;
  AllocSymbol.Position := Pos;
  AllocSymbol.Size     := Size;
 
@@ -145,37 +163,86 @@ Var OpcodesLength: uint32 = 0;
     CharCode       : int32;
     Pnt            : Pointer;
 
+    InsertedOpcodes: uint32 = 0;
+
+    mNamespace: TNamespace;
+    mSymbol   : TSymbol;
+
     BCLabel: TBCLabel;
+    BCAlloc: TBCAllocatedSymbol;
+    vValue : Variant;
 Begin
  With Compiler do
  Begin
   if (OpcodeList.Count = 0) Then
-   raise EBCCompilerException.Create('OpcodeList.Count = 0');
+   raise ELLCompilerException.Create('OpcodeList.Count = 0');
 
   OpcodesLength := 0;
 
   // allocate global variables
   if (AllocateGlobalVars) Then
   Begin
-   // iterate each opcode
-   For Op in OpcodeList Do
+   // allocate symbols #1
+   For mNamespace in Compiler.NamespaceList Do
    Begin
-    // each argument
-    For ArgID := 0 To High(Op^.Args) Do
-     if (Op^.Args[ArgID].Typ = ptSymbolMemRef) Then
-      AllocateGlobalVar(Op^.Args[ArgID].Value);
+    For mSymbol in mNamespace.getSymbolList Do
+    Begin
+     if (mSymbol.Typ = stVariable) Then
+      AllocateGlobalVar(mSymbol.mVariable.LocationData.MemSymbolName);
+    End;
    End;
 
-   // are there any symbols to allocate?
+   // allocate symbols #2
+   {
+    @Note: "Insert(2, ...)" because first two opcodes are (and have to remain) "call" and "stop"
+   }
    if (AllocSymbolList.Count > 0) Then
    Begin
     DoNotStoreOpcodes := True;
 
-    For OpcodeID := 0 To AllocSymbolList.Count-1 Do
+    For BCAlloc in AllocSymbolList Do
     Begin
-     // @TODO: this can be done more efficient way (o_word, o_extended (...))
-     For ArgID := 1 To AllocSymbolList[OpcodeID].Size Do
-      OpcodeList.Insert(0, PutOpcode(o_byte, [0]));
+     if (BCAlloc.Value = nil) Then
+     Begin
+      Op := nil;
+
+      Case BCAlloc.Size of
+       1 : Op := PutOpcode(o_char, [0]);
+       8 : Op := PutOpcode(o_int, [0]);
+       10: Op := PutOpcode(o_float, [0.0]);
+
+       else
+        raise ELLCompilerException.CreateFmt('Invalid BCAlloc.Size: %d', [BCAlloc.Size]);
+      End;
+
+      if (Op <> nil) Then
+      Begin
+       OpcodeList.Insert(2+InsertedOpcodes, Op);
+       Inc(InsertedOpcodes);
+      End;
+     End Else
+     Begin
+      vValue := BCAlloc.Value^.Value;
+
+      Case BCAlloc.Value^.getType of
+       mtBool  : Op := PutOpcode(o_bool, [ord(Boolean(vValue))]);
+       mtChar  : Op := PutOpcode(o_char, [ord(Char(vValue))]);
+       mtInt   : Op := PutOpcode(o_int, [int64(vValue)]);
+       mtFloat : Op := PutOpcode(o_float, [Extended(vValue)]);
+       mtString:
+       Begin
+        OpcodeList.Insert(2+InsertedOpcodes, PutOpcode(o_char, [$FF]));
+        Inc(InsertedOpcodes);
+        Op := PutOpcode(o_string, [AnsiString(vValue)]);
+       End;
+
+       else
+        raise ELLCompilerException.CreateFmt('Unknown expression type: %d', [ord(BCAlloc.Value^.getType)]);
+      End;
+
+      OpcodeList.Insert(2+InsertedOpcodes, Op);
+      Inc(InsertedOpcodes);
+     End;
     End;
 
     DoNotStoreOpcodes := False;
@@ -203,13 +270,14 @@ Begin
    // if opcode
    if (not (Op^.isComment or Op^.isLabel)) Then
    Begin
-    if (Op^.Opcode in [o_byte, o_word, o_integer, o_extended]) Then
+    if (Op^.Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then
     Begin
      Case Op^.Opcode of
-      o_byte    : OpcodeSize := 1;
-      o_word    : OpcodeSize := 2;
-      o_integer : OpcodeSize := 4;
-      o_extended: OpcodeSize := 10;
+      o_bool  : OpcodeSize := 1;
+      o_char  : OpcodeSize := 1;
+      o_int   : OpcodeSize := 8;
+      o_float : OpcodeSize := 10;
+      o_string: OpcodeSize := 1+Length(Op^.Args[0].Value);
      End;
 
      Continue;
@@ -241,7 +309,7 @@ Begin
         TmpValue := TFunction(Pnt).LabelName;
 
         if (Length(TmpValue) = 0) Then
-         raise EBCCompilerException.CreateFmt('Couldn''t fetch function''s label name; function: %s', [TFunction(Pnt).RefSymbol.getFullName('::')]);
+         raise ELLCompilerException.CreateFmt('Couldn''t fetch function''s label name; function: %s', [TFunction(Pnt).RefSymbol.getFullName('::')]);
 
         Arg^.Value := Value[1] + TmpValue; // copy ':' or '@' and append actual function''s label name
        End;
@@ -267,7 +335,7 @@ Begin
 
        if (TryStrToInt(Value, CharCode)) Then
         Arg^.Value := CharCode Else
-        raise EBCCompilerException.CreateFmt('Invalid char code: %s', [Value]);
+        raise ELLCompilerException.CreateFmt('Invalid char code: %s', [Value]);
       End;
 
       // register
@@ -347,14 +415,19 @@ Begin
     if (isLabel) or (isComment) Then // skip labels and comments
      Continue;
 
-    if (Opcode in [o_byte, o_word, o_integer, o_extended]) Then // special opcodes
+    if (Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then // special opcodes
     Begin
+     DisableConverting; // @TODO: it have to be done other way - what about architectures which are big-endian? (from the VM point of view)
+
      Case Opcode of
-      o_byte    : write_uint8(Args[0].Value);
-      o_word    : write_uint16(Args[0].Value);
-      o_integer : write_int32(Args[0].Value);
-      o_extended: write_float(Args[0].Value);
+      o_bool  : write_uint8(ord(Boolean(Args[0].Value)));
+      o_char  : write_uint8(Args[0].Value);
+      o_int   : write_int64(Args[0].Value);
+      o_float : write_float(Args[0].Value);
+      o_string: write_string(Args[0].Value);
      End;
+
+     EnableConverting;
 
      Continue;
     End;
@@ -455,7 +528,7 @@ Begin
          write_int32(Value);
        End;
       Except
-       raise EBCCompilerException.CreateFmt('Cannot compile opcode. Invalid parameter value: %s', [VarToStr(Value)]);
+       raise ELLCompilerException.CreateFmt('Cannot compile opcode. Invalid parameter value: %s', [VarToStr(Value)]);
       End;
      End;
     End;

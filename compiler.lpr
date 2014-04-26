@@ -120,11 +120,14 @@ Begin
     Writeln;
     Writeln(E.Message);
     Writeln;
-    Writeln('Callstack:');
+
+    Writeln('Stacktrace:');
     Writeln(BackTraceStrFunc(ExceptAddr));
+
     Frames := ExceptFrames;
     For Frame := 0 To ExceptFrameCount-1 Do
      Writeln(BackTraceStrFunc(Frames[Frame]));
+
     Try
      if (Compiler <> nil) Then
      Begin

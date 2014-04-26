@@ -106,24 +106,29 @@ Var Compiler  : TCompiler absolute CompilerPnt;
     SymbolList: TSymbolList;
     Variable  : TVariable;
     VarType   : TType;
+
+    Value: PExpressionNode;
+    Token: TToken_P;
 Begin
  With Compiler, getScanner do
  Begin
-  if (not ((CompilePass = _cp1) or (inFunction))) Then // variables are parsed in the first pass or inside a function
+  // variables are parsed in the first pass or inside a function
+  if (not ((CompilePass = _cp1) or (inFunction))) Then
   Begin
    read_until(_SEMICOLON);
    Exit;
   End;
 
-  if (inFunction) Then // choose the symbol list - either current function's or namespace's.
+  // choose the symbol list - either current function's or namespace's.
+  if (inFunction) Then
    SymbolList := getCurrentFunction.SymbolList Else
    SymbolList := getCurrentNamespace.SymbolList;
 
-  eat(_LOWER); // <
-  VarType := read_type; // [type]
-  eat(_GREATER); // >
+  eat(_LOWER); { < }
+  VarType := read_type; { [type] }
+  eat(_GREATER); { > }
 
-  { read variables declarations }
+  // read variable(s) declaration(s)
   While (true) do
   Begin
    Variable     := TVariable.Create;
@@ -136,27 +141,25 @@ Begin
     DeclFunction  := getCurrentFunction;
     mCompiler     := Compiler;
     Range         := getCurrentRange;
-    Name          := read_ident; // [identifier]
+    Name          := read_ident; { [identifier] }
     Visibility    := getVisibility;
 
-    RedeclarationCheck(Name); // check for redeclaration of the variable
+    // check for redeclaration
+    RedeclarationCheck(Name);
    End;
 
-   if (Variable.Typ.isVoid) Then // cannot create a void-variable
+   // make sure variable isn't "void"
+   if (Variable.Typ.isVoid) Then
     CompileError(eVoidVar, [Variable.RefSymbol.Name]);
 
+   // arrays have to be volatile because - as optimizer doesn't support arrays, weird things happen when it tries to optimize them; @TODO
    if (Variable.Typ.isArray(False)) Then
-    Variable.Attributes += [vaVolatile]; // arrays have to be volatile because - as optimizer doesn't support arrays - weird things happen when it tries to optimize them; @TODO
+    Variable.Attributes += [vaVolatile];
 
-   if (not inFunction) Then // if it's a global variable, we have to do a bit more magic
-   Begin
-    Variable.LocationData.Location      := vlMemory;
-    Variable.LocationData.MemSymbolName := Variable.getSerializedForm;
-   End;
-
-   { add variable into the function }
+   // add variable into the function symbol list
    SymbolList.Add(TSymbol.Create(stVariable, Variable));
 
+   // special case: foreach loop header
    if (ParsingForeachHeader) Then
    Begin
     eat(_IN);
@@ -164,27 +167,58 @@ Begin
     Break;
    End;
 
-   if (next_t = _BRACKET1_OP) { ( } Then // optional array initializer
+   // read optional array initializer
+   if (next_t = _BRACKET1_OP) { ( } Then
    Begin
     if (not inFunction) Then
-     CompileError(eUnimplemented, ['global variable initializers']);
+     CompileError(eGlobalArrayInitializer);
 
     if (Variable.Typ.isArray(False)) Then
      ReadArrayInitializer(Compiler, SymbolList.Last) Else
      CompileError(eVarArrayRequired);
    End Else
 
-   if (next_t = _EQUAL) { = } Then // or optional default initializer
+   // or optional default initializer
+   if (next_t = _EQUAL) { = } Then
    Begin
-    if (inFunction) Then // local var initializer
+    if (inFunction) Then
     Begin
+     Token := next;
      Dec(TokenPos);
-     CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA])));
-     Dec(TokenPos); // ExpressionCompiler 'eats' comma which we need.
-    End Else // global var initializer
+    End Else
     Begin
-     CompileError(eUnimplemented, ['global variable initializers']);
+     eat(_EQUAL);
+     Token := next;
     End;
+
+    Value := ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA]);
+
+    Dec(TokenPos);
+
+    // local var initializer
+    if (inFunction) Then
+    Begin;
+     CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetExpression, Value));
+    End Else
+
+    // global var initializer
+    Begin
+     Variable.Value := Value^.getValue();
+
+     if (Variable.Value = nil) Then
+      CompileError(Token, eExpectedConstant, []);
+    End;
+   End;
+
+   // if it's a global variable, we have to provide data for the linker
+   {
+    @Note: we can't do this anywhere before because optional variable value also
+           has to be saved in the serialized form.
+   }
+   if (not inFunction) Then
+   Begin
+    Variable.LocationData.Location      := vlMemory;
+    Variable.LocationData.MemSymbolName := Variable.getSerializedForm;
    End;
 
    if (next_t = _COMMA) Then // var(...) name1, name2, name3...
