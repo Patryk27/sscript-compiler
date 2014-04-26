@@ -8,7 +8,7 @@
 Unit BCDebug;
 
  Interface
- Uses symdef, BCCompiler, HLCompiler, Opcodes, Stream, List, SysUtils;
+ Uses symdef, LLCompiler, HLCompiler, Opcodes, Stream, List, SysUtils;
 
  Const DebugDataVersion: uint16 = 1;
 
@@ -63,7 +63,7 @@ Unit BCDebug;
       Class
        Private
         HLCompiler: HLCompiler.TCompiler;
-        BCCompiler: BCCompiler.TCompiler;
+        LLCompiler: LLCompiler.TCompiler;
 
         Output: TStream;
 
@@ -86,7 +86,7 @@ Unit BCDebug;
         Procedure WriteData;
 
        Public
-        Constructor Create(const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+        Constructor Create(const fHLCompiler: HLCompiler.TCompiler; const fLLCompiler: LLCompiler.TCompiler);
         Destructor Destroy; override;
 
         Function Generate(const DoSorting: Boolean=False): TStream;
@@ -452,10 +452,10 @@ Begin
 End;
 
 (* TBCDebugWriter.Create *)
-Constructor TBCDebugWriter.Create(const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+Constructor TBCDebugWriter.Create(const fHLCompiler: HLCompiler.TCompiler; const fLLCompiler: LLCompiler.TCompiler);
 Begin
  HLCompiler := fHLCompiler;
- BCCompiler := fBCCompiler;
+ LLCompiler := fLLCompiler;
 End;
 
 (* TBCDebugWriter.Destroy *)

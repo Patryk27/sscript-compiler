@@ -8,7 +8,7 @@
 Unit SSMParser;
 
  Interface
- Uses BCCompiler, HLCompiler, BCDebug, Opcodes, Messages, symdef, Classes, List, SysUtils, Stream, Zipper;
+ Uses LLCompiler, HLCompiler, BCDebug, Opcodes, Messages, symdef, Classes, List, SysUtils, Stream, Zipper;
 
  Const SSM_version: uint16 = 3;
 
@@ -67,10 +67,10 @@ Unit SSMParser;
         Zip     : TZipper;
 
         HLCompiler: HLCompiler.TCompiler;
-        BCCompiler: BCCompiler.TCompiler;
+        LLCompiler: LLCompiler.TCompiler;
 
        Public { methods }
-        Constructor Create(const fFileName: String; const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+        Constructor Create(const fFileName: String; const fHLCompiler: HLCompiler.TCompiler; const fLLCompiler: LLCompiler.TCompiler);
         Procedure Save;
        End;
 
@@ -136,11 +136,11 @@ End;
 
 // -------------------------------------------------------------------------- //
 (* TSSMWriter.Create *)
-Constructor TSSMWriter.Create(const fFileName: String; const fHLCompiler: HLCompiler.TCompiler; const fBCCompiler: BCCompiler.TCompiler);
+Constructor TSSMWriter.Create(const fFileName: String; const fHLCompiler: HLCompiler.TCompiler; const fLLCompiler: LLCompiler.TCompiler);
 Begin
  FileName   := fFileName;
  HLCompiler := fHLCompiler;
- BCCompiler := fBCCompiler;
+ LLCompiler := fLLCompiler;
 End;
 
 (* TSSMWriter.Save *)
@@ -184,7 +184,7 @@ Begin
 
   Try
    // prepare label and function list
-   For BCLabel in BCCompiler.LabelList Do
+   For BCLabel in LLCompiler.LabelList Do
    Begin
     // skip private labels
     if (not BCLabel.isPublic) Then
@@ -282,15 +282,15 @@ Begin
   End;
 
   // generate debug data
-  Debug           := TBCDebugWriter.Create(HLCompiler, BCCompiler);
+  Debug           := TBCDebugWriter.Create(HLCompiler, LLCompiler);
   DebugDataStream := Debug.Generate;
 
   // save ZIP
-  AddFile(BCCompiler.HeaderStream, '.header');
+  AddFile(LLCompiler.HeaderStream, '.header');
   AddFile(DataStream, '.ssm_data');
   AddFile(DebugDataStream, '.debug_data');
-  AddFile(BCCompiler.ReferenceStream, '.references');
-  AddFile(BCCompiler.BytecodeStream, '.bytecode');
+  AddFile(LLCompiler.ReferenceStream, '.references');
+  AddFile(LLCompiler.BytecodeStream, '.bytecode');
 
   Zip.FileName := FileName;
   Zip.ZipAllFiles;

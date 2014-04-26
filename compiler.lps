@@ -9,7 +9,6 @@
         <Filename Value="compiler.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="compiler"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
@@ -451,10 +450,12 @@
       <Unit56>
         <Filename Value="bytecode\ssm\ssmparser.pas"/>
         <UnitName Value="SSMParser"/>
+        <EditorIndex Value="4"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
         <UsageCount Value="56"/>
+        <Loaded Value="True"/>
       </Unit56>
       <Unit57>
         <Filename Value="syntax\do_not_read.pas"/>
@@ -643,10 +644,12 @@
       <Unit80>
         <Filename Value="stream.pas"/>
         <UnitName Value="Stream"/>
+        <EditorIndex Value="5"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="15"/>
-        <CursorPos X="7" Y="15"/>
-        <UsageCount Value="5"/>
+        <TopLine Value="149"/>
+        <CursorPos X="56" Y="177"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
       </Unit80>
       <Unit81>
         <Filename Value="syntax\parse_include.pas"/>
@@ -731,10 +734,12 @@
       <Unit91>
         <Filename Value="parser\scanner.pas"/>
         <UnitName Value="Scanner"/>
+        <EditorIndex Value="1"/>
         <WindowIndex Value="0"/>
         <TopLine Value="576"/>
-        <CursorPos X="34" Y="594"/>
+        <CursorPos X="52" Y="607"/>
         <UsageCount Value="41"/>
+        <Loaded Value="True"/>
       </Unit91>
       <Unit92>
         <Filename Value="parser\lexer\lexer.pas"/>
@@ -1257,10 +1262,12 @@
       <Unit159>
         <Filename Value="bytecode\bcdebug.pas"/>
         <UnitName Value="BCDebug"/>
+        <EditorIndex Value="6"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="437"/>
-        <CursorPos X="27" Y="457"/>
+        <TopLine Value="428"/>
+        <CursorPos X="27" Y="458"/>
         <UsageCount Value="32"/>
+        <Loaded Value="True"/>
       </Unit159>
       <Unit160>
         <Filename Value="C:\freepascal\fpc\2.7.0\rtl\i386\setjump.inc"/>
@@ -1382,24 +1389,150 @@
       <Unit176>
         <Filename Value="hlcompiler.pas"/>
         <UnitName Value="HLCompiler"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="2"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
+        <TopLine Value="1581"/>
+        <CursorPos X="8" Y="1603"/>
         <UsageCount Value="10"/>
+        <Loaded Value="True"/>
       </Unit176>
       <Unit177>
         <Filename Value="bytecode\llcompiler.pas"/>
-        <UnitName Value="BCCompiler"/>
+        <UnitName Value="LLCompiler"/>
+        <EditorIndex Value="3"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="465"/>
-        <CursorPos X="56" Y="484"/>
+        <TopLine Value="6"/>
+        <CursorPos X="1" Y="6"/>
         <UsageCount Value="10"/>
+        <Loaded Value="True"/>
       </Unit177>
     </Units>
     <General>
       <ActiveWindowIndexAtStart Value="0"/>
     </General>
-    <JumpHistory Count="0" HistoryIndex="-1"/>
+    <JumpHistory Count="30" HistoryIndex="29">
+      <Position1>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="1602" Column="14" TopLine="1573"/>
+      </Position1>
+      <Position2>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="1603" Column="14" TopLine="1574"/>
+      </Position2>
+      <Position3>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="1602" Column="11" TopLine="1575"/>
+      </Position3>
+      <Position4>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="250" Column="15" TopLine="232"/>
+      </Position4>
+      <Position5>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="260" Column="12" TopLine="232"/>
+      </Position5>
+      <Position6>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="261" Column="12" TopLine="232"/>
+      </Position6>
+      <Position7>
+        <Filename Value="bytecode\llcompiler.pas"/>
+        <Caret Line="484" Column="56" TopLine="465"/>
+      </Position7>
+      <Position8>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="1" Column="1" TopLine="1"/>
+      </Position8>
+      <Position9>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="9" Column="7" TopLine="1"/>
+      </Position9>
+      <Position10>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="11" Column="17" TopLine="1"/>
+      </Position10>
+      <Position11>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="70" Column="31" TopLine="40"/>
+      </Position11>
+      <Position12>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="73" Column="123" TopLine="43"/>
+      </Position12>
+      <Position13>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="139" Column="126" TopLine="109"/>
+      </Position13>
+      <Position14>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="143" Column="27" TopLine="113"/>
+      </Position14>
+      <Position15>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="187" Column="29" TopLine="158"/>
+      </Position15>
+      <Position16>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="285" Column="66" TopLine="256"/>
+      </Position16>
+      <Position17>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="289" Column="21" TopLine="260"/>
+      </Position17>
+      <Position18>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="292" Column="21" TopLine="263"/>
+      </Position18>
+      <Position19>
+        <Filename Value="stream.pas"/>
+        <Caret Line="15" Column="7" TopLine="15"/>
+      </Position19>
+      <Position20>
+        <Filename Value="bytecode\bcdebug.pas"/>
+        <Caret Line="457" Column="27" TopLine="437"/>
+      </Position20>
+      <Position21>
+        <Filename Value="bytecode\bcdebug.pas"/>
+        <Caret Line="10" Column="15" TopLine="1"/>
+      </Position21>
+      <Position22>
+        <Filename Value="bytecode\bcdebug.pas"/>
+        <Caret Line="11" Column="25" TopLine="1"/>
+      </Position22>
+      <Position23>
+        <Filename Value="bytecode\bcdebug.pas"/>
+        <Caret Line="66" Column="31" TopLine="36"/>
+      </Position23>
+      <Position24>
+        <Filename Value="bytecode\bcdebug.pas"/>
+        <Caret Line="89" Column="98" TopLine="59"/>
+      </Position24>
+      <Position25>
+        <Filename Value="bytecode\bcdebug.pas"/>
+        <Caret Line="455" Column="105" TopLine="425"/>
+      </Position25>
+      <Position26>
+        <Filename Value="bytecode\ssm\ssmparser.pas"/>
+        <Caret Line="293" Column="21" TopLine="264"/>
+      </Position26>
+      <Position27>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="262" Column="12" TopLine="232"/>
+      </Position27>
+      <Position28>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="253" Column="28" TopLine="229"/>
+      </Position28>
+      <Position29>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="249" Column="38" TopLine="231"/>
+      </Position29>
+      <Position30>
+        <Filename Value="hlcompiler.pas"/>
+        <Caret Line="1288" Column="4" TopLine="1270"/>
+      </Position30>
+    </JumpHistory>
   </ProjectSession>
   <EditorMacros Count="0"/>
 </CONFIG>

@@ -3,7 +3,7 @@
  All rights reserved.
 *)
 {$H+}
-Unit BCCompiler;
+Unit LLCompiler;
 
  Interface
  Uses Logging, HLCompiler, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;

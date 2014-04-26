@@ -181,7 +181,7 @@ Unit HLCompiler;
  Function CopyStringToPChar(const Str: String): PChar;
 
  Implementation
-Uses BCCompiler, ExpressionCompiler, ExpressionParser, PeepholeOptimizer;
+Uses LLCompiler, ExpressionCompiler, ExpressionParser, PeepholeOptimizer;
 
 (* ReplaceDirSep *)
 {
@@ -247,19 +247,18 @@ End;
  Compiles input file as a bytecode
 }
 Procedure TCompiler.CompileAsBytecode;
-Var Compiler2: BCCompiler.TCompiler;
 Begin
  Log('-> Compiling as bytecode');
 
- With Scanner do
-  if (next_t <> _BRACKET3_OP) Then
-   CompileError(eExpected, ['{', next.Value]);
+ Scanner.eat(_BRACKET3_OP);
 
  Parse_CODE.Parse(self, True); // parse bytecode
 
- Compiler2 := BCCompiler.TCompiler.Create;
- Compiler2.Compile(self, False);
- Compiler2.Free;
+ With LLCompiler.TCompiler.Create Do
+ Begin
+  Compile(self, False);
+  Free;
+ End;
 End;
 
 (* TCompiler.SaveBytecode *)
@@ -1286,9 +1285,7 @@ End;
    fPreviousInstance -> see @Parse_include and @Parse_FUNCTION
 }
 Procedure TCompiler.CompileCode(fInputFile, fOutputFile: String; isIncluded: Boolean; Pass1Only: Boolean; fParent: TCompiler; fSupervisor: TCompiler; fPreviousInstance: TCompiler);
-Var Compiler2: BCCompiler.TCompiler;
-
-    VBytecode        : String = '';
+Var VBytecode        : String = '';
     UnfinishedComment: Boolean = False;
 
   { AddPrimaryType }
@@ -1599,9 +1596,11 @@ Begin
   { compile bytecode }
   if (not isIncluded) Then
   Begin
-   Compiler2 := BCCompiler.TCompiler.Create;
-   Compiler2.Compile(self, CompileMode = cmLibrary);
-   Compiler2.Free;
+   With LLCompiler.TCompiler.Create do
+   Begin
+    Compile(self, CompileMode = cmLibrary);
+    Free;
+   End;
   End;
  Finally
  End;
