@@ -354,7 +354,10 @@ Begin
      With Symbol.mFunction do
      Begin
       if (RefSymbol.DeclToken = nil) Then
-       raise EBCDebugWriterException.CreateFmt('Declaration token of function %s is not present!', [RefSymbol.getFullName('::')]);
+      Begin
+       DevLog(dvInfo, 'Declaration token of function %s is missing - skipping. Probably its library have had stripped debug data.', [RefSymbol.getFullName('::')]);
+       Continue;
+      End;
 
       GenerateLineInfo(Symbol.mFunction, AllocDebugFile(RefSymbol.DeclToken^.FileName, 0), AllocDebugFunction(Symbol.mFunction));
      End;
@@ -373,6 +376,8 @@ Begin
    End;
   End;
  End;
+
+ SetLength(List, High(List));
 End;
 
 (* TBCDebugWriter.SortLineData *)

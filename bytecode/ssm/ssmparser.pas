@@ -125,7 +125,7 @@ Unit SSMParser;
        End;
 
  Implementation
-Uses Expression, Tokens, Variants, Logging, Serialization;
+Uses Expression, Tokens, Variants, Logging, CommandLine, Serialization;
 
 (* SplitByDot *)
 Procedure SplitByDot(const Str: String; out Pre, Post: String);
@@ -285,12 +285,14 @@ Begin
   Debug           := TBCDebugWriter.Create(HLCompiler, LLCompiler);
   DebugDataStream := Debug.Generate;
 
-  // save ZIP
+  // make archive
   AddFile(LLCompiler.HeaderStream, '.header');
   AddFile(DataStream, '.ssm_data');
-  AddFile(DebugDataStream, '.debug_data');
   AddFile(LLCompiler.ReferenceStream, '.references');
   AddFile(LLCompiler.BytecodeStream, '.bytecode');
+
+  if (not CmdLine.getBoolSwitch(opt__strip_debug)) Then
+   AddFile(DebugDataStream, '.debug');
 
   Zip.FileName := FileName;
   Zip.ZipAllFiles;
@@ -445,6 +447,10 @@ Begin
  Debug := TBCDebugReader.Create(AStream);
 
  Try
+  DebugData.FileList.Free;
+  DebugData.FunctionList.Free;
+  DebugData.LineDataList.Free;
+
   DebugData := Debug.Read;
  Finally
   Debug.Free;
@@ -687,7 +693,7 @@ Begin
  Case AItem.ArchiveFileName of
   '.header'    : ReadHeader(NStream);
   '.ssm_data'  : ReadSSMData(NStream);
-  '.debug_data': ReadDebugData(NStream);
+  '.debug'     : ReadDebugData(NStream);
   '.references': ReadReferences(NStream);
   '.bytecode'  : ReadOpcodes(NStream);
 
@@ -1027,6 +1033,17 @@ End;
 Function TSSMReader.Load: Boolean;
 Var FileList: TStringList;
 
+  { isFilePresent }
+  Function isFilePresent(const FileName: String): Boolean;
+  Var I: int8;
+  Begin
+   Result := False;
+
+   For I := 0 To Unzip.Entries.Count-1 Do
+    if (Unzip.Entries[I].ArchiveFileName = FileName) Then
+     Exit(True);
+  End;
+
   { LoadFile }
   Function LoadFile(const FileName: String): Boolean;
   Begin
@@ -1051,6 +1068,17 @@ Begin
  // set variables
  LoadOK := True;
 
+ // prepare bogus debug data
+ DebugData.Version := DebugDataVersion;
+
+ DebugData.FileCount     := 0;
+ DebugData.FunctionCount := 0;
+ DebugData.LineDataCount := 0;
+
+ DebugData.FileList     := TDBGFileList.Create;
+ DebugData.FunctionList := TDBGFunctionList.Create;
+ DebugData.LineDataList := TDBGLineDataList.Create;
+
  Try
   Unzip.FileName := FileName;
   Unzip.Examine;
@@ -1066,7 +1094,7 @@ Begin
    Exit;
 
   // load SSM debug data
-  if (not LoadFile('.debug_data')) Then
+  if (not CmdLine.getBoolSwitch(opt__strip_debug)) and (isFilePresent('.debug')) and (not LoadFile('.debug')) Then
    Exit;
 
   // load references data

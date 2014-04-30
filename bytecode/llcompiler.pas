@@ -75,7 +75,7 @@ Unit LLCompiler;
        End;
 
  Implementation
-Uses SSMParser, BCDebug, Serialization;
+Uses SSMParser, BCDebug, CommandLine, Serialization;
 
 (* TCompiler.getLabelID *)
 Function TCompiler.getLabelID(const Name: String): int32;
@@ -570,9 +570,11 @@ Begin
  Compiler := fCompiler;
  Output   := Compiler.OutputFile;
 
+ // set variables
+ DebugDataStream := nil;
+
  // create classes
  HeaderStream    := TStream.Create;
- DebugDataStream := TStream.Create;
  BytecodeStream  := TStream.Create;
  ReferenceStream := TStream.Create;
 
@@ -616,20 +618,25 @@ Begin
   End;
 
   // generate debug data
-  Debug := TBCDebugWriter.Create(fCompiler, self);
+  if (not CmdLine.getBoolSwitch(opt__strip_debug)) Then
+  Begin
+   Debug := TBCDebugWriter.Create(fCompiler, self);
 
-  Try
-   DebugDataStream := Debug.Generate(True);
-  Finally
-   Debug.Free;
+   Try
+    DebugDataStream := Debug.Generate(True);
+   Finally
+    Debug.Free;
+   End;
+
+   Log('Debug data size: %d bytes', [DebugDataStream.Size]);
   End;
 
-  Log('Debug data size: %d bytes', [DebugDataStream.Size]);
-
-  // make zip archive
+  // make archive
   AddFile(HeaderStream, '.header');
   AddFile(BytecodeStream, '.bytecode');
-  AddFile(DebugDataStream, '.debug');
+
+  if (not CmdLine.getBoolSwitch(opt__strip_debug)) Then
+   AddFile(DebugDataStream, '.debug');
 
   // save it
   Zip.FileName := Output;
