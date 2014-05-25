@@ -20,6 +20,7 @@ Unit SSMParser;
       Record
        Signature: String; // 'Signature' is basically serialized form of the function
        Position : uint32;
+       isPublic : Boolean;
 
        Symbol: TSymbol; // not saved to the SSM file - used only as helper during the generation of the debug data
       End;
@@ -165,9 +166,13 @@ Var BCLabel   : TBCLabel;
     BCVariable: TBCVariable;
 
     Namespace: TNamespace;
+    Instance : TObject;
+    Reader   : TSSMReader;
     Symbol   : TSymbol;
 
     Debug: TBCDebugWriter = nil;
+
+    I: uint32;
 Begin
  Log('Saving the SSM file as: %s', [FileName]);
 
@@ -183,6 +188,24 @@ Begin
   VarList      := TBCVariableList.Create;
 
   Try
+   // prepare function list from imported libraries
+   For Instance in HLCompiler.SSMReaderList Do
+   Begin
+    Reader := TSSMReader(Instance);
+    I      := Reader.getSSMData.FunctionCount;
+
+    if (I = 0) Then
+     Continue;
+
+    For I := 0 To I-1 Do
+    Begin
+     BCFunction          := Reader.getSSMData.FunctionList[I];
+     BCFunction.isPublic := False;
+
+     FunctionList.Add(BCFunction);
+    End;
+   End;
+
    // prepare label and function list
    For BCLabel in LLCompiler.LabelList Do
    Begin
@@ -194,11 +217,12 @@ Begin
     LabelList.Add(BCLabel);
 
     // ... and check if it's a function label
-    if (BCLabel.isFunction) and (BCLabel.FunctionSymbol.mFunction.RefSymbol.Visibility = mvPublic) Then
+    if (BCLabel.isFunction) and (BCLabel.FunctionSymbol.{mFunction.RefSymbol.}Visibility = mvPublic) Then
     Begin
      BCFunction.Signature := BCLabel.Name;
      BCFunction.Position  := BCLabel.Position;
      BCFunction.Symbol    := BCLabel.FunctionSymbol;
+     BCFunction.isPublic  := True;
 
      FunctionList.Add(BCFunction);
     End;
@@ -212,7 +236,7 @@ Begin
      // if type
      if (Symbol.Typ = stType) Then
      Begin
-      if (Symbol.isInternal) or (Symbol.Visibility = mvPublic) Then // internal types are saved so that functions like "function<void> foo()" can be properly re-sparsed
+      if (Symbol.isInternal) or (Symbol.Visibility = mvPublic) Then // internal types are saved so that functions like "function<void> foo()" can be properly re-parsed
       Begin
        BCType.Name      := Symbol.getFullName;
        BCType.Signature := Symbol.mType.getSerializedForm;
@@ -257,6 +281,7 @@ Begin
     Begin
      write_string(BCFunction.Signature);
      write_uint32(BCFunction.Position);
+     write_uint8(ord(BCFunction.isPublic));
     End;
 
     // write types
@@ -403,8 +428,9 @@ Begin
    Begin
     BCFunction.Signature := AStream.read_string;
     BCFunction.Position  := AStream.read_uint32;
+    BCFunction.isPublic  := Boolean(AStream.read_uint8);
 
-    DevLog(dvInfo, 'Function #%d -> signature=''%s''; position=0x%x', [I, BCFunction.Signature, BCFunction.Position]);
+    DevLog(dvInfo, 'Function #%d -> signature=''%s''; position=0x%x; public=%d', [I, BCFunction.Signature, BCFunction.Position, ord(BCFunction.isPublic)]);
     FunctionList[I] := BCFunction;
    End;
   End;
@@ -528,7 +554,7 @@ Begin
    End;
 
    // @TODO: if (FunctionList[I].Position > StreamPosition) Then Break; (?)
-   //        or save previous read function index and begin the next loop fom that index
+   //        or save previous read function index and begin the next loop from that index
   End;
 
   // if not function, maybe some other label
@@ -737,6 +763,7 @@ Begin
    mType                         := TType.Create(Data);
    mType.RefSymbol.Name          := TypeName;
    mType.RefSymbol.DeclNamespace := mNamespace;
+   mType.RefSymbol.Visibility    := mvPrivate;
 
    mNamespace.SymbolList.Add(TSymbol.Create(stType, mType));
   Finally
@@ -794,6 +821,11 @@ Begin
    mFunction.RefSymbol.Name          := FunctionName;
    mFunction.RefSymbol.DeclNamespace := FuncNamespace;
 // mFunction.RefVar @TODO
+
+   // set visibility
+   if (SSMData.FunctionList[FuncID].isPublic) Then
+    mFunction.RefSymbol.Visibility := mvPrivate Else
+    mFunction.RefSymbol.Visibility := mvStrictPrivate;
 
    // find label
    FunctionLabel := findLabel(mFunction.LabelName);
@@ -879,7 +911,7 @@ Begin
     mFunction.LastOpcode := OpcodeList.Last;
    End Else
    Begin
-    // end function one opcode before the next one starts and hopefully expect it to be the "ret" opcode
+    // end function one opcode before the next one starts and hopefully expect it to be the "ret" opcode (which it should be)
     mNextFunction := FunctionList[FuncID+1].Symbol.mFunction;
 
     mFunction.LastOpcode := OpcodeList[OpcodeList.indexOf(mNextFunction.FirstOpcode)-1];
@@ -921,6 +953,7 @@ Begin
    mVariable                         := TVariable.Create(Data);
    mVariable.RefSymbol.Name          := VarName;
    mVariable.RefSymbol.DeclNamespace := VarNamespace;
+   mVariable.RefSymbol.Visibility    := mvPrivate;
 
    if (mVariable.Typ = nil) Then
    Begin

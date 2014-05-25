@@ -29,6 +29,7 @@ Unit BCDebug;
  Type TDBGFunctionData =
       Record
        FunctionName, LabelName: String;
+       RangeBegin, RangeEnd   : uint32;
       End;
 
  { TDBGLineData }
@@ -77,6 +78,7 @@ Unit BCDebug;
         Function AllocDebugFile(const FileName: String; const BytecodeSize: uint32): uint32;
         Function AllocDebugFile(const Compiler: TCompiler): uint32;
         Function AllocDebugFunction(const mFunction: TFunction): uint32;
+        Procedure GenerateLineInfo(const RangeBegin, RangeEnd: uint32; const FileID, FunctionID: uint32);
         Procedure GenerateLineInfo(const mFunction: TFunction; const FileID, FunctionID: uint32);
 
         Procedure FixOpcodePositions(const RelativeTo: PMOpcode; var Debug: TDebugData);
@@ -216,17 +218,19 @@ Begin
  // if not, do so
  dbgFunction.FunctionName := FunctionName;
  dbgFunction.LabelName    := LabelName;
+ dbgFunction.RangeBegin   := PMOpcode(mFunction.FirstOpcode)^.OpcodePos;
+ dbgFunction.RangeEnd     := PMOpcode(mFunction.LastOpcode)^.OpcodePos;
 
  Result := dbgFunctionList.Add(dbgFunction);
 End;
 
 (* TBCDebugWriter.GenerateLineInfo *)
-Procedure TBCDebugWriter.GenerateLineInfo(const mFunction: TFunction; const FileID, FunctionID: uint32);
-Var Opcode, First, Last: PMOpcode;
-    PreviousLine       : uint32 = 0;
-    OpcodeList         : TOpcodeList;
-    inBounds           : Boolean = False;
-    LineData           : TDBGLineData;
+Procedure TBCDebugWriter.GenerateLineInfo(const RangeBegin, RangeEnd: uint32; const FileID, FunctionID: uint32);
+Var PreviousLine: uint32 = 0;
+    OpcodeList  : TOpcodeList;
+    inBounds    : Boolean = False;
+    LineData    : TDBGLineData;
+    Opcode      : PMOpcode;
 Begin
  LineData.FileID     := FileID;
  LineData.FunctionID := FunctionID;
@@ -234,22 +238,10 @@ Begin
  // fetch opdode list
  OpcodeList := HLCompiler.OpcodeList;
 
- // fetch function bounds
- First := mFunction.FirstOpcode;
- Last  := mFunction.LastOpcode;
-
- // check them
- if (First = nil) or (Last = nil) Then
-  raise EBCDebugWriterException.CreateFmt('Cannot generate line data for function %s - unknown function bounds.', [mFunction.RefSymbol.getFullName('::')]);
-
  // and iterate
  For Opcode in OpcodeList Do
  Begin
-  if (Opcode = First) Then
-   inBounds := True Else
-
-  if (Opcode = Last) Then
-   inBounds := False;
+  inBounds := (Opcode^.OpcodePos >= RangeBegin) and (Opcode^.OpcodePos <= RangeEnd);
 
   // if inside function
   if (inBounds) Then
@@ -260,11 +252,7 @@ Begin
 
    // check token
    if (Opcode^.Token = nil) Then
-   Begin
-    DevLog(dvError, 'Cannot generate line data for opcode #%d (in function %s) - it doesn''t have associated token.', [Opcode^.OpcodeID, mFunction.RefSymbol.getFullName('::')]);
-    // raise EBCDebugWriterException.CreateFmt('Cannot generate line data for function %s - opcode #%d doesn''t have associated token.', [mFunction.RefSymbol.getFullName('::'), Opcode^.OpcodeID]);
     Continue;
-   End;
 
    LineData.Opcode := Opcode^.OpcodePos;
    LineData.Line   := Opcode^.Token^.Line;
@@ -276,6 +264,22 @@ Begin
    End;
   End;
  End;
+End;
+
+(* TBCDebugWriter.GenerateLineInfo *)
+Procedure TBCDebugWriter.GenerateLineInfo(const mFunction: TFunction; const FileID, FunctionID: uint32);
+Var First, Last: PMOpcode;
+Begin
+ // fetch function bounds
+ First := mFunction.FirstOpcode;
+ Last  := mFunction.LastOpcode;
+
+ // check them
+ if (First = nil) or (Last = nil) Then
+  raise EBCDebugWriterException.CreateFmt('Cannot generate line data for function %s - unknown function bounds.', [mFunction.RefSymbol.getFullName('::')]);
+
+ // call actual handler
+ GenerateLineInfo(First^.OpcodePos, Last^.OpcodePos, FileID, FunctionID);
 End;
 
 (* TBCDebugWriter.FixOpcodePositions *)
@@ -299,6 +303,12 @@ Begin
 
     LD.Opcode += Shift;
 
+    With FunctionList[LD.FunctionID] do
+    Begin
+     RangeBegin += Shift;
+     RangeEnd   += Shift;
+    End;
+
     LineDataList[I] := LD;
    End;
   End;
@@ -310,12 +320,8 @@ End;
  Generates debug data.
 }
 Procedure TBCDebugWriter.GenerateData;
-Var Compiler : TCompiler;
-    Namespace: TNamespace;
-    Symbol   : TSymbol;
-
-    List: TCompilerArray;
-
+Var Opcode: PMOpcode;
+    Symbol: TSymbol;
     Reader: TSSMReader;
     Debug : TDebugData;
     I     : int32;
@@ -330,54 +336,28 @@ Begin
   AppendDebugData(Debug);
  End;
 
- List := HLCompiler.IncludeList^;
-
- SetLength(List, Length(List)+1);
- List[High(List)] := HLCompiler;
-
- // each compiler
- For Compiler in List Do
+ // each opcode
+ For Opcode in HLCompiler.OpcodeList Do
  Begin
-  // each namespace
-  For Namespace in Compiler.NamespaceList Do
+  if (Opcode^.isLabel) and (Opcode^.isFunction) Then
   Begin
-   // each symbol
-   For Symbol in Namespace.getSymbolList Do
+   Symbol := Opcode^.FunctionSymbol;
+
+   if (Symbol = nil) Then
    Begin
-    // skip non-functions
-    if (Symbol.Typ <> stFunction) Then
-     Continue;
+    // @TODO (?)
+    Continue;
+   End;
 
-    // if library-imported symbol
-    if (Symbol.mCompiler = nil) Then
-    Begin
-     With Symbol.mFunction do
-     Begin
-      if (RefSymbol.DeclToken = nil) Then
-      Begin
-       DevLog(dvInfo, 'Declaration token of function %s is missing - skipping. Probably its library have had stripped debug data.', [RefSymbol.getFullName('::')]);
-       Continue;
-      End;
-
-      GenerateLineInfo(Symbol.mFunction, AllocDebugFile(RefSymbol.DeclToken^.FileName, 0), AllocDebugFunction(Symbol.mFunction));
-     End;
-
-     {
-      @Note:
-      We're calling here "AllocDebugFile" with the second parameter set to zero because we assume that this file already exists on the list.
-      (otherwise there's nothing we can do as we don't know bytecode size of that file.)
-     }
-    End Else
-
-    // if actual user symbol
-    Begin
-     GenerateLineInfo(Symbol.mFunction, AllocDebugFile(TCompiler(Symbol.mCompiler)), AllocDebugFunction(Symbol.mFunction));
-    End;
+   if (Symbol.mCompiler = nil) Then
+   Begin
+    GenerateLineInfo(Symbol.mFunction, AllocDebugFile(Symbol.DeclToken^.FileName, 0), AllocDebugFunction(Symbol.mFunction));
+   End Else
+   Begin
+    GenerateLineInfo(Symbol.mFunction, AllocDebugFile(TCompiler(Symbol.mCompiler)), AllocDebugFunction(Symbol.mFunction));
    End;
   End;
  End;
-
- SetLength(List, High(List));
 End;
 
 (* TBCDebugWriter.SortLineData *)
@@ -385,28 +365,47 @@ End;
  Sorts line data ascending by opcode positions.
 }
 Procedure TBCDebugWriter.SortLineData;
-Var N, I: uint32;
-    Tmp : TDBGLineData;
-Begin
- // @TODO: use quicksort or sth
- if (dbgLineDataList.Count < 2) Then
-  Exit;
 
- N := dbgLineDataList.Count-1;
-
- Repeat
-  For I := 0 To N-1 Do
+  { Swap }
+  Procedure Swap(const A, B: uint32);
+  Var Tmp: TDBGLineData;
   Begin
-   if (dbgLineDataList[I].Opcode > dbgLineDataList[I+1].Opcode) Then
+   Tmp                := dbgLineDataList[A];
+   dbgLineDataList[A] := dbgLineDataList[B];
+   dbgLineDataList[B] := Tmp;
+  End;
+
+  { Sort }
+  Procedure Sort(const L, R: uint32);
+  Var M, I: uint32;
+  Begin
+   if (L < R) Then
    Begin
-    Tmp                  := dbgLineDataList[I];
-    dbgLineDataList[I]   := dbgLineDataList[I+1];
-    dbgLineDataList[I+1] := Tmp;
+    M := L;
+
+    For I := L+1 To R Do
+    Begin
+     if (dbgLineDataList[I].Opcode < dbgLineDataList[L].Opcode) Then
+     Begin
+      Inc(M);
+      Swap(M, I);
+     End;
+    End;
+
+    Swap(L, M);
+
+    if (M > 0) Then
+     Sort(L, M-1);
+
+    Sort(M+1, R);
    End;
   End;
 
-  Dec(N);
- Until (N = 0);
+Begin
+ if (dbgLineDataList.Count < 2) Then
+  Exit;
+
+ Sort(0, dbgLineDataList.Count-1);
 End;
 
 (* TBCDebugWriter.WriteData *)
@@ -441,6 +440,8 @@ Begin
   Begin
    write_string(dbgFunction.FunctionName);
    write_string(dbgFunction.LabelName);
+   write_uint32(dbgFunction.RangeBegin);
+   write_uint32(dbgFunction.RangeEnd);
   End;
 
   // write debug line data
@@ -561,6 +562,8 @@ Begin
    Begin
     FN.FunctionName := Stream.read_string;
     FN.LabelName    := Stream.read_string;
+    FN.RangeBegin   := Stream.read_uint32;
+    FN.RangeEnd     := Stream.read_uint32;
 
     FunctionList[I] := FN;
    End;

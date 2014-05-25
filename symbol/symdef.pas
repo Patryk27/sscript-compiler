@@ -18,7 +18,7 @@ Unit symdef;
       TSymbol    = class;
 
  (* auxiliary declarations *)
- Type TVisibility = (mvPublic, mvPrivate);
+ Type TVisibility = (mvPublic, mvPrivate, mvStrictPrivate);
 
  Type PTypeAttributes = ^TTypeAttributes;
       TTypeAttributes = Set of (taStrict, taFunction, taEnum, taUnspecialized, taNull);

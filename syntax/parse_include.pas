@@ -72,7 +72,9 @@ Begin
   // each symbol
   For NewSymbol in NewNamespace.SymbolList Do
   Begin
-   NewSymbol.Visibility    := mvPrivate; // imported symbols have to be private
+   if (NewSymbol.Visibility <> mvStrictPrivate) Then
+    NewSymbol.Visibility := mvPrivate; // imported symbols have to be private
+
    NewSymbol.Range         := Compiler.getScanner.getCurrentRange;
    NewSymbol.DeclNamespace := ParentNamespace;
 

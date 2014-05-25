@@ -1181,7 +1181,7 @@ Begin
   Begin
    // @Note: we cannot use `TFunction.findSymbol`, as there can be multiple variables with the same name inside one function, so `findSymbol` would return only the first one, but not the rest.
    For Tmp in getCurrentFunction.SymbolList Do
-    if (Tmp.Name = IdentName) and (Token in Tmp.Range) Then
+    if (Tmp.Name = IdentName) and (Token in Tmp.Range) and (Tmp.Visibility <> mvStrictPrivate) Then
      List.Add(Tmp);
   End;
 
@@ -1192,7 +1192,7 @@ Begin
 
    // found?
    if (Symbol <> nil) Then
-    if (Token in Symbol.Range) Then
+    if (Token in Symbol.Range) and (Symbol.Visibility <> mvStrictPrivate) Then
      List.Add(Symbol);
   End;
 
