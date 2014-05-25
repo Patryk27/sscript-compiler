@@ -426,7 +426,7 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
     PutOpcode(o_mov, [ForeachIterator.getAllocationPos, 1]); // strings are iterated from 1
    End Else
    Begin
-    PutOpcode(o_arlen, [ForeachExprHolder.getAllocationPos, 1, ForeachSizeHolder.getAllocationPos]);
+    PutOpcode(o_arlen, [ForeachExprHolder.getAllocationPos, ForeachSizeHolder.getAllocationPos]);
     PutOpcode(o_mov, [ForeachIterator.getAllocationPos, 0]);
    End;
 
@@ -437,12 +437,12 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
     PutOpcode(o_if_l, [ForeachIterator.getAllocationPos, ForeachSizeHolder.getAllocationPos]);
    PutOpcode(o_fjmp, [':'+LabelName+'end']);
 
-   PutOpcode(o_push, [ForeachIterator.getAllocationPos]);
+   Pos1 := ForeachExprHolder.getAllocationPos;
+   Pos2 := ForeachVar.getAllocationPos;
 
-   Pos1 := ForeachExprHolder.getAllocationPos(-1);
-   Pos2 := ForeachVar.getAllocationPos(-1);
-
-   PutOpcode(o_arget, [Pos1, 1, Pos2]); // arget(ForeachExprHolder, 1, ForeachVar)
+   if (type_equal(ExprType, TYPE_STRING)) Then
+    PutOpcode(o_strget, [Pos1, ForeachIterator.getAllocationPos, Pos2]) Else // strget(ForeachExprHolder, ForeachIterator, ForeachVar)
+    PutOpcode(o_arget1, [Pos1, ForeachIterator.getAllocationPos, Pos2]); // arget(ForeachExprHolder, ForeachIterator, ForeachVar)
 
    CompileNode(Node.Edges[0]);
 

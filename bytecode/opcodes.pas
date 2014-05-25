@@ -97,7 +97,7 @@ Unit Opcodes;
        o_strjoin,
        o_not, o_or, o_xor, o_and, o_shl, o_shr,
        o_mod,
-       o_arset, o_arget, o_arcrt, o_arlen,
+       o_arset, o_arset1, o_arget, o_arget1, o_arcrt, o_arlen,
        o_strset, o_strget, o_strlen,
        o_bool, o_char, o_int, o_float, o_string
       );
@@ -223,8 +223,14 @@ Unit Opcodes;
   (* ===== ARSET (arrayReference, indexCount, newValue) ===== *)
   (Name: 'arset'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAny)),
 
+  (* ===== ARSET1 (arrayReference, indexId, newValue) ===== *)
+  (Name: 'arset1'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAny)),
+
   (* ===== ARGET (arrayReference, indexCount, out outValue) ===== *)
   (Name: 'arget'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAnyReg)),
+
+  (* ===== ARGET1 (arrayReference, indexId, out outValue) ===== *)
+  (Name: 'arget1'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptAnyReg)),
 
   (* ===== ARCRT (out arrayReference, int arrayType, int dimensionCount) ===== *)
   (Name: 'arcrt'; ParamC: 3; ParamT: (ptReferenceReg, ptInt, ptInt)),
