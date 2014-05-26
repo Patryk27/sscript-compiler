@@ -311,9 +311,11 @@ Var Left, Right : PExpressionNode; // left and right side of current expression
   End;
 
   { getFinalReg }
-  Function getFinalReg: String;
+  Function getFinalReg(const DefaultRegType: Char=#0): String;
   Begin
-   Result := 'e'+FinalRegChar+IntToStr(FinalRegID);
+   if (FinalRegChar = #0) Then
+    Result := 'e'+DefaultRegType+IntToStr(FinalRegID) Else
+    Result := 'e'+FinalRegChar+IntToStr(FinalRegID);
   End;
 
 { variable handling }
@@ -561,26 +563,29 @@ Over:
   Exit(TYPE_ANY);
  End;
 
- if (FinalRegChar = #0) Then
-  FinalRegChar := Result.RegPrefix;
-
- if (FinalRegChar <> #0) Then
+ if (not FinalRegDone) Then
  Begin
-  if (Push_IF_reg) Then
-  Begin
-   // when values are compared, the comparing result is in the 'if' register
-   Compiler.PutOpcode(o_push, ['if']);
-   Expr^.ResultOnStack := True;
-  End Else
-  Begin
-   if (FinalRegChar in ['b', 'c', 'i', 'f', 's', 'r']) Then // is it valid FinalRegChar?
-   Begin
-    Compiler.PutOpcode(o_push, ['e'+FinalRegChar+'1']); // save value onto the stack
-    Expr^.ResultOnStack := True;
-   End;
-  End;
+  if (FinalRegChar = #0) Then
+   FinalRegChar := Result.RegPrefix;
 
-  Inc(PushedValues);
+  if (FinalRegChar <> #0) Then
+  Begin
+   if (Push_IF_reg) Then
+   Begin
+    // when values are compared, the comparing result is in the 'if' register
+    Compiler.PutOpcode(o_push, ['if']);
+    Expr^.ResultOnStack := True;
+   End Else
+   Begin
+    if (FinalRegChar in ['b', 'c', 'i', 'f', 's', 'r']) Then // is it valid FinalRegChar?
+    Begin
+     Compiler.PutOpcode(o_push, ['e'+FinalRegChar+'1']); // save value onto the stack
+     Expr^.ResultOnStack := True;
+    End;
+   End;
+
+   Inc(PushedValues);
+  End;
  End;
 End;
 

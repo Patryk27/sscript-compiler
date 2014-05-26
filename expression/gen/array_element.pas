@@ -20,8 +20,7 @@ Begin
  Begin
   Compiler.PutOpcode(o_strget, ['es1', 'ei1', getFinalReg]);
 
-  FinalRegChar := 'x';
-  FinalRegID   := 0;
+  FinalRegDone := True;
  End Else
  Begin
   Compiler.PutOpcode(o_strget, ['es1', 'ei1', 'ec1']);
@@ -34,6 +33,7 @@ End;
 Procedure __array_get(const ArrayType: TType);
 Var Typ, IndexType: TType;
     IndexCount    : Integer;
+    OutReg        : String;
     Index         : PExpressionNode;
 Begin
  Typ := ArrayType.Clone;
@@ -58,6 +58,12 @@ Begin
   Inc(IndexCount);
  Until (Index^.Typ <> mtArrayElement);
 
+ // special case - if we have just "array[index]", we can use "arget1" opcode
+ if (IndexCount = 1) Then
+ Begin
+  RePop(Expr^.Right, TYPE_INT, 1);
+ End;
+
  // output type change
  if (Typ.ArrayDimCount = 0) Then
  Begin
@@ -70,8 +76,20 @@ Begin
  if (Typ.isString and (Typ.ArrayDimCount = 0)) Then // `string`
   Typ := TYPE_CHAR;
 
- // get value
- Compiler.PutOpcode(o_arget, ['e'+ArrayType.RegPrefix+'1', IndexCount, 'e'+Typ.RegPrefix+'1']);
+ // fetch value
+ if (FinalRegID > 0) Then
+ Begin
+  OutReg       := getFinalReg(Typ.RegPrefix);
+  FinalRegDone := True;
+ End Else
+ Begin
+  OutReg := 'e'+Typ.RegPrefix+'1';
+ End;
+
+ if (IndexCount = 1) Then
+  Compiler.PutOpcode(o_arget1, ['e'+ArrayType.RegPrefix+'1', 'ei1', OutReg]) Else
+  Compiler.PutOpcode(o_arget, ['e'+ArrayType.RegPrefix+'1', IndexCount, OutReg]);
+
  Dec(PushedValues, IndexCount);
 
  // set result value

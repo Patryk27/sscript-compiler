@@ -107,10 +107,13 @@ Var IndexType, AssignedType, TmpType: TType;
 
     Index, DimCount: uint8;
     ShouldFail     : Boolean;
+
+    IndexExpr: PExpressionNode;
 Begin
  Index := 0;
 
  // push indexes onto the stack
+ IndexExpr := Left;
  While (Left^.Typ <> mtIdentifier) do
  Begin
   IndexType := Parse(Left^.Right);
@@ -152,7 +155,14 @@ Begin
  // so it isn't a pointer assignment - we're modyfing real array elements here
  DimCount := Variable.Typ.ArrayDimCount;
 
- AssignedType := Parse(Right, 1); // this value will be saved into the array
+ // special case - if we have just "array[index]", we can use "arset1" opcode - so load value to ei2 register
+ {if (IndexCount = 1) Then
+ Begin
+  RePop(IndexExpr^.Right, TYPE_INT, 2);
+ End;} // @TODO: what about a case where the assigned expression is complex and invalidates ei2 register?
+
+ // parse assigned value
+ AssignedType := Parse(Right, 1);
  RePop(Right, AssignedType, 1);
 
  // do type check
