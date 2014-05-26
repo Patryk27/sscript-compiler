@@ -63,9 +63,9 @@ Begin
  Dec(PushedValues, Typ.ArrayDimCount);
 
  // put opcode
- if (FinalRegID > 0) and (FinalRegChar <> #0) Then
+ if (FinalRegID > 0) Then
  Begin
-  Reg          := 'e'+FinalRegChar+IntToStr(FinalRegID);
+  Reg          := getFinalReg('r');
   FinalRegDone := True;
  End Else
  Begin

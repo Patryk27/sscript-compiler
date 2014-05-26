@@ -23,9 +23,9 @@ Begin
 
  With Compiler do
  Begin
-  if (not Result.isBool) Then
-   Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]) Else
-   PutOpcode(o_and, ['eb1', 'eb2']);
+  if (Result.isBool) Then
+   PutOpcode(o_and, ['eb1', 'eb2']) Else
+   Error(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
 
   if (ShortCircuit <> scNone) Then
    PutLabel(ShortCircuitLabel);

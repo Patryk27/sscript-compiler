@@ -108,12 +108,12 @@ Var IndexType, AssignedType, TmpType: TType;
     Index, DimCount: uint8;
     ShouldFail     : Boolean;
 
-    IndexExpr: PExpressionNode;
+//    IndexExpr: PExpressionNode;
 Begin
  Index := 0;
 
  // push indexes onto the stack
- IndexExpr := Left;
+ //IndexExpr := Left;
  While (Left^.Typ <> mtIdentifier) do
  Begin
   IndexType := Parse(Left^.Right);

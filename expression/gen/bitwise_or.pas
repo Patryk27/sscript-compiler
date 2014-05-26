@@ -7,7 +7,9 @@ Begin
   Exit;
 
  With Compiler do
-  if (not Result.isInt) Then
-   CompileError(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]) Else
-   PutOpcode(o_or, ['ei1', 'ei2']);
+ Begin
+  if (Result.isInt) Then
+   PutOpcode(o_or, ['ei1', 'ei2']) Else
+   CompileError(eUnsupportedOperator, [TypeLeft.asString, getDisplay(Expr), TypeRight.asString]);
+ End;
 End;

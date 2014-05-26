@@ -16,9 +16,9 @@ Begin
  RePop(Right, IndexType, 1);
 
  // put opcode
- if (FinalRegChar = 'c') and (FinalRegID > 0) Then
+ if (FinalRegID > 0) Then
  Begin
-  Compiler.PutOpcode(o_strget, ['es1', 'ei1', getFinalReg]);
+  Compiler.PutOpcode(o_strget, ['es1', 'ei1', getFinalReg('c')]);
 
   FinalRegDone := True;
  End Else
