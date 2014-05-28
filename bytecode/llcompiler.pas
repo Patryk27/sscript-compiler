@@ -79,20 +79,21 @@ Uses SSMParser, BCDebug, CommandLine, Serialization;
 
 (* TCompiler.getLabelID *)
 Function TCompiler.getLabelID(const Name: String): int32;
-Var I: Integer;
 Begin
- Result := -1;
+ For Result := 0 To LabelList.Count-1 Do
+ Begin
+  if (LabelList[Result].Name = Name) Then
+   Exit;
+ End;
 
- For I := 0 To LabelList.Count-1 Do
-  if (LabelList[I].Name = Name) Then
-   Exit(I);
+ Exit(-1);
 End;
 
 (* TCompiler.CreateReference *)
 Function TCompiler.CreateReference(const Name: String): uint32;
 Begin
  Result := ReferenceStream.Position;
- ReferenceStream.write_string(Name);
+ ReferenceStream.write_nullstring(Name);
 End;
 
 (* TCompiler.AllocateGlobalVar *)
@@ -108,7 +109,7 @@ Begin
  Pos := 0
 
  // call()
- +1 +1 +8
+ +1 +4
 
  // stop()
  +1
@@ -131,7 +132,7 @@ Begin
   Value := Data.getRoot[4].getExpression;
 
   if (Value <> nil) and (Value^.getType = mtString) Then
-   Inc(Size, 2); // count the '0xFF' special byte and the terminator char
+   Inc(Size, 3); // count the '0xFF' special byte and the string length (uint16)
  Finally
   Data.Free;
  End;
@@ -153,6 +154,7 @@ End;
 Procedure TCompiler.Preparse(const AllocateGlobalVars: Boolean);
 Var OpcodesLength: uint32 = 0;
     OpcodeSize   : uint32 = 0;
+    IncSize      : Boolean;
 
     OpcodeID: uint32;
     ArgID   : int8;
@@ -252,6 +254,8 @@ Begin
   // parse opcodes and labels
   For OpcodeID := 0 To OpcodeList.Count Do
   Begin
+   IncSize := True;
+
    if (Op <> nil) Then // save the size of the *previous* opcode
    Begin
     Op^.OpcodeSize := OpcodeSize;
@@ -267,8 +271,26 @@ Begin
 
    OpcodeSize := 0;
 
+   // skip comments
+   if (Op^.isComment) Then
+    Continue;
+
+   // if label
+   if (Op^.isLabel) Then
+   Begin
+    BCLabel.Name       := Op^.Name;
+    BCLabel.Position   := OpcodesLength;
+    BCLabel.isPublic   := Op^.isPublic;
+    BCLabel.isFunction := Op^.isFunction;
+
+    if (BCLabel.isFunction) Then
+     BCLabel.FunctionSymbol := Op^.FunctionSymbol Else
+     BCLabel.FunctionSymbol := nil;
+
+    LabelList.Add(BCLabel);
+   End Else
+
    // if opcode
-   if (not (Op^.isComment or Op^.isLabel)) Then
    Begin
     if (Op^.Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then
     Begin
@@ -277,22 +299,34 @@ Begin
       o_char  : OpcodeSize := 1;
       o_int   : OpcodeSize := 8;
       o_float : OpcodeSize := 10;
-      o_string: OpcodeSize := 1+Length(Op^.Args[0].Value);
+      o_string: OpcodeSize := 2+Length(Op^.Args[0].Value);
      End;
 
      Continue;
     End;
 
-    Inc(OpcodeSize, 1); // opcode type is always one byte long
+    // opcode is always one byte long
+    Inc(OpcodeSize, 1);
+
+    // special jump/call opcodes
+    if (Op^.Opcode in [o_jmp, o_tjmp, o_fjmp, o_call]) and (AllocateGlobalVars) Then
+    Begin
+     Inc(OpcodeSize, 4);
+     IncSize := False;
+    End;
 
     // iterate each argument
     For ArgID := 0 To High(Op^.Args) Do
     Begin
+     // fetch pointer
      Arg := @Op^.Args[ArgID];
 
-     Inc(OpcodeSize, sizeof(Byte)); // parameter type is always one byte long
+     // parameter type is always one byte long
+     if (IncSize) Then
+      Inc(OpcodeSize, 1);
 
-     if (Arg^.Typ <> ptString) Then // if not string
+     // if not string
+     if (Arg^.Typ <> ptString) Then
      Begin
       Value := VarToStr(Arg^.Value);
 
@@ -317,7 +351,9 @@ Begin
 
       // label relative address
       if (Copy(Value, 1, 1) = ':') Then
+      Begin
        Arg^.Typ := ptInt;
+      End;
 
       // label absolute address
       if (Copy(Value, 1, 1) = '@') Then
@@ -360,35 +396,24 @@ Begin
       End;
      End;
 
-     Case Arg^.Typ of
-      ptBoolReg..ptReferenceReg: Inc(OpcodeSize, 1);
-      ptBool, ptChar           : Inc(OpcodeSize, 1);
-      ptInt                    : Inc(OpcodeSize, 8);
-      ptFloat                  : Inc(OpcodeSize, 10);
-      ptString                 : Inc(OpcodeSize, Length(VarToStr(Arg^.Value))+1); // string + terminator char (0x00)
-      ptConstantMemRef         : Inc(OpcodeSize, 8);
-      ptLabelAbsoluteReference : Inc(OpcodeSize, 8);
-      ptSymbolMemRef           : Inc(OpcodeSize, 8);
+     if (IncSize) Then
+     Begin
+      Case Arg^.Typ of
+       ptBoolReg..ptReferenceReg: Inc(OpcodeSize, 1);
+       ptBool, ptChar           : Inc(OpcodeSize, 1);
+       ptInt                    : Inc(OpcodeSize, 8);
+       ptFloat                  : Inc(OpcodeSize, 10);
+       ptString                 : Inc(OpcodeSize, 2+Length(VarToStr(Arg^.Value))); // string length (uint16) + string data
+       ptStackval               : Inc(OpcodeSize, 1);
+       ptConstantMemRef         : Inc(OpcodeSize, 8);
+       ptSymbolMemRef           : Inc(OpcodeSize, 8);
+       ptLabelAbsoluteReference : Inc(OpcodeSize, 8);
 
-      Else
-       Inc(OpcodeSize, 4);
+       else
+        raise ELLCompilerException.CreateFmt('Invalid opcode argument type: #%d', [ord(Arg^.Typ)]);
+      End;
      End;
     End;
-   End Else
-
-   // if label
-   if (Op^.isLabel) Then
-   Begin
-    BCLabel.Name       := Op^.Name;
-    BCLabel.Position   := OpcodesLength;
-    BCLabel.isPublic   := Op^.isPublic;
-    BCLabel.isFunction := Op^.isFunction;
-
-    if (BCLabel.isFunction) Then
-     BCLabel.FunctionSymbol := Op^.FunctionSymbol Else
-     BCLabel.FunctionSymbol := nil;
-
-    LabelList.Add(BCLabel);
    End;
   End;
  End;
@@ -403,6 +428,7 @@ Var OpcodeBegin: LongWord;
 
     Str: String;
     Int: int32;
+Label NextOpcode;
 Begin
  With BytecodeStream do
  Begin
@@ -412,12 +438,14 @@ Begin
    Begin
     OpcodeBegin := BytecodeStream.Position;
 
-    if (isLabel) or (isComment) Then // skip labels and comments
+    // skip labels and comments
+    if (isLabel) or (isComment) Then
      Continue;
 
-    if (Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then // special opcodes
+    // special opcodes
+    if (Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then
     Begin
-     DisableConverting; // @TODO: it have to be done other way - what about architectures which are big-endian? (from the VM point of view)
+     DisableConverting; // @TODO: it has to be done some another way - what about architectures which are big-endian? (from the VM point of view)
 
      Case Opcode of
       o_bool  : write_uint8(ord(Boolean(Args[0].Value)));
@@ -432,107 +460,129 @@ Begin
      Continue;
     End;
 
-    write_uint8(ord(Opcode)); // write opcode type
+    // write opcode type
+    write_uint8(ord(Opcode));
 
-    For Arg := Low(Args) To High(Args) Do // write each argument
+    // write each argument
+    For Arg := Low(Args) To High(Args) Do
     Begin
      With Args[Arg] do
      Begin
+      // label absolute reference
       if (Typ = ptLabelAbsoluteReference) Then
       Begin
-       { label absolute references }
        if (ResolveReferences) Then
        Begin
         if ((VarType(Value) and VarTypeMask) in [varInteger, varLongword, varInt64]) Then
         Begin
-         ReferenceStream.Position := Value;
-         Value                    := ReferenceStream.read_string;
+         Value := PChar(ReferenceStream.getData + uint32(Value));
         End;
 
-        Tmp := getLabelID(Value); // find the reference
+        // find the reference
+        Tmp := getLabelID(Value);
 
-        if (Tmp = -1) Then // not found!
+        // not found
+        if (Tmp = -1) Then
         Begin
-         if (Token = nil) Then
-          self.Compiler.CompileError(eLinker_UnknownReference, [VarToStr(Value)]) Else
-          self.Compiler.CompileError(Token, eLinker_UnknownReference, [VarToStr(Value)]);
+         self.Compiler.CompileError(Token, eLinker_UnknownReference, [VarToStr(Value)]);
          Exit;
         End;
 
-        // found!
-        Case Typ of
-         ptLabelAbsoluteReference: Value := LabelList[Tmp].Position;
-
-         else
-          raise Exception.Create('This should NOT happen! Check your toaster''s firmware and contact your doctor.');
-        End;
-
-        Typ := ptInt;
+        // found
+        Typ   := ptInt;
+        Value := LabelList[Tmp].Position;
        End Else
        Begin
         if ((VarType(Value) and VarTypeMask) = varString) Then
-         Value := CreateReference(Value); // add new reference
+         Value := CreateReference(Value);
        End;
       End;
 
+      // symbol memory reference
       if (Typ = ptSymbolMemRef) Then
       Begin
-       { symbol memory ('&$symbol') references }
        if (ResolveReferences) Then
        Begin
         Typ   := ptConstantMemRef;
         Value := AllocateGlobalVar(Value);
        End Else
        Begin
-        Value := CreateReference(Value); // add new reference
+        Value := CreateReference(Value);
        End;
       End;
 
+      // fetch label address
       if (Typ = ptInt) and (Copy(Value, 1, 1) = ':') Then
       Begin
-       { resolve label relative address }
        Str := VarToStr(Value);
-
        Delete(Str, 1, 1); // remove `:`
 
        Int := getLabelID(Str);
 
        With HLCompiler.TCompiler(Compiler) do
-        if (Int = -1) Then // label not found
+       Begin
+        // label not found
+        if (Int = -1) Then
         Begin
          if (Token = nil) Then
           HLCompiler.TCompiler(Compiler).CompileError(eBytecode_LabelNotFound, [Str]) Else
           HLCompiler.TCompiler(Compiler).CompileError(Token, eBytecode_LabelNotFound, [Str]);
 
          Value := 0;
-        End Else // label found
+        End Else
         Begin
-         Value := Int64(LabelList[Int].Position)-OpcodeBegin; // jumps have to be relative against the beginning of the current opcode
+         // label found
+         Value := int64(LabelList[Int].Position)-OpcodeBegin; // jumps have to be relative against the beginning of the current opcode
         End;
+       End;
+      End;
+
+      // special jump/call opcodes
+      if (Opcode in [o_jmp, o_tjmp, o_fjmp, o_call]) and (ResolveReferences) Then
+      Begin
+       write_int32(Value);
+
+       goto NextOpcode;
       End;
 
       Try
-       write_uint8(ord(Typ)); // write parameter type
+       // write parameter type
+       write_uint8(ord(Typ));
 
-       Case Typ of // write parameter value
+       // write parameter value
+       Case Typ of
         ptBoolReg..ptReferenceReg: write_uint8(Value);
         ptBool, ptChar           : write_uint8(Value);
         ptInt                    : write_int64(Value);
         ptFloat                  : write_float(Value);
         ptString                 : write_string(Value);
+        ptStackval               : write_int8(Value);
         ptConstantMemRef         : write_int64(Value);
         ptSymbolMemRef           : write_int64(Value);
-        ptLabelAbsoluteReference : write_int64(Value);
+
+        ptLabelAbsoluteReference:
+        Begin
+         if (ResolveReferences) Then
+          raise ELLCompilerException.Create('ptLabelAbsoluteReference and ResolveReferences');
+
+         write_int64(Value);
+        End;
 
         else
-         write_int32(Value);
+         raise ELLCompilerException.CreateFmt('Cannot compile opcode; invalid argument type: #%d', [ord(Typ)]);
        End;
       Except
-       raise ELLCompilerException.CreateFmt('Cannot compile opcode. Invalid parameter value: %s', [VarToStr(Value)]);
+       On E: ELLCompilerException Do
+        raise;
+
+       On E: Exception Do
+        raise ELLCompilerException.CreateFmt('Cannot compile opcode; invalid parameter value (kind #%d): %s', [ord(Typ), VarToStr(Value)]);
       End;
      End;
     End;
    End;
+
+   NextOpcode:
   End;
  End;
 End;

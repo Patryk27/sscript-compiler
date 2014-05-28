@@ -33,8 +33,8 @@ Unit Stream;
         Procedure write_int32(const V: int32);
         Procedure write_int64(const V: int64);
         Procedure write_float(const V: Extended);
-        Procedure write_chararray(const V: String);
         Procedure write_string(const V: String);
+        Procedure write_nullstring(const V: String);
 
         // `read` functions
         Function read_uint8: uint8;
@@ -50,7 +50,8 @@ Unit Stream;
 
         // other functions
         Function Can: Boolean;
-        Function getMemoryPosition: Pointer;
+        Function getData: Pointer;
+        Function getPointer: Pointer;
        End;
 
  Implementation
@@ -139,18 +140,23 @@ Begin
  Write(V, sizeof(V));
 End;
 
-(* TStream.write_chararray *)
-Procedure TStream.write_chararray(const V: String);
+(* TStream.write_string *)
+Procedure TStream.write_string(const V: String);
 Var Ch: Char;
 Begin
+ write_uint16(Length(V));
+
  For Ch in V Do
   write_uint8(ord(Ch));
 End;
 
-(* TStream.write_string *)
-Procedure TStream.write_string(const V: String);
+(* TStream.write_nullstring *)
+Procedure TStream.write_nullstring(const V: String);
+Var Ch: Char;
 Begin
- write_chararray(V);
+ For Ch in V Do
+  write_uint8(ord(Ch));
+
  write_uint8(0);
 End;
 
@@ -228,18 +234,13 @@ End;
 
 (* TStream.read_string *)
 Function TStream.read_string: String;
-Var Ch: uint8;
+Var Len: uint16;
 Begin
  Result := '';
+ Len    := read_uint16;
 
- While (true) Do
- Begin
-  Ch := read_uint8;
-
-  if (Ch = 0) Then
-   Break Else
-   Result += chr(Ch);
- End;
+ For Len := 1 To Len Do
+  Result += chr(read_uint8);
 End;
 
 (* TStream.Can *)
@@ -248,8 +249,14 @@ Begin
  Result := (Position < Size);
 End;
 
-(* TStream.getMemoryPosition *)
-Function TStream.getMemoryPosition: Pointer;
+(* TStream.getData *)
+Function TStream.getData: Pointer;
+Begin
+ Result := Memory;
+End;
+
+(* TStream.getPointer *)
+Function TStream.getPointer: Pointer;
 Begin
  Result := Memory + Position;
 End;

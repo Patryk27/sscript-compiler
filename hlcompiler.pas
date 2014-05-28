@@ -251,6 +251,9 @@ Begin
  Log('-> Compiling as bytecode');
 
  Scanner.eat(_BRACKET3_OP);
+ Dec(Scanner.TokenPos);
+
+ NamespaceList := TNamespaceList.Create;
 
  Parse_CODE.Parse(self, True); // parse bytecode
 
@@ -279,6 +282,7 @@ Begin
  // save bytecode
  OutputCode.Add('{');
  For Opcode in OpcodeList Do
+ Begin
   With Opcode^ do
   Begin
    { label }
@@ -362,6 +366,7 @@ Begin
 
    OutputCode.Add(Line);
   End;
+ End;
 
  OutputCode.Add('}');
  OutputCode.SaveToFile(FileName);

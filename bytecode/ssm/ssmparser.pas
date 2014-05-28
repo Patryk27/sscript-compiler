@@ -516,6 +516,13 @@ Var StreamPosition: uint32;
     CurrentLine       : uint32 = 0; // fetched from the debug data if available
 
     I, ParamC: int32;
+
+  { FetchString }
+  Function FetchString(const Pos: uint32): String;
+  Begin
+   Result := PChar(@References[Pos+1]);
+  End;
+
 Begin
  if (HLCompiler <> nil) Then
  Begin
@@ -579,6 +586,7 @@ Begin
    MOpcode^.Name       := LabelName;
    MOpcode^.isLabel    := True;
    MOpcode^.isFunction := False;
+   MOpcode^.isComment  := False;
    MOpcode^.Token      := nil;
    OpcodeList.Add(MOpcode);
 
@@ -644,9 +652,9 @@ Begin
   // read and prepare opcode
   New(MOpcode);
   MOpcode^.Opcode     := TOpcode_E(AStream.read_uint8);
-  MOpcode^.isComment  := False;
   MOpcode^.isLabel    := False;
   MOpcode^.isFunction := False;
+  MOpcode^.isComment  := False;
 
   MOpcode^.Compiler := nil;
   MOpcode^.Token    := nil;
@@ -683,12 +691,13 @@ Begin
       ptInt                    : Value := AStream.read_int64;
       ptFloat                  : Value := AStream.read_float;
       ptString                 : Value := AStream.read_string;
+      ptStackval               : Value := AStream.read_int8;
       ptConstantMemRef         : Value := AStream.read_int64;
-      ptSymbolMemRef           : Value := String(PChar(@References[AStream.read_int64+1]));
-      ptLabelAbsoluteReference : Value := String(PChar(@References[AStream.read_int64+1]));
+      ptSymbolMemRef           : Value := FetchString(AStream.read_int64);
+      ptLabelAbsoluteReference : Value := FetchString(AStream.read_int64);
 
       else
-       Value := AStream.read_int32;
+       raise ESSMParserException.CreateFmt('Invalid opcode argument type: #%d', [ord(Typ)]);
      End;
     End;
    End;

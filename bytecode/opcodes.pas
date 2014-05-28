@@ -13,9 +13,9 @@ Unit Opcodes;
        ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited to output bytecode (only for compiler internal usage)
 
        ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg,
-       ptBool, ptChar, ptInt, ptFloat, ptString, ptStackVal, ptConstantMemRef,
+       ptBool, ptChar, ptInt, ptFloat, ptString, ptStackval, ptConstantMemRef,
 
-       ptLabelAbsoluteReference, ptSymbolMemRef // also for internal usage only
+       ptSymbolMemRef, ptLabelAbsoluteReference // also for internal usage only
       );
 
  Const PrimaryTypeNames:
