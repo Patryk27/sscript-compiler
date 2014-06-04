@@ -1,16 +1,11 @@
-{
- @TODO: short-circuit may not be a good solution when we're comparing two variables:
+{ CheckShortCircuit }
+Function CheckShortCircuit(const Node: PExpressionNode): Boolean;
+Begin
+ Result := Node^.Typ in [mtFunctionCall, mtMethodCall];
+End;
 
- if (a && b)
-  foo();
-
- is faster than:
- if (a)
-  if (b)
-   foo();
-}
-
-Function CompileSimple(out TypeLeft, TypeRight: TType; const isLeftVariable: Boolean=False; const ShortCircuit: TShortCircuit=scNone; const ShortCircuitLabel: String=''): TType;
+(* CompileSimple *)
+Function CompileSimple(out TypeLeft, TypeRight: TType; const isLeftVariable: Boolean=False; ShortCircuit: TShortCircuit=scNone; const ShortCircuitLabel: String=''): TType;
 Var Variable   : TRVariable;
     LeftFirst  : Boolean=False;
     isComparing: Boolean;
@@ -23,6 +18,10 @@ Begin
  isComparing := Expr^.Typ in [mtEqual, mtDifferent, mtGreater, mtLower, mtGreaterEqual, mtLowerEqual];
 
  SCCannotPredict := ShortCircuitLabel+'_cannotpredict';
+
+ // check if doing short circuit is going to be effective (eg.for two variables it doesn't have sense)
+ if (not (CheckShortCircuit(Left) or CheckShortCircuit(Right))) Then
+  ShortCircuit := scNone;
 
  // if the left side is a variable
  if (isLeftVariable) Then
