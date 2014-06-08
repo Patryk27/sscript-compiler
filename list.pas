@@ -12,28 +12,28 @@ Unit List;
  (* EListException *)
  Type EListException = Class(Exception);
 
- (* TListEnumerator *)
- Type generic TListEnumerator<T> =
-      Class
-       Private
-        List    : TObject;
-        Position: uint32;
-
-       Private
-        Function getCurrent: T;
-
-       Public
-        Constructor Create(const fList: TObject);
-
-        Function MoveNext: Boolean;
-        Property Current: T read getCurrent;
-       End;
-
  (* TList *)
-      generic TList<T> =
+ Type generic TList<T> =
       Class
-       Type TSpecListEnumerator = specialize TListEnumerator<T>;
 
+      { TListEnumerator }
+      Type TListEnumerator =
+           Class
+            Private
+             List    : TList;
+             Position: uint32;
+
+            Private
+             Function getCurrent: T;
+
+            Public
+             Constructor Create(const fList: TList);
+
+             Function MoveNext: Boolean;
+             Property Current: T read getCurrent;
+            End;
+
+       { TList }
        Private
         Data    : Array of T;
         Position: uint32;
@@ -52,7 +52,7 @@ Unit List;
         Procedure Remove(const Index: uint32);
         Function Last: T;
 
-        Function getEnumerator: TSpecListEnumerator;
+        Function getEnumerator: TListEnumerator;
 
        Public
         Property Items[const Index: uint32]: T read getItem write setItem; default;
@@ -61,22 +61,22 @@ Unit List;
 
  Implementation
 
-(* TListEnumerator.getCurrent *)
-Function TListEnumerator.getCurrent: T;
-Type TSpecList = specialize TList<T>;
+// -------------------------------------------------------------------------- //
+(* TList.TListEnumerator.getCurrent *)
+Function TList.TListEnumerator.getCurrent: T;
 Begin
- Result := TSpecList(List)[Position-1];
+ Result := List.Data[Position-1];
 End;
 
-(* TListEnumerator.Create *)
-Constructor TListEnumerator.Create(const fList: TObject);
+(* TList.TListEnumerator.Create *)
+Constructor TList.TListEnumerator.Create(const fList: TList);
 Begin
  List     := fList;
  Position := 0;
 End;
 
-(* TListEnumerator.MoveNext *)
-Function TListEnumerator.MoveNext: Boolean;
+(* TList.TListEnumerator.MoveNext *)
+Function TList.TListEnumerator.MoveNext: Boolean;
 Type TSpecList = specialize TList<T>;
 Begin
  Result := (Position < uint32(TSpecList(List).Count));
@@ -189,8 +189,8 @@ End;
 {
  Returns enumerator for the list.
 }
-Function TList.getEnumerator: TSpecListEnumerator;
+Function TList.getEnumerator: TListEnumerator;
 Begin
- Result := TSpecListEnumerator.Create(self);
+ Result := TListEnumerator.Create(self);
 End;
 End.
