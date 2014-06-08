@@ -74,6 +74,27 @@ Var Lexer: TLexer; // lexer
     Token           : TToken_P; // current token
     PToken          : PToken_P;
     ShortCommentLine: LongWord=0; // short comment (`//`) line
+
+ { CheckToken }
+ Procedure CheckToken;
+ Begin
+  // check for invalid tokens
+  With TCompiler(Compiler) do
+  Begin
+   Case Token.Token of
+    _INVALID_INT   : CompileError(Token, eInvalidInteger, [Token.Value]);
+    _INVALID_FLOAT : CompileError(Token, eInvalidFloat, [Token.Value]);
+    _INVALID_STRING: CompileError(Token, eStringExceedsLine, []);
+
+    _CHAR:
+    Begin
+     if (Length(Token.Value) <> 1) Then
+      CompileError(Token, eInvalidCharLiteral, []);
+    End;
+   End;
+  End;
+ End;
+
 Begin
  Compiler      := CompilerObject as TCompiler;
  inLongComment := False;
@@ -114,9 +135,11 @@ Begin
  Begin
   Token := Lexer.getToken_P;
 
-  if (Token.Token = noToken) Then // skip `noToken`-s
+  // skip `noToken`-s
+  if (Token.Token = noToken) Then
    Continue;
 
+  // check for EOF token
   if (Token.Token = _EOF) Then
   Begin
    DevLog(dvInfo, 'reached end of file - finishing code parsing...');
@@ -143,6 +166,8 @@ Begin
 
      if (not inLongComment) Then
      Begin
+      CheckToken;
+
       New(PToken);
       PToken^          := Token;
       PToken^.Position := TokenList.Count;
@@ -324,13 +349,6 @@ Begin
 
  Result := TokenList[TokenPos]^;
  Inc(TokenPos);
-
- With TCompiler(Compiler) do
-  Case Result.Token of
-   _INVALID_INT: CompileError(Result, eInvalidIntegerValue, [Result.Value]);
-   _INVALID_FLOAT: CompileError(Result, eInvalidFloatValue, [Result.Value]);
-   _INVALID_STRING: CompileError(Result, eStringExceedsLine, []);
-  End;
 End;
 
 (* TScanner.read_t *)

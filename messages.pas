@@ -15,7 +15,7 @@ Unit Messages;
   eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eAnyArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
-  eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidIntegerValue, eInvalidFloatValue,
+  eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidInteger, eInvalidFloat, eInvalidCharLiteral,
   eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
   eInvalidArrayInitializer, eCannotBeCalled, eNotAType, eCannotBeUsedAsFunction, eUnknownIdentifier, eReturnWithNoValue, eGlobalArrayInitializer,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
@@ -25,7 +25,7 @@ Unit Messages;
  Const error_stop: Set of TCompileError = [eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedString,
                                            eExpectedInt, eUnknownType, eFileNotFound, eDivByZero, eVarArrayRequired,
                                            eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
-                                           eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidIntegerValue, eInvalidFloatValue,
+                                           eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidInteger, eInvalidFloat, eInvalidCharLiteral,
                                            eExpectedFewerElements, eExpectedMoreElements, eGlobalArrayInitializer];
 
  Const CompileError_fmt: Array[TCompileError] of String =
@@ -77,8 +77,9 @@ Unit Messages;
   'Method `%s` not found in object `%s`',
   'Invalid conversion from `%s` to `%s`',
   'Unfinished comment',
-  'Invalid integer value: `%s`',
-  'Invalid float value: `%s`',
+  'Invalid integer: `%s`',
+  'Invalid float: `%s`',
+  'Invalid char literal',
   'Unknown attribute: `%s`',
   'File not found: %s',
   'Default parameter value required for `%s`',
