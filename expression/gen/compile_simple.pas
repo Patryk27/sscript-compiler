@@ -1,7 +1,8 @@
 { CheckShortCircuit }
 Function CheckShortCircuit(const Node: PExpressionNode): Boolean;
 Begin
- Result := Node^.Typ in [mtFunctionCall, mtMethodCall];
+ Result := (Node^.Typ in [mtFunctionCall, mtMethodCall]) or (Node^.getHeight > 1);
+ // @TODO: in cases like (a&&b) && (c&&d) short circuit should not be applied
 End;
 
 (* CompileSimple *)

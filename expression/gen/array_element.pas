@@ -87,10 +87,14 @@ Begin
  End;
 
  if (IndexCount = 1) Then
-  Compiler.PutOpcode(o_arget1, ['e'+ArrayType.RegPrefix+'1', 'ei1', OutReg]) Else
+ Begin
+  Compiler.PutOpcode(o_arget1, ['e'+ArrayType.RegPrefix+'1', 'ei1', OutReg]);
+  // PushedValues has been decremented in the "RePop" routine above
+ End Else
+ Begin
   Compiler.PutOpcode(o_arget, ['e'+ArrayType.RegPrefix+'1', IndexCount, OutReg]);
-
- Dec(PushedValues, IndexCount);
+  Dec(PushedValues, IndexCount);
+ End;
 
  // set result value
  Result := Typ;

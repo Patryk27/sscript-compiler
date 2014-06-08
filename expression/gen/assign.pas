@@ -231,10 +231,12 @@ Begin
 
  Variable := getVariable(Left, True);
 
- if (Variable.Symbol = nil) Then // variable not found
+ // variable not found
+ if (Variable.Symbol = nil) Then
   Exit;
 
- if (Variable.isConst) Then // error message had been already shown in `getVariable`
+ // error message had been already shown in `getVariable`
+ if (Variable.isConst) Then
   Exit;
 
  // jump to the right code generator

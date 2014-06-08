@@ -87,26 +87,34 @@ Var Value: String;
 Begin
  Value := VarToStr(Expr^.Value);
 
- if (Beautify) Then
+ // chars
+ if (Expr^.Typ = mtChar) Then
  Begin
-  Case Expr^.Typ of
-   mtChar  : Exit('''\0x'+IntToHex(ord(Value[1]), 2)+'''');
-   mtString: Exit('"'+Value+'"');
-   mtBool  : if (Expr^.Value) Then
-              Exit('true') Else
-              Exit('false');
-  End;
+  if (Length(Value) = 0) Then
+   raise EExpressionParserException.Create('Unexpected: Length(Value) = 0');
+
+  if (Beautify) Then
+   Exit('''\0x'+IntToHex(ord(Value[1]), 2)+'''') Else
+   Exit('#'+IntToStr(ord(Value[1])));
  End;
 
+ // other types
  Case Expr^.Typ of
-  mtChar  : Exit('#'+IntToStr(ord(Value[1])));
-  mtString: Exit('"'+Value+'"');
-  mtBool  : if (Expr^.Value) Then
-             Exit('true') Else
-             Exit('false');
- End;
+  mtString:
+  Begin
+   Exit('"'+Value+'"');
+  End;
 
- Exit(Value);
+  mtBool:
+  Begin
+   if (Expr^.Value) Then
+    Exit('true') Else
+    Exit('false');
+  End;
+
+  else
+   Exit(Value);
+ End;
 End;
 
 (* getTypeFromExpression *)

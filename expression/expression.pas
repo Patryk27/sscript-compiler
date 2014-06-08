@@ -91,6 +91,7 @@ Unit Expression;
         Function isConstant: Boolean;
 
         Function getSerializedForm: String;
+        Function getHeight: uint32;
        End;
 
  // primary types; order (those numbers) is important, as it is the same in the virtual machine!
@@ -376,5 +377,14 @@ Begin
   raise EExpressionNodeException.Create('Cannot generate serialized form of not constant expression!');
 
  Result := Format('(%d$%s)', [ord(Typ), VarToStr(Value)]);
+End;
+
+(* TExpressionNode.getHeight *)
+Function TExpressionNode.getHeight: uint32;
+Begin
+ if (@self = nil) Then
+  Exit(0);
+
+ Result := 1 + Left^.getHeight + Right^.getHeight;
 End;
 End.
