@@ -109,7 +109,7 @@ Begin
  Pos := 0
 
  // call()
- +1 +4
+ +1 +1 +8
 
  // stop()
  +1
@@ -254,8 +254,6 @@ Begin
   // parse opcodes and labels
   For OpcodeID := 0 To OpcodeList.Count Do
   Begin
-   IncSize := True;
-
    if (Op <> nil) Then // save the size of the *previous* opcode
    Begin
     Op^.OpcodeSize := OpcodeSize;
@@ -270,6 +268,8 @@ Begin
    Op^.OpcodeID  := OpcodeID;
 
    OpcodeSize := 0;
+
+   IncSize := True;
 
    // skip comments
    if (Op^.isComment) Then
@@ -305,13 +305,13 @@ Begin
      Continue;
     End;
 
-    // opcode is always one byte long
+    // opcode ID itself is always one byte long
     Inc(OpcodeSize, 1);
 
     // special jump/call opcodes
     if (Op^.Opcode in [o_jmp, o_tjmp, o_fjmp, o_call]) and (AllocateGlobalVars) Then
     Begin
-     Inc(OpcodeSize, 4);
+     Inc(OpcodeSize, 8 + 1);
      IncSize := False;
     End;
 
@@ -428,7 +428,6 @@ Var OpcodeBegin: LongWord;
 
     Str: String;
     Int: int32;
-Label NextOpcode;
 Begin
  With BytecodeStream do
  Begin
@@ -540,9 +539,9 @@ Begin
       // special jump/call opcodes
       if (Opcode in [o_jmp, o_tjmp, o_fjmp, o_call]) and (ResolveReferences) Then
       Begin
-       write_int32(Value);
-
-       goto NextOpcode;
+       write_int64(Value);
+       write_uint8(0); // value doesn't matter, it it here just to fill the opcode size (10 bytes)
+       Continue;
       End;
 
       Try
@@ -581,8 +580,6 @@ Begin
      End;
     End;
    End;
-
-   NextOpcode:
   End;
  End;
 End;
@@ -617,6 +614,8 @@ Var Output: String;
 
 Var Debug: TBCDebugWriter;
 Begin
+ Log('-> LLCompiler');
+
  Compiler := fCompiler;
  Output   := Compiler.OutputFile;
 
