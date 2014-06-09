@@ -93,7 +93,7 @@ Begin
 End;
 
 (* IncludeModule *)
-Procedure IncludeModule(const Parent, Module: TCompiler);
+Procedure IncludeModule(const Parent, Module: TCompiler; const CopyBytecode: Boolean=True);
 Var ParentNamespace, NewNamespace, TmpNamespace: TNamespace;
     Symbol, Copy                               : TSymbol;
     AddSymbol                                  : Boolean;
@@ -155,7 +155,7 @@ Begin
  End;
 
  { copy bytecode }
- if (Module.OpcodeList.Count > 0) Then
+ if (Module.OpcodeList.Count > 0) and (CopyBytecode) Then
  Begin
   For I := 0 To Module.OpcodeList.Count-1 Do
    Parent.OpcodeList.Add(Module.OpcodeList[I]);
@@ -249,7 +249,7 @@ Begin
   if (Found) Then
   Begin
    Log('File had been compiled before - using the already compiled version...');
-   IncludeModule(Compiler, IncludeList^[I]);
+   IncludeModule(Compiler, IncludeList^[I], False);
   End Else
   Begin
    // first compilation of this file
