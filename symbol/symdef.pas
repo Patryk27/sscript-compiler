@@ -1052,14 +1052,14 @@ Begin
   Exit(True);
  End Else
 
- { comparing function-ptr with non-func-ptr }
- if (self.isFunctionPointer and (not T2.isFunctionPointer)) Then
+ { comparing non-func-ptr to func-ptr }
+ if ((not self.isFunctionPointer) and T2.isFunctionPointer) Then
  Begin
-  Exit(T2.isInt);
+  Exit(isNull);
  End Else
 
- { comparing non-func-ptr with function-ptr }
- if ((not self.isFunctionPointer) and T2.isFunctionPointer) Then
+ { comparing func-ptr with non-func-ptr }
+ if (self.isFunctionPointer and (not T2.isFunctionPointer)) Then
  Begin
   Exit(False);
  End Else
