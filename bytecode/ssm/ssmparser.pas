@@ -217,7 +217,7 @@ Begin
     LabelList.Add(BCLabel);
 
     // ... and check if it's a function label
-    if (BCLabel.isFunction) and (BCLabel.FunctionSymbol.{mFunction.RefSymbol.}Visibility = mvPublic) Then
+    if (BCLabel.isFunction) and (BCLabel.FunctionSymbol.mFunction.RefSymbol.Visibility = mvPublic) Then
     Begin
      BCFunction.Signature := BCLabel.Name;
      BCFunction.Position  := BCLabel.Position;
