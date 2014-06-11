@@ -356,7 +356,7 @@ Begin
     skip_parenthesis; // skip function read type
     TmpIdent := read_ident;
     skip_parenthesis; // skip function parameter list
-    While not (next_t in [_BRACKET3_OP, _SEMICOLON]) do
+    While (not (next_t in [_BRACKET3_OP, _SEMICOLON])) do
      read;
 
     TmpSymbol := nil;

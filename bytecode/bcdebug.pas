@@ -452,7 +452,7 @@ Begin
    write_uint32(dbgLineData.Opcode);
    write_uint16(dbgLineData.Line);
 
-//   Writeln(dbgLineData.Opcode, ' -> ', dbgFunctionList[dbgLineData.FunctionID].FunctionName, ':', dbgLineData.Line, ' (', ExtractFileName(dbgFileList[dbgLineData.FileID].FileName), ' - ', dbgFileList[dbgLineData.FileID].BytecodeSize, ')');
+  // Writeln(dbgLineData.Opcode, ' -> ', dbgFunctionList[dbgLineData.FunctionID].FunctionName, ':', dbgLineData.Line, ' (', ExtractFileName(dbgFileList[dbgLineData.FileID].FileName), ' - ', dbgFileList[dbgLineData.FileID].BytecodeSize, ')');
   End;
  End;
 End;

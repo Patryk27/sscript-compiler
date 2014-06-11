@@ -26,12 +26,15 @@ Var Param: int32;
 Begin
  Result := False;
 
- if (Node = nil) or (Node^.Typ = mtArrayElement) Then // stop on invalid/array expressions
+ // stop on invalid/array expressions
+ if (Node = nil) or (Node^.Typ = mtArrayElement) Then
   Exit;
 
- if (Node^.Typ = mtIdentifier) Then // if identifier
+ // if identifier
+ if (Node^.Typ = mtIdentifier) Then
  Begin
-  if (Node^.Symbol = nil) Then // if unknown symbol
+  // if unknown symbol
+  if (Node^.Symbol = nil) Then
   Begin
    if (RaiseErrors) Then
     Compiler.CompileError(Node^.Token, eUnknownVariable, [Node^.IdentName]);
@@ -40,7 +43,8 @@ Begin
 
   With TSymbol(Node^.Symbol) do
   Begin
-   if (Typ <> stConstant) Then // is it a constant?
+   // is it a constant?
+   if (Typ <> stConstant) Then
    Begin
     if (RaiseErrors) Then
      Compiler.CompileError(Node^.Token, eNotAConstant, [Node^.IdentName]);
