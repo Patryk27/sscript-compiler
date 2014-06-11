@@ -422,6 +422,9 @@ Var Scanner  : TScanner;
      if (Symbol = nil) Then
       Compiler.CompileError(Token, eUnknownIdentifier, [IdentifierName]);
 
+     if (not (Symbol.Typ in [stVariable, stConstant, stFunction])) Then
+      Compiler.CompileError(Token, eExpectedValue, [Symbol.Name]);
+
      // fetch symbol
      Result            := CreateNode(nil, nil, mtIdentifier, null, First);
      Result^.IdentName := IdentifierName;
