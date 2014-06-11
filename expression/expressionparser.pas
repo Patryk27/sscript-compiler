@@ -420,10 +420,13 @@ Var Scanner  : TScanner;
      Symbol := ReadSymbol(NamespaceName, IdentifierName, mNamespace);
 
      if (Symbol = nil) Then
+     Begin
       Compiler.CompileError(Token, eUnknownIdentifier, [IdentifierName]);
-
-     if (not (Symbol.Typ in [stVariable, stConstant, stFunction])) Then
-      Compiler.CompileError(Token, eExpectedValue, [Symbol.Name]);
+     End Else
+     Begin
+      if (not (Symbol.Typ in [stVariable, stConstant, stFunction])) Then
+       Compiler.CompileError(Token, eExpectedValue, [Symbol.Name]);
+     End;
 
      // fetch symbol
      Result            := CreateNode(nil, nil, mtIdentifier, null, First);
@@ -432,7 +435,7 @@ Var Scanner  : TScanner;
     End;
 
     { cast }
-    _CAST: // cast<symbol-name | type-decl>(expression)
+    _CAST: // cast<symbol-name or type-decl>(expression)
     Begin
      Scanner.eat(_LOWER);
      mType := Scanner.read_type;
