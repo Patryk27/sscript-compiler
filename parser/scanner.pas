@@ -587,7 +587,9 @@ Begin
    Begin
     Base := Typ.Clone;
    End Else
+   Begin
     Exit(Typ);
+   End;
   End;
 
   { check for primary type existence }
@@ -615,6 +617,7 @@ Begin
    eat(_BRACKET2_CL);
 
    Inc(Typ.ArrayDimCount);
+   Typ.RefSymbol.Name := '';
   End;
 
   isArray       := Typ.ArrayDimCount > 0;
