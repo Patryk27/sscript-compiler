@@ -58,12 +58,6 @@ Begin
   Inc(IndexCount);
  Until (Index^.Typ <> mtArrayElement);
 
- // special case - if we have just "array[index]", we can use "arget1" opcode
- if (IndexCount = 1) Then
- Begin
-  RePop(Expr^.Right, TYPE_INT, 1);
- End;
-
  // output type change
  if (Typ.ArrayDimCount = 0) Then
  Begin
@@ -76,7 +70,7 @@ Begin
  if (Typ.isString and (Typ.ArrayDimCount = 0)) Then // `string`
   Typ := TYPE_CHAR;
 
- // fetch value
+ // get destination register
  if (FinalRegID > 0) Then
  Begin
   OutReg       := getFinalReg(Typ.RegPrefix);
@@ -86,15 +80,9 @@ Begin
   OutReg := 'e'+Typ.RegPrefix+'1';
  End;
 
- if (IndexCount = 1) Then
- Begin
-  Compiler.PutOpcode(o_arget1, ['e'+ArrayType.RegPrefix+'1', 'ei1', OutReg]);
-  // PushedValues has been decremented in the "RePop" routine above
- End Else
- Begin
-  Compiler.PutOpcode(o_arget, ['e'+ArrayType.RegPrefix+'1', IndexCount, OutReg]);
-  Dec(PushedValues, IndexCount);
- End;
+ // fetch value
+ Compiler.PutOpcode(o_arget, ['e'+ArrayType.RegPrefix+'1', IndexCount, OutReg]);
+ Dec(PushedValues, IndexCount);
 
  // set result value
  Result := Typ;
