@@ -274,11 +274,11 @@ Begin
       Break; // the register's value is changed -> stop propagation
      End;
 
-     if (oTmp.Opcode = o_arset) Then // arset(out, in, in)
+     if (oTmp.Opcode in [o_arset, o_arset1]) Then // arset(out, in, in)
       if (isArgumentChanging(0)) Then
        Break;
 
-     if (oTmp.Opcode = o_arget) Then // arget(in, in, out)
+     if (oTmp.Opcode in [o_arget, o_arget1]) Then // arget(in, in, out)
       if (isArgumentChanging(2)) Then
        Break;
 
