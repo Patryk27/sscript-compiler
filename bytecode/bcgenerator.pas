@@ -26,6 +26,7 @@ Unit BCGenerator;
 
        Public
         Constructor Create(const fCompiler: TCompiler);
+        Destructor Destroy; override;
 
         Procedure CompileFunction(const Func: TFunction);
         Procedure CompileNode(const Node: TCFGNode);
@@ -130,22 +131,27 @@ End;
 (* TBCGenerator.Create *)
 Constructor TBCGenerator.Create(const fCompiler: TCompiler);
 Begin
- Compiler := fCompiler;
+ Compiler     := fCompiler;
+ VisitedNodes := TCFGNodeList.Create;
+End;
+
+(* TBCGenerator.Destroy *)
+Destructor TBCGenerator.Destroy;
+Begin
+ VisitedNodes.Free;
+
+ inherited Destroy;
 End;
 
 (* TBCGenerator.CompileFunction *)
 Procedure TBCGenerator.CompileFunction(const Func: TFunction);
 Begin
- CurrentFunc  := Func;
- VisitedNodes := TCFGNodeList.Create;
+ VisitedNodes.Clear;
+ CurrentFunc := Func;
 
- Try
-  AddPrologCode;
-  CompileNode(Func.FlowGraph.Root);
-  AddEpilogCode;
- Finally
-  VisitedNodes.Free;
- End;
+ AddPrologCode;
+ CompileNode(Func.FlowGraph.Root);
+ AddEpilogCode;
 End;
 
 (* TBCGenerator.CompileNode *)

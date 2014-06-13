@@ -17,7 +17,7 @@ Unit CFGOptimizer;
         RemovedNodes: TCFGNodeList;
 
        Public
-        Constructor Create(const fCompiler: TCompiler; const fCurrentFunction: TFunction);
+        Constructor Create(const fCompiler: TCompiler; const fCurrentFunction: TFunction; const fRemovedNodes: TCFGNodeList);
 
         Function Execute: Boolean; virtual; abstract;
        End;
@@ -25,10 +25,10 @@ Unit CFGOptimizer;
  Implementation
 
 (* TCFGOptimizer.Create *)
-Constructor TCFGOptimizer.Create(const fCompiler: TCompiler; const fCurrentFunction: TFunction);
+Constructor TCFGOptimizer.Create(const fCompiler: TCompiler; const fCurrentFunction: TFunction; const fRemovedNodes: TCFGNodeList);
 Begin
  inherited Create(fCompiler, fCurrentFunction);
 
- RemovedNodes := TCFGNodeList.Create;
+ RemovedNodes := fRemovedNodes;
 End;
 End.

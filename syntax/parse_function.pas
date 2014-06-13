@@ -205,7 +205,7 @@ Var Func: TFunction; // our new function
        this optimization new SSA would have to be generated again anyway.
       }
       DevLog(dvInfo, 'Simplifing expression trees...');
-      RunOptimizer(TCFGExpressionSimplification.Create(Compiler, Func));
+      RunOptimizer(TCFGExpressionSimplification.Create(Compiler, Func, RemovedNodes));
      End;
 
      // generate SSA
@@ -224,20 +224,20 @@ Var Func: TFunction; // our new function
 
      // optimize expression
      DevLog(dvInfo, 'Optimizing expressions...');
-     RunOptimizer(TCFGExpressionOptimization.Create(Compiler, Func)); // as it performs few optimizations at once, no "if" here @TODO
+     RunOptimizer(TCFGExpressionOptimization.Create(Compiler, Func, RemovedNodes)); // as it performs few optimizations at once, no "if" here @TODO
 
      // optimize branches
      if (CmdLine.getBoolSwitch(opt__optimize_branches)) Then
      Begin
       DevLog(dvInfo, 'Optimizing branches...');
-      RunOptimizer(TCFGBranchSimplification.Create(Compiler, Func));
+      RunOptimizer(TCFGBranchSimplification.Create(Compiler, Func, RemovedNodes));
      End;
 
      // remove dead code
      if (CmdLine.getBoolSwitch(opt__remove_dead)) Then
      Begin
       DevLog(dvInfo, 'Removing dead code...');
-      RunOptimizer(TCFGDeadCodeRemoval.Create(Compiler, Func));
+      RunOptimizer(TCFGDeadCodeRemoval.Create(Compiler, Func, RemovedNodes));
      End;
 
      // allocate variables

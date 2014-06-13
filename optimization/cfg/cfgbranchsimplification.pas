@@ -165,7 +165,7 @@ Begin
     Inc(OptBranches);
     Optimized := True;
 
-    With TCFGExpressionOptimization.Create(Compiler, CurrentFunction) do
+    With TCFGExpressionOptimization.Create(Compiler, CurrentFunction, RemovedNodes) do
     Begin
      Execute;
      Free;
