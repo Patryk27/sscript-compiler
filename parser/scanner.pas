@@ -441,6 +441,8 @@ Var Base, Typ, TmpType: TType;
 
     NamespaceName: String;
     Namespace    : TNamespace;
+
+    Modified: Boolean;
 Begin
  With TCompiler(Compiler) do
  Begin
@@ -611,6 +613,7 @@ Begin
   End;
 
   { is it an array (is the next token a `[`)? }
+  Modified := False;
   While (next_t = _BRACKET2_OP) and (AllowArrayTypes) Do
   Begin
    eat(_BRACKET2_OP);
@@ -618,20 +621,24 @@ Begin
 
    Inc(Typ.ArrayDimCount);
    Typ.RefSymbol.Name := '';
+   Modified           := True;
   End;
 
-  isArray       := Typ.ArrayDimCount > 0;
-  isStringBased := type_equal(Typ, TYPE_STRING); // @TODO: memleak (as `TYPE_STRING` creates a new instance of `string` type)
-
-  if (isArray) Then
+  if (Modified) Then
   Begin
-   Typ.RegPrefix := 'r';
-   Typ.ArrayBase := Base;
+   isArray       := Typ.ArrayDimCount > 0;
+   isStringBased := type_equal(Typ, TYPE_STRING); // @TODO: memleak (as `TYPE_STRING` creates a new instance of `string` type)
 
-   if (isStringBased) Then
+   if (isArray) Then
    Begin
-    Typ.RegPrefix := 's';
-    Typ.ArrayBase := Typ.ArrayBase.ArrayBase;
+    Typ.RegPrefix := 'r';
+    Typ.ArrayBase := Base;
+
+    if (isStringBased) Then
+    Begin
+     Typ.RegPrefix := 's';
+     Typ.ArrayBase := Typ.ArrayBase.ArrayBase;
+    End;
    End;
   End;
 
