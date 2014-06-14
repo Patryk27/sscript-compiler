@@ -97,7 +97,8 @@ Unit Opcodes;
        o_strjoin,
        o_not, o_or, o_xor, o_and, o_shl, o_shr,
        o_mod,
-       o_arset, o_arset1, o_arget, o_arget1, o_arcrt, o_arlen,
+       o_arset, o_arset1, o_arget, o_arget1, o_arcrt,
+       o_arlen, o_arres,
        o_strset, o_strget, o_strlen,
        o_bool, o_char, o_int, o_float, o_string
       );
@@ -237,6 +238,9 @@ Unit Opcodes;
 
   (* ===== ARLEN (arrayReference, out int arrayLength) ===== *)
   (Name: 'arlen'; ParamC: 2; ParamT: (ptReferenceReg, ptIntReg, ptNone)),
+
+  (* ===== ARRES (arrayReference, int newLength) ===== *)
+  (Name: 'arres'; ParamC: 2; ParamT: (ptReferenceReg, ptInt, ptNone)),
 
   (* ===== STRSET (string modString, int charIndex, char newValue) ===== *)
   (Name: 'strset'; ParamC: 3; ParamT: (ptStringReg, ptInt, ptChar)),

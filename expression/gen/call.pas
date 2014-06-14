@@ -214,6 +214,7 @@ Function MethodCall: TType; // pseudo-OOP for arrays :P
      MethodName: String;
 
  {$I array_length.pas}
+ {$I array_resize.pas}
 
  Begin
   Result     := nil;
@@ -228,16 +229,19 @@ Function MethodCall: TType; // pseudo-OOP for arrays :P
 
   RePop(Expr^.Left, mObject, 1); // re-pop object address
 
-  if (mObject.isArray(False)) and (MethodName = 'length') Then
+  if (mObject.isArray(False)) Then
   Begin
-   __array_length;
-  End Else
-  Begin
-   Error(eMethodNotFound, [MethodName, mObject.asString]);
-   Exit;
-  End;
+   Case MethodName of
+    'length': __array_length;
+    'resize': __array_resize;
 
-  Result := TYPE_INT;
+    Else
+    Begin
+     Error(eMethodNotFound, [MethodName, mObject.asString]);
+     Exit;
+    End;
+   End;
+  End;
  End;
 
 Begin
