@@ -1268,10 +1268,14 @@ Begin
   if (SkipNamespaces) and (Symbol.Typ = stNamespace) Then
    Exit;
 
-  CompileError(eRedeclaration, [Name]);
+  CompileError(Scanner.next(-1), eRedeclaration, [Name]);
+
   With Symbol do
+  Begin
    if (mCompiler <> nil) and (DeclToken <> nil) Then
     TCompiler(mCompiler).CompileError(DeclToken, ePrevDeclared, []); // @TODO: CompileHint/CompileNote?
+  End;
+
   Exit;
  End;
 End;
