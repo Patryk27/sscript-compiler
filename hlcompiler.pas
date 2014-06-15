@@ -12,7 +12,7 @@ Unit HLCompiler;
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW, Parse_FOREACH;
 
  { constants }
- Const Version = '2.2.4 nightly';
+ Const Version = '2.2.4';
        vMajor  = 2.2;
        vMinor  = 4;
 
