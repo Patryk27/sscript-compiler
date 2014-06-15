@@ -16,7 +16,7 @@ Unit Messages;
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eAnyArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
   eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidInteger, eInvalidFloat, eInvalidCharLiteral,
-  eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired, eExpectedFewerElements, eExpectedMoreElements,
+  eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired,
   eInvalidArrayInitializer, eCannotBeCalled, eNotAType, eCannotBeUsedAsFunction, eUnknownIdentifier, eReturnWithNoValue, eGlobalArrayInitializer,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
   eLinker_UnknownReference
@@ -26,7 +26,7 @@ Unit Messages;
                                            eExpectedInt, eUnknownType, eFileNotFound, eDivByZero, eVarArrayRequired,
                                            eExpectedDeclOrDef, eNotAllowed, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine,
                                            eUnknownMacro, eInvalidExpression, eUnimplemented, eInvalidInteger, eInvalidFloat, eInvalidCharLiteral,
-                                           eExpectedFewerElements, eExpectedMoreElements, eGlobalArrayInitializer];
+                                           eGlobalArrayInitializer];
 
  Const CompileError_fmt: Array[TCompileError] of String =
  (
@@ -85,8 +85,6 @@ Unit Messages;
   'Default parameter value required for `%s`',
   'Invalid foreach construction (foreach-var and foreach-expr have the same types)',
   'Variable of an array type required',
-  'Expected %d fewer element(s)',
-  'Expected %d more element(s)',
   'Invalid array initializer; got %dD array, expecting %d-dimensional',
   '`%s` cannot be called',
   'Not a type: `%s`',

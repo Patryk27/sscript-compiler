@@ -17,6 +17,18 @@ Unit FlowGraph;
  Type TCFGNode = class;
       TCFGNodeList = specialize TFPGList<TCFGNode>;
 
+ { TArrayInitializerValues }
+ Type TArrayInitializerValuesType = (aivtArray, aivtExpression);
+
+ Type PArrayInitializerValues = ^TArrayInitializerValues;
+      TArrayInitializerValues =
+      Record
+       Typ: TArrayInitializerValuesType;
+
+       ArrayValues: Array of PArrayInitializerValues;
+       ExprValues : Array of PExpressionNode;
+      End;
+
  { TCFGNode }
  Type TCFGNode =
       Class
@@ -47,9 +59,10 @@ Unit FlowGraph;
 
         ArrayInitializer: // if `Typ` is `cetArrayInitializer`
         Record
-         VarSymbol: TObject; // TSymbol
-         Values   : Array of PExpressionNode; // consecutive array values
-         DimSizes : Array of uint32; // size of each array dimension
+         VarSymbol: TObject; // TSymbol of associated variable
+
+         DimCount: uint8;
+         Values  : PArrayInitializerValues;
         End;
 
         isVolatile: Boolean; // is node volatile? (information for optimizers)

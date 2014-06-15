@@ -15,87 +15,113 @@ Uses HLCompiler, Expression, ExpressionCompiler, Tokens, symdef, Messages, Opcod
 Procedure ReadArrayInitializer(const CompilerPnt, SymbolPnt: Pointer);
 Var Compiler: TCompiler absolute CompilerPnt;
     Symbol  : TSymbol absolute SymbolPnt;
+
+    ExpressionDepth: int32 = -1;
+    DimensionCount : uint8;
+
     Variable: TVariable;
-    Values  : Array of PExpressionNode;
-    DimSizes: Array of uint32;
-    DimCount: uint8 = 0;
+    Values  : PArrayInitializerValues;
+    Node    : TCFGNode;
 
-    Node: TCFGNode;
-
-  { ReadDimension }
-  Procedure ReadDimension(const Dimension: uint8);
-  Var ElementCount: uint32 = 0;
+  { ReadArray }
+  Function ReadArray(const Depth: uint8): PArrayInitializerValues;
   Begin
+   New(Result);
+
    With Compiler, getScanner do
    Begin
-    if (Dimension >= DimCount) Then
-     DimCount := Dimension;
-
     eat(_BRACKET1_OP);
 
-    While (true) Do
+    // nested initializer:
+    //  ((1, 2), (3, 4))
+    if (next_t = _BRACKET1_OP) Then
     Begin
-     if (next_t = _BRACKET1_OP) Then
+     // check for invalid initializer like: (1, (2, 3))
+     if (ExpressionDepth <> -1) and (Depth >= ExpressionDepth) Then
      Begin
-      ReadDimension(Dimension+1);
-     End Else
-     Begin
-      SetLength(Values, Length(Values)+1);
-      Values[High(Values)] := MakeExpression(CompilerPnt, [_COMMA, _BRACKET1_CL]);
-      Dec(TokenPos); // expression compiler 'eats' the last token
+      CompileError(eUnexpected, ['(']);
      End;
 
-     Inc(ElementCount);
+     // initialize record
+     Result^.Typ := aivtArray;
+     SetLength(Result^.ArrayValues, 0);
 
-     if (next_t = _BRACKET1_CL) Then
+     While (True) Do
      Begin
-      eat(_BRACKET1_CL);
-      Break;
-     End Else
+      // expand array and parse
+      With Result^ do
+      Begin
+       SetLength(ArrayValues, Length(ArrayValues)+1);
+       ArrayValues[High(ArrayValues)] := ReadArray(Depth+1);
+      End;
+
+      // check if finished
+      if (next_t = _BRACKET1_CL) Then
+       Break;
+
       eat(_COMMA);
-    End;
-
-    if (DimSizes[Dimension] = 0) Then
-    Begin
-     DimSizes[Dimension] := ElementCount;
+     End;
     End Else
 
-    if (ElementCount > DimSizes[Dimension]) Then // too many elements
+    // plain initializer:
+    //  (1, 2)
     Begin
-     CompileError(eExpectedFewerElements, [ElementCount-DimSizes[Dimension]]);
-    End Else
+     if (ExpressionDepth = -1) Then
+      ExpressionDepth := Depth;
 
-    if (ElementCount < DimSizes[Dimension]) Then // not enough elements
-    Begin
-     CompileError(eExpectedMoreElements, [DimSizes[Dimension]-ElementCount]);
+     // check for invalid initializer like: ((1, 2), 3)
+     if (ExpressionDepth <> Depth) Then
+     Begin
+      CompileError(eUnexpected, ['(']);
+     End;
+
+     // initialize record
+     Result^.Typ := aivtExpression;
+     SetLength(Result^.ExprValues, 0);
+
+     While (true) Do
+     Begin
+      // expand array and parse expression
+      With Result^ do
+      Begin
+       SetLength(ExprValues, Length(ExprValues)+1);
+       ExprValues[High(ExprValues)] := ExpressionCompiler.MakeExpression(Compiler, [_BRACKET1_CL, _COMMA]);
+       Dec(TokenPos);
+      End;
+
+      // check if finished
+      if (next_t = _BRACKET1_CL) Then
+       Break;
+
+      eat(_COMMA);
+     End;
     End;
+
+    eat(_BRACKET1_CL);
    End;
   End;
 
 Begin
  Variable := Symbol.mVariable;
 
- { initialize arrays }
- SetLength(Values, 0);
- SetLength(DimSizes, 256);
+ // parse initializer
+ Values := ReadArray(0);
 
- { parse }
- ReadDimension(0);
-
- { check dimension count }
- Inc(DimCount);
+ // check dimension count
+ DimensionCount := ExpressionDepth+1;
 
  if (Variable.Typ.isString) Then
-  Inc(DimCount); // temporarily treat string arrays as arrays of char arrays (:P)
+  Inc(DimensionCount); // temporarily treat string arrays as arrays of char arrays
 
- if (DimCount <> Variable.Typ.ArrayDimCount) Then
-  Compiler.CompileError(eInvalidArrayInitializer, [DimCount, Variable.Typ.ArrayDimCount]);
+ if (DimensionCount <> Variable.Typ.ArrayDimCount) Then
+  Compiler.CompileError(eInvalidArrayInitializer, [DimensionCount, Variable.Typ.ArrayDimCount]);
 
- { add node to the flowgraph }
+ // add node to the flowgraph
  Node                            := TCompiler(CompilerPnt).getCurrentFunction.createNode(Compiler.fCurrentNode, cetArrayInitializer, nil, Compiler.getScanner.getTokenPnt(Compiler.getScanner.getPosition));
  Node.ArrayInitializer.VarSymbol := Symbol;
+ Node.ArrayInitializer.DimCount  := DimensionCount;
  Node.ArrayInitializer.Values    := Values;
- Node.ArrayInitializer.DimSizes  := DimSizes;
+
  Compiler.CFGAddNode(Node);
 End;
 

@@ -156,12 +156,6 @@ End;
 
 (* TBCGenerator.CompileNode *)
 Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
-Var ArrayVar        : TVariable; // used when compiling array initializer
-    ArrayElementType: TType;
-    ArrayValues     : Array of PExpressionNode;
-    ArrayDimSizes   : Array of uint32;
-    ArrayTmpDims    : Array of uint32;
-    ArrayElementID  : uint32;
 
   { PutOpcode }
   Procedure PutOpcode(const Opcode: TOpcode_E);
@@ -212,39 +206,93 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
   End;
 
   { CompileArrayInitializer }
-  Procedure CompileArrayInitializer(const Dim: uint8);
-  Var I, DimC : uint8;
+  Procedure CompileArrayInitializer(Indexes: TIntegerArray; const AInit: TArrayInitializerValues);
+  Var ArrayVar: TVariable;
+
+      ExprNode: PExpressionNode;
       ExprType: TType;
+      NodeReg : String;
+
+      I: uint32;
+
+    { PutArrayIndexes }
+    Procedure PutArrayIndexes(const Last: int32=-1);
+    Var I: int32;
+    Begin
+     if (Last > -1) Then
+      Compiler.PutOpcode(o_push, [Last]);
+
+     For I := High(Indexes) Downto Low(Indexes) Do
+      Compiler.PutOpcode(o_push, [Indexes[I]]);
+    End;
+
+    { AssignArrayPointer }
+    Procedure AssignArrayPointer;
+    Begin
+     if (Length(Indexes) = 0) Then
+     Begin
+      Compiler.PutOpcode(o_mov, [ArrayVar.getAllocationPos, 'er1']);
+     End Else
+     Begin
+      PutArrayIndexes;
+      Compiler.PutOpcode(o_arset, [ArrayVar.getAllocationPos, Length(Indexes), 'er1']);
+     End;
+    End;
+
   Begin
+   ArrayVar := TSymbol(Node.ArrayInitializer.VarSymbol).mVariable;
+
    With Compiler do
    Begin
-    if (ArrayDimSizes[Dim] = 0) Then
+    // expression
+    if (AInit.Typ = aivtExpression) Then
     Begin
-     ExprType := CompileExpression(Compiler, ArrayValues[ArrayElementID]); // compile expression
+     // create array
+     PutOpcode(o_arcrt1, ['er1', ArrayVar.Typ.ArrayBase.InternalID, Length(AInit.ExprValues)]);
 
-     if (not (type_equal(ExprType, ArrayElementType))) Then // check types
-      CompileError(eWrongType, [ExprType.asString, ArrayElementType.asString]);
+     // assign pointer
+     AssignArrayPointer;
 
-    // if (ArrayValues[ArrayElementID].ResultOnStack) Then
-     PutOpcode(o_pop, ['e'+ExprType.RegPrefix+'1']);
-
-     For I := Dim-1 Downto 0 Do
-      PutOpcode(o_push, [ArrayTmpDims[I]]);
-
-     DimC := ArrayVar.Typ.ArrayDimCount;
-
-     if (ArrayVar.Typ.isString) Then
-      Dec(DimC);
-
-     PutOpcode(o_arset, [ArrayVar.getAllocationPos(-DimC), DimC, 'e'+ExprType.RegPrefix+'1']);
-
-     Inc(ArrayElementID);
-    End Else
-    Begin
-     For I := 0 To ArrayDimSizes[Dim]-1 Do
+     // parse expressions
+     For I := 0 To High(AInit.ExprValues) Do
      Begin
-      ArrayTmpDims[Dim] := I;
-      CompileArrayInitializer(Dim+1);
+      ExprNode := AInit.ExprValues[I];
+      ExprType := CompileExpression(Compiler, ExprNode);
+
+      // @TODO: what in case when "er1" is modified in code generated inside CompileExpression?
+
+      // do type check
+      if (not ExprType.CanBeAssignedTo(ArrayVar.Typ.ArrayBase)) Then
+       CompileError(ExprNode^.Token, eWrongType, [ExprType.asString, ArrayVar.Typ.ArrayBase.asString]);
+
+      // set ExprNode register variable
+      NodeReg := 'e'+ExprType.RegPrefix+'1';
+
+      // re-pop value to register
+      if (ExprNode^.ResultOnStack) Then
+       PutOpcode(o_pop, [NodeReg]);
+
+      // assign value
+      PutOpcode(o_arset1, ['er1', I, NodeReg]);
+     End;
+    End Else
+
+    // array
+    Begin
+     // create array
+     PutOpcode(o_arcrt1, ['er1', $FF, Length(AInit.ArrayValues)]);
+
+     // assign it
+     AssignArrayPointer;
+
+     // expand indexes array
+     SetLength(Indexes, Length(Indexes)+1);
+
+     // assign values
+     For I := 0 To High(AInit.ArrayValues) Do
+     Begin
+      Indexes[High(Indexes)] := I;
+      CompileArrayInitializer(Indexes, AInit.ArrayValues[I]^);
      End;
     End;
    End;
@@ -461,35 +509,10 @@ Var ArrayVar        : TVariable; // used when compiling array initializer
 
   { cetArrayInitializer }
   Procedure CompileArrayInitializer;
-  Var I: uint8;
+  Var Indexes: TIntegerArray;
   Begin
-   ArrayVar         := (Node.ArrayInitializer.VarSymbol as TSymbol).mVariable;
-   ArrayElementType := ArrayVar.Typ.ArrayBase;
-   ArrayValues      := Node.ArrayInitializer.Values;
-   ArrayDimSizes    := Node.ArrayInitializer.DimSizes;
-
-   SetLength(ArrayTmpDims, 256);
-
-   // allocate array (in bytecode)
-   For I := High(ArrayDimSizes) Downto Low(ArrayDimSizes) Do
-   Begin
-    if (ArrayDimSizes[I] = 0) Then
-     Continue;
-
-    PutOpcode(o_push, [ArrayDimSizes[I]]);
-   End;
-
-   I := ArrayVar.Typ.ArrayDimCount;
-
-   if (ArrayVar.Typ.isString) Then
-    Dec(I);
-
-   PutOpcode(o_arcrt, ['er1', ArrayVar.Typ.InternalID, I]);
-   PutOpcode(o_mov, [ArrayVar.getAllocationPos, 'er1']);
-
-   // compile initializer
-   ArrayElementID := 0;
-   CompileArrayInitializer(0);
+   SetLength(Indexes, 0);
+   CompileArrayInitializer(Indexes, Node.ArrayInitializer.Values^);
 
    // compile further nodes
    if (Node.Edges.Count > 0) Then
