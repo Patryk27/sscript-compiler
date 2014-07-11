@@ -2,6 +2,7 @@
  Copyright © by Patryk Wychowaniec, 2014
  All rights reserved.
 *)
+{$WARNING unimplemented: SSAStage2}
 Unit SSAStage2;
 
  Interface
@@ -16,9 +17,9 @@ Unit SSAStage2;
         VisitedParentNodes, VisitedNodes: TCFGNodeList;
 
        Private
-        Function FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGNode): TSSAVarID;
+       // Function FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGNode): TSSAVarID;
 
-        Procedure VisitExpression(const CFGNode: TCFGNode; const ExprNode: PExpressionNode);
+        Procedure VisitExpression(const CFGNode: TCFGNode; const ExprNode: TExpressionNode);
         Procedure VisitNode(const Node, EndNode: TCFGNode);
 
        Public
@@ -31,7 +32,7 @@ Unit SSAStage2;
 Uses Logging, Messages, SysUtils;
 
 (* Coalesce *)
-Procedure Coalesce(var Input: TSSAVarID; const What: TSSAVarID);
+{Procedure Coalesce(var Input: TSSAVarID; const What: TSSAVarID);
 Var I, J: Integer;
     Can : Boolean;
 Begin
@@ -49,14 +50,14 @@ Begin
    Input.Values[High(Input.Values)] := What.Values[I];
   End;
  End;
-End;
+End;}
 
 (* TSSAStage2.FetchSSAVarID *)
-Function TSSAStage2.FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGNode): TSSAVarID;
+{Function TSSAStage2.FetchSSAVarID(const Symbol: TSymbol; const SearchNode: TCFGNode): TSSAVarID;
 
   { fsVisitExpression }
-  Function fsVisitExpression(const Expr: PExpressionNode): TSSAVarID;
-  Var TmpExpr, Param: PExpressionNode;
+  Function fsVisitExpression(const Expr: TExpressionNode): TSSAVarID;
+  Var TmpExpr, Param: TExpressionNode;
       PList         : TFunctionParamList;
 
       Sym: TSymbol;
@@ -277,29 +278,29 @@ Begin
    if (not isConst) and (not isFuncParam) and (not isCatchVar) and (RefSymbol.isLocal) Then
     Generator.getCompiler.CompileHint(Origin.getToken, hUseOfUninitializedVariable, [RefSymbol.Name]);
  End;
-End;
+End;}
 
 (* TSSAStage2.VisitExpression *)
-Procedure TSSAStage2.VisitExpression(const CFGNode: TCFGNode; const ExprNode: PExpressionNode);
-Var Param: PExpressionNode;
+Procedure TSSAStage2.VisitExpression(const CFGNode: TCFGNode; const ExprNode: TExpressionNode);
+Var Param: TExpressionNode;
 Begin
  if (ExprNode = nil) Then
   Exit;
 
- if (ExprNode^.Typ = mtIdentifier) and (Length(ExprNode^.SSA.Values) = 0) Then // if variable with no SSA idenitifer assigned yet
+ {if (ExprNode.Typ = mtIdentifier) and (Length(ExprNode.SSA.Values) = 0) Then // if variable with no SSA idenitifer assigned yet
  Begin
-  ExprNode^.SSA := FetchSSAVarID(TSymbol(ExprNode^.Symbol), CFGNode);
- End;
+  ExprNode.SSA := FetchSSAVarID(TSymbol(ExprNode.Symbol), CFGNode);
+ End;}
 
- if (ExprNode^.Typ in [mtFunctionCall, mtMethodCall]) Then
+ {if (ExprNode.Typ in [mtFunctionCall, mtMethodCall]) Then
  Begin
-  For Param in ExprNode^.ParamList Do
+  For Param in ExprNode.ParamList Do
    VisitExpression(CFGNode, Param);
  End Else
  Begin
-  VisitExpression(CFGNode, ExprNode^.Left);
-  VisitExpression(CFGNode, ExprNode^.Right);
- End;
+  VisitExpression(CFGNode, ExprNode.Left);
+  VisitExpression(CFGNode, ExprNode.Right);
+ End;}
 End;
 
 (* TSSAStage2.VisitNode *)

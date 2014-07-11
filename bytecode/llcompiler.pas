@@ -6,7 +6,7 @@
 Unit LLCompiler;
 
  Interface
- Uses Logging, HLCompiler, Expression, symdef, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
+ Uses Logging, HLCompiler, Expression, symdef, MixedValue, Classes, SysUtils, Variants, Opcodes, Tokens, Messages, List, Zipper, Stream;
 
  { TBytecodeVersion }
  Type TBytecodeVersion =
@@ -15,7 +15,7 @@ Unit LLCompiler;
       End;
 
  Const BytecodeVersion: TBytecodeVersion =
-       (Major: 0; Minor: 43);
+       (Major: 0; Minor: 5);
 
  { ELLCompilerException }
  Type ELLCompilerException = Class(Exception);
@@ -34,7 +34,7 @@ Unit LLCompiler;
  Type TBCAllocatedSymbol =
       Record
        Name : String;
-       Value: PExpressionNode;
+       Value: TExpressionNode;
 
        Position: uint32;
        Size    : uint8;
@@ -74,6 +74,17 @@ Unit LLCompiler;
         Procedure Compile(const fCompiler: HLCompiler.TCompiler; const SaveAs_SSM: Boolean);
        End;
 
+ // primary types; order (those numbers) is important, as it is the same in the virtual machine
+ Const PrimaryTypeNames: Array[0..6] of String = ('bool', 'char', 'int', 'float', 'string', 'any', 'void');
+ Const TYPE_BOOL_id   = 0;
+       TYPE_CHAR_id   = 1;
+       TYPE_INT_id    = 2;
+       TYPE_FLOAT_id  = 3;
+       TYPE_STRING_id = 4;
+
+       TYPE_ANY_id  = 5;
+       TYPE_VOID_id = 6;
+
  Implementation
 Uses SSMParser, BCDebug, CommandLine, Serialization;
 
@@ -102,7 +113,7 @@ Var Data       : TUnserializer;
     AllocSymbol: TBCAllocatedSymbol;
 
     Size : int32;
-    Value: PExpressionNode;
+    Value: TExpressionNode;
 
     I, Pos: int32;
 Begin
@@ -129,9 +140,9 @@ Begin
 
  Try
   Size  := Data.getRoot[2].getInt;
-  Value := Data.getRoot[4].getExpression;
+  Value := TExpressionNode(Data.getRoot[4].getExpression(Compiler));
 
-  if (Value <> nil) and (Value^.getType = mtString) Then
+  if (Value <> nil) and (Value.getPredictedType = mvString) Then
    Inc(Size, 3); // count the '0xFF' special byte and the string length (uint16)
  Finally
   Data.Free;
@@ -156,7 +167,7 @@ Var OpcodesLength: uint32 = 0;
     OpcodeSize   : uint32 = 0;
     IncSize      : Boolean;
 
-    OpcodeID: uint32;
+    OpcodeID: int32;
     ArgID   : int8;
     Op      : PMOpcode = nil;
     Arg     : PMOpcodeArg = nil;
@@ -177,7 +188,7 @@ Begin
  With Compiler do
  Begin
   if (OpcodeList.Count = 0) Then
-   raise ELLCompilerException.Create('OpcodeList.Count = 0');
+   raise ELLCompilerException.Create('No opcodes to preparse!'); // unexpected to happen, but nonetheless...
 
   OpcodesLength := 0;
 
@@ -209,9 +220,8 @@ Begin
       Op := nil;
 
       Case BCAlloc.Size of
-       1 : Op := PutOpcode(o_char, [0]);
-       8 : Op := PutOpcode(o_int, [0]);
-       10: Op := PutOpcode(o_float, [0.0]);
+       1: Op := PutOpcode(o_char, [0]);
+       8: Op := PutOpcode(o_int, [0]);
 
        else
         raise ELLCompilerException.CreateFmt('Invalid BCAlloc.Size: %d', [BCAlloc.Size]);
@@ -224,14 +234,15 @@ Begin
       End;
      End Else
      Begin
-      vValue := BCAlloc.Value^.Value;
+      vValue := TConstantExpressionNode(BCAlloc.Value).getValue;
 
-      Case BCAlloc.Value^.getType of
-       mtBool  : Op := PutOpcode(o_bool, [ord(Boolean(vValue))]);
-       mtChar  : Op := PutOpcode(o_char, [ord(Char(vValue))]);
-       mtInt   : Op := PutOpcode(o_int, [int64(vValue)]);
-       mtFloat : Op := PutOpcode(o_float, [Extended(vValue)]);
-       mtString:
+      Case BCAlloc.Value.getPredictedType of
+       mvBool : Op := PutOpcode(o_bool, [ord(Boolean(vValue))]);
+       mvChar : Op := PutOpcode(o_char, [ord(Char(vValue))]);
+       mvInt  : Op := PutOpcode(o_int, [int64(vValue)]);
+       mvFloat: Op := PutOpcode(o_float, [Double(vValue)]);
+
+       mvString:
        Begin
         OpcodeList.Insert(2+InsertedOpcodes, PutOpcode(o_char, [$FF]));
         Inc(InsertedOpcodes);
@@ -239,7 +250,7 @@ Begin
        End;
 
        else
-        raise ELLCompilerException.CreateFmt('Unknown expression type: %d', [ord(BCAlloc.Value^.getType)]);
+        raise ELLCompilerException.CreateFmt('Unknown expression type: %d', [ord(BCAlloc.Value.getPredictedType)]);
       End;
 
       OpcodeList.Insert(2+InsertedOpcodes, Op);
@@ -284,7 +295,7 @@ Begin
     BCLabel.isFunction := Op^.isFunction;
 
     if (BCLabel.isFunction) Then
-     BCLabel.FunctionSymbol := Op^.FunctionSymbol Else
+     BCLabel.FunctionSymbol := TSymbol(Op^.FunctionSymbol) Else
      BCLabel.FunctionSymbol := nil;
 
     LabelList.Add(BCLabel);
@@ -298,7 +309,7 @@ Begin
       o_bool  : OpcodeSize := 1;
       o_char  : OpcodeSize := 1;
       o_int   : OpcodeSize := 8;
-      o_float : OpcodeSize := 10;
+      o_float : OpcodeSize := 8;
       o_string: OpcodeSize := 2+Length(Op^.Args[0].Value);
      End;
 
@@ -402,7 +413,7 @@ Begin
        ptBoolReg..ptReferenceReg: Inc(OpcodeSize, 1);
        ptBool, ptChar           : Inc(OpcodeSize, 1);
        ptInt                    : Inc(OpcodeSize, 8);
-       ptFloat                  : Inc(OpcodeSize, 10);
+       ptFloat                  : Inc(OpcodeSize, 8);
        ptString                 : Inc(OpcodeSize, 2+Length(VarToStr(Arg^.Value))); // string length (uint16) + string data
        ptStackval               : Inc(OpcodeSize, 1);
        ptConstantMemRef         : Inc(OpcodeSize, 8);
@@ -444,7 +455,7 @@ Begin
     // special opcodes
     if (Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then
     Begin
-     DisableConverting; // @TODO: it has to be done some another way - what about architectures which are big-endian? (from the VM point of view)
+     // @TODO: it has to be done some another way - what about architectures which are big-endian? (from the VM point of view)
 
      Case Opcode of
       o_bool  : write_uint8(ord(Boolean(Args[0].Value)));
@@ -453,8 +464,6 @@ Begin
       o_float : write_float(Args[0].Value);
       o_string: write_string(Args[0].Value);
      End;
-
-     EnableConverting;
 
      Continue;
     End;
@@ -540,7 +549,7 @@ Begin
       if (Opcode in [o_jmp, o_tjmp, o_fjmp, o_call]) and (ResolveReferences) Then
       Begin
        write_int64(Value);
-       write_uint8(0); // value doesn't matter, it it here just to fill the opcode size (10 bytes)
+       write_uint8(0); // value doesn't matter, it it here just to fill the opcode size (9 bytes)
        Continue;
       End;
 
@@ -614,7 +623,7 @@ Var Output: String;
 
 Var Debug: TBCDebugWriter;
 Begin
- Log('-> LLCompiler');
+ Log('-> running low-level compiler');
 
  Compiler := fCompiler;
  Output   := Compiler.OutputFile;
@@ -645,7 +654,7 @@ Begin
    write_uint8(BytecodeVersion.Minor);
 
    if (SaveAs_SSM) Then
-    write_uint8(0) { not runnable } else
+    write_uint8(0) { not runnable } Else
     write_uint8(1) { runnable };
   End;
 

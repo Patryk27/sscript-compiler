@@ -5,26 +5,28 @@
 Unit Opcodes;
 
  Interface
- Uses Tokens, symdef;
+ Uses Tokens;
 
  { TPrimaryType }
  Type TPrimaryType =
       (
-       ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited to output bytecode (only for compiler internal usage)
+       ptNone=-3, ptAny=-2, ptAnyReg=-1, // not emmited to output bytecode (for compiler internal usage only)
 
        ptBoolReg=0, ptCharReg, ptIntReg, ptFloatReg, ptStringReg, ptReferenceReg,
        ptBool, ptChar, ptInt, ptFloat, ptString, ptStackval, ptConstantMemRef,
 
-       ptSymbolMemRef, ptLabelAbsoluteReference // also for internal usage only
+       ptVariableRef, ptSymbolMemRef, ptLabelAbsoluteReference // also internal usage only
       );
 
  Const PrimaryTypeNames:
        Array[TPrimaryType] of String =
        (
         'none', 'any', 'any reg',
+
         'bool reg', 'char reg', 'int reg', 'float reg', 'string reg', 'reference reg',
         'bool', 'char', 'int', 'float', 'string', 'stackval', 'constant memory reference',
-        'label absolute reference', 'relocatable symbol memory reference'
+
+        'variable reference', 'symbol memory reference', 'label absolute reference'
        );
 
  { TRegister }
@@ -36,46 +38,58 @@ Unit Opcodes;
       End;
 
  { RegisterList }
- Const RegisterCount = 26;
+ Const RegisterCount = 38;
  Const RegisterList: Array[0..RegisterCount-1] of TRegister =
  (
   (* ===== bool ===== *)
+  (Name: 'eb0'; ID: 0; Typ: ptBool),
   (Name: 'eb1'; ID: 1; Typ: ptBool),
   (Name: 'eb2'; ID: 2; Typ: ptBool),
   (Name: 'eb3'; ID: 3; Typ: ptBool),
   (Name: 'eb4'; ID: 4; Typ: ptBool),
-  (Name: 'if' ; ID: 5; Typ: ptBool),
+  (Name: 'eb5'; ID: 5; Typ: ptBool),
+  (Name: 'if' ; ID: 6; Typ: ptBool),
 
   (* ===== char ===== *)
+  (Name: 'ec0'; ID: 0; Typ: ptChar),
   (Name: 'ec1'; ID: 1; Typ: ptChar),
   (Name: 'ec2'; ID: 2; Typ: ptChar),
   (Name: 'ec3'; ID: 3; Typ: ptChar),
   (Name: 'ec4'; ID: 4; Typ: ptChar),
+  (Name: 'ec5'; ID: 5; Typ: ptChar),
 
   (* ===== int ===== *)
+  (Name: 'ei0'; ID: 0; Typ: ptInt),
   (Name: 'ei1'; ID: 1; Typ: ptInt),
   (Name: 'ei2'; ID: 2; Typ: ptInt),
   (Name: 'ei3'; ID: 3; Typ: ptInt),
   (Name: 'ei4'; ID: 4; Typ: ptInt),
-  (Name: 'stp'; ID: 5; Typ: ptInt),
+  (Name: 'ei5'; ID: 5; Typ: ptInt),
+  (Name: 'stp'; ID: 6; Typ: ptInt),
 
   (* ===== float ===== *)
+  (Name: 'ef0'; ID: 0; Typ: ptFloat),
   (Name: 'ef1'; ID: 1; Typ: ptFloat),
   (Name: 'ef2'; ID: 2; Typ: ptFloat),
   (Name: 'ef3'; ID: 3; Typ: ptFloat),
   (Name: 'ef4'; ID: 4; Typ: ptFloat),
+  (Name: 'ef5'; ID: 5; Typ: ptFloat),
 
   (* ===== string ===== *)
+  (Name: 'es0'; ID: 0; Typ: ptString),
   (Name: 'es1'; ID: 1; Typ: ptString),
   (Name: 'es2'; ID: 2; Typ: ptString),
   (Name: 'es3'; ID: 3; Typ: ptString),
   (Name: 'es4'; ID: 4; Typ: ptString),
+  (Name: 'es5'; ID: 5; Typ: ptString),
 
   (* ===== reference ===== *)
+  (Name: 'er0'; ID: 0; Typ: ptInt),
   (Name: 'er1'; ID: 1; Typ: ptInt),
   (Name: 'er2'; ID: 2; Typ: ptInt),
   (Name: 'er3'; ID: 3; Typ: ptInt),
-  (Name: 'er4'; ID: 4; Typ: ptInt)
+  (Name: 'er4'; ID: 4; Typ: ptInt),
+  (Name: 'er5'; ID: 5; Typ: ptInt)
  );
 
  { TOpcode }
@@ -86,8 +100,8 @@ Unit Opcodes;
        ParamT: Array[0..2] of TPrimaryType;
       End;
 
- { TOpcode_E }
- Type TOpcode_E =
+ { TOpcodeKind }
+ Type TOpcodeKind =
       (
        o_nop, o_stop,
        o_push, o_pop,
@@ -99,7 +113,7 @@ Unit Opcodes;
        o_mod,
        o_arcrt, o_arcrt1, o_arset, o_arset1, o_arget, o_arget1,
        o_arlen, o_arres,
-       o_strset, o_strget, o_strlen,
+       o_strset, o_strget, o_strlen, o_strclone,
        o_bool, o_char, o_int, o_float, o_string
       );
 
@@ -119,7 +133,7 @@ Unit Opcodes;
        Name: String;
 
        // opcode data
-       Opcode: TOpcode_E;
+       Opcode: TOpcodeKind;
        Args  : Array of TMOpcodeArg;
 
        // attributes
@@ -127,7 +141,7 @@ Unit Opcodes;
        isComment: Boolean;
 
        isPublic, isFunction: Boolean;
-       FunctionSymbol      : TSymbol; // if 'isFunction' equals 'true'
+       FunctionSymbol      : TObject; // if 'isFunction' equals 'true'
 
        // opcode data
        OpcodePos : uint32; // size of all the previous opcodes; filled by BCCompiler.TCompiler during preparsing
@@ -136,11 +150,11 @@ Unit Opcodes;
 
        // compiler data
        Token   : PToken_P;
-       Compiler: Pointer;
+       Compiler: TObject;
       End;
 
  { OpcodeList }
- Const OpcodeList: Array[0..ord(High(TOpcode_E))] of TOpcode =
+ Const OpcodeList: Array[0..ord(High(TOpcodeKind))] of TOpcode =
  (
   (* ====== NOP ====== *)
   (Name: 'nop'; ParamC: 0; ParamT: (ptNone, ptNone, ptNone)),
@@ -251,8 +265,11 @@ Unit Opcodes;
   (* ===== STRGET (string modString, int charIndex, out char outValue) ===== *)
   (Name: 'strget'; ParamC: 3; ParamT: (ptString, ptInt, ptCharReg)),
 
-  (* ===== STRLEN (strreg, out int reg) ===== *)
-  (Name: 'strlen'; ParamC: 2; ParamT: (ptStringReg, ptIntReg, ptNone)),
+  (* ===== STRLEN (string modString, out int stringLength) ===== *)
+  (Name: 'strlen'; ParamC: 2; ParamT: (ptString, ptIntReg, ptNone)),
+
+  (* ===== STRCLONE (out string modString) ===== *)
+  (Name: 'strclone'; ParamC: 1; ParamT: (ptStringReg, ptNone, ptNone)),
 
   (* ===== ===== ===== ===== *)
   (Name: 'db'; ParamC: 1; ParamT: (ptBool, ptNone, ptNone)),
@@ -263,6 +280,7 @@ Unit Opcodes;
  );
 
  Operator = (const A, B: TMOpcodeArg): Boolean;
+
  Function isValidOpcode(const O: TMOpcode): Boolean;
  Function GetOpcodeID(const Name: String): Integer;
  Function isRegisterName(const Name: String): Boolean;
@@ -368,8 +386,10 @@ Function isRegisterName(const Name: String): Boolean;
 Var Reg: TRegister;
 Begin
  For Reg in RegisterList Do
+ Begin
   if (Reg.Name = Name) Then
    Exit(True);
+ End;
 
  Exit(False);
 End;
@@ -378,7 +398,9 @@ End;
 Function getRegister(const Name: String): TRegister;
 Begin
  For Result in RegisterList Do
+ Begin
   if (Result.Name = Name) Then
    Exit;
+ End;
 End;
 End.

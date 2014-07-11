@@ -11,11 +11,11 @@ Unit Messages;
  (
   eEOF, eUnexpected, eExpected, eExpectedIdentifier, eExpectedOperator, eExpectedValue, eExpectedDeclOrDef, eExpectedString,
   eExpectedInt, eNotAllowed,
-  eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eUnsupportedOperator, eUnsupportedUOperator,
-  eDivByZero, eWrongParamCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
+  eRedeclaration, eLValueExpected, eUnknownType, eUnknownVariable, eUnknownFunction, eWrongType, eInvalidBinaryOperator, eInvalidUnaryOperator,
+  eDivByZero, eWrongArgumentCount, eInvalidArraySubscript, eUnknownInclude, eCorruptedSSMFile, eStringExceedsLine, eUnknownMacro, eFunctionNotFound,
   eVoidVar, eVoidParam, eVoidCasting, eVoidArray, eAnyArray, eExpectedConstant, eWrongTypeInCall, eWrongTypeInAssign, eInvalidArrayAssign, eInvalidExpression,
   ePrevDeclared, eUnknownNamespace, eUnimplemented, eAmbiguousIdentifier, eVoidNoNameParam, eNoValidMainFunctionFound,
-  eNotAConstant, eNonObjectMethodCall, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidInteger, eInvalidFloat, eInvalidCharLiteral,
+  eNotAConstant, eNonObjectMethodCall, eFieldNotFound, eMethodNotFound, eInvalidConversion, eUnfinishedComment, eInvalidInteger, eInvalidFloat, eInvalidCharLiteral,
   eUnknownAttribute, eFileNotFound, eDefaultParamValueRequired, eInvalidForeach, eVarArrayRequired,
   eInvalidArrayInitializer, eCannotBeCalled, eNotAType, eCannotBeUsedAsFunction, eUnknownIdentifier, eReturnWithNoValue, eGlobalArrayInitializer,
   eBytecode_LabelNotFound, eBytecode_ExportNotFound, eBytecode_InvalidOpcode, eBytecode_StringNotFound,
@@ -46,10 +46,10 @@ Unit Messages;
   'Unknown variable: `%s`',
   'Unknown function: `%s`',
   'Wrong type; got `%s` expected `%s`',
-  'Unsupported binary operator: `%s` %s `%s`',
-  'Unsupported unary operator: %s %s',
+  'Invalid binary operator: %s %s %s',
+  'Invalid unary operator: %s %s',
   'Division by zero',
-  'Wrong number of parameters (in call to `%s`) - expected %d got %d',
+  'Wrong number of arguments (in call to `%s`) - expected %d got %d',
   'Invalid types ''%s [%s]'' for array subscript',
   'Unknown include file: ''%s''',
   'Corrupted SSM file: ''%s''',
@@ -62,7 +62,7 @@ Unit Messages;
   'Array declared as ''void''',
   'Array declared as ''any''',
   'A constant value was expected',
-  'Wrong type (in call to ''%s'', param #%d) - got `%s` expected `%s`',
+  'Wrong type (in call to ''%s'', argument #%d) - got `%s` expected `%s`',
   'Wrong type (in assignment to ''%s'') - got `%s` expected `%s`',
   'Invalid array assignment',
   'Invalid expression',
@@ -74,7 +74,8 @@ Unit Messages;
   'No valid `main` function found',
   'Not a constant var: `%s`',
   'Tried to call method `%s` on non-object (`%s`)',
-  'Method `%s` not found in object `%s`',
+  'Field `%s` not found in class `%s`',
+  'Method `%s` not found in class `%s`',
   'Invalid conversion from `%s` to `%s`',
   'Unfinished comment',
   'Invalid integer: `%s`',
@@ -113,11 +114,11 @@ Unit Messages;
 
  { hints }
  Type TCompileHint =
- (hDidntYouMean, hUnreachableCode, hUseOfUninitializedVariable, hExpressionHasNoEffect, hExpressionAlwaysTrue, hExpressionAlwaysFalse);
+ (hDidYouMean, hUnreachableCode, hUseOfUninitializedVariable, hExpressionHasNoEffect, hExpressionAlwaysTrue, hExpressionAlwaysFalse);
 
  Const CompileHint_fmt: Array[TCompileHint] of String =
  (
-  'Didn''t you mean: `%s`?',
+  'Did you mean: `%s`?',
   'Unreachable code',
   'Use of a possibly uninitialized variable `%s`',
   'Expression has no effect',

@@ -49,8 +49,11 @@ Unit Scanner;
         Function read_string: String;
         Function read_int: Integer;
         Function read_type(const AllowArrayTypes: Boolean=True): TType;
-        Function read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
-        Function read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
+
+        Function readExpression(const EndTokens: TTokenSet=[_SEMICOLON]): TExpressionNode;
+        Function readConstantExpression(const Stop: TTokenSet=DefaultSeparators): TConstantExpressionNode;
+        Function readConstantIntExpression(const Stop: TTokenSet=DefaultSeparators): TConstantExpressionNode;
+
         Function eat(const Token: TToken): TToken_P;
         Procedure semicolon;
 
@@ -61,7 +64,7 @@ Unit Scanner;
        End;
 
  Implementation
-Uses Logging, HLCompiler, ExpressionCompiler, ExpressionParser, Messages, SysUtils;
+Uses Logging, LLCompiler, HLCompiler, ExpressionParser, MixedValue, Messages, SysUtils;
 
 (* TScanner.Create *)
 {
@@ -549,8 +552,8 @@ Begin
      if (next_t = _EQUAL) Then // optional default parameter's value
      Begin
       eat(_EQUAL);
-      FuncParam^.DefaultValue := read_constant_expr;
-      TmpType                 := getTypeFromExpression(FuncParam^.DefaultValue);
+      FuncParam^.DefaultValue := readConstantExpression();
+      TmpType                 := TType(FuncParam^.DefaultValue.getType);
       Dec(TokenPos);
 
       if (not TmpType.CanBeAssignedTo(FuncParam^.Typ)) Then
@@ -631,13 +634,13 @@ Begin
 
    if (isArray) Then
    Begin
-    Typ.RegPrefix := 'r';
-    Typ.ArrayBase := Base;
+    Typ.RegPrefix      := 'r';
+    Typ.ArrayPrimitive := Base;
 
     if (isStringBased) Then
     Begin
-     Typ.RegPrefix := 's';
-     Typ.ArrayBase := Typ.ArrayBase.ArrayBase;
+     Typ.RegPrefix      := 's';
+     Typ.ArrayPrimitive := Typ.ArrayPrimitive.ArrayPrimitive;
     End;
    End;
   End;
@@ -647,32 +650,61 @@ Begin
  End;
 End;
 
-(* TScanner.read_constant_expr *)
+(* TScanner.readExpression *)
+Function TScanner.readExpression(const EndTokens: TTokenSet): TExpressionNode;
+Begin
+ With TExpressionParser.Create(TCompiler(Compiler)) do
+ Begin
+  Result := Parse(EndTokens);
+  Free;
+ End;
+End;
+
+(* TScanner.readConstantExpression *)
 {
  Reads and evaluates a constant expression.
 }
-Function TScanner.read_constant_expr(const Sep: TTokenSet=DefaultSeparators): PExpressionNode;
+Function TScanner.readConstantExpression(const Stop: TTokenSet): TConstantExpressionNode;
+Var Expression, Computed: TExpressionNode;
+    Token               : TToken_P;
 Begin
- Result := MakeExpression(Compiler, Sep, []);
- OptimizeExpression(TCompiler(Compiler), Result, [oInsertConstants, oConstantFolding, oDisplayParseErrors]);
+ Token := next;
+
+ // read expression
+ Expression := readExpression(Stop);
+
+ // try to evaluate it
+ Computed := Expression.Evaluate();
+
+ // free not-evaluated expression
+ Expression.Free;
+
+ if (Computed is TConstantExpressionNode) Then
+ Begin
+  Result := TConstantExpressionNode(Computed);
+ End Else
+ Begin
+  Result := nil;
+  TCompiler(Compiler).CompileError(Computed.getToken, eExpectedConstant, []);
+ End;
 End;
 
-(* TScanner.read_constant_expr_int *)
-Function TScanner.read_constant_expr_int(const Sep: TTokenSet=DefaultSeparators): Int64;
-Var Expr: PExpressionNode;
+(* TScanner.readConstantIntExpression *)
+Function TScanner.readConstantIntExpression(const Stop: TTokenSet): TConstantExpressionNode;
+Var Expr: TConstantExpressionNode;
+    Typ : TMixedValueKind;
 Begin
- Expr := read_constant_expr(Sep);
+ // read expression
+ Expr := readConstantExpression(Stop);
 
- if (Expr^.Typ <> mtInt) Then
-  TCompiler(Compiler).CompileError(eWrongType, [getExpressionTypeName(Expr), 'int']);
+ // do type-check
+ Typ := Expr.getPredictedType();
 
- if (Expr^.Value = null) Then
- Begin
-  DevLog(dvError, 'Expr^.Value = null; returned `0`');
-  Exit(0);
- End;
+ if (Typ <> mvInt) Then
+  TCompiler(Compiler).CompileError(eWrongType, [getMixedValueKindName(Typ), 'int']);
 
- Exit(Expr^.Value);
+ // return expression
+ Result := Expr;
 End;
 
 (* TScanner.eat *)

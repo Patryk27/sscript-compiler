@@ -2,6 +2,7 @@
  Copyright © by Patryk Wychowaniec, 2014
  All rights reserved.
 *)
+{$WARNING unimplemented: SSAStage1}
 Unit SSAStage1;
 
  Interface
@@ -19,9 +20,9 @@ Unit SSAStage1;
         VarMap      : TVarMap;
 
        Private
-        Procedure IncreaseSSA(Node: PExpressionNode; const PostSSAOnly: Boolean);
+        Procedure IncreaseSSA(Node: TExpressionNode; const PostSSAOnly: Boolean);
 
-        Procedure VisitExpression(const Node: PExpressionNode);
+        Procedure VisitExpression(const Node: TExpressionNode);
         Procedure VisitNode(const Node, EndNode: TCFGNode);
 
        Public
@@ -34,17 +35,17 @@ Unit SSAStage1;
 Uses SysUtils, Messages;
 
 (* TSSAStage1.IncreaseSSA *)
-Procedure TSSAStage1.IncreaseSSA(Node: PExpressionNode; const PostSSAOnly: Boolean);
-Var mVar: TVariable;
+Procedure TSSAStage1.IncreaseSSA(Node: TExpressionNode; const PostSSAOnly: Boolean);
+{Var mVar: TVariable;
     ID  : Integer;
 Begin
- While (Node^.Typ = mtArrayElement) Do
-  Node := Node^.Left;
+ While (Node.Typ = mtArrayElement) Do
+  Node := Node.Left;
 
- if (Node^.Symbol = nil) Then // probably shouldn't happen
+ if (Node.Symbol = nil) Then // probably shouldn't happen
   Exit;
 
- mVar := TSymbol(Node^.Symbol).mVariable;
+ mVar := TSymbol(Node.Symbol).mVariable;
 
  if (VarMap.IndexOf(mVar) = -1) Then
   ID := 0 Else
@@ -52,45 +53,47 @@ Begin
 
  if (PostSSAOnly) Then
  Begin
-  SetLength(Node^.PostSSA.Values, 1);
-  Node^.PostSSA.Values[0] := ID;
+  SetLength(Node.PostSSA.Values, 1);
+  Node.PostSSA.Values[0] := ID;
  End Else
  Begin
-  SetLength(Node^.SSA.Values, 1);
-  Node^.SSA.Values[0] := ID;
-  Node^.PostSSA       := Node^.SSA;
+  SetLength(Node.SSA.Values, 1);
+  Node.SSA.Values[0] := ID;
+  Node.PostSSA       := Node.SSA;
  End;
 
  if (VarMap.IndexOf(mVar) = -1) Then
   VarMap.Add(mVar, 0) Else
   VarMap[mVar] := VarMap[mVar]+1;
+End;}
+Begin
 End;
 
 (* TSSAStage1.VisitExpression *)
-Procedure TSSAStage1.VisitExpression(const Node: PExpressionNode);
-Var Symbol: TSymbol;
-    Param : PExpressionNode;
+Procedure TSSAStage1.VisitExpression(const Node: TExpressionNode);
+{Var Symbol: TSymbol;
+    Param : TExpressionNode;
     PList : TFunctionParamList;
     I     : Integer;
 Begin
  if (Node = nil) Then
   Exit;
 
- if (Node^.Typ = mtAssign) Then
+ if (Node.Typ = mtAssign) Then
  Begin
-  IncreaseSSA(Node^.Left, False);
+  IncreaseSSA(Node.Left, False);
  End Else
 
- if (Node^.Typ in MLValueOperators) Then
+ if (Node.Typ in MLValueOperators) Then
  Begin
-  IncreaseSSA(Node^.Left, True);
+  IncreaseSSA(Node.Left, True);
  End Else
 
- if (Node^.Typ = mtFunctionCall) Then // we need to check for potential pass-by-ref (as it increases the SSA var's ID as well)
+ if (Node.Typ = mtFunctionCall) Then // we need to check for potential pass-by-ref (as it increases the SSA var's ID as well)
  Begin
-  if (Node^.Symbol <> nil) Then
+  if (Node.Symbol <> nil) Then
   Begin
-   Symbol := TSymbol(Node^.Symbol);
+   Symbol := TSymbol(Node.Symbol);
 
    Case Symbol.Typ of
     stFunction: PList := Symbol.mFunction.ParamList;
@@ -104,22 +107,24 @@ Begin
    Begin
     if (PList[I].isVar) Then
     Begin
-     if (I <= High(Node^.ParamList)) Then
-      IncreaseSSA(Node^.ParamList[I], False);
+     if (I <= High(Node.ParamList)) Then
+      IncreaseSSA(Node.ParamList[I], False);
     End;
    End;
   End;
  End;
 
- VisitExpression(Node^.Left);
- VisitExpression(Node^.Right);
- For Param in Node^.ParamList Do
+ VisitExpression(Node.Left);
+ VisitExpression(Node.Right);
+ For Param in Node.ParamList Do
   VisitExpression(Param);
+End;}
+Begin
 End;
 
 (* TSSAStage1.VisitNode *)
 Procedure TSSAStage1.VisitNode(const Node, EndNode: TCFGNode);
-Var Edge: TCFGNode;
+{Var Edge: TCFGNode;
     mVar: TVariable;
 Begin
  if (Node = nil) or (Node = EndNode) or (VisitedNodes.IndexOf(Node) <> -1) Then
@@ -141,6 +146,8 @@ Begin
 
  For Edge in Node.Edges Do
   VisitNode(Edge, EndNode);
+End;}
+Begin
 End;
 
 (* TSSAStage1.Create *)

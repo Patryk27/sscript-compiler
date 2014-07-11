@@ -5,7 +5,7 @@
 Unit BCGenerator;
 
  Interface
- Uses HLCompiler, symdef, FlowGraph, SysUtils;
+ Uses HLCompiler, symdef, FlowGraph, Opcodes, SysUtils;
 
  { EBCGeneratorException }
  Type EBCGeneratorException = Class(Exception);
@@ -14,9 +14,12 @@ Unit BCGenerator;
  Type TBCGenerator =
       Class
        Private
-        Compiler    : TCompiler;
+        Compiler: TCompiler;
+
         CurrentFunc : TFunction;
         VisitedNodes: TCFGNodeList;
+
+        RegisterPushBegin: PMOpcode;
 
         CatchDepth: uint8;
 
@@ -36,20 +39,18 @@ Unit BCGenerator;
        End;
 
  Implementation
-Uses CommandLine, Expression, ExpressionCompiler, Messages, Tokens, Opcodes;
+Uses CommandLine, Expression, Messages, Tokens;
 
 (* TBCGenerator.AddPrologCode *)
 Procedure TBCGenerator.AddPrologCode;
-Var Symbol  : TSymbol;
-    StackReg: PStackSavedReg;
-    StackDec: uint16 = 0;
+Var Symbol: TSymbol;
 Begin
  With Compiler do
  Begin
   fCurrentNode := CurrentFunc.FlowGraph.Root;
 
   { function info }
-  PutComment('--------------------------------- //');
+  {PutComment('--------------------------------- //');
   PutComment('Function name   : '+CurrentFunc.RefSymbol.Name);
   PutComment('Declared in file: '+CurrentFunc.RefSymbol.DeclToken^.FileName);
   PutComment('Declared at line: '+IntToStr(CurrentFunc.RefSymbol.DeclToken^.Line));
@@ -57,48 +58,32 @@ Begin
 
   PutComment('Parameters:');
   For Symbol in CurrentFunc.SymbolList Do
+  Begin
    if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (Symbol.mVariable.isFuncParam) Then
     PutComment('`'+Symbol.Name+'` allocated at: '+Symbol.mVariable.getAllocationPos);
+  End;
 
   PutComment('');
 
   PutComment('Variables:');
-  For Symbol in CurrentFunc.SymbolList Do // @TODO: StackDec?
+  For Symbol in CurrentFunc.SymbolList Do
+  Begin
    if (not Symbol.isInternal) and (Symbol.Typ = stVariable) and (not Symbol.mVariable.isFuncParam) Then
     PutComment('`'+Symbol.Name+'` allocated in: '''+Symbol.mVariable.getAllocationPos+''', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'..'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines, CFG cost: '+IntToStr(getVariableCFGCost(Symbol, CurrentFunc.FlowGraph.Root, nil)));
+  End;
 
-  PutComment('--------------------------------- //');
+  PutComment('--------------------------------- //');}
 
   With CurrentFunc do
   Begin
-   StackDec := StackSize;
-
-   { if register is taken by (a) variable(s), at first we need to save that register value (and restore it at the end of the function) }
-   if (not isNaked) Then
-   Begin
-    For StackReg in StackRegs Do
-    Begin
-     PutOpcode(o_push, ['e'+StackReg^.RegChar+IntToStr(StackReg^.RegID)]);
-     Inc(StackDec);
-    End;
-   End;
+   { if register is invalidated inside this function (eg. 'ei3' or 'es1'), at first we need to save that register value (and restore it at the end of the function) }
+   if (isNaked) Then
+    RegisterPushBegin := nil Else
+    RegisterPushBegin := PutOpcode(o_nop); // at this time we don't know which registers should be saved
 
    { allocate local stack variables }
    if (not isNaked) Then
-    PutOpcode(o_add, ['stp', StackSize]);
-
-   { fix some variables' positions }
-   if (not isNaked) Then
-   Begin
-    For Symbol in SymbolList Do
-    Begin
-     if (Symbol.Typ = stVariable) and (Symbol.mVariable.LocationData.Location = vlStack) and
-        (Symbol.mVariable.isFuncParam) Then
-     Begin
-      Symbol.mVariable.LocationData.StackPosition -= StackDec;
-     End;
-    End;
-   End;
+    PutOpcode(o_add, ['stp', StackSize], RefSymbol.DeclToken);
   End;
 
   { new label (main function's body; nothing should jump here - it's just facilitation for the peephole optimizer so it doesn't remove the epilog code) }
@@ -108,17 +93,122 @@ End;
 
 (* TBCGenerator.AddEpilogCode *)
 Procedure TBCGenerator.AddEpilogCode;
-Var I: int32;
+Var StackDec: int32;
+    Symbol  : TSymbol;
+    I       : int32;
+
+  { ReplaceTemporaryVariableRefs }
+  Procedure ReplaceTemporaryVariableRefs;
+  Var OpcodeID, ArgID: int32;
+      VarLocation    : TVariableLocationData;
+      Variable       : TVariable;
+      Opcode         : PMOpcode;
+      Arg            : PMOpcodeArg;
+
+      VarLoc  : PtrUInt;
+      StackFix: int32;
+      TmpStr  : String;
+  Begin
+   With Compiler, CurrentFunc do
+   Begin
+    // each opcode
+    For OpcodeID := OpcodeList.IndexOf(CurrentFunc.FirstOpcode) To OpcodeList.Count-1 Do
+    Begin
+     Opcode := OpcodeList[OpcodeID];
+
+     // each argument
+     For ArgID := Low(Opcode^.Args) To High(Opcode^.Args) Do
+     Begin
+      Arg := @Opcode^.Args[ArgID];
+
+      // if it's a variable reference, replace it
+      if (Arg^.Typ = ptVariableRef) Then
+      Begin
+       TmpStr := Arg^.Value;
+
+       VarLoc   := StrToInt(Copy(TmpStr, 1, Pos(':', TmpStr)-1));
+       StackFix := StrToInt(Copy(TmpStr, Pos(':', TmpStr)+1, Length(TmpStr)));
+
+       Variable    := TVariable(Pointer(VarLoc));
+       VarLocation := Variable.LocationData;
+
+       Case VarLocation.Location of
+        // register
+        vlRegister:
+        Begin
+         Case Variable.Typ.RegPrefix of
+          'b': Arg^.Typ := ptBoolReg;
+          'c': Arg^.Typ := ptCharReg;
+          'i': Arg^.Typ := ptIntReg;
+          'f': Arg^.Typ := ptFloatReg;
+          's': Arg^.Typ := ptStringReg;
+          'r': Arg^.Typ := ptReferenceReg;
+
+          else
+           raise EBCGeneratorException.Create('Unknown variable type register prefix.');
+         End;
+
+         Arg^.Value := VarLocation.RegisterID;
+        End;
+
+        // stack
+        vlStack:
+        Begin
+         Arg^.Typ := ptStackval;
+
+         if (Variable.isFuncParam) Then
+          Arg^.Value := VarLocation.StackPosition - StackDec - StackFix Else
+          Arg^.Value := VarLocation.StackPosition - StackFix;
+        End;
+
+        // memory
+        vlMemory:
+        Begin
+         Arg^.Typ   := ptSymbolMemRef;
+         Arg^.Value := VarLocation.MemSymbolName;
+        End;
+
+        // unknown
+        else
+         raise EBCGeneratorException.Create('Unknown variable location kind.');
+       End;
+      End;
+     End;
+    End;
+   End;
+  End;
+
 Begin
- With Compiler do
+ With Compiler, CurrentFunc do
  Begin
-  { function end code }
+  StackDec := StackSize;
+
+  { correct function beginning code }
+  if (not isNaked) Then
+  Begin
+   if (RegisterPushBegin <> nil) Then
+   Begin
+    DoNotStoreOpcodes := True;
+
+    For I := 0 To StackRegs.Count-1 Do
+    Begin
+     OpcodeList.Insert(OpcodeList.IndexOf(RegisterPushBegin), PutOpcode(o_push, [StackRegs[I]^.getRegisterName], RefSymbol.DeclToken));
+     Inc(StackDec);
+    End;
+
+    DoNotStoreOpcodes := False;
+   End;
+  End;
+
+  { replace temporary variable references (~foo:bar) with their real bytecode locations }
+  ReplaceTemporaryVariableRefs;
+
+  { add ending code }
   PutLabel(CurrentFunc.LabelName+'_end');
 
-  With CurrentFunc do
+  if (not isNaked) Then
   Begin
-   if (not isNaked) Then
-    PutOpcode(o_sub, ['stp', CurrentFunc.StackSize]);
+   PutOpcode(o_sub, ['stp', CurrentFunc.StackSize]);
 
    For I := StackRegs.Count-1 Downto 0 Do
     PutOpcode(o_pop, ['e'+StackRegs[I]^.RegChar+IntToStr(StackRegs[I]^.RegID)]);
@@ -156,15 +246,16 @@ End;
 
 (* TBCGenerator.CompileNode *)
 Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
+Type TIntegerArray = Array of Integer;
 
   { PutOpcode }
-  Procedure PutOpcode(const Opcode: TOpcode_E);
+  Procedure PutOpcode(const Opcode: TOpcodeKind);
   Begin
    Compiler.PutOpcode(Opcode);
   End;
 
   { PutOpcode }
-  Procedure PutOpcode(const Opcode: TOpcode_E; const Args: Array of Const); // helper proc
+  Procedure PutOpcode(const Opcode: TOpcodeKind; const Args: Array of Const); // helper proc
   Begin
    Compiler.PutOpcode(Opcode, Args);
   End;
@@ -181,39 +272,13 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
    Compiler.CompileError(Token, Error, Args);
   End;
 
-  { RemoveRedundantMovPush }
-  Procedure RemoveRedundantMovPush(const Node: PExpressionNode);
-  Var Opcode: PMOpcode;
-  Begin
-   With Compiler do
-   Begin
-    if (Node^.ResultOnStack) Then
-    Begin
-     if (OpcodeList.Last^.Opcode = o_push) Then
-     Begin
-      Opcode := OpcodeList.Last;
-
-      OpcodeList.Remove(OpcodeList.Last);
-
-      if (OpcodeList.Last^.Opcode = o_mov) and
-         (OpcodeList.Last^.Args[0] = Opcode^.Args[0]) Then
-      Begin
-       OpcodeList.Remove(OpcodeList.Last);
-      End;
-     End;
-    End;
-   End;
-  End;
-
   { CompileArrayInitializer }
   Procedure CompileArrayInitializer(Indexes: TIntegerArray; const AInit: TArrayInitializerValues);
-  Var ArrayVar: TVariable;
+  Var Expression: TExpressionCompileResult;
+      ExprNode  : TExpressionNode;
+      ExprType  : TType;
 
-      ExprNode: PExpressionNode;
-      ExprType: TType;
-      NodeReg : String;
-
-      I: uint32;
+      ArrayVar: TVariable;
 
     { PutArrayIndexes }
     Procedure PutArrayIndexes(const Last: int32=-1);
@@ -239,8 +304,11 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
      End;
     End;
 
+  Var RegPrefix: Char;
+      I        : int32;
   Begin
-   ArrayVar := TSymbol(Node.ArrayInitializer.VarSymbol).mVariable;
+   ArrayVar  := TSymbol(Node.ArrayInitializer.VarSymbol).mVariable;
+   RegPrefix := ArrayVar.Typ.ArrayPrimitive.RegPrefix;
 
    With Compiler do
    Begin
@@ -248,7 +316,10 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
     if (AInit.Typ = aivtExpression) Then
     Begin
      // create array
-     PutOpcode(o_arcrt1, ['er1', ArrayVar.Typ.ArrayBase.InternalID, Length(AInit.ExprValues)]);
+     PutOpcode(o_arcrt1, ['er1', ArrayVar.Typ.ArrayPrimitive.InternalID, Length(AInit.ExprValues)]);
+
+     // invalidate register
+     CurrentFunction.invalidateRegister('r', 1);
 
      // assign pointer
      AssignArrayPointer;
@@ -256,24 +327,20 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
      // parse expressions
      For I := 0 To High(AInit.ExprValues) Do
      Begin
-      ExprNode := AInit.ExprValues[I];
-      ExprType := CompileExpression(Compiler, ExprNode);
+      // @TODO: we assume here that 'er1' doesn't get accidentally modified. Is it true in all cases?
 
-      // @TODO: what in case when "er1" is modified in code generated inside CompileExpression?
+      // compile expression
+      ExprNode := AInit.ExprValues[I];
+
+      Expression := ExprNode.CompileExpression;
+      ExprType   := TType(Expression.Typ);
 
       // do type check
-      if (not ExprType.CanBeAssignedTo(ArrayVar.Typ.ArrayBase)) Then
-       CompileError(ExprNode^.Token, eWrongType, [ExprType.asString, ArrayVar.Typ.ArrayBase.asString]);
-
-      // set ExprNode register variable
-      NodeReg := 'e'+ExprType.RegPrefix+'1';
-
-      // re-pop value to register
-      if (ExprNode^.ResultOnStack) Then
-       PutOpcode(o_pop, [NodeReg]);
+      if (not ExprType.CanBeAssignedTo(ArrayVar.Typ.ArrayPrimitive)) Then
+       CompileError(ExprNode.getToken, eWrongType, [ExprType.asString, ArrayVar.Typ.ArrayPrimitive.asString]);
 
       // assign value
-      PutOpcode(o_arset1, ['er1', I, NodeReg]);
+      PutOpcode(o_arset1, ['er1', I, Expression.getResult]);
      End;
     End Else
 
@@ -310,8 +377,7 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
   Begin
    if (Node.Value <> nil) Then
    Begin
-    ExpressionCompiler.CompileExpression(Compiler, Node.Value);
-    RemoveRedundantMovPush(Node.Value);
+    Node.Value.CompileExpression();
    End;
 
    if (Node.Edges.Count > 0) Then
@@ -321,20 +387,27 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
   { cetCondition }
   Procedure CompileCondition;
   Var LabelFalse, LabelOut: String;
-      ExprType            : TType;
+      Condition           : TExpressionCompileResult;
+      CondType            : TType;
   Begin
    // generate label names
    LabelFalse := CurrentFunc.generateLabelName;
    LabelOut   := CurrentFunc.generateLabelName;
 
    // compile condition
-   ExprType := ExpressionCompiler.CompileExpression(Compiler, Node.Value);
-   if (not (ExprType.isBool or ExprType.isInt)) Then // condition must be either a bool or an int
-    CompileError(Node.getToken^, eWrongType, [ExprType.asString, 'bool']);
+   Condition := Node.Value.CompileExpression();
+   CondType  := TType(Condition.Typ);
 
+   PutOpcode(o_mov, ['if', Condition.getResult]);
+
+   // do type-check
+   if (not (CondType.isBool or CondType.isInt)) Then
+    CompileError(Node.getToken^, eWrongType, [CondType.asString, 'bool']);
+
+   // mark node as 'visited'
    VisitedNodes.Add(Node.Edges[2]);
 
-   PutOpcode(o_pop, ['if']);
+   // put a skip to 'else' node if condition is false
    PutOpcode(o_fjmp, [':'+LabelFalse]);
 
    // compile 'true' node
@@ -353,35 +426,46 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
 
   { cetReturn }
   Procedure CompileReturn;
-  Var ExprType: TType;
+  Var ValueType: TType;
+      Value    : TExpressionCompileResult;
   Begin
-   if (Node.Value = nil) Then // return;
+   { return; }
+   if (Node.Value = nil) Then
    Begin
-    if (CatchDepth > 0) Then // there are some unused data on the stack that we need to remove before leaving function (that is - the exception object)
-     PutOpcode(o_sub, ['stp', CatchDepth]);
-
-    if (not CurrentFunc.Return.isVoid) Then // error: cannot do void-return inside non-void function
-     CompileError(Node.getToken^, eReturnWithNoValue, []);
-
-    if (not CurrentFunc.isNaked) Then
-     PutOpcode(o_jmp, [':'+CurrentFunc.LabelName+'_end']) Else
-     PutOpcode(o_ret);
-   End Else
-   Begin // return expression;
-    ExprType := ExpressionCompiler.CompileExpression(Compiler, Node.Value);
-
-    if (not ExprType.CanBeAssignedTo(CurrentFunc.Return)) Then // type check
-     CompileError(Node.getToken^, eWrongType, [ExprType.asString, CurrentFunc.Return.asString]);
-
-    if (Node.Value^.ResultOnStack) Then // function's result must be in the `e_1` register, not on the stack
-     PutOpcode(o_pop, ['e'+CurrentFunc.Return.RegPrefix+'1']);
-
+    // there are some unused data on the stack that we need to remove before leaving function (that is - the exception object)
     if (CatchDepth > 0) Then
      PutOpcode(o_sub, ['stp', CatchDepth]);
 
-    if (not CurrentFunc.isNaked) Then
-     PutOpcode(o_jmp, [':'+CurrentFunc.LabelName+'_end']) Else
-     PutOpcode(o_ret);
+    // error: cannot do void-return inside a non-void function
+    if (not CurrentFunc.Return.isVoid) Then
+     CompileError(Node.getToken^, eReturnWithNoValue, []);
+
+    // generate jmp/ret
+    if (CurrentFunc.isNaked) Then
+     PutOpcode(o_ret) Else
+     PutOpcode(o_jmp, [':'+CurrentFunc.LabelName+'_end']);
+   End Else
+
+   { return expression; }
+   Begin
+    // compile expression
+    Value     := Node.Value.CompileExpression();
+    ValueType := TType(Value.Typ);
+
+    PutOpcode(o_mov, ['e'+CurrentFunc.Return.RegPrefix+'0', Value.getResult]);
+
+    // do a type-check
+    if (not ValueType.CanBeAssignedTo(CurrentFunc.Return)) Then
+     CompileError(Node.getToken^, eWrongType, [ValueType.asString, CurrentFunc.Return.asString]);
+
+    // decrease stack pointer, if necessary
+    if (CatchDepth > 0) Then
+     PutOpcode(o_sub, ['stp', CatchDepth]);
+
+    // generate jmp/ret
+    if (CurrentFunc.isNaked) Then
+     PutOpcode(o_ret) Else
+     PutOpcode(o_jmp, [':'+CurrentFunc.LabelName+'_end']);
    End;
 
    // compile further code
@@ -393,17 +477,22 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
 
   { cetThrow }
   Procedure CompileThrow;
-  Var ExprType: TType;
+  Var Expression: TExpressionCompileResult;
+      ExprType  : TType;
   Begin
-   ExprType := ExpressionCompiler.CompileExpression(Compiler, Node.Value);
+   // compile expression
+   Expression := Node.Value.CompileExpression;
+   ExprType   := TType(Expression.Typ);
 
-   if (not ExprType.isString) Then // error: invalid type
+   // do type check
+   if (not ExprType.isString) Then
     CompileError(Node.getToken^, eWrongType, [ExprType.asString, 'string']);
 
-   PutOpcode(o_pop, ['es1']); // @TODO: what's the point of these two opcodes? Casting or what?
-   PutOpcode(o_push, ['es1']);
+   // put opcodes
+   PutOpcode(o_push, [Expression.getResult]);
    PutOpcode(o_icall, ['"vm.throw"']);
 
+   // proceed further
    if (Node.Edges.Count > 0) Then
     CompileNode(Node.Edges.First);
   End;
@@ -440,10 +529,15 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
   { cetForeach }
   Procedure CompileForeach;
   Var LabelName: String;
-      ExprType : TType;
+
+      Expression: TExpressionCompileResult;
+      ExprType  : TType;
 
       ForeachVar, ForeachIterator, ForeachExprHolder, ForeachSizeHolder: TVariable;
+
       Pos1, Pos2: String;
+
+      Opcode: TOpcodeKind;
   Begin
    LabelName         := Node.getName+'_foreach_loop_';
    ForeachVar        := Node.Foreach.LoopVar as TVariable;
@@ -452,16 +546,20 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
    ForeachSizeHolder := Node.Foreach.LoopSizeHolder as TVariable;
 
    // compile foreach expression
-   ExprType := ExpressionCompiler.CompileExpression(Compiler, Node.Value);
+   Expression := Node.Value.CompileExpression;
+   ExprType   := TType(Expression.Typ);
 
+   // do type-check
    if (type_equal(ForeachVar.Typ, ExprType)) Then
    Begin
+    // error: type inconsistency
     CompileError(Node.getToken^, eInvalidForeach, []);
    End Else
 
    if (not ExprType.isArray) Then
    Begin
-    CompileError(Node.getToken^, eWrongType, [ExprType.asString, 'array']); // error: an array is required for a foreach-expression
+    // error: an array is required for a foreach-expression
+    CompileError(Node.getToken^, eWrongType, [ExprType.asString, 'array']);
    End Else
 
    Begin
@@ -469,11 +567,10 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
      CompileError(Node.getToken^, eWrongType, [ForeachVar.Typ.asString, ExprType.getLowerArray.asString]);
    End;
 
-   // get and save foreach expression length
-   if (Node.Value^.ResultOnStack) Then
-    PutOpcode(o_pop, [ForeachExprHolder.getAllocationPos]) Else
-    PutOpcode(o_mov, [ForeachExprHolder.getAllocationPos, 'e'+ExprType.RegPrefix+'1']);
+   // save foreach expression
+   PutOpcode(o_mov, [ForeachExprHolder.getAllocationPos, Expression.getResult]);
 
+   // get foreach expression length
    if (ExprType.RegPrefix = 's') Then
    Begin
     PutOpcode(o_strlen, [ForeachExprHolder.getAllocationPos, ForeachSizeHolder.getAllocationPos]);
@@ -484,11 +581,14 @@ Procedure TBCGenerator.CompileNode(const Node: TCFGNode);
     PutOpcode(o_mov, [ForeachIterator.getAllocationPos, 0]);
    End;
 
+   // put rest of the code
    PutLabel(LabelName+'content');
 
    if (ExprType.RegPrefix = 's') Then
-    PutOpcode(o_if_le, [ForeachIterator.getAllocationPos, ForeachSizeHolder.getAllocationPos]) Else
-    PutOpcode(o_if_l, [ForeachIterator.getAllocationPos, ForeachSizeHolder.getAllocationPos]);
+    Opcode := o_if_le Else
+    Opcode := o_if_l;
+
+   PutOpcode(Opcode, [ForeachIterator.getAllocationPos, ForeachSizeHolder.getAllocationPos]);
    PutOpcode(o_fjmp, [':'+LabelName+'end']);
 
    Pos1 := ForeachExprHolder.getAllocationPos;

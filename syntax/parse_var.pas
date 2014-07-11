@@ -9,7 +9,7 @@ Unit Parse_VAR;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, Expression, ExpressionCompiler, Tokens, symdef, Messages, Opcodes, FlowGraph;
+Uses HLCompiler, Expression, Tokens, symdef, Messages, Opcodes, FlowGraph;
 
 (* ReadArrayInitializer *)
 Procedure ReadArrayInitializer(const CompilerPnt, SymbolPnt: Pointer);
@@ -85,7 +85,7 @@ Var Compiler: TCompiler absolute CompilerPnt;
       With Result^ do
       Begin
        SetLength(ExprValues, Length(ExprValues)+1);
-       ExprValues[High(ExprValues)] := ExpressionCompiler.MakeExpression(Compiler, [_BRACKET1_CL, _COMMA]);
+       ExprValues[High(ExprValues)] := readExpression([_BRACKET1_CL, _COMMA]);
        Dec(TokenPos);
       End;
 
@@ -133,13 +133,13 @@ Var Compiler  : TCompiler absolute CompilerPnt;
     Variable  : TVariable;
     VarType   : TType;
 
-    Value: PExpressionNode;
+    Value: TExpressionNode;
     Token: TToken_P;
 Begin
  With Compiler, getScanner do
  Begin
-  // variables are parsed in the first pass or inside a function
-  if (not ((CompilePass = _cp1) or (inFunction))) Then
+  // variables are parsed in the second pass or inside a function
+  if (not ((CompilePass = _cp2) or (inFunction))) Then
   Begin
    read_until(_SEMICOLON);
    Exit;
@@ -217,8 +217,7 @@ Begin
      Token := next;
     End;
 
-    Value := ExpressionCompiler.MakeExpression(Compiler, [_SEMICOLON, _COMMA]);
-
+    Value := readExpression([_SEMICOLON, _COMMA]);
     Dec(TokenPos);
 
     // local var initializer
@@ -229,9 +228,8 @@ Begin
 
     // global var initializer
     Begin
-     Variable.Value := Value^.getValue();
-
-     if (Variable.Value = nil) Then
+     if (Value is TConstantExpressionNode) Then
+      Variable.Value := TConstantExpressionNode(Value) Else
       CompileError(Token, eExpectedConstant, []);
     End;
    End;

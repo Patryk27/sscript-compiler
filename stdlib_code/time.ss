@@ -14,7 +14,7 @@ namespace std
   :CODE
   {
    icall("time.get_milliseconds")
-   pop(ei1)
+   pop(ei0)
   }
  }
 
@@ -23,7 +23,7 @@ namespace std
   :CODE
   {
    icall("time.get_milliseconds")
-   pop(ei1)
+   pop(ei0)
   }
  }
 
@@ -54,18 +54,18 @@ namespace std
   {
    sub(stp, 1)
 
-   pop(ei1) // ei1 = milis
+   pop(ei0) // ei0 = milis
 
-   icall("time.get_milliseconds")
-   pop(ei2) // ei2 = current time
-
-   add(ei2, ei1) // ei2 = finish time
-
-  &loop:
    icall("time.get_milliseconds")
    pop(ei1) // ei1 = current time
 
-   if_l(ei1, ei2) // if (ei1 < ei2)
+   add(ei1, ei0) // ei1 = finish time
+
+  &loop:
+   icall("time.get_milliseconds")
+   pop(ei0) // ei0 = current time
+
+   if_l(ei0, ei1) // if (ei0 < ei1)
    tjmp(:&loop)   //  goto loop;
 
    add(stp, 2)

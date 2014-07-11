@@ -10,14 +10,14 @@ Unit Parse_THROW;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, ExpressionCompiler, Tokens, FlowGraph;
+Uses HLCompiler, Tokens, FlowGraph;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
 Begin
  With TCompiler(CompilerPnt) do
  Begin
-  CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetThrow, MakeExpression(CompilerPnt)));
+  CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetThrow, getScanner.readExpression()));
  End;
 End;
 

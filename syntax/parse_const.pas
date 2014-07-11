@@ -49,10 +49,11 @@ Begin
 
    eat(_EQUAL); // =
 
-   Variable.Value            := read_constant_expr; // [constant value]
-   Variable.Value^.IdentName := Variable.RefSymbol.Name;
+   Variable.Value := readConstantExpression; // [constant value]
+   // Variable.Value.IdentName := Variable.RefSymbol.Name;
+   {$WARNING Variable.Value.IdentName (?)}
 
-   With Variable.Value^ do
+   {With Variable.Value^ do
    Begin
     if (isConstant) Then // is this a constant expression?
     Begin
@@ -62,7 +63,7 @@ Begin
      CompileError(eExpectedConstant, []);
      Variable.Value := TExpressionNode.Create();
     End;
-   End;
+   End;}
 
    SymbolList.Add(TSymbol.Create(stConstant, Variable));
 

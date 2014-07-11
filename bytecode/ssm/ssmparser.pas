@@ -367,6 +367,9 @@ Begin
   LoadOK := False;
   Exit;
  End;
+
+ // read 'isRunnable' - it's not used here, it's read just so that the warning about unread bytes does not appear (-vv)
+ AStream.read_uint8;
 End;
 
 (* TSSMReader.ReadSSMData *)
@@ -443,7 +446,7 @@ Begin
     BCType.Name      := AStream.read_string;
     BCType.Signature := AStream.read_string;
 
-    DevLog(dvInfo, 'Type #%d -> name=''%s''; signature==''%s''', [I, BCType.Name, BCType.Signature]);
+    DevLog(dvInfo, 'Type #%d -> name=''%s''; signature=''%s''', [I, BCType.Name, BCType.Signature]);
     TypeList[I] := BCType;
    End;
   End;
@@ -501,8 +504,10 @@ End;
 }
 Procedure TSSMReader.ReadOpcodes(const AStream: TStream);
 Var StreamPosition: uint32;
-    LabelName     : String;
-    MOpcode       : PMOpcode = nil;
+
+    LabelName: String;
+    MOpcode  : PMOpcode = nil;
+    LastLabel: PMOpcode = nil;
 
     FunctionList: TBCFunctionList;
     LabelList   : TBCLabelList;
@@ -521,6 +526,25 @@ Var StreamPosition: uint32;
   Function FetchString(const Pos: uint32): String;
   Begin
    Result := PChar(@References[Pos+1]);
+  End;
+
+  { CreateToken }
+  Function CreateToken: PToken_P;
+  Begin
+   Result := nil;
+
+   if (CurrentLine > 0) Then
+   Begin
+    New(Result);
+
+    With Result^ Do
+    Begin
+     Token    := noToken;
+     Line     := CurrentLine;
+     Char     := 0;
+     FileName := dbgFileList[FileID].FileName;
+    End;
+   End;
   End;
 
 Begin
@@ -561,7 +585,8 @@ Begin
    End;
 
    // @TODO: if (FunctionList[I].Position > StreamPosition) Then Break; (?)
-   //        or save previous read function index and begin the next loop from that index
+   //        or save previous read function index and begin the next loop from that index.
+   //        But data would have to be always sorted for it to work.
   End;
 
   // if not function, maybe some other label
@@ -587,7 +612,8 @@ Begin
    MOpcode^.isLabel    := True;
    MOpcode^.isFunction := False;
    MOpcode^.isComment  := False;
-   MOpcode^.Token      := nil;
+   MOpcode^.Token      := CreateToken;
+   MOpcode^.Compiler   := nil;
    OpcodeList.Add(MOpcode);
 
    // check for function label
@@ -600,6 +626,10 @@ Begin
 
      MOpcode^.isFunction     := True;
      MOpcode^.FunctionSymbol := nil; // set inside TSSMReader.ParseFunctions()
+
+     LastLabel := MOpcode;
+
+     Break;
     End;
    End;
   End;
@@ -613,7 +643,7 @@ Begin
    Begin
     Inc(TotalSize, dbgFileList[FileID].BytecodeSize);
 
-    if (StreamPosition < TotalSize) Then
+    if (TotalSize >= StreamPosition) Then
      Break;
    End;
   End;
@@ -626,52 +656,23 @@ Begin
     if (dbgLineDataList[I].Opcode = StreamPosition) and (dbgLineDataList[I].Line > CurrentLine) Then
     Begin
      CurrentLine := dbgLineDataList[I].Line;
-
      Break;
-    End;
-   End;
-  End;
-
-  // special case - function beginning label has to have its token
-  if (MOpcode <> nil) and (MOpcode^.isFunction) Then
-  Begin
-   if (CurrentLine > 0) Then
-   Begin
-    New(MOpcode^.Token);
-
-    With MOpcode^.Token^ Do
-    Begin
-     Token    := noToken;
-     Line     := CurrentLine;
-     Char     := 0;
-     FileName := dbgFileList[FileID].FileName;
     End;
    End;
   End;
 
   // read and prepare opcode
   New(MOpcode);
-  MOpcode^.Opcode     := TOpcode_E(AStream.read_uint8);
+  MOpcode^.Opcode     := TOpcodeKind(AStream.read_uint8);
   MOpcode^.isLabel    := False;
   MOpcode^.isFunction := False;
   MOpcode^.isComment  := False;
 
+  MOpcode^.Token    := CreateToken;
   MOpcode^.Compiler := nil;
-  MOpcode^.Token    := nil;
 
-  // debug data available?
-  if (CurrentLine > 0) Then
-  Begin
-   New(MOpcode^.Token);
-
-   With MOpcode^.Token^ Do
-   Begin
-    Token    := noToken;
-    Line     := CurrentLine;
-    Char     := 0;
-    FileName := dbgFileList[FileID].FileName;
-   End;
-  End;
+  if (LastLabel <> nil) and (LastLabel^.Token = nil) and (MOpcode^.Token <> nil) Then
+   LastLabel^.Token := CreateToken;
 
   ParamC := Opcodes.OpcodeList[ord(MOpcode^.Opcode)].ParamC;
   SetLength(MOpcode^.Args, ParamC);
@@ -687,7 +688,8 @@ Begin
 
      Case Typ of
       ptBoolReg..ptReferenceReg: Value := AStream.read_uint8;
-      ptBool, ptChar           : Value := AStream.read_uint8;
+      ptBool                   : Value := Boolean(AStream.read_uint8);
+      ptChar                   : Value := AStream.read_uint8;
       ptInt                    : Value := AStream.read_int64;
       ptFloat                  : Value := AStream.read_float;
       ptString                 : Value := AStream.read_string;
@@ -722,7 +724,7 @@ Begin
 
  AStream.Position := 0;
 
- NStream := TStream.Create(True);
+ NStream := TStream.Create;
  NStream.LoadFromStream(AStream);
 
  Case AItem.ArchiveFileName of
@@ -737,7 +739,7 @@ Begin
  End;
 
  if (NStream.Can) Then
-  Log('There are still some unread data in this file! (%d bytes left)', [AStream.Size-AStream.Position]);
+  Log('There are still some unread data in this file! (%d bytes left)', [NStream.Size-NStream.Position]);
 
  NStream.Free;
  AStream.Free;
@@ -842,6 +844,9 @@ Begin
    if (FunctionLabel = nil) Then
     raise ESSMParserException.CreateFmt('No function label found! (parsing %s)', [mFunction.RefSymbol.getFullName('::')]);
 
+   if (FunctionLabel^.Token = nil) Then
+    raise ESSMParserException.CreateFmt('No token is associated with function label! (parsing %s)', [mFunction.RefSymbol.getFullName('::')]);
+
    // fix function token
    mFunction.RefSymbol.DeclToken := FunctionLabel^.Token;
    mFunction.FirstOpcode         := FunctionLabel;
@@ -889,7 +894,7 @@ Begin
     // parse parameter default value
     if (ParamNode.getChildren.Count > 1) Then
     Begin
-     mFunction.ParamList[Param].DefaultValue := TExpressionNode.Create(ParamNode[1]);
+     mFunction.ParamList[Param].DefaultValue := TConstantExpressionNode(ParamNode[1].getExpression(HLCompiler));
     End;
 
     if (mFunction.ParamList[Param].Typ = nil) Then
@@ -959,7 +964,7 @@ Begin
   Data := TUnserializer.Create(BCVariable.Signature);
 
   Try
-   mVariable                         := TVariable.Create(Data);
+   mVariable                         := TVariable.Create(HLCompiler, Data);
    mVariable.RefSymbol.Name          := VarName;
    mVariable.RefSymbol.DeclNamespace := VarNamespace;
    mVariable.RefSymbol.Visibility    := mvPrivate;

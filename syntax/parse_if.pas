@@ -9,7 +9,7 @@ Unit Parse_IF;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, ExpressionCompiler, Tokens, FlowGraph;
+Uses HLCompiler, Tokens, FlowGraph;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
@@ -19,7 +19,7 @@ Begin
  Begin
   eat(_BRACKET1_OP); // (
 
-  BaseNode := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeExpression(CompilerPnt, [_BRACKET1_CL])); // 'if' main node
+  BaseNode := getCurrentFunction.createNode(fCurrentNode, cetCondition, readExpression([_BRACKET1_CL])); // 'if' main node
 
   onFalse     := getCurrentFunction.createNode(BaseNode, next_pnt);
   onFalseLast := onFalse;

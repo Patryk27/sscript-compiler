@@ -2,6 +2,7 @@
  Copyright © by Patryk Wychowaniec, 2014
  All rights reserved.
 *)
+{$WARNING unimplemented: TCFGDeadCodeRemoval}
 Unit CFGDeadCode;
 
  Interface
@@ -30,7 +31,7 @@ Var AnyChange: Boolean;
 
   { CheckBackward }
   Function CheckBackward(const Node: TCFGNode; out Current: TCFGNode): Boolean;
-  Var LastAssign: PExpressionNode;
+  {Var LastAssign: PExpressionNode;
       Symbol    : TSymbol;
   Begin
    // begin from parent
@@ -65,11 +66,13 @@ Var AnyChange: Boolean;
 
    Current := nil;
    Exit(False);
+  End;}
+  Begin
   End;
 
   { CheckForward }
   Function CheckForward(const Node: TCFGNode; out FoundNode: TCFGNode): Boolean;
-  Var VisitedNodes: TCFGNodeList;
+  {Var VisitedNodes: TCFGNodeList;
       Found       : Boolean = False;
 
     // Visit
@@ -100,11 +103,13 @@ Var AnyChange: Boolean;
    End;
 
    Exit(Found);
+  End;}
+  Begin
   End;
 
   { Visit }
   Procedure Visit(const Node: TCFGNode);
-  Var Edge, Tmp, Found: TCFGNode;
+  {Var Edge, Tmp, Found: TCFGNode;
   Begin
    if (Node = nil) or (VisitedNodes.IndexOf(Node) <> -1) Then
     Exit;
@@ -133,6 +138,8 @@ Var AnyChange: Boolean;
 
    For Edge in Node.Edges Do
     Visit(Edge);
+  End;}
+  Begin
   End;
 
 Begin

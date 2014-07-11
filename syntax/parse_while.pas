@@ -11,7 +11,7 @@ Unit Parse_WHILE;
  Procedure Parse_DO_WHILE(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, ExpressionCompiler, Tokens, Messages, Opcodes, FlowGraph;
+Uses HLCompiler, Tokens, Messages, Opcodes, FlowGraph;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
@@ -22,7 +22,7 @@ Begin
   eat(_BRACKET1_OP); // (
 
   (* parse loop condition *)
-  ConditionNode := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeExpression(CompilerPnt, [_BRACKET1_CL]));
+  ConditionNode := getCurrentFunction.createNode(fCurrentNode, cetCondition, readExpression([_BRACKET1_CL]));
   CondFalse     := getCurrentFunction.createNode(ConditionNode, next_pnt); // dummy
 
   ConditionNode.isVolatile := True;
@@ -84,7 +84,7 @@ Begin
   eat(_WHILE);
   eat(_BRACKET1_OP);
 
-  ConditionNode.Value := MakeExpression(CompilerPnt, [_BRACKET1_CL]);
+  ConditionNode.Value := readExpression([_BRACKET1_CL]);
 
   (* do magic *)
   BaseNodeLast.Edges.Add(ConditionNode);

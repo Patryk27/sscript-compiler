@@ -12,9 +12,9 @@ Unit HLCompiler;
       Parse_NAMESPACE, Parse_TYPE, Parse_TRY_CATCH, Parse_THROW, Parse_FOREACH;
 
  { constants }
- Const Version = '2.2.4 nightly';
+ Const Version = '2.2.5 nightly';
        vMajor  = 2.2;
-       vMinor  = 4;
+       vMinor  = 5;
 
  { types }
  Type TCompiler = class;
@@ -22,7 +22,7 @@ Unit HLCompiler;
  Type EHLCompilerException = Class(Exception);
 
  Type TOpcodeList = specialize TFPGList<PMOpcode>;
- Type TCompilePass = (_cp1, _cp2); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `_cp3` enum
+ Type TCompilePass = (_cp1, _cp2, _cp3); // third pass is the actual function compiling; as it's performed at the end of each function, there's no need for an additional `_cp3` enum
 
  Type TCompilerArray = Array of TCompiler;
       PCompilerArray = ^TCompilerArray;
@@ -89,6 +89,8 @@ Unit HLCompiler;
 
         ParsingFORInitInstruction, ParsingForeachHeader: Boolean;
 
+        ExpressionCompiler: TExpressionCompiler;
+
        Public { properties }
         Property getCurrentRoot: TCFGNode read fCurrentRoot;
      // Property getCurrentNode: TCFGNode read fCurrentNode;
@@ -97,6 +99,7 @@ Unit HLCompiler;
         Property getCurrentFunction: TFunction read CurrentFunction;
 
         Property getScanner: TScanner read Scanner;
+        Property getExpressionCompiler: TExpressionCompiler read ExpressionCompiler;
 
        Public { methods }
         Function SearchFile(const FileName: String; out Found: Boolean): String;
@@ -111,8 +114,8 @@ Unit HLCompiler;
         Procedure ParseCodeBlock(const AllowOneTokenOnly: Boolean=False);
 
        { bytecode }
-        Function PutOpcode(fOpcode: TOpcode_E; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
-        Function PutOpcode(Opcode: TOpcode_E): PMOpcode;
+        Function PutOpcode(fOpcode: TOpcodeKind; fArgs: Array of Const; fToken: PToken_P=nil): PMOpcode;
+        Function PutOpcode(Opcode: TOpcodeKind): PMOpcode;
         Function PutOpcode(Opcode: String; Args: Array of Const; fToken: PToken_P=nil): PMOpcode;
         Function PutLabel(fName: String; const asNode: Boolean=False): PMOpcode;
         Procedure PutComment(fComment: String);
@@ -181,7 +184,7 @@ Unit HLCompiler;
  Function CopyStringToPChar(const Str: String): PChar;
 
  Implementation
-Uses LLCompiler, ExpressionCompiler, ExpressionParser, PeepholeOptimizer;
+Uses LLCompiler, ExpressionParser, PeepholeOptimizer;
 
 (* ReplaceDirSep *)
 {
@@ -344,16 +347,17 @@ Begin
 
     // special registers
     Case Arg.Typ of
-     ptBoolReg: if (Arg.Value = 5) Then Reg := 'if';
-     ptIntReg : if (Arg.Value = 5) Then Reg := 'stp';
+     ptBoolReg: if (Arg.Value = 6) Then Reg := 'if';
+     ptIntReg : if (Arg.Value = 6) Then Reg := 'stp';
 
      ptStackVal: Reg += ']';
     End;
 
     // other types
     Case Arg.Typ of
-     ptLabelAbsoluteReference: Reg := '@'+Arg.Value;
+     ptChar                  : Reg := '#'+VarToStr(Arg.Value);
      ptString                : Reg := '"'+Arg.Value+'"';
+     ptLabelAbsoluteReference: Reg := '@'+Arg.Value;
     End;
 
     Line += Reg+',';
@@ -526,7 +530,7 @@ Begin
     else
     Begin
      Dec(TokenPos);
-     Node := getCurrentFunction.createNode(fCurrentNode, cetExpression, ExpressionCompiler.MakeExpression(self)); // parse as expression
+     Node := getCurrentFunction.createNode(fCurrentNode, cetExpression, Scanner.readExpression); // parse as expression
      CFGAddNode(Node);
     End;
    End;
@@ -603,7 +607,7 @@ End;
  Creates an opcode basing on parameter list and adds it into the opcode list.
  When opcode is invalid, displays `eBytecode_InvalidOpcode`
 }
-Function TCompiler.PutOpcode(fOpcode: TOpcode_E; fArgs: Array of const; fToken: PToken_P): PMOpcode;
+Function TCompiler.PutOpcode(fOpcode: TOpcodeKind; fArgs: Array of const; fToken: PToken_P): PMOpcode;
 Var I, T: Integer;
     Str : String;
     iTmp: Int64;
@@ -612,13 +616,19 @@ Var I, T: Integer;
 
     DoCheck: Boolean;
 Begin
- DoCheck := (fToken <> nil); // check only bytecode written by user
+ DoCheck := (fToken <> nil); // check only bytecode written by user (assume compiler knows what it's doing)
 
  if (fToken = nil) Then
  Begin
   if (inFunction) and (fCurrentNode <> nil) Then
-   fToken := fCurrentNode.getToken Else
-   fToken := Scanner.next_pnt;
+  Begin
+   fToken := fCurrentNode.getToken;
+  End Else
+  Begin
+   if (inFunction) Then
+    fToken := Scanner.next_pnt(-1) Else
+    fToken := Scanner.next_pnt;
+  End;
  End;
 
  New(Item);
@@ -627,7 +637,9 @@ Begin
   isLabel    := False; // opcode cannot be a label
   isComment  := False; // nor a comment
   isFunction := False; // nor a function label
-  Token      := fToken;
+
+  Token    := fToken;
+  Compiler := self;
 
   Opcode := fOpcode;
   SetLength(Args, Length(fArgs));
@@ -670,21 +682,31 @@ Begin
        raise EHLCompilerException.CreateFmt('Unknown register: %s', [Str]);
      End;
 
-     Value := Str[3]; // register id
+     Value := ord(Str[3]) - ord('0'); // register id
+
+     if (Value > 5) Then
+      raise EHLCompilerException.CreateFmt('Unknown register: %s', [Str]);
     End Else
 
-    // register: stp
+    // special register: stp
     if (Str = 'stp') Then
     Begin
      Typ   := ptIntReg;
-     Value := 5;
+     Value := 6;
     End Else
 
-    // register: if
+    // special register: if
     if (Str = 'if') Then
     Begin
      Typ   := ptBoolReg;
-     Value := 5;
+     Value := 6;
+    End Else
+
+    // variable reference
+    if (Str[1] = '~') Then
+    Begin
+     Typ   := ptVariableRef;
+     Value := Copy(Str, 2, Length(Str));
     End Else
 
     // integer number
@@ -794,8 +816,6 @@ Begin
      raise EHLCompilerException.CreateFmt('Unknown parameter type (T=%d)', [T]);
    End;
   End;
-
-  Compiler := self;
  End;
 
  // check opcode
@@ -816,7 +836,7 @@ End;
 {
  Adds opcode `Opcode` without any parameters onto the list.
 }
-Function TCompiler.PutOpcode(Opcode: TOpcode_E): PMOpcode;
+Function TCompiler.PutOpcode(Opcode: TOpcodeKind): PMOpcode;
 Begin
  Result := PutOpcode(Opcode, []);
 End;
@@ -830,7 +850,7 @@ Begin
  if (GetOpcodeID(Opcode) = -1) Then
   CompileError(Scanner.next(-1), eBytecode_InvalidOpcode, []);
 
- Result := PutOpcode(TOpcode_E(GetOpcodeID(Opcode)), Args, fToken); // find opcode with name stored in variable (parameter) `Opcode` and then put it into the list
+ Result := PutOpcode(TOpcodeKind(GetOpcodeID(Opcode)), Args, fToken); // find opcode with name stored in variable (parameter) `Opcode` and then put it into the list
 End;
 
 (* TCompiler.PutLabel *)
@@ -1359,11 +1379,12 @@ Var VBytecode        : String = '';
   End;
 
   { CreateGlobalConstant }
-  Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: PExpressionNode);
+  Procedure CreateGlobalConstant(const cName: String; const cType: TType; const cExpr: TExpressionNode);
   Begin
    With NamespaceList.Last do
    Begin
     SymbolList.Add(TSymbol.Create(stConstant));
+
     With SymbolList.Last do
     Begin
      Name       := cName;
@@ -1373,7 +1394,7 @@ Var VBytecode        : String = '';
      With mVariable do
      Begin
       Typ   := cType;
-      Value := cExpr;
+      Value := cExpr as TConstantExpressionNode;
 
       Include(Attributes, vaConst);
      End;
@@ -1413,17 +1434,43 @@ Var VBytecode        : String = '';
    { create global constants }
    With NamespaceList.Last do
    Begin
-    CreateGlobalConstant('null', TYPE_NULL, MakeNullExpression());
+    {$MACRO ON}
+    {$DEFINE PARAMETER_LIST := ExpressionCompiler, Scanner.next }
+    {$DEFINE __integer := TIntegerExpressionNode.Create}
+    {$DEFINE __float := TFloatExpressionNode.Create}
+    {$DEFINE __string := TStringExpressionNode.Create}
 
-    CreateGlobalConstant('__file', TYPE_STRING, MakeStringExpression(InputFile));
-    CreateGlobalConstant('__date', TYPE_STRING, MakeStringExpression(DateToStr(Date)));
-    CreateGlobalConstant('__time', TYPE_STRING, MakeStringExpression(TimeToStr(Time)));
-    CreateGlobalConstant('__major_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMajor)));
-    CreateGlobalConstant('__minor_version__', TYPE_STRING, MakeStringExpression(FloatToStr(vMinor)));
-    CreateGlobalConstant('__version__', TYPE_STRING, MakeStringExpression(Version));
+    CreateGlobalConstant('null', TYPE_NULL,
+                         __integer(PARAMETER_LIST, 0));
 
-    CreateGlobalConstant('__major__', TYPE_FLOAT, MakeFloatExpression(vMajor));
-    CreateGlobalConstant('__minor__', TYPE_FLOAT, MakeFloatExpression(vMinor));
+    CreateGlobalConstant('__file', TYPE_STRING,
+                         __string(PARAMETER_LIST, InputFile));
+
+    CreateGlobalConstant('__date', TYPE_STRING,
+                         __string(PARAMETER_LIST, DateToStr(Date)));
+
+    CreateGlobalConstant('__time', TYPE_STRING,
+                         __string(PARAMETER_LIST, TimeToStr(Time)));
+
+    CreateGlobalConstant('__major_version__', TYPE_STRING,
+                         __string(PARAMETER_LIST, FloatToStr(vMajor)));
+
+    CreateGlobalConstant('__minor_version__', TYPE_STRING,
+                         __string(PARAMETER_LIST, FloatToStr(vMinor)));
+
+    CreateGlobalConstant('__version__', TYPE_STRING,
+                         __string(PARAMETER_LIST, Version));
+
+    CreateGlobalConstant('__major__', TYPE_FLOAT,
+                         __float(PARAMETER_LIST, vMajor));
+
+    CreateGlobalConstant('__minor__', TYPE_FLOAT,
+                         __float(PARAMETER_LIST, vMinor));
+
+    {$UNDEF __string}
+    {$UNDEF __float}
+    {$UNDEF __integer}
+    {$UNDEF PARAMETER_LIST}
    End;
   End;
 
@@ -1437,30 +1484,20 @@ Var VBytecode        : String = '';
    End;
   End;
 
-  { Pass1 }
-  Procedure Pass1;
+  { NextPass }
+  Procedure NextPass(const ID: uint8; const Pass: TCompilePass);
   Begin
-   Log('Compilation pass 1');
+   Log('Compilation pass %d', [ID]);
    ResetScanner;
-   CompilePass := _cp1;
+   CompilePass := Pass;
 
    With Scanner do
+   Begin
     While (Can) Do
      ParseToken;
+   End;
   End;
-
-  { Pass2 }
-  Procedure Pass2;
-  Begin
-   Log('Compilation pass 2');
-   ResetScanner;
-   CompilePass := _cp2;
-
-   With Scanner do
-    While (Can) Do
-     ParseToken;
-  End;
-
+        var i: integer;
 Begin
  fInputFile  := ReplaceDirSep(fInputFile);
  fOutputFile := ReplaceDirSep(fOutputFile);
@@ -1473,6 +1510,8 @@ Begin
  Parent           := fParent;
  Supervisor       := fSupervisor;
  PreviousInstance := fPreviousInstance;
+
+ ExpressionCompiler := TExpressionCompiler.Create(self);
 
  PrevRootNodes := TCFGNodeList.Create;
 
@@ -1550,7 +1589,7 @@ Begin
   { add prolog code }
   if (CompileMode = cmApp) and (not isIncluded) Then
   Begin
-   PutOpcode(o_call, [':']); // dummy call, changed later
+   PutOpcode(o_call, [AnsiString(':')]); // dummy call, changed later
    PutOpcode(o_stop); // and, if we back from main(), the program ends (virtual machine stops).
   End;
 
@@ -1561,10 +1600,15 @@ Begin
   Scanner.CurrentDeep := 0;
 
   { compile code }
-  Pass1;
+  NextPass(1, _cp1);
 
   if (not AnyError) and (not Pass1Only) Then
-   Pass2;
+  Begin
+   NextPass(2, _cp2);
+
+   if (not AnyError) Then
+    NextPass(3, _cp3);
+  End;
 
   { go next? }
   if (not isIncluded) and (AnyError) Then

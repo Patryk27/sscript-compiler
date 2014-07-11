@@ -121,13 +121,15 @@ Begin
    oCurrent := pCurrent^;
    oNext    := pNext^;
 
+   // skip labels, comments and special opcodes
    if (oCurrent.isLabel) or (oCurrent.isComment) or (oCurrent.Opcode in [o_bool, o_char, o_int, o_float, o_string]) Then
    Begin
     Inc(Pos);
     Continue;
    End;
 
-   if (oCurrent.Compiler = nil) or (oNext.Compiler = nil) Then // don't optimize bytecode imported from libraries (it could break labels' addresses)
+   // don't optimize bytecode imported from libraries (it could break labels' addresses)
+   if (oCurrent.Compiler = nil) Then
    Begin
     Inc(Pos);
     Continue;
@@ -234,6 +236,35 @@ Begin
    End;
 
    {
+    push(imm/reg)
+    arget/arset(reg/stack, 1, reg/stack)
+    ->
+    arget1/arset1(reg/stack, imm/reg, reg/stack)
+   }
+   if (oCurrent.Opcode = o_push) and (oNext.Opcode in [o_arget, o_arset]) Then
+   Begin
+    if (oNext.Args[1].Value = 1) Then
+    Begin
+     OpcodeList.Remove(pCurrent);
+
+     if (oNext.Opcode = o_arget) Then
+      pNext^.Opcode := o_arget1 Else
+      pNext^.Opcode := o_arset1;
+
+     pNext^.Args[1] := oCurrent.Args[0];
+
+     // as we've just removed a "push" opcode, we need to correct the stack positions
+     if (pNext^.Args[0].Typ = ptStackval) Then
+      pNext^.Args[0].Value += 1;
+
+     if (pNext^.Args[2].Typ = ptStackval) Then
+      pNext^.Args[2].Value += 1;
+
+     Continue;
+    End;
+   End;
+
+   {
     Copy propagation
 
     mov(register, value)
@@ -324,6 +355,9 @@ Begin
       }
       Break;
      End;
+
+     if (oTmp.Opcode in [o_if_e, o_if_ne, o_if_g, o_if_l, o_if_ge, o_if_le]) and (oCurrent.Args[1].Typ = ptBoolReg) and (oCurrent.Args[1].Value = 6) Then
+      Break;
 
      { optimize }
      For I := Low(oTmp.Args) To High(oTmp.Args) Do

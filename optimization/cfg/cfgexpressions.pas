@@ -2,6 +2,7 @@
  Copyright © by Patryk Wychowaniec, 2014
  All rights reserved.
 *)
+{$WARNING unimplemented: TCFGExpressionOptimization}
 Unit CFGExpressions;
 
  Interface
@@ -33,8 +34,8 @@ Unit CFGExpressions;
              TVarData =
              Record
               Symbol: Pointer;
-              SSAID : TSSAVarID;
-              Value : PExpressionNode;
+             // SSAID : TSSAVarID;
+              Value : TExpressionNode;
              End;
 
         // TVarList
@@ -49,8 +50,8 @@ Unit CFGExpressions;
         Handler: THandler;
 
        Private
-        Function cp_findVarData(const Symbol: Pointer; const SSAID: TSSAVarID): PVarData;
-        Procedure cp_VisitExpression(const Node: PExpressionNode);
+        //Function cp_findVarData(const Symbol: Pointer; const SSAID: TSSAVarID): PVarData;
+        Procedure cp_VisitExpression(const Node: TExpressionNode);
 
         Procedure VisitNode(const Node: TCFGNode);
 
@@ -62,11 +63,12 @@ Unit CFGExpressions;
        End;
 
  Implementation
-Uses CommandLine, ExpressionCompiler;
+Uses CommandLine;
 
 (* TCFGExpressionSimplification.VisitNode *)
 Procedure TCFGExpressionSimplification.VisitNode(const Node: TCFGNode);
-Var Edge: TCFGNode;
+Var OldNode: TExpressionNode;
+    Edge   : TCFGNode;
 Begin
  if (Node = nil) or (VisitedNodes.IndexOf(Node) > -1) Then
   Exit;
@@ -75,7 +77,11 @@ Begin
  if (Node.Value <> nil) Then
  Begin
   Compiler.fCurrentNode := Node;
-  Optimized             := Optimized or ExpressionCompiler.OptimizeExpression(Compiler, Node.Value, [oTreeSimplification]);
+
+  OldNode    := Node.Value;
+  Node.Value := Node.Value.Optimize();
+  Optimized  := Optimized or (Node.Value.getCost < OldNode.getCost);
+  OldNode.Free;
  End;
 
  For Edge in Node.Edges Do
@@ -100,19 +106,19 @@ End;
 // -------------------------------------------------------------------------- //
 
 (* TCFGExpressionOptimization.cp_findVarData *)
-Function TCFGExpressionOptimization.cp_findVarData(const Symbol: Pointer; const SSAID: TSSAVarID): PVarData;
+{Function TCFGExpressionOptimization.cp_findVarData(const Symbol: Pointer; const SSAID: TSSAVarID): PVarData;
 Begin
  For Result in VarList Do
   if (Result^.Symbol = Symbol) and (Result^.SSAID = SSAID) Then
    Exit;
 
  Exit(nil);
-End;
+End;}
 
 (* TCFGExpressionOptimization.cp_VisitExpression *)
-Procedure TCFGExpressionOptimization.cp_VisitExpression(const Node: PExpressionNode);
-Var VarData: PVarData;
-    Param  : PExpressionNode;
+Procedure TCFGExpressionOptimization.cp_VisitExpression(const Node: TExpressionNode);
+{Var VarData: PVarData;
+    Param  : TExpressionNode;
 Begin
  if (Node = nil) Then
   Exit;
@@ -166,6 +172,8 @@ Begin
 
  For Param in Node^.ParamList Do
   cp_VisitExpression(Param);
+End;}
+Begin
 End;
 
 (* TCFGExpressionOptimization.VisitNode *)
@@ -185,10 +193,14 @@ End;
 
 (* TCFGExpressionOptimization.ConstantFolding *)
 Procedure TCFGExpressionOptimization.ConstantFolding(const Node: TCFGNode);
+Var OldNode: TExpressionNode;
 Begin
  if (Node.Value <> nil) Then
  Begin
-  Optimized := Optimized or ExpressionCompiler.OptimizeExpression(Compiler, Node.Value, [oInsertConstants, oConstantFolding]);
+  OldNode    := Node.Value;
+  Node.Value := Node.Value.Evaluate();
+  Optimized  := Optimized or (Node.Value.getCost < OldNode.getCost);
+  OldNode.Free;
  End;
 End;
 

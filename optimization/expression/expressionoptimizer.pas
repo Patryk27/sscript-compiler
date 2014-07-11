@@ -12,10 +12,10 @@ Unit ExpressionOptimizer;
       Class (TOptimizer)
        Private
        Public
-        Function Execute(var Node: PExpressionNode): Boolean; virtual; abstract;
+        Function Execute(var Node: TExpressionNode): Boolean; virtual; abstract;
        End;
 
- { TOperatorSimplifyData }
+ {{ TOperatorSimplifyData }
  Type TOperatorSimplifyData =
       Record
        Before, After: TExpressionNodeType;
@@ -54,7 +54,7 @@ Unit ExpressionOptimizer;
   (Before: mtGreater; After: mtLowerEqual),
   (Before: mtLowerEqual; After: mtGreater),
   (Before: mtGreaterEqual; After: mtLower)
- );
+ );}
 
  Implementation
 

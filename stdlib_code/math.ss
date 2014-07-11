@@ -14,7 +14,7 @@ namespace std
   {
    push(%x)
    icall("math.cos")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -24,7 +24,7 @@ namespace std
   {
    push(%x)
    icall("math.sin")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -34,7 +34,7 @@ namespace std
   {
    push(%x)
    icall("math.tan")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -44,7 +44,7 @@ namespace std
   {
    push(%x)
    icall("math.acos")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -54,7 +54,7 @@ namespace std
   {
    push(%x)
    icall("math.asin")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -64,7 +64,7 @@ namespace std
   {
    push(%x)
    icall("math.atan")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -74,7 +74,7 @@ namespace std
   {
    sub(stp, 1)
    icall("math.atan2")
-   pop(ef1)
+   pop(ef0)
    add(stp, 3)
   }
  }
@@ -86,7 +86,7 @@ namespace std
   {
    push(%x)
    icall("math.cosh")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -96,7 +96,7 @@ namespace std
   {
    push(%x)
    icall("math.sinh")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -106,7 +106,7 @@ namespace std
   {
    push(%x)
    icall("math.tanh")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -116,7 +116,7 @@ namespace std
   {
    push(%x)
    icall("math.acosh")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -126,7 +126,7 @@ namespace std
   {
    push(%x)
    icall("math.asinh")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -136,7 +136,7 @@ namespace std
   {
    push(%x)
    icall("math.atanh")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -147,7 +147,7 @@ namespace std
   {
    push(%x)
    icall("math.exp")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -157,7 +157,7 @@ namespace std
   {
    sub(stp, 1)
    icall("math.log")
-   pop(ef1)
+   pop(ef0)
    add(stp, 3)
   }
  }
@@ -178,7 +178,7 @@ namespace std
   {
    push(%x)
    icall("math.ln")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -210,7 +210,7 @@ namespace std
   {
    push(%x)
    icall("math.sqrt")
-   pop(ef1)
+   pop(ef0)
   }
  }
 
@@ -223,7 +223,7 @@ namespace std
  function<int> round(float f) naked
  {
   :CODE
-   mov(ei1, [-1])
+   mov(ei0, [-1])
  }
 
  function<int> round_up(float f) naked
@@ -232,7 +232,7 @@ namespace std
   {
    mov(ef1, [-1])
    add(ef1, 0.5)
-   mov(ei1, ef1)
+   mov(ei0, ef1)
   }
  }
 
@@ -242,7 +242,7 @@ namespace std
   {
    mov(ef1, [-1])
    sub(ef1, 0.5)
-   mov(ei1, ef1)
+   mov(ei0, ef1)
   }
  }
 
@@ -250,9 +250,10 @@ namespace std
  {
   :CODE
   {
-   mul([-1], 10)
-   mov(ei1, [-1])
-   div(ei1, 10)
+   mov(ef1, [-1])
+   mul(ef1, 10)
+   mov(ei0, ef1)
+   div(ei0, 10)
   }
  }
 

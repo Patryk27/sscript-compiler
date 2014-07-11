@@ -52,14 +52,9 @@ namespace std
  }
 
  /* ===== string ===== */
- function<int> strlen(string str) naked 
- {
-  :CODE strlen(%str, ei1)
- }
-
  function<int> strcount(string text, char sep)
  {
-  var<int> count = 0, len = strlen(text);
+  var<int> count = 0, len = text.length();
 
   for (var<int> i=1; i<=len; i++)
    if (text[i] == sep)
@@ -72,7 +67,7 @@ namespace std
  {
   var<string> str = "";
   
-  for (var<int> i=strlen(text); i>=1; i--)
+  for (var<int> i=text.length(); i>=1; i--)
    str += text[i];
    
   return str;
@@ -81,15 +76,15 @@ namespace std
  function<string> strcopy(string text, int begin, int length)
  {
   if (begin < 0) // negative `begin`
-   begin = strlen(text)+begin+1;
+   begin = text.length()+begin+1;
 
   if ((begin < 0) || (length < 0)) // invalid length
    return "";
 
   var<int> end = begin+length-1;
 
-  if (end > strlen(text)) // too long
-   end = strlen(text);
+  if (end > text.length()) // too long
+   end = text.length();
 
   var<string> result = "";
   for (var<int> i=begin; i<=end; i++) // copy string char-by-char
@@ -101,27 +96,27 @@ namespace std
  function<string> strdelete(string text, int begin, int length)
  {
   if (begin < 0)
-   return strdelete(text, strlen(text)+begin+1, length);
+   return strdelete(text, text.length()+begin+1, length);
 
   return strcopy(text, 1, begin-1)+
-         strcopy(text, begin+length, strlen(text));
+         strcopy(text, begin+length, text.length());
  }
 
  function<string> strdelete_begin(string text, int count)
  {
-  return strcopy(text, count, strlen(text));
+  return strcopy(text, count, text.length());
  }
 
  function<string> strdelete_end(string text, int count)
  {
-  return strdelete(text, strlen(text)-count, count);
+  return strdelete(text, text.length()-count, count);
  }
 
  function<int> strpos(string search, string text, int begin=1)
  {                   
   var<int> index = 0;
-  var<int> len = strlen(text);
-  var<int> slen = strlen(search);
+  var<int> len = text.length();
+  var<int> slen = search.length();
         
   if ((slen > len) || (slen == 0))
    return 0;
@@ -164,9 +159,9 @@ namespace std
  {
   while (isspace(text[1]))
   {
-   text = strcopy(text, 2, strlen(text));
+   text = strcopy(text, 2, text.length());
 
-   if (strlen(text) == 0)
+   if (text.length() == 0)
     return "";
   }
 
@@ -177,7 +172,7 @@ namespace std
  {
   while (true)
   {
-   var<int> i = strlen(text);
+   var<int> i = text.length();
  
    if (i == 0)
     return "";
@@ -199,7 +194,7 @@ namespace std
  {
   while (true)
   {
-   if (strlen(text) == 0)
+   if (text.length() == 0)
     return "";
 
    if (text[1] == ch)
@@ -214,7 +209,7 @@ namespace std
  {
   while (true)
   {
-   var<int> i = strlen(text);
+   var<int> i = text.length();
 
    if (i == 0)
     return "";
@@ -229,7 +224,7 @@ namespace std
 
  function<string> strupper(string text)
  {
-  var<int> len = strlen(text);
+  var<int> len = text.length();
   for (var<int> i=1; i<=len; i++)
    text[i] = chupper(text[i]);
 
@@ -238,7 +233,7 @@ namespace std
 
  function<string> strlower(string text)
  {
-  var<int> len = strlen(text);
+  var<int> len = text.length();
  
   for (var<int> i=1; i<=len; i++)
    text[i] = chlower(text[i]);
@@ -258,8 +253,8 @@ namespace std
 
  function<bool> strstarts(string text, string str)
  {
-  var<int> len = strlen(str);
-  var<int> len2 = strlen(text);
+  var<int> len = str.length();
+  var<int> len2 = text.length();
   
   if (len > len2)
    return false;
@@ -276,8 +271,8 @@ namespace std
 
  function<bool> strends(string text, string str)
  {
-  var<int> len = strlen(str);
-  var<int> len2 = strlen(text);
+  var<int> len = str.length();
+  var<int> len2 = text.length();
   
   if (len > len2)
    return false;
@@ -294,8 +289,8 @@ namespace std
 
  function<string> strinsert(string text, string what, int at)
  {
-  var<int> len = strlen(what);
-  var<int> len2 = strlen(text);
+  var<int> len = what.length();
+  var<int> len2 = text.length();
   
   if (at > len2) // too far
    at = len2;
@@ -313,7 +308,7 @@ namespace std
   while (true)
   {
    var<int> pos = strpos(search, text);
-   var<int> slen = strlen(search);
+   var<int> slen = search.length();
   
    if (pos == 0) // `search` not found
     return text;
@@ -333,8 +328,8 @@ namespace std
   if (count <= 0)
    return "";
 
-  if (count > strlen(text))
-   count = strlen(text);
+  if (count > text.length())
+   count = text.length();
 
   for (var<int> i=1; i<=count; i++)
    str += text[i];
@@ -344,7 +339,7 @@ namespace std
 
  function<string> strright(string text, int count)
  {
-  var<int> len = strlen(text);
+  var<int> len = text.length();
   var<string> str = "";
 
   if (count <= 0)
@@ -366,8 +361,8 @@ namespace std
    return (c1 == c2);
   } else
   {
-   var<int> len1 = strlen(c1);
-   var<int> len2 = strlen(c2); 
+   var<int> len1 = c1.length();
+   var<int> len2 = c2.length();
 
    if (len1 != len2)
     return false;
@@ -393,7 +388,7 @@ namespace std
   var<int> result_pos = 0;
 
   var<string> current = "";
-  var<int> len = strlen(text);
+  var<int> len = text.length();
 
   for (var<int> i=1; i<=len; i++)
   {
@@ -429,17 +424,17 @@ namespace std
 
  function<string> streach(string text, function<char>(char) func)
  {
-  var<int> len = strlen(text);
+  var<int> len = text.length();
 
   for (var<int> i=1; i<=len; i++)
    text[i] = func(text[i]);
 
   return text;
- }
+ } 
 
  function<char[]> stringarray(string text)
  {
-  var<int> len = strlen(text);
+  var<int> len = text.length();
   var<char[]> arr = new char[len];
 
   for (var<int> i=0; i<len; i++)

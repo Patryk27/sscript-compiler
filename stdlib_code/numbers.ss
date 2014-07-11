@@ -45,7 +45,7 @@ namespace std
   if ((base < 2) || (base > 35))
    throw "Invalid numeric base: "+intsys(base, 10);
 
-  if (strlen(num) == 0)
+  if (num.length() == 0)
    return 0;
 
   var<int> result=0, tmp=0;
@@ -59,7 +59,7 @@ namespace std
   if ((num == "") || (num == "0"))
    return 0;
   
-  var<int> len = strlen(num);
+  var<int> len = num.length();
   for (var<int> i=1; i<=len; i++)
   {
    var<char> ch = num[i];
@@ -184,7 +184,7 @@ namespace std
   if (dot > 0)
   {
    wholePart = strcopy(str, 1, dot-1);
-   decimalPart = strtrim(strcopy(str, dot+1, strlen(str)));
+   decimalPart = strtrim(strcopy(str, dot+1, str.length()));
   } else
   {
    wholePart = str;
@@ -193,7 +193,7 @@ namespace std
   left = strint(wholePart);
  
   if (decimalPart != "")
-   right = strint(decimalPart)/power(10, strlen(decimalPart));
+   right = strint(decimalPart)/power(10, decimalPart.length());
 
   return left+right;
  }

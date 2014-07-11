@@ -10,7 +10,7 @@ Unit Parse_CODE;
  Procedure Parse(const CompilerPnt: Pointer; const DirectBytecode: Boolean=False);
 
  Implementation
-Uses HLCompiler, ExpressionParser, Messages, Tokens, Opcodes, FlowGraph, symdef;
+Uses HLCompiler, Expression, Messages, Tokens, Opcodes, FlowGraph, symdef;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer; const DirectBytecode: Boolean=False);
@@ -153,7 +153,7 @@ Begin
           Begin
            if (isConst) and (Value <> nil) Then
            Begin
-            Arg := getValueFromExpression(Value);
+            Arg := TConstantExpressionNode(Value).getValue;
            End Else
            Begin
             Attributes += [vaVolatile]; // optimizer could remove this variable or do any other optimization to it, which could break the user's bytecode, so we're just letting optimizer know, that it mustn't do anything with this variable
@@ -165,8 +165,8 @@ Begin
           With Variable do
           Begin
            if (isConst) Then
-            Arg := getValueFromExpression(Value) Else
-            Arg := Variable.getAllocationPos;
+            Arg := TConstantExpressionNode(Value).getValue Else
+            Arg := Format('~%d', [uint32(Variable)]);
           End;
          End;
         End;

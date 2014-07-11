@@ -7,7 +7,8 @@ Unit Serialization;
  Interface
  Uses Variants, SysUtils, FGL;
 
- Type EInvalidSerializedData = class(Exception);
+ { ESerializerException }
+ Type ESerializerException = class(Exception);
 
  Type TNode = class;
       TNodeList = specialize TFPGList<TNode>;
@@ -30,12 +31,14 @@ Unit Serialization;
 
         Function getChild(const Index: uint32): TNode;
 
-        Function getString: String;
+        Function getBool: Boolean;
+        Function getChar: Char;
         Function getInt: int64;
         Function getFloat: Extended;
-        Function getBool: Boolean;
+        Function getString: String;
+
         Function getVariant: Variant;
-        Function getExpression: Pointer;
+        Function getExpression(const HLCompiler: TObject): TObject;
 
        Public
         Property getType: TNodeType read Typ;
@@ -59,7 +62,7 @@ Unit Serialization;
        End;
 
  Implementation
-Uses Expression;
+Uses HLCompiler, Expression;
 
 (* TNode.Create *)
 Constructor TNode.Create;
@@ -92,10 +95,25 @@ Begin
  Result := Children[Index];
 End;
 
-(* TNode.getString *)
-Function TNode.getString: String;
+(* TNode.getBool *)
+Function TNode.getBool: Boolean;
+Var Str: String;
 Begin
- Result := Value;
+ Str := LowerCase(Value);
+
+ if (Str = 'true') Then
+  Exit(True);
+
+ if (Str = 'false') Then
+  Exit(False);
+
+ Result := (getInt  = 1);
+End;
+
+(* TNode.getChar *)
+Function TNode.getChar: Char;
+Begin
+ Result := Char(getInt);
 End;
 
 (* TNode.getInt *)
@@ -110,10 +128,10 @@ Begin
  Result := StrToFloat(Value);
 End;
 
-(* TNode.getBool *)
-Function TNode.getBool: Boolean;
+(* TNode.getString *)
+Function TNode.getString: String;
 Begin
- Result := (LowerCase(getString) = 'true') or (getInt = 1);
+ Result := Value;
 End;
 
 (* TNode.getVariant *)
@@ -144,9 +162,15 @@ Begin
 End;
 
 (* TNode.getExpression *)
-Function TNode.getExpression: Pointer;
+Function TNode.getExpression(const HLCompiler: TObject): TObject;
+Var Compiler: TCompiler absolute HLCompiler;
 Begin
- Result := TExpressionNode.Create(self);
+ if (Length(Value) = 0) Then
+  Exit(nil);
+
+ if (HLCompiler is TCompiler) Then
+  Result := TConstantExpressionNode.Create(Compiler.getExpressionCompiler, Compiler.getScanner.next, self) Else
+  raise ESerializerException.CreateFmt('HLCompiler is not a HLCompiler.TCompiler class instance! (got: %s)', [HLCompiler.ClassName]);
 End;
 
 // -------------------------------------------------------------------------- //
@@ -214,12 +238,14 @@ Var Position: uint32 = 1;
      Inc(Position);
     End;
    End Else
-    raise EInvalidSerializedData.CreateFmt('Expected node opening at %d in "%s"', [Position, SerializedData]);
+   Begin
+    raise ESerializerException.CreateFmt('Expected node opening at %d in "%s"', [Position, SerializedData]);
+   End;
   End;
 
 Begin
  if (Length(SerializedData) = 0) Then
-  raise EInvalidSerializedData.Create('Input string is empty!');
+  raise ESerializerException.Create('Input string is empty!');
 
  Root := ReadNode;
 End;

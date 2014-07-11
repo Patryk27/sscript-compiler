@@ -166,7 +166,7 @@ Begin
  // decrement counter
  Dec(Position);
 
- // shrink array, if more than 50 elements are unused (empty)
+ // shrink array if more than 50 elements are unused (empty)
  if (uint32(Length(Data)) - Position > 50) Then
   SetLength(Data, Length(Data)-50);
 End;

@@ -9,7 +9,7 @@ Unit Parse_FOREACH;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, ExpressionCompiler, FlowGraph, Messages, symdef, Tokens;
+Uses HLCompiler, FlowGraph, Messages, symdef, Tokens;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
@@ -80,7 +80,7 @@ Begin
 
   eat(_IN); // `in`
 
-  Foreach.Value := MakeExpression(CompilerPnt, [_BRACKET1_CL]);
+  Foreach.Value := readExpression([_BRACKET1_CL]);
 
   (* parse loop content *)
   setNewRootNode(Content);

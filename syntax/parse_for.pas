@@ -10,7 +10,7 @@ Unit Parse_FOR;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, ExpressionCompiler, ExpressionParser, Tokens, Messages, Opcodes, FlowGraph;
+Uses HLCompiler, Expression, Tokens, Messages, Opcodes, FlowGraph;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
@@ -29,17 +29,20 @@ Begin
   ParsingFORInitInstruction := True;
   if (next_t in [_VAR, _SEMICOLON]) Then
    ParseToken Else
-   CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetExpression, MakeExpression(CompilerPnt)));
+   CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetExpression, readExpression()));
   ParsingFORInitInstruction := False;
 
   (* parse condition *)
   if (next_t = _SEMICOLON) Then
   Begin
    eat(_SEMICOLON);
-   Condition            := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeBoolExpression(True, next_pnt(-1)));
+
+   Condition            := getCurrentFunction.createNode(fCurrentNode, cetCondition, TBooleanExpressionNode.Create(getExpressionCompiler, next(-1), True));
    Condition.isVolatile := True; // the branch optimizer would enter an infinite loop trying to optimize this
   End Else
-   Condition := getCurrentFunction.createNode(fCurrentNode, cetCondition, MakeExpression(CompilerPnt, [_SEMICOLON]));
+  Begin
+   Condition := getCurrentFunction.createNode(fCurrentNode, cetCondition, readExpression([_SEMICOLON]));
+  End;
 
   (* parse step instruction *)
   if (next_t = _BRACKET1_CL) Then
@@ -47,7 +50,9 @@ Begin
    eat(_BRACKET1_CL);
    Step := nil;
   End Else
-   Step := getCurrentFunction.createNode(fCurrentNode, cetExpression, MakeExpression(CompilerPnt, [_BRACKET1_CL]));
+  Begin
+   Step := getCurrentFunction.createNode(fCurrentNode, cetExpression, readExpression([_BRACKET1_CL]));
+  End;
 
   (* parse loop's content *)
   setNewRootNode(Content);

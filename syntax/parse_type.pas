@@ -9,40 +9,47 @@ Unit Parse_TYPE;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, ExpressionParser, Messages, Tokens, symdef;
+Uses HLCompiler, Expression, Messages, Tokens, symdef;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
 Var Typ          : TType;
     isEnum       : Boolean = False;
     EnumItem     : TVariable;
-    EnumPrevValue: Int64 = -1;
+    EnumPrevValue: int64 = -1;
     SymbolList   : TSymbolList;
 Begin
  With TCompiler(CompilerPnt), getScanner do
  Begin
-  if (not ((CompilePass = _cp1) or (inFunction))) Then // `type` is parsed in the first pass or inside function
+  // types are parsed in the first pass or inside a function
+  if (not ((CompilePass = _cp1) or (inFunction))) Then
   Begin
    read_until(_SEMICOLON);
    Exit;
   End;
 
+  // get proper symbol list
   if (inFunction) Then
    SymbolList := getCurrentFunction.SymbolList Else
    SymbolList := getCurrentNamespace.SymbolList;
 
-  eat(_LOWER); // `<`
+  // eat `<`
+  eat(_LOWER);
 
-  if (next_t = _ENUM) Then // if enum...
+  // special case: enumeration type
+  if (next_t = _ENUM) Then
   Begin
    eat(_ENUM);
    isEnum := True;
   End Else
-  Begin // regular type
-   Typ := read_type; // [type]
+
+  // regular type
+  Begin
+   Typ := read_type;
   End;
 
-  eat(_GREATER); // `>`
+  // eat `>`
+  eat(_GREATER);
 
   (* enum *)
   if (isEnum) Then
@@ -89,29 +96,35 @@ Begin
      RedeclarationCheck(Name);
     End;
 
+    // add new symbol onto the list
     SymbolList.Add(TSymbol.Create(stConstant, EnumItem));
 
-    if (next_t = _EQUAL) Then // if next token is `=`
+    // if next token is `=`
+    if (next_t = _EQUAL) Then
     Begin
-     eat(_EQUAL); // `=`
-     EnumItem.Value := MakeIntExpression(read_constant_expr_int);
+     eat(_EQUAL);
+     EnumItem.Value := readConstantIntExpression([_BRACKET2_CL, _COMMA]);
      Dec(TokenPos);
     End Else
     Begin
-     EnumItem.Value := MakeIntExpression(EnumPrevValue+1);
+     EnumItem.Value := TIntegerExpressionNode.Create(getExpressionCompiler, next(-1), EnumPrevValue+1);
     End;
 
-    Typ.EnumItemList.Add(EnumItem); // insert into list
+    // insert into list
+    Typ.EnumItemList.Add(EnumItem);
 
-    EnumPrevValue := EnumItem.Value^.Value;
+    EnumPrevValue := EnumItem.Value.getMixedValue.getInt;
 
-    if (next_t = _BRACKET2_CL) Then // if end
+    // if reached end of the enumeration list (']')
+    if (next_t = _BRACKET2_CL) Then
     Begin
-     eat(_BRACKET2_CL); // `]`
+     eat(_BRACKET2_CL);
      Break;
     End Else
+
+    // eat a comma and parse further otherwise
     Begin
-     eat(_COMMA); // `,`
+     eat(_COMMA);
     End;
    End;
   End Else

@@ -31,8 +31,8 @@ Var Func: TFunction; // our new function
 
     RemovedNodes: TCFGNodeList; // list of removed nodes
 
-  { NewConst } // (used to create internal constants, if enabled)
-  Procedure NewConst(const cName: String; cTyp: TType; cValue: PExpressionNode);
+  { NewConst } // used to create internal local constants
+  Procedure NewConst(const cName: String; const cTyp: TType; const cValue: TConstantExpressionNode);
   Var Variable: TVariable;
   Begin
    With TCompiler(CompilerPnt) do
@@ -66,83 +66,113 @@ Var Func: TFunction; // our new function
   Var I: Integer;
   Label SkipParamName;
   Begin
-   SetLength(Func.ParamList, 0); // every function has no parameters by the default
+   // clean parameter list
+   SetLength(Func.ParamList, 0);
 
    With TCompiler(CompilerPnt), getScanner, Func do
    Begin
-    eat(_BRACKET1_OP); // (
+    eat(_BRACKET1_OP); // eat `(`
 
-    if (next_t <> _BRACKET1_CL) Then // special case: empty parameter list (`()`)
+    // special case: empty parameter list (`()`)
+    if (next_t <> _BRACKET1_CL) Then
+    Begin
      While (true) Do
      Begin
-      SetLength(ParamList, Length(ParamList)+1); // resize the param array
+      // resize the parameter array
+      SetLength(ParamList, Length(ParamList)+1);
 
-      With ParamList[High(ParamList)] do // read parameter
+      // read parameter
+      With ParamList[High(ParamList)] do
       Begin
-       if (next_t = _CONST) { const } Then // is a const-param?
+       // is it a constant parameter?
+       if (next_t = _CONST) Then
        Begin
         read;
         Attributes += [vaConst];
         isConst := True;
        End Else
 
-       if (next_t = _VAR) { var } Then // is a var-param?
+       // is it a pass-by-ref parameter?
+       if (next_t = _VAR) Then
        Begin
         read;
         isVar := True;
        End;
 
-       Typ := read_type; // [param type]
+       // parse parameter type
+       Typ := read_type;
 
-       if (Typ.isVoid) Then // error: void-typed param
+       // ensure it's not a "void"-typed
+       if (Typ.isVoid) Then
         CompileError(eVoidParam, [Name]);
 
-       if (next_t in [_EQUAL, _COMMA, _BRACKET1_CL]) Then // if `=`, `,` or `)` is next...
+        // if `=`, `,` or `)` is next
+       if (next_t in [_EQUAL, _COMMA, _BRACKET1_CL]) Then
        Begin
         if (NamedParams = npYes) Then
-         CompileError(next, eExpectedIdentifier, [next.Value]) Else
-         Begin
-          NamedParams := npNo;
-          goto SkipParamName;
-         End;
+        Begin
+         CompileError(next, eExpectedIdentifier, [next.Value]);
+        End Else
+        Begin
+         NamedParams := npNo;
+         goto SkipParamName;
+        End;
        End;
 
        if (NamedParams = npNo) Then
         CompileError(next, eExpected, [',', next.Value]);
 
-       Name        := read_ident; // [param name]
+       // read parameter name
+       Name        := read_ident;
        NamedParams := npYes;
 
-       { check for duplicates }
+       // check for duplicats
        For I := Low(ParamList) To High(ParamList)-1 Do
+       Begin
         if (ParamList[I].Name = Name) Then
         Begin
-         CompileError(eRedeclaration, [Name]); // error: parameter has been redeclared
+         CompileError(eRedeclaration, [Name]);
          Break;
         End;
+       End;
 
       SkipParamName:
-       if (next_t = _EQUAL) Then // default parameter value specified
+       // check for default parameter value
+       if (next_t = _EQUAL) Then
        Begin
+        // eat '='
         eat(_EQUAL);
-        DefaultValue     := read_constant_expr;
-        DefaultValueType := getTypeFromExpression(DefaultValue);
+
+        // read and parse value
+        DefaultValue := readConstantExpression;
+
+        // move one token back
         Dec(TokenPos);
 
-        if (not DefaultValueType.CanBeAssignedTo(Typ)) Then
+        // fetch value type
+        if (DefaultValue is TConstantExpressionNode) Then
+         DefaultValueType := TType(TConstantExpressionNode(DefaultValue).getType) Else
+         DefaultValueType := nil;
+
+        // do type-check
+        if (DefaultValueType <> nil) and (not DefaultValueType.CanBeAssignedTo(Typ)) Then
          CompileError(eWrongType, [DefaultValueType.asString, Typ.asString]);
 
         RequireDefaultValue := True;
        End Else
+       Begin
         if (RequireDefaultValue) Then
          CompileError(eDefaultParamValueRequired, [Name]) Else
          DefaultValue := nil;
+       End;
       End;
 
+      // move further
       if (next_t = _BRACKET1_CL) Then
        Break Else
        eat(_COMMA); // parameters are separated by comma
      End;
+    End;
 
     eat(_BRACKET1_CL); // read remaining parenthesis
    End;
@@ -224,7 +254,7 @@ Var Func: TFunction; // our new function
 
      // optimize expression
      DevLog(dvInfo, 'Optimizing expressions...');
-     RunOptimizer(TCFGExpressionOptimization.Create(Compiler, Func, RemovedNodes)); // as it performs few optimizations at once, no "if" here @TODO
+     RunOptimizer(TCFGExpressionOptimization.Create(Compiler, Func, RemovedNodes)); // as it performs few optimizations at once, no "if" here (it itself decides what to do)
 
      // optimize branches
      if (CmdLine.getBoolSwitch(opt__optimize_branches)) Then
@@ -291,7 +321,7 @@ Var I           : Integer;
 Begin
  With TCompiler(CompilerPnt), getScanner do
  Begin
-  (* if first pass *)
+  (* first compilation pass: scanning of function headers *)
   if (CompilePass = _cp1) Then
   Begin
    if (PreviousInstance <> nil) Then
@@ -412,7 +442,8 @@ Begin
       mVariable.RefSymbol.DeclFunction  := nil;
       mVariable.RefSymbol.DeclNamespace := getCurrentNamespace;
       mVariable.Typ                     := CreateFunctionType(Func);
-      mVariable.Value                   := MakeIntExpression('@$function.'+IntToStr(uint32(Pointer(Func))));
+//      mVariable.Value                   := MakeIntExpression('@$function.'+IntToStr(uint32(Pointer(Func))));
+      {$WARNING unimplemented: creating corresponding global function variable}
 
       mVariable.Attributes += [vaConst, vaDontAllocate]; // const, don't allocate
 
@@ -425,13 +456,15 @@ Begin
 
     { add parameters }
     With Func do
+    Begin
      For I := Low(ParamList) To High(ParamList) Do
       __variable_create_stackpos(ParamList[I].Name, ParamList[I].Typ, -I-1, [vaFuncParam, vaDontAllocate]+ParamList[I].Attributes);
+    End;
 
     { add special constants (if `--internal-const` enabled) }
     if (CmdLine.getBoolSwitch(opt__internal_const)) Then
     Begin
-     NewConst('__self', TYPE_STRING, MakeStringExpression(Func.RefSymbol.Name));
+     NewConst('__self', TYPE_STRING, TStringExpressionNode.Create(getExpressionCompiler, next, Func.RefSymbol.Name));
     End;
    End;
 
@@ -439,21 +472,24 @@ Begin
    Exit;
   End Else
 
-  (* if second pass *)
+  (* second pass: parsing return and parameter types *)
   if (CompilePass = _cp2) Then
   Begin
-   if (next_t = _LOWER) Then // explicit user type
+   // explicit user return type
+   if (next_t = _LOWER) Then
    Begin
     eat(_LOWER);
     TmpType := read_type; // return type
     eat(_GREATER);
-   End Else // implicit 'void'
+   End Else
+
+   // or implicit 'void'
    Begin
     TmpType := findTypeCandidate('void', getDefaultNamespace, next);
    End;
 
    Func := findFunction(read_ident);
-   skip_parenthesis; // param list
+   skip_parenthesis; // parameter list; @TODO
    While (not (next_t in [_BRACKET3_OP, _SEMICOLON])) do
     read;
 
@@ -469,7 +505,27 @@ Begin
 
    // generate mangled label name
    Func.LabelName  := Func.getSerializedForm;
+   CurrentFunction := nil;
+
+   SkipCodeBlock;
+   Exit;
+  End Else
+
+  (* third pass: actual function compilation *)
+  if (CompilePass = _cp3) Then
+  Begin
+   // skip return type and parameter list
+   if (next_t = _LOWER) Then
+   Begin
+    skip_parenthesis;
+   End;
+
+   Func            := findFunction(read_ident);
    CurrentFunction := Func;
+
+   skip_parenthesis;
+   While (not (next_t in [_BRACKET3_OP, _SEMICOLON])) do
+    read;
 
    { new label (function beginning) }
    Func.FirstOpcode := PutLabel(Func.LabelName);

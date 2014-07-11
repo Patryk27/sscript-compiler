@@ -9,7 +9,7 @@ Unit Parse_RETURN;
  Procedure Parse(const CompilerPnt: Pointer);
 
  Implementation
-Uses HLCompiler, ExpressionCompiler, Tokens, FlowGraph;
+Uses HLCompiler, Tokens, FlowGraph;
 
 (* Parse *)
 Procedure Parse(const CompilerPnt: Pointer);
@@ -21,7 +21,7 @@ Begin
    CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetReturn, nil, next_pnt));
   End Else // `return expression;`
   Begin
-   CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetReturn, MakeExpression(TCompiler(CompilerPnt))));
+   CFGAddNode(getCurrentFunction.createNode(fCurrentNode, cetReturn, readExpression()));
   End;
  End;
 End;

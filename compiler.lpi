@@ -56,7 +56,7 @@
       <Filename Value="compiler"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="bytecode;optimization\bytecode;optimization\cfg;optimization\expression;expression\gen;expression\gen\internal_functions;syntax;tree;tree\cfg;tree\ssa;symbol;$(ProjOutDir)"/>
+      <IncludeFiles Value="bytecode;optimization\bytecode;optimization\cfg;optimization\expression;expression\nodes;expression\nodes\nullary;expression\nodes\unary;expression\nodes\binary;syntax;tree;tree\cfg;tree\ssa;symbol;$(ProjOutDir)"/>
       <OtherUnitFiles Value="bytecode;bytecode\ssm;parser;parser\lexer;syntax;expression;tree;tree\cfg;tree\ssa;optimization;optimization\bytecode;optimization\cfg;optimization\expression;symbol"/>
       <UnitOutputDirectory Value="lib"/>
     </SearchPaths>
@@ -74,7 +74,7 @@
     </Other>
   </CompilerOptions>
   <Debugging>
-    <Exceptions Count="17">
+    <Exceptions Count="20">
       <Item1>
         <Name Value="EAbort"/>
       </Item1>
@@ -126,6 +126,15 @@
       <Item17>
         <Name Value="EExpressionParserException"/>
       </Item17>
+      <Item18>
+        <Name Value="EExpressionNodeException"/>
+      </Item18>
+      <Item19>
+        <Name Value="RunError(211)"/>
+      </Item19>
+      <Item20>
+        <Name Value="EAbstractError"/>
+      </Item20>
     </Exceptions>
   </Debugging>
 </CONFIG>

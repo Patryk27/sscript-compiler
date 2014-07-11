@@ -2,6 +2,7 @@
  Copyright © by Patryk Wychowaniec, 2013-2014
  All rights reserved.
 *)
+{$MODESWITCH ADVANCEDRECORDS}
 Unit symdef;
 
  Interface
@@ -37,9 +38,13 @@ Unit symdef;
  Type PStackSavedReg = ^TStackSavedReg;
       TStackSavedReg =
       Record
-       RegChar: Char;
-       RegID  : uint8;
-      End;
+       Public
+        RegChar: Char;
+        RegID  : uint8;
+
+       Public
+        Function getRegisterName: String;
+       End;
 
  Type TStackSavedRegs = specialize TFPGList<PStackSavedReg>;
 
@@ -65,13 +70,15 @@ Unit symdef;
       Record
        Name        : String;
        Typ         : TType;
-       DefaultValue: PExpressionNode;
+       DefaultValue: TConstantExpressionNode;
        Attributes  : TVariableAttributes;
        isConst     : Boolean;
        isVar       : Boolean; // `isPassedByRef`
       End;
 
- Type TFunctionParamList = Array of TFunctionParam;
+ { TFunctionParamList }
+ Type PFunctionParamList = ^TFunctionParamList;
+      TFunctionParamList = Array of TFunctionParam;
 
  { TSymdefObject }
  Type TSymdefObject =
@@ -87,8 +94,8 @@ Unit symdef;
         RegPrefix : Char; // bytecode register prefix, any of: b, c, i, f, s, r
         InternalID: uint8;
 
-        ArrayBase    : TType; // array base type (it's in most cases a primary type, like `int` or `char`); it CANNOT be any array-derived type!
-        ArrayDimCount: uint8; // array dimension count
+        ArrayPrimitive: TType; // array base (primitive) type (it has to be a primary type)
+        ArrayDimCount : uint8; // array dimension count
 
         // for function types
         FuncReturn: TType;
@@ -134,14 +141,14 @@ Unit symdef;
         Function CanBeCastedTo(T2: TType): Boolean;
 
         Function Clone: TType;
-        Function asString: String;
+        Function asString(const AcceptTypeNames: Boolean=True): String;
        End;
 
  { TVarLocation }
  Type TVarLocation = (vlNone, vlRegister, vlStack, vlMemory);
 
- { TVarLocationData }
- Type TVarLocationData =
+ { TVariableLocationData }
+ Type TVariableLocationData =
       Record
        Case Location: TVarLocation of
         vlRegister: (RegisterID: uint8); // 1..4
@@ -153,17 +160,17 @@ Unit symdef;
  Type TVariable =
       Class(TSymdefObject)
        Public { fields }
-        LocationData: TVarLocationData;
+        LocationData: TVariableLocationData;
 
         Typ  : TType;
-        Value: PExpressionNode; // if it's either a constant or a global variable
+        Value: TConstantExpressionNode; // when variable is either a constant or a global variable
 
         Attributes: TVariableAttributes;
 
        Public { methods }
         Constructor Create;
-        Constructor Create(const Unserializer: TUnserializer);
-        Constructor Create(const Root: TNode);
+        Constructor Create(const HLCompiler: TObject; const Unserializer: TUnserializer);
+        Constructor Create(const HLCompiler: TObject; const Root: TNode);
 
         Function isConst: Boolean;
         Function isFuncParam: Boolean;
@@ -190,7 +197,7 @@ Unit symdef;
         SymbolList: TSymbolList; // local symbol list
         FlowGraph : TCFGraph; // control flowgraph
 
-        StackSize: uint16; // number of variables put onto stack
+        StackSize: uint16; // number of variables put onto stack. It does NOT consider prolog 'push'es!
         StackRegs: TStackSavedRegs;
 
         LastLabelID: uint32;
@@ -204,13 +211,14 @@ Unit symdef;
         Destructor Destroy; override;
 
         Function createNode(const fParent: TCFGNode; const ffToken: PToken_P=nil): TCFGNode;
-        Function createNode(const fParent: TCFGNode; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P=nil): TCFGNode;
+        Function createNode(const fParent: TCFGNode; const fTyp: TCFGNodeType; const fValue: TExpressionNode; const ffToken: PToken_P=nil): TCFGNode;
 
         Function findSymbol(const SymName: String): TSymbol;
         Function findSymbol(const SymName: String; const SymScope: TToken_P): TSymbol;
 
-        Function generateLabelName: String;
+        Procedure invalidateRegister(const RegisterChar: Char; const RegisterID: uint8);
 
+        Function generateLabelName: String;
         Function getSerializedForm: String;
 
         Function isNaked: Boolean;
@@ -283,7 +291,7 @@ Unit symdef;
  // functions
  Function type_equal(const A, B: TType): Boolean;
  Operator in (Token: TToken_P; Range: TRange): Boolean;
- Operator = (A, B: TVarLocationData): Boolean;
+ Operator = (A, B: TVariableLocationData): Boolean;
 
  Function TYPE_ANY: TType;
  Function TYPE_VOID: TType;
@@ -295,7 +303,7 @@ Unit symdef;
  Function TYPE_NULL: TType;
 
  Implementation
-Uses Logging, ExpressionParser, Messages;
+Uses Logging, ExpressionParser, LLCompiler, Messages;
 
 (* type_equal *)
 {
@@ -316,9 +324,9 @@ Begin
  if (not Result) Then
   Exit;
 
- // array base
- if (A.ArrayBase <> nil) and (B.ArrayBase <> nil) Then
-  Result := Result and type_equal(A.ArrayBase, B.ArrayBase);
+ // array primitives
+ if (A.ArrayPrimitive <> nil) and (B.ArrayPrimitive <> nil) Then
+  Result := Result and type_equal(A.ArrayPrimitive, B.ArrayPrimitive);
 
  // func return
  if (A.FuncReturn <> nil) and (B.FuncReturn <> nil) Then
@@ -350,8 +358,8 @@ Begin
  Result := (Token.Position >= Range.PBegin.Position) and (Token.Position <= Range.PEnd.Position);
 End;
 
-(* TVarLocationData = TVarLocationData *)
-Operator = (A, B: TVarLocationData): Boolean;
+(* TVariableLocationData = TVariableLocationData *)
+Operator = (A, B: TVariableLocationData): Boolean;
 Begin
  Result := (A.Location = B.Location);
 
@@ -454,8 +462,8 @@ Begin
   RegPrefix      := 's';
   InternalID     := TYPE_STRING_id;
 
-  ArrayBase     := TYPE_CHAR;
-  ArrayDimCount := 1;
+  ArrayPrimitive := TYPE_CHAR;
+  ArrayDimCount  := 1;
  End;
 End;
 
@@ -475,6 +483,15 @@ Begin
 End;
 
 // -------------------------------------------------------------------------- //
+(* TStackSavedReg.getRegisterName *)
+Function TStackSavedReg.getRegisterName: String;
+Begin
+ if (RegChar = 'b') and (RegID = 5) Then
+  Result := 'if' Else
+  Result := Format('e%s%d', [String(RegChar), RegID]);
+End;
+
+// -------------------------------------------------------------------------- //
 (* TType.Create *)
 {
  Constructor for TType
@@ -483,14 +500,14 @@ Constructor TType.Create;
 Begin
  RefSymbol := TRefSymbol.Create;
 
- RegPrefix     := 'i';
- ArrayDimCount := 0;
- ArrayBase     := nil;
- InternalID    := 0;
- FuncReturn    := nil;
- EnumBase      := nil;
- EnumItemList  := TVariableList.Create;
- Attributes    := [];
+ RegPrefix      := 'i';
+ ArrayDimCount  := 0;
+ ArrayPrimitive := nil;
+ InternalID     := 0;
+ FuncReturn     := nil;
+ EnumBase       := nil;
+ EnumItemList   := TVariableList.Create;
+ Attributes     := [];
 
  SetLength(FuncParams, 0);
 End;
@@ -520,7 +537,7 @@ Begin
  InternalID := Root[2].getInt;
 
  if (Root[3].getChildren.Count > 0) Then
-  ArrayBase := TType.Create(Root[3]);
+  ArrayPrimitive := TType.Create(Root[3]);
 
  ArrayDimCount := Root[4].getInt;
 
@@ -585,7 +602,7 @@ Begin
  Result += 'type$';
  Result += RegPrefix+'$';
  Result += IntToStr(InternalID)+'$';
- Result += ArrayBase.getSerializedForm+'$';
+ Result += ArrayPrimitive.getSerializedForm+'$';
  Result += IntToStr(ArrayDimCount)+'$';
  Result += FuncReturn.getSerializedForm+'$';
  Result += IntToStr(Length(FuncParams))+'$';
@@ -648,7 +665,7 @@ Begin
 
  if (ArrayDimCount = 1) Then
  Begin
-  Result := ArrayBase;
+  Result := ArrayPrimitive;
  End Else
  Begin
   Result               := TType.Create;
@@ -658,14 +675,14 @@ Begin
 
   if (isString) and (ArrayDimCount = 2) Then
   Begin
-   Result.ArrayBase  := ArrayBase.ArrayBase;
-   Result.RegPrefix  := ArrayBase.RegPrefix;
-   Result.InternalID := ArrayBase.InternalID;
+   Result.ArrayPrimitive := ArrayPrimitive.ArrayPrimitive;
+   Result.RegPrefix      := ArrayPrimitive.RegPrefix;
+   Result.InternalID     := ArrayPrimitive.InternalID;
   End Else
   Begin
-   Result.ArrayBase  := ArrayBase;
-   Result.RegPrefix  := RegPrefix;
-   Result.InternalID := InternalID;
+   Result.ArrayPrimitive := ArrayPrimitive;
+   Result.RegPrefix      := RegPrefix;
+   Result.InternalID     := InternalID;
   End;
  End;
 End;
@@ -756,7 +773,7 @@ End;
 
 (* TType.isNumerical *)
 {
- Returns `true` when type passed in parameter is a numerical type (int, float, char and pointers) or numerical-derived; in other case, returns `false`.
+ Returns `true` when type passed in parameter is a numerical type (int, float, char and pointers) or numerical-derived; in other cases returns `false`.
 }
 Function TType.isNumerical: Boolean;
 Begin
@@ -802,7 +819,7 @@ Begin
  if (self = nil) Then
   Exit(False);
 
- Result := isArray(False); // for now, only arrays are some-kind-of-objects
+ Result := isArray(False); // so far only arrays are some-kind-of-objects
 End;
 
 (* TType.isFunctionPointer *)
@@ -847,6 +864,9 @@ End;
 }
 Function TType.isSimple: Boolean;
 Begin
+ if (self = nil) Then
+  Exit(False);
+
  Result := (isBool or isChar or isInt or isFloat or isString or isFunctionPointer) and (not isArray(False));
 End;
 
@@ -882,16 +902,16 @@ Begin
 
  Result.Attributes := Attributes;
 
- if (ArrayBase = self) Then
+ if (ArrayPrimitive = self) Then
  Begin
-  DevLog(dvError, 'ArrayBase = self; cannot do the entire type cloning');
-  Result.ArrayBase := ArrayBase;
+  DevLog(dvError, 'ArrayPrimitive = self; cannot do the entire type cloning');
+  Result.ArrayPrimitive := ArrayPrimitive;
   Exit;
  End;
 
- if (ArrayBase = nil) Then
-  Result.ArrayBase := nil Else
-  Result.ArrayBase := ArrayBase.Clone;
+ if (ArrayPrimitive = nil) Then
+  Result.ArrayPrimitive := nil Else
+  Result.ArrayPrimitive := ArrayPrimitive.Clone;
 End;
 
 (* TType.asString *)
@@ -899,11 +919,14 @@ End;
  Returns type declaration.
  Eg.`int[]` or `function<void>(string)`.
 }
-Function TType.asString: String;
+Function TType.asString(const AcceptTypeNames: Boolean): String;
 Var I: Integer;
 Begin
  if (self = nil) Then // erroneous (invalid) type
   Exit('erroneous type');
+
+ if (AcceptTypeNames) and (Length(RefSymbol.Name) > 0) Then
+  Exit(RefSymbol.getFullName('::'));
 
  Result := '';
 
@@ -926,7 +949,7 @@ Begin
     Result += FuncParams[I].Typ.asString;
 
     if (FuncParams[I].DefaultValue <> nil) Then
-     Result += ' = '+getValueFromExpression(FuncParams[I].DefaultValue, True);
+     Result += ' = '+FuncParams[I].DefaultValue.getValue;
 
     if (I <> High(FuncParams)) Then
      Result += ', ';
@@ -969,17 +992,17 @@ Begin
  End Else
  Begin
   { is array? }
-  if (isString) or (ArrayBase.isString) Then
+  if (isString) or (ArrayPrimitive.isString) Then
   Begin
    I      := ArrayDimCount-1;
    Result += 'string';
   End Else
   Begin
-   if (ArrayBase.isArray) Then
-    raise ESymdefException.Create('ArrayBase.isArray()');
+   if (ArrayPrimitive.isArray) Then
+    raise ESymdefException.Create('ArrayPrimitive.isArray()');
 
    I      := ArrayDimCount;
-   Result += ArrayBase.asString;
+   Result += ArrayPrimitive.asString;
   End;
 
   For I := 1 To I Do
@@ -1010,11 +1033,27 @@ Begin
  if (self.InternalID = TYPE_ANY_id) or (T2.InternalID = TYPE_ANY_id) Then // any or any => true
   Exit(True);
 
+ { comparing strings }
+ if (self.isString and T2.isString) Then
+ Begin
+  Exit(self.ArrayDimCount = T2.ArrayDimCount); // string to string => true
+ End Else
+
+ { comparing string with non-string (except `char` to `string`) always returns false }
+ if (self.isString and (not T2.isString)) or
+    ((not self.isString) and (T2.isString)) Then
+ Begin
+  if (self.isChar and (self.ArrayDimCount = 0)) and (T2.isString) Then
+   Exit(True);
+
+  Exit(False);
+ End Else
+
  { comparing arrays }
  if (self.isArray and T2.isArray) Then
  Begin
   Exit(
-       (self.ArrayBase.InternalID = T2.ArrayBase.InternalID) and // arrays' base types must be correct
+       (self.ArrayPrimitive.InternalID = T2.ArrayPrimitive.InternalID) and // arrays' base types must be correct
        (self.ArrayDimCount = T2.ArrayDimCount) // and also their dimensions amount must be the same
       );
  End Else
@@ -1061,22 +1100,6 @@ Begin
  { comparing func-ptr with non-func-ptr }
  if (self.isFunctionPointer and (not T2.isFunctionPointer)) Then
  Begin
-  Exit(False);
- End Else
-
- { comparing strings }
- if (self.isString and T2.isString) Then
- Begin
-  Exit(self.ArrayDimCount = T2.ArrayDimCount); // string to string => true
- End Else
-
- { comparing string with non-string (except `char` to `string`) always returns false }
- if (self.isString and (not T2.isString)) or
-    ((not self.isString) and (T2.isString)) Then
- Begin
-  if (self.isChar and (self.ArrayDimCount = 0)) and (T2.isString) Then
-   Exit(True);
-
   Exit(False);
  End Else
 
@@ -1202,13 +1225,13 @@ Begin
 End;
 
 (* TVariable.Create *)
-Constructor TVariable.Create(const Unserializer: TUnserializer);
+Constructor TVariable.Create(const HLCompiler: TObject; const Unserializer: TUnserializer);
 Begin
- Create(Unserializer.getRoot);
+ Create(HLCompiler, Unserializer.getRoot);
 End;
 
 (* TVariable.Create *)
-Constructor TVariable.Create(const Root: TNode);
+Constructor TVariable.Create(const HLCompiler: TObject; const Root: TNode);
 Var Name: String;
 Begin
  Create();
@@ -1232,7 +1255,7 @@ Begin
 
  // parse value
  if (Root.getChildren.Count > 4) and (Length(Root[4].getValue) > 0) Then
-  Value := Root[4].getExpression;
+  Value := TConstantExpressionNode(Root[4].getExpression(HLCompiler));
 End;
 
 (* TVariable.isConst *)
@@ -1297,7 +1320,7 @@ Begin
 
  if (Typ.isString) and (Value <> nil) Then
  Begin
-  Result += IntToStr(Length(Value^.Value))+'$';
+  Result += IntToStr(Length(Value.getMixedValue.getString))+'$';
  End Else
  Begin
   Result += IntToStr(Typ.getBytecodeSize)+'$';
@@ -1307,7 +1330,7 @@ Begin
 
  if (Value = nil) Then
   Result += '()' Else
-  Result += Value^.getSerializedForm;
+  Result += Value.getSerializedForm;
 
  Result += ')';
 End;
@@ -1339,7 +1362,11 @@ End;
 
 (* TFunction.Destroy *)
 Destructor TFunction.Destroy;
+Var StackReg: PStackSavedReg;
 Begin
+ For StackReg in StackRegs Do
+  Dispose(StackReg);
+
 // RefSymbol.Free; @TODO: what if the caller is the RefSymbol instance?
 
  FlowGraph.Free;
@@ -1363,7 +1390,7 @@ End;
 {
  Constructs a new instance of TCFGNode, generates its name and returns it.
 }
-Function TFunction.createNode(const fParent: TCFGNode; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P): TCFGNode;
+Function TFunction.createNode(const fParent: TCFGNode; const fTyp: TCFGNodeType; const fValue: TExpressionNode; const ffToken: PToken_P): TCFGNode;
 Begin
  Result := TCFGNode.Create(fParent, Format('%s_l_%d', [LabelName, LastLabelID]), fTyp, fValue, ffToken);
  Inc(LastLabelID);
@@ -1393,6 +1420,35 @@ Begin
    Exit;
 
  Exit(nil);
+End;
+
+(* TFunction.invalidateRegister *)
+{
+ Invalidates register, so that its value is pushed on the beginning on the function and popped back on the end.
+ It's automatically called in expression compiler, shouldn't be called explicitly.
+
+ @Note: if function is non-void, the e#0 registers (ei0, ec0 and so on) are not invalidated.
+}
+Procedure TFunction.invalidateRegister(const RegisterChar: Char; const RegisterID: uint8);
+Var Reg: PStackSavedReg;
+Begin
+ if (not Return.isVoid) and (RegisterID = 0) Then
+  Exit;
+
+ // check for duplicates
+ For Reg in StackRegs Do
+ Begin
+  if (Reg^.RegChar = RegisterChar) and (Reg^.RegID = RegisterID) Then
+   Exit;
+ End;
+
+ // add register onto the list
+ New(Reg);
+
+ Reg^.RegChar := RegisterChar;
+ Reg^.RegID   := RegisterID;
+
+ StackRegs.Add(Reg);
 End;
 
 (* TFunction.generateLabelName *)
@@ -1435,7 +1491,7 @@ Begin
    Result += P.Typ.RefSymbol.getFullName+'$';
 
   if (P.DefaultValue <> nil) Then
-   Result += P.DefaultValue^.getSerializedForm;
+   Result += P.DefaultValue.getSerializedForm;
 
   Result += ')$';
  End;

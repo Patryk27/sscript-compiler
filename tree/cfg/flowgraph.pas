@@ -26,7 +26,7 @@ Unit FlowGraph;
        Typ: TArrayInitializerValuesType;
 
        ArrayValues: Array of PArrayInitializerValues;
-       ExprValues : Array of PExpressionNode;
+       ExprValues : Array of TExpressionNode;
       End;
 
  { TCFGNode }
@@ -38,7 +38,7 @@ Unit FlowGraph;
 
        Public { fields }
         Typ  : TCFGNodeType;
-        Value: PExpressionNode;
+        Value: TExpressionNode;
 
         Parent: TCFGNode;
         Edges : TCFGNodeList;
@@ -69,7 +69,7 @@ Unit FlowGraph;
 
        Public { methods }
         Constructor Create(const fParent: TCFGNode; const fName: String; const ffToken: PToken_P=nil);
-        Constructor Create(const fParent: TCFGNode; const fName: String; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P=nil);
+        Constructor Create(const fParent: TCFGNode; const fName: String; const fTyp: TCFGNodeType; const fValue: TExpressionNode; const ffToken: PToken_P=nil);
 
         Function SearchFor(const NodeType: TCFGNodeType): TCFGNode;
 
@@ -115,23 +115,24 @@ Var Str, Visited: TStringList;
   { NodeToString }
   Function NodeToString(const Node: TCFGNode): String;
   Begin
-   if (Node.Typ = cetExpression) Then
-    Result := ExpressionToString(PExpressionNode(Node.Value)) Else
+   //if (Node.Typ = cetExpression) Then
+   // Result := ExpressionToString(TExpressionNode(Node.Value)) Else
+   {$WARNING unimplemented: NodeToString() when Node.Typ = cetExpression/cetCondition/cetReturn/cetThrow/cetForeach}
 
-   if (Node.Typ = cetCondition) Then
-    Result := 'if ('+ExpressionToString(PExpressionNode(Node.Value))+')' Else
+   {if (Node.Typ = cetCondition) Then
+    Result := 'if ('+ExpressionToString(TExpressionNode(Node.Value))+')' Else
 
    if (Node.Typ = cetReturn) Then
-    Result := 'return '+ExpressionToString(PExpressionNode(Node.Value)) Else
+    Result := 'return '+ExpressionToString(TExpressionNode(Node.Value)) Else
 
    if (Node.Typ = cetThrow) Then
-    Result := 'throw '+ExpressionToString(PExpressionNode(Node.Value)) Else
+    Result := 'throw '+ExpressionToString(TExpressionNode(Node.Value)) Else}
 
    if (Node.Typ = cetTryCatch) Then
     Result := 'try' Else
 
-   if (Node.Typ = cetForeach) Then
-    Result := 'foreach('+TVariable(Node.Foreach.LoopVar).RefSymbol.Name+' in '+ExpressionToString(PExpressionNode(Node.Value))+')' Else
+   //if (Node.Typ = cetForeach) Then
+   // Result := 'foreach('+TVariable(Node.Foreach.LoopVar).RefSymbol.Name+' in '+ExpressionToString(TExpressionNode(Node.Value))+')' Else
 
    if (Node.Typ = cetBytecode) Then
     Result := '<bytecode>' Else
@@ -349,36 +350,43 @@ Function getVariableCFGCost(Symbol: TObject; rBeginNode, rEndNode: TCFGNode): ui
 Var Visited: TCFGNodeList;
 
   { VisitExpression }
-  Procedure VisitExpression(Expr: PExpressionNode);
-  Var I: Integer;
+  Procedure VisitExpression(const Node: TExpressionNode);
+  Var ArgList: TCallArgumentList;
+      I      : int32;
   Begin
-   if (Expr = nil) Then
+   if (Node = nil) Then
     Exit;
 
-   if (Expr^.Typ = mtIdentifier) and (Expr^.Symbol = Symbol) Then
+   // identifier
+   if (Node is TIdentifierExpressionNode) and (TIdentifierExpressionNode(Node).getSymbol = Symbol) Then
    Begin
-    Inc(Result); // var read
+    Inc(Result);
    End Else
 
-   if (Expr^.Typ = mtAssign) and (Expr^.Left^.Symbol = Symbol) Then
+   // some unary expression node
+   if (Node is TUnaryExpressionNode) Then
    Begin
-    Inc(Result); // var write
-    VisitExpression(Expr^.Right);
+    VisitExpression(TUnaryExpressionNode(Node).getChild);
    End Else
 
-   if (Expr^.Typ in MLValueOperators) and (Expr^.Left^.Symbol = Symbol) Then
+   // some binary expression node
+   if (Node is TBinaryExpressionNode) Then
    Begin
-    Inc(Result, 2); // var read + var write
-    VisitExpression(Expr^.Right);
+    With TBinaryExpressionNode(Node) Do
+    Begin
+     VisitExpression(getLeft);
+     VisitExpression(getRight);
+    End;
    End Else
 
+   // some call expression node
+   if (Node is TCallExpressionNode) Then
    Begin
-    VisitExpression(Expr^.Left);
-    VisitExpression(Expr^.Right);
+    ArgList := TCallExpressionNode(Node).getArgumentList;
+
+    For I := 0 To ArgList.Count-1 Do
+     VisitExpression(ArgList[I]);
    End;
-
-   For I := 0 To High(Expr^.ParamList) Do
-    VisitExpression(Expr^.ParamList[I]);
   End;
 
   { VisitNode }
@@ -411,10 +419,10 @@ End;
  Returns `true` if specified variable is used in any expression between specified nodes, excluding assignments and assign-operators (`*=`, `-=`, `++`...)
 }
 Function isVariableRead(const VariablePnt: TObject; const rBeginNode, rEndNode: TCFGNode): Boolean;
-Var Visited : TCFGNodeList;
+{Var Visited : TCFGNodeList;
 
   { isRead }
-  Function isRead(const Node: TCFGNode; const Expr: PExpressionNode): Boolean;
+  Function isRead(const Node: TCFGNode; const Expr: TExpressionNode): Boolean;
   Var I: Integer;
   Begin
    Result := False;
@@ -422,26 +430,26 @@ Var Visited : TCFGNodeList;
    if (Expr = nil) Then
     Exit(False);
 
-   if (Expr^.Typ = mtIdentifier) and (Expr^.Symbol <> nil) Then
+   if (Expr.Typ = mtIdentifier) and (Expr.Symbol <> nil) Then
    Begin
-    if (TSymbol(Expr^.Symbol).mVariable = VariablePnt) Then
+    if (TSymbol(Expr.Symbol).mVariable = VariablePnt) Then
      Exit(True);
    End;
 
-   if (Expr^.Typ in MLValueOperators) Then
+   if (Expr.Typ in MLValueOperators) Then
    Begin
     {
      in expressions like "x = 10;" don't count "x" as an "used variable"
     }
-    Result := isRead(Node, Expr^.Right);
+    Result := isRead(Node, Expr.Right);
    End Else
    Begin
-    Result := isRead(Node, Expr^.Left) or isRead(Node, Expr^.Right);
+    Result := isRead(Node, Expr.Left) or isRead(Node, Expr.Right);
 
     if (not Result) Then
     Begin
-     For I := 0 To High(Expr^.ParamList) Do
-      if (isRead(Node, Expr^.ParamList[I])) Then
+     For I := 0 To High(Expr.ParamList) Do
+      if (isRead(Node, Expr.ParamList[I])) Then
        Exit(True);
     End;
    End;
@@ -484,6 +492,10 @@ Begin
  Finally
   Visited.Free;
  End;
+End;}
+Begin
+ Result := False;
+ {$WARNING unimplemented: isVariableRead}
 End;
 
 // -------------------------------------------------------------------------- //
@@ -501,7 +513,7 @@ Begin
 End;
 
 (* TCFGNode.Create *)
-Constructor TCFGNode.Create(const fParent: TCFGNode; const fName: String; const fTyp: TCFGNodeType; const fValue: PExpressionNode; const ffToken: PToken_P);
+Constructor TCFGNode.Create(const fParent: TCFGNode; const fName: String; const fTyp: TCFGNodeType; const fValue: TExpressionNode; const ffToken: PToken_P);
 Begin
  Name := fName;
 
@@ -511,8 +523,13 @@ Begin
  Parent := fParent;
 
  if (fToken = nil) Then
+ Begin
   if (Value <> nil) Then
-   fToken := @Value^.Token;
+  Begin
+   New(fToken);
+   fToken^ := Value.getToken;
+  End;
+ End;
 
  Edges := TCFGNodeList.Create;
 End;
@@ -539,12 +556,19 @@ End;
 Function TCFGNode.getToken: PToken_P;
 Begin
  if (fToken <> nil) Then
-  Result := fToken Else
+ Begin
+  Result := fToken;
+ End Else
 
  if (Value <> nil) Then
-  Result := @Value^.Token Else
+ Begin
+  New(Result);
+  Result^ := Value.getToken;
+ End Else
 
+ Begin
   Result := nil; // warning!
+ End;
 End;
 
 // -------------------------------------------------------------------------- //
@@ -752,7 +776,7 @@ End;
  Should be called when removing a node(s) or assignment(s) (including operators like `*=` or `++`, see: Expression.MLValueOperators).
 }
 Procedure TCFGraph.RemapSSA(const SSARemapFrom, SSARemapTo, SSARemapBegin: TCFGNode; const VisitEndNode: Boolean);
-Type PSSAData = ^TSSAData;
+{Type PSSAData = ^TSSAData;
      TSSAData =
      Record
       Symbol: Pointer;
@@ -786,8 +810,8 @@ Var VisitedNodes: TCFGNodeList;
   End;
 
   { VisitExpression }
-  Procedure VisitExpression(const Expr: PExpressionNode);
-  Var Param: PExpressionNode;
+  Procedure VisitExpression(const Expr: TExpressionNode);
+  Var Param: TExpressionNode;
       I    : Integer;
       Data : PSSAData;
   Begin
@@ -798,13 +822,13 @@ Var VisitedNodes: TCFGNodeList;
     // first stage
     1:
     Begin
-     if (Expr^.Typ in MLValueOperators) Then
+     if (Expr.Typ in MLValueOperators) Then
      Begin
-      For I := 0 To High(Expr^.Left^.PostSSA.Values) Do
+      For I := 0 To High(Expr.Left^.PostSSA.Values) Do
       Begin
        New(Data);
-       Data^.Symbol := Expr^.Left^.Symbol;
-       Data^.SSA    := Expr^.Left^.PostSSA.Values[I];
+       Data^.Symbol := Expr.Left^.Symbol;
+       Data^.SSA    := Expr.Left^.PostSSA.Values[I];
        SSADataList.Add(Data);
       End;
      End;
@@ -813,26 +837,26 @@ Var VisitedNodes: TCFGNodeList;
     // second stage
     2:
     Begin
-     if (Expr^.Typ = mtIdentifier) Then
+     if (Expr.Typ = mtIdentifier) Then
      Begin
       I := 0;
-      While (I < Length(Expr^.SSA.Values)) Do
+      While (I < Length(Expr.SSA.Values)) Do
       Begin
-       if (ShouldBeRemoved(Expr^.Symbol, Expr^.SSA.Values[I])) Then
-        RemoveElement(Expr^.SSA.Values, I) Else
+       if (ShouldBeRemoved(Expr.Symbol, Expr.SSA.Values[I])) Then
+        RemoveElement(Expr.SSA.Values, I) Else
         Inc(I);
       End;
 
-      if (Length(Expr^.SSA.Values) = 0) Then
+      if (Length(Expr.SSA.Values) = 0) Then
        DevLog(dvWarning, 'SSA remapping may failed: some variable use (at line %d) has been left without a corresponding SSA ID;'+
-                         'this may lead to undefined behavior unless optimizer takes care of it (which is expected to happen).', [Expr^.Token.Line]);
+                         'this may lead to undefined behavior unless optimizer takes care of it (which is expected to happen).', [Expr.Token.Line]);
      End;
     End;
    End;
 
-   VisitExpression(Expr^.Left);
-   VisitExpression(Expr^.Right);
-   For Param in Expr^.ParamList Do
+   VisitExpression(Expr.Left);
+   VisitExpression(Expr.Right);
+   For Param in Expr.ParamList Do
     VisitExpression(Param);
   End;
 
@@ -881,5 +905,8 @@ Begin
   VisitedNodes.Free;
   SSADataList.Free;
  End;
+End;}
+Begin
+ {$WARNING unimplemented: TCFGraph.RemapSSA}
 End;
 End.

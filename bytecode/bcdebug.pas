@@ -170,9 +170,9 @@ Begin
 
  {
   @Note:
-  A little of magic comes below, but we're basically searching for the first and
-  last function and subtracting their opcode positions so we get the unit size
-  as the result.
+    A little of magic comes below, but we're basically searching for the first and
+    last function and subtracting their opcode positions so we get the unit size
+    as the result.
  }
 
  // each namespace
@@ -257,7 +257,8 @@ Begin
    LineData.Opcode := Opcode^.OpcodePos;
    LineData.Line   := Opcode^.Token^.Line;
 
-   if (LineData.Line > PreviousLine) Then // reduce size - we don't need an uncountable number of the same entries in the table
+   // reduce size - we don't need an uncountable number of the same entries in the table
+   if (LineData.Line > PreviousLine) Then
    Begin
     PreviousLine := LineData.Line;
     dbgLineDataList.Add(LineData);
@@ -341,7 +342,7 @@ Begin
  Begin
   if (Opcode^.isLabel) and (Opcode^.isFunction) Then
   Begin
-   Symbol := Opcode^.FunctionSymbol;
+   Symbol := TSymbol(Opcode^.FunctionSymbol);
 
    if (Symbol = nil) Then
    Begin
@@ -351,6 +352,9 @@ Begin
 
    if (Symbol.mCompiler = nil) Then
    Begin
+    if (Symbol.DeclToken = nil) Then
+     raise EBCDebugReaderException.CreateFmt('Declaration token of function %s is null!', [Symbol.getFullName('::')]);
+
     GenerateLineInfo(Symbol.mFunction, AllocDebugFile(Symbol.DeclToken^.FileName, 0), AllocDebugFunction(Symbol.mFunction));
    End Else
    Begin
@@ -579,7 +583,7 @@ Begin
     LD.Opcode     := Stream.read_uint32;
     LD.Line       := Stream.read_uint16;
 
-//    Writeln(LD.Opcode, ' -> ', FunctionList[LD.FunctionID].FunctionName, ':', LD.Line, ' (', ExtractFileName(FileList[LD.FileID].FileName), ' - ', FileList[LD.FileID].BytecodeSize, ')');
+   // Writeln(LD.Opcode, ' -> ', FunctionList[LD.FunctionID].FunctionName, ':', LD.Line, ' (', ExtractFileName(FileList[LD.FileID].FileName), ' - ', FileList[LD.FileID].BytecodeSize, ')');
 
     LineDataList[I] := LD;
    End;

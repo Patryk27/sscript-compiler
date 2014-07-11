@@ -4,15 +4,16 @@
     <PathDelim Value="\"/>
     <Version Value="9"/>
     <BuildModes Active="Default"/>
-    <Units Count="158">
+    <Units Count="114">
       <Unit0>
         <Filename Value="compiler.lpr"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="compiler"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="0"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="109"/>
-        <CursorPos X="61" Y="145"/>
+        <TopLine Value="1"/>
+        <CursorPos X="1" Y="1"/>
         <UsageCount Value="202"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -23,1355 +24,869 @@
         <UsageCount Value="202"/>
       </Unit1>
       <Unit2>
-        <Filename Value="compiler\optimization\opt_expressions.pas"/>
-        <UnitName Value="opt_expressions"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="55" Y="17"/>
-        <UsageCount Value="2"/>
-      </Unit2>
-      <Unit3>
         <Filename Value="compiler\Compile1.pas"/>
         <UnitName Value="Compile1"/>
         <WindowIndex Value="0"/>
         <TopLine Value="162"/>
         <CursorPos X="71" Y="177"/>
-        <UsageCount Value="34"/>
-      </Unit3>
-      <Unit4>
+        <UsageCount Value="21"/>
+      </Unit2>
+      <Unit3>
         <Filename Value="compiler\expressioncompiler.pas"/>
         <UnitName Value="ExpressionCompiler"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="17" Y="12"/>
-        <UsageCount Value="10"/>
-      </Unit4>
-      <Unit5>
+        <UsageCount Value="7"/>
+      </Unit3>
+      <Unit4>
         <Filename Value="compiler\peephole.pas"/>
         <UnitName Value="Peephole"/>
         <WindowIndex Value="0"/>
         <TopLine Value="218"/>
         <CursorPos X="17" Y="234"/>
-        <UsageCount Value="4"/>
-      </Unit5>
-      <Unit6>
-        <Filename Value="compiler\syntax\parse_function.pas"/>
-        <UnitName Value="Parse_FUNCTION"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="40" Y="13"/>
-        <UsageCount Value="2"/>
-      </Unit6>
-      <Unit7>
-        <Filename Value="compiler\syntax\parse_try_catch.pas"/>
-        <UnitName Value="Parse_TRY_CATCH"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="13"/>
-        <UsageCount Value="8"/>
-      </Unit7>
-      <Unit8>
+        <UsageCount Value="1"/>
+      </Unit4>
+      <Unit5>
         <Filename Value="compiler\syntax\parse_throw.pas"/>
         <UnitName Value="Parse_THROW"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="16" Y="13"/>
-        <UsageCount Value="14"/>
-      </Unit8>
-      <Unit9>
+        <UsageCount Value="1"/>
+      </Unit5>
+      <Unit6>
         <Filename Value="compiler\cfgraph.pas"/>
         <UnitName Value="cfgraph"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
-        <UsageCount Value="17"/>
-      </Unit9>
-      <Unit10>
-        <Filename Value="compiler\optimization\remove_unused_vars.pas"/>
-        <UnitName Value="remove_unused_vars"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit10>
-      <Unit11>
-        <Filename Value="C:\freepascal\fpc\2.6.3\rtl\objpas\fgl.pp"/>
-        <UnitName Value="fgl"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="391"/>
-        <CursorPos X="1" Y="414"/>
-        <UsageCount Value="1"/>
-      </Unit11>
-      <Unit12>
+        <UsageCount Value="4"/>
+      </Unit6>
+      <Unit7>
         <Filename Value="compilerunit.pas"/>
         <UnitName Value="CompilerUnit"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="50" Y="9"/>
-        <UsageCount Value="54"/>
-      </Unit12>
-      <Unit13>
-        <Filename Value="compiler\syntax\parse_namespace.pas"/>
-        <UnitName Value="Parse_NAMESPACE"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="12"/>
-        <UsageCount Value="1"/>
-      </Unit13>
-      <Unit14>
-        <Filename Value="compiler\expression\arithmetic_operator.pas"/>
-        <UnitName Value="arithmetic_operator"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="26"/>
-        <UsageCount Value="2"/>
-      </Unit14>
-      <Unit15>
-        <Filename Value="compiler\expression\compile_simple.pas"/>
-        <UnitName Value="compile_simple"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="171"/>
-        <CursorPos X="13" Y="196"/>
-        <UsageCount Value="1"/>
-      </Unit15>
-      <Unit16>
-        <Filename Value="compiler\expression\typecast.pas"/>
-        <UnitName Value="typecast"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="6" Y="23"/>
-        <UsageCount Value="1"/>
-      </Unit16>
-      <Unit17>
-        <Filename Value="compiler\expression\bitwise_or.pas"/>
-        <UnitName Value="bitwise_or"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="11" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit17>
-      <Unit18>
-        <Filename Value="compiler\expression\bitwise_and.pas"/>
-        <UnitName Value="bitwise_and"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="11" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit18>
-      <Unit19>
-        <Filename Value="compiler\expression\logical_or.pas"/>
-        <UnitName Value="logical_or"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="11" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit19>
-      <Unit20>
-        <Filename Value="compiler\expression\constant_folding.pas"/>
-        <UnitName Value="constant_folding"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="197"/>
-        <CursorPos X="49" Y="207"/>
-        <UsageCount Value="2"/>
-      </Unit20>
-      <Unit21>
-        <Filename Value="C:\freepascal\fpc\2.6.3\rtl\i386\fastmove.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="712"/>
-        <CursorPos X="71" Y="732"/>
-        <UsageCount Value="1"/>
-      </Unit21>
-      <Unit22>
-        <Filename Value="C:\freepascal\fpc\2.6.3\rtl\inc\astrings.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="360"/>
-        <CursorPos X="1" Y="377"/>
-        <UsageCount Value="1"/>
-      </Unit22>
-      <Unit23>
-        <Filename Value="C:\freepascal\fpc\2.6.3\rtl\objpas\classes\streams.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="536"/>
-        <CursorPos X="28" Y="544"/>
-        <UsageCount Value="1"/>
-      </Unit23>
-      <Unit24>
+        <UsageCount Value="41"/>
+      </Unit7>
+      <Unit8>
         <Filename Value="compiler\ssa.pas"/>
         <UnitName Value="ssa"/>
         <WindowIndex Value="0"/>
         <TopLine Value="73"/>
         <CursorPos X="48" Y="75"/>
-        <UsageCount Value="14"/>
-      </Unit24>
-      <Unit25>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\objpas\fgl.pp"/>
-        <UnitName Value="fgl"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="128"/>
-        <CursorPos X="14" Y="128"/>
-        <UsageCount Value="2"/>
-      </Unit25>
-      <Unit26>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\inc\objpash.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="192"/>
-        <CursorPos X="23" Y="192"/>
-        <UsageCount Value="2"/>
-      </Unit26>
-      <Unit27>
-        <Filename Value="compiler\ssa_stage1.pas"/>
-        <UnitName Value="ssa_stage1"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="19"/>
-        <CursorPos X="50" Y="32"/>
-        <UsageCount Value="12"/>
-      </Unit27>
-      <Unit28>
-        <Filename Value="compiler\ssa_stage2.pas"/>
-        <UnitName Value="ssa_stage2"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="50"/>
-        <CursorPos X="98" Y="71"/>
-        <UsageCount Value="12"/>
-      </Unit28>
-      <Unit29>
-        <Filename Value="switches.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="93" Y="7"/>
         <UsageCount Value="1"/>
-      </Unit29>
-      <Unit30>
-        <Filename Value="compiler\syntax\parse_for.pas"/>
-        <UnitName Value="Parse_FOR"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="13"/>
-        <UsageCount Value="8"/>
-      </Unit30>
-      <Unit31>
-        <Filename Value="compiler\optimization\tree_simplification.pas"/>
-        <UnitName Value="tree_simplification"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="326"/>
-        <CursorPos X="90" Y="343"/>
-        <UsageCount Value="2"/>
-      </Unit31>
-      <Unit32>
-        <Filename Value="bytecode\bytecodecompiler.pas"/>
-        <UnitName Value="BytecodeCompiler"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="292"/>
-        <CursorPos X="57" Y="305"/>
-        <UsageCount Value="2"/>
-      </Unit32>
-      <Unit33>
+      </Unit8>
+      <Unit9>
         <Filename Value="bytecode\opcodes.pas"/>
         <UnitName Value="Opcodes"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="110"/>
-        <CursorPos X="86" Y="117"/>
-        <UsageCount Value="79"/>
-      </Unit33>
-      <Unit34>
+        <TopLine Value="135"/>
+        <CursorPos X="26" Y="153"/>
+        <UsageCount Value="83"/>
+      </Unit9>
+      <Unit10>
         <Filename Value="sscompiler.pas"/>
         <UnitName Value="SSCompiler"/>
         <WindowIndex Value="0"/>
         <TopLine Value="10"/>
         <CursorPos X="47" Y="22"/>
-        <UsageCount Value="79"/>
-      </Unit34>
-      <Unit35>
+        <UsageCount Value="66"/>
+      </Unit10>
+      <Unit11>
         <Filename Value="tree\cfg\flowgraph.pas"/>
         <UnitName Value="FlowGraph"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="78"/>
-        <CursorPos X="16" Y="96"/>
-        <UsageCount Value="53"/>
-      </Unit35>
-      <Unit36>
-        <Filename Value="syntax\parse_throw.pas"/>
-        <UnitName Value="Parse_THROW"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="13"/>
-        <UsageCount Value="1"/>
-      </Unit36>
-      <Unit37>
-        <Filename Value="syntax\parse_try_catch.pas"/>
-        <UnitName Value="Parse_TRY_CATCH"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="13"/>
-        <UsageCount Value="1"/>
-      </Unit37>
-      <Unit38>
+        <TopLine Value="407"/>
+        <CursorPos X="56" Y="429"/>
+        <UsageCount Value="43"/>
+      </Unit11>
+      <Unit12>
         <Filename Value="syntax\parse_while.pas"/>
         <UnitName Value="Parse_WHILE"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="14"/>
-        <UsageCount Value="13"/>
-      </Unit38>
-      <Unit39>
-        <Filename Value="syntax\parse_if.pas"/>
-        <UnitName Value="Parse_IF"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="12"/>
-        <UsageCount Value="1"/>
-      </Unit39>
-      <Unit40>
-        <Filename Value="syntax\parse_for.pas"/>
-        <UnitName Value="Parse_FOR"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="13"/>
-        <UsageCount Value="1"/>
-      </Unit40>
-      <Unit41>
+        <TopLine Value="70"/>
+        <CursorPos X="40" Y="87"/>
+        <UsageCount Value="9"/>
+      </Unit12>
+      <Unit13>
         <Filename Value="syntax\parse_code.pas"/>
         <UnitName Value="Parse_CODE"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="26"/>
-        <CursorPos X="14" Y="35"/>
-        <UsageCount Value="8"/>
-      </Unit41>
-      <Unit42>
-        <Filename Value="syntax\parse_return.pas"/>
-        <UnitName Value="Parse_RETURN"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="12"/>
-        <UsageCount Value="1"/>
-      </Unit42>
-      <Unit43>
+        <TopLine Value="155"/>
+        <CursorPos X="54" Y="169"/>
+        <UsageCount Value="7"/>
+      </Unit13>
+      <Unit14>
         <Filename Value="syntax\parse_var.pas"/>
         <UnitName Value="Parse_VAR"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="154"/>
-        <CursorPos X="35" Y="173"/>
-        <UsageCount Value="30"/>
-      </Unit43>
-      <Unit44>
+        <TopLine Value="204"/>
+        <CursorPos X="28" Y="220"/>
+        <UsageCount Value="20"/>
+      </Unit14>
+      <Unit15>
         <Filename Value="syntax\parse_function.pas"/>
         <UnitName Value="Parse_FUNCTION"/>
-        <EditorIndex Value="3"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="426"/>
-        <CursorPos X="1" Y="448"/>
-        <UsageCount Value="53"/>
-        <Loaded Value="True"/>
-      </Unit44>
-      <Unit45>
+        <TopLine Value="422"/>
+        <CursorPos X="67" Y="509"/>
+        <UsageCount Value="64"/>
+      </Unit15>
+      <Unit16>
         <Filename Value="expression\expressioncompiler.pas"/>
         <UnitName Value="ExpressionCompiler"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="521"/>
-        <CursorPos X="1" Y="537"/>
-        <UsageCount Value="62"/>
-      </Unit45>
-      <Unit46>
+        <TopLine Value="1"/>
+        <CursorPos X="1" Y="1"/>
+        <UsageCount Value="49"/>
+      </Unit16>
+      <Unit17>
         <Filename Value="bytecode\ssm\ssmparser.pas"/>
         <UnitName Value="SSMParser"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="161"/>
-        <CursorPos X="27" Y="185"/>
-        <UsageCount Value="63"/>
-      </Unit46>
-      <Unit47>
-        <Filename Value="syntax\do_not_read.pas"/>
-        <UnitName Value="do_not_read"/>
-        <WindowIndex Value="0"/>
         <TopLine Value="1"/>
-        <CursorPos X="6" Y="6"/>
-        <UsageCount Value="1"/>
-      </Unit47>
-      <Unit48>
-        <Filename Value="expression\gen\primary_operator.pas"/>
-        <UnitName Value="primary_operator"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="43"/>
-        <CursorPos X="95" Y="61"/>
-        <UsageCount Value="2"/>
-      </Unit48>
-      <Unit49>
+        <CursorPos X="1" Y="1"/>
+        <UsageCount Value="88"/>
+      </Unit17>
+      <Unit18>
         <Filename Value="expression\gen\call.pas"/>
         <UnitName Value="call"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="13"/>
-        <CursorPos X="28" Y="278"/>
-        <UsageCount Value="9"/>
-      </Unit49>
-      <Unit50>
+        <TopLine Value="218"/>
+        <CursorPos X="34" Y="224"/>
+        <UsageCount Value="1"/>
+      </Unit18>
+      <Unit19>
         <Filename Value="symbol\symdef.pas"/>
         <UnitName Value="symdef"/>
-        <IsVisibleTab Value="True"/>
-        <EditorIndex Value="1"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1393"/>
-        <CursorPos X="27" Y="1419"/>
-        <UsageCount Value="52"/>
-        <Loaded Value="True"/>
-      </Unit50>
-      <Unit51>
+        <TopLine Value="863"/>
+        <CursorPos X="71" Y="884"/>
+        <UsageCount Value="69"/>
+      </Unit19>
+      <Unit20>
         <Filename Value="bytecode\bytecode_generator.pas"/>
         <UnitName Value="bytecode_generator"/>
         <WindowIndex Value="0"/>
         <TopLine Value="403"/>
         <CursorPos X="8" Y="425"/>
-        <UsageCount Value="27"/>
-      </Unit51>
-      <Unit52>
+        <UsageCount Value="14"/>
+      </Unit20>
+      <Unit21>
         <Filename Value="syntax\parse_foreach.pas"/>
         <UnitName Value="Parse_FOREACH"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="12"/>
-        <UsageCount Value="24"/>
-      </Unit52>
-      <Unit53>
+        <TopLine Value="67"/>
+        <CursorPos X="34" Y="83"/>
+        <UsageCount Value="13"/>
+      </Unit21>
+      <Unit22>
         <Filename Value="parser\lexer\tokens.pas"/>
         <UnitName Value="Tokens"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
-        <CursorPos X="133" Y="15"/>
-        <UsageCount Value="29"/>
-      </Unit53>
-      <Unit54>
-        <Filename Value="optimization\bytecode\opt_peephole.pas"/>
-        <UnitName Value="opt_peephole"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="5" Y="14"/>
-        <UsageCount Value="8"/>
-      </Unit54>
-      <Unit55>
+        <CursorPos X="1" Y="1"/>
+        <UsageCount Value="16"/>
+      </Unit22>
+      <Unit23>
         <Filename Value="symbol\variable_allocator.pas"/>
         <UnitName Value="variable_allocator"/>
         <WindowIndex Value="0"/>
         <TopLine Value="152"/>
         <CursorPos X="3" Y="180"/>
-        <UsageCount Value="20"/>
-      </Unit55>
-      <Unit56>
+        <UsageCount Value="7"/>
+      </Unit23>
+      <Unit24>
         <Filename Value="expression\expression.pas"/>
         <UnitName Value="Expression"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="9"/>
-        <CursorPos X="49" Y="28"/>
-        <UsageCount Value="22"/>
-      </Unit56>
-      <Unit57>
-        <Filename Value="parser\parser.pas"/>
-        <UnitName Value="Parser"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="24" Y="5"/>
-        <UsageCount Value="2"/>
-      </Unit57>
-      <Unit58>
-        <Filename Value="expression\gen\internal_functions\array_length.pas"/>
-        <UnitName Value="array_length"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="26" Y="1"/>
-        <UsageCount Value="2"/>
-      </Unit58>
-      <Unit59>
-        <Filename Value="syntax\parse_break_continue.pas"/>
-        <UnitName Value="parse_break_continue"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="63" Y="12"/>
-        <UsageCount Value="2"/>
-      </Unit59>
-      <Unit60>
-        <Filename Value="tree\ssa\ssa_stage1.pas"/>
-        <UnitName Value="ssa_stage1"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="79"/>
-        <CursorPos X="49" Y="6"/>
-        <UsageCount Value="8"/>
-      </Unit60>
-      <Unit61>
+        <TopLine Value="160"/>
+        <CursorPos X="18" Y="160"/>
+        <UsageCount Value="79"/>
+      </Unit24>
+      <Unit25>
         <Filename Value="expression\gen\array_element.pas"/>
         <UnitName Value="array_element"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="74"/>
-        <CursorPos X="58" Y="93"/>
-        <UsageCount Value="8"/>
-      </Unit61>
-      <Unit62>
+        <TopLine Value="66"/>
+        <CursorPos X="56" Y="82"/>
+        <UsageCount Value="20"/>
+      </Unit25>
+      <Unit26>
         <Filename Value="messages.pas"/>
         <UnitName Value="Messages"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="11"/>
-        <CursorPos X="146" Y="28"/>
-        <UsageCount Value="30"/>
-      </Unit62>
-      <Unit63>
-        <Filename Value="expression\gen\assign.pas"/>
-        <UnitName Value="assign"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="148"/>
-        <CursorPos X="1" Y="23"/>
-        <UsageCount Value="8"/>
-      </Unit63>
-      <Unit64>
+        <TopLine Value="62"/>
+        <CursorPos X="25" Y="90"/>
+        <UsageCount Value="29"/>
+      </Unit26>
+      <Unit27>
         <Filename Value="optimization\code\opt_tree_simplification.pas"/>
         <UnitName Value="opt_tree_simplification"/>
         <WindowIndex Value="0"/>
         <TopLine Value="149"/>
         <CursorPos X="4" Y="263"/>
-        <UsageCount Value="6"/>
-      </Unit64>
-      <Unit65>
-        <Filename Value="optimization\code\opt_constant_folding.pas"/>
-        <UnitName Value="opt_constant_folding"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="7" Y="58"/>
-        <UsageCount Value="1"/>
-      </Unit65>
-      <Unit66>
+        <UsageCount Value="3"/>
+      </Unit27>
+      <Unit28>
         <Filename Value="stream.pas"/>
         <UnitName Value="Stream"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="172"/>
-        <CursorPos X="35" Y="145"/>
-        <UsageCount Value="12"/>
-      </Unit66>
-      <Unit67>
+        <TopLine Value="145"/>
+        <CursorPos X="100" Y="163"/>
+        <UsageCount Value="14"/>
+      </Unit28>
+      <Unit29>
         <Filename Value="syntax\parse_include.pas"/>
         <UnitName Value="Parse_include"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
-        <UsageCount Value="23"/>
-      </Unit67>
-      <Unit68>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\packages\fcl-json\src\fpjsonrtti.pp"/>
-        <UnitName Value="fpjsonrtti"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="940"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="2"/>
-      </Unit68>
-      <Unit69>
+        <UsageCount Value="10"/>
+      </Unit29>
+      <Unit30>
         <Filename Value="bytecode\bccompiler.pas"/>
         <UnitName Value="BCCompiler"/>
         <WindowIndex Value="0"/>
         <TopLine Value="465"/>
         <CursorPos X="56" Y="484"/>
-        <UsageCount Value="29"/>
-      </Unit69>
-      <Unit70>
+        <UsageCount Value="16"/>
+      </Unit30>
+      <Unit31>
         <Filename Value="serialization.pas"/>
         <UnitName Value="Serialization"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="191"/>
-        <CursorPos X="60" Y="213"/>
-        <UsageCount Value="4"/>
-      </Unit70>
-      <Unit71>
-        <Filename Value="syntax\parse_type.pas"/>
-        <UnitName Value="Parse_TYPE"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="12"/>
-        <UsageCount Value="1"/>
-      </Unit71>
-      <Unit72>
-        <Filename Value="expression\gen\variable_handling.pas"/>
-        <UnitName Value="variable_handling"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="46" Y="14"/>
-        <UsageCount Value="8"/>
-      </Unit72>
-      <Unit73>
-        <Filename Value="expression\gen\new.pas"/>
-        <UnitName Value="new"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="27"/>
-        <CursorPos X="21" Y="66"/>
-        <UsageCount Value="2"/>
-      </Unit73>
-      <Unit74>
-        <Filename Value="expression\gen\compile_simple.pas"/>
-        <UnitName Value="compile_simple"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="86"/>
-        <CursorPos X="91" Y="113"/>
-        <UsageCount Value="8"/>
-      </Unit74>
-      <Unit75>
-        <Filename Value="optimization\code\opt_loop_unroll.pas"/>
-        <UnitName Value="opt_loop_unroll"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit75>
-      <Unit76>
+        <TopLine Value="151"/>
+        <CursorPos X="62" Y="184"/>
+        <UsageCount Value="10"/>
+      </Unit31>
+      <Unit32>
         <Filename Value="parser\scanner.pas"/>
         <UnitName Value="Scanner"/>
-        <EditorIndex Value="4"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="630"/>
-        <CursorPos X="34" Y="457"/>
-        <UsageCount Value="34"/>
-        <Loaded Value="True"/>
-      </Unit76>
-      <Unit77>
+        <TopLine Value="688"/>
+        <CursorPos X="70" Y="704"/>
+        <UsageCount Value="42"/>
+      </Unit32>
+      <Unit33>
         <Filename Value="parser\lexer\lexer.pas"/>
         <UnitName Value="Lexer"/>
         <WindowIndex Value="0"/>
         <TopLine Value="558"/>
         <CursorPos X="27" Y="577"/>
-        <UsageCount Value="27"/>
-      </Unit77>
-      <Unit78>
-        <Filename Value="syntax\parse_macro.pas"/>
-        <UnitName Value="parse_macro"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="46" Y="15"/>
-        <UsageCount Value="2"/>
-      </Unit78>
-      <Unit79>
-        <Filename Value="syntax\parse_namespace.pas"/>
-        <UnitName Value="Parse_NAMESPACE"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="42"/>
-        <CursorPos X="33" Y="64"/>
-        <UsageCount Value="1"/>
-      </Unit79>
-      <Unit80>
-        <Filename Value="syntax\parse_const.pas"/>
-        <UnitName Value="Parse_CONST"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="16" Y="12"/>
-        <UsageCount Value="1"/>
-      </Unit80>
-      <Unit81>
-        <Filename Value="optimization\code\insert_constants.pas"/>
-        <UnitName Value="insert_constants"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="11"/>
-        <CursorPos X="41" Y="20"/>
-        <UsageCount Value="1"/>
-      </Unit81>
-      <Unit82>
-        <Filename Value="expression\gen\logical_or.pas"/>
-        <UnitName Value="logical_or"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="40" Y="27"/>
-        <UsageCount Value="2"/>
-      </Unit82>
-      <Unit83>
-        <Filename Value="expression\gen\logical_and.pas"/>
-        <UnitName Value="logical_and"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="7" Y="26"/>
-        <UsageCount Value="2"/>
-      </Unit83>
-      <Unit84>
-        <Filename Value="optimization\code\codeoptimizer.pas"/>
-        <UnitName Value="CodeOptimizer"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="6"/>
-        <CursorPos X="5" Y="35"/>
-        <UsageCount Value="1"/>
-      </Unit84>
-      <Unit85>
-        <Filename Value="optimization\code\treesimplification.pas"/>
-        <UnitName Value="TreeSimplification"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="64" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit85>
-      <Unit86>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\packages\paszlib\src\trees.pas"/>
-        <UnitName Value="trees"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1836"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit86>
-      <Unit87>
-        <Filename Value="optimization\cfg\cfgcodeoptimizer.pas"/>
-        <UnitName Value="CFGCodeOptimizer"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="29" Y="11"/>
-        <UsageCount Value="1"/>
-      </Unit87>
-      <Unit88>
-        <Filename Value="optimization\optimizer.pas"/>
-        <UnitName Value="Optimizer"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="4"/>
-        <CursorPos X="59" Y="11"/>
-        <UsageCount Value="3"/>
-      </Unit88>
-      <Unit89>
-        <Filename Value="optimization\cfg\opt_constant_folding.pas"/>
-        <UnitName Value="opt_constant_folding"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="36" Y="213"/>
-        <UsageCount Value="1"/>
-      </Unit89>
-      <Unit90>
-        <Filename Value="optimization\expression\expressiontreesimplification.pas"/>
-        <UnitName Value="ExpressionTreeSimplification"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="319"/>
-        <CursorPos X="72" Y="321"/>
-        <UsageCount Value="1"/>
-      </Unit90>
-      <Unit91>
-        <Filename Value="optimization\expression\exprtreesimplification.pas"/>
-        <UnitName Value="ExprTreeSimplification"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="5"/>
-        <UsageCount Value="1"/>
-      </Unit91>
-      <Unit92>
-        <Filename Value="optimization\expression\exprconstantinsertion.pas"/>
-        <UnitName Value="ExprConstantInsertion"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="29" Y="10"/>
-        <UsageCount Value="1"/>
-      </Unit92>
-      <Unit93>
-        <Filename Value="optimization\expression\expressionconstantinsertion.pas"/>
-        <UnitName Value="ExpressionConstantInsertion"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="29"/>
-        <CursorPos X="24" Y="46"/>
-        <UsageCount Value="8"/>
-      </Unit93>
-      <Unit94>
-        <Filename Value="optimization\cfg\cfgoptimizer.pas"/>
-        <UnitName Value="CFGOptimizer"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="48" Y="11"/>
-        <UsageCount Value="1"/>
-      </Unit94>
-      <Unit95>
-        <Filename Value="optimization\cfg\cfgbranchsimplification.pas"/>
-        <UnitName Value="CFGBranchSimplification"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="8"/>
-        <CursorPos X="63" Y="126"/>
-        <UsageCount Value="1"/>
-      </Unit95>
-      <Unit96>
+        <UsageCount Value="14"/>
+      </Unit33>
+      <Unit34>
         <Filename Value="optimization\cfg\cfgdeadcode.pas"/>
         <UnitName Value="CFGDeadCode"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="57"/>
-        <CursorPos X="68" Y="80"/>
-        <UsageCount Value="9"/>
-      </Unit96>
-      <Unit97>
+        <TopLine Value="143"/>
+        <CursorPos X="7" Y="143"/>
+        <UsageCount Value="1"/>
+      </Unit34>
+      <Unit35>
         <Filename Value="optimization\cfg\cfgexpressions.pas"/>
         <UnitName Value="CFGExpressions"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="160"/>
-        <CursorPos X="91" Y="144"/>
-        <UsageCount Value="8"/>
-      </Unit97>
-      <Unit98>
-        <Filename Value="optimization\cfg\cfgexpressionsimplify.pas"/>
-        <UnitName Value="CFGExpressionSimplify"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="5"/>
-        <CursorPos X="1" Y="5"/>
-        <UsageCount Value="1"/>
-      </Unit98>
-      <Unit99>
+        <TopLine Value="4"/>
+        <CursorPos X="2" Y="5"/>
+        <UsageCount Value="16"/>
+      </Unit35>
+      <Unit36>
         <Filename Value="bytecode\bcgenerator.pas"/>
         <UnitName Value="BCGenerator"/>
-        <EditorIndex Value="2"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="296"/>
-        <CursorPos X="50" Y="312"/>
-        <UsageCount Value="15"/>
-        <Loaded Value="True"/>
-      </Unit99>
-      <Unit100>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\objpas\sysutils\sysutilh.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="125"/>
-        <CursorPos X="4" Y="134"/>
-        <UsageCount Value="1"/>
-      </Unit100>
-      <Unit101>
-        <Filename Value="tree\ssa\ssa.pas"/>
-        <UnitName Value="SSA"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="49" Y="13"/>
-        <UsageCount Value="1"/>
-      </Unit101>
-      <Unit102>
-        <Filename Value="tree\ssa\ssastage1.pas"/>
-        <UnitName Value="SSAStage1"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="12" Y="100"/>
-        <UsageCount Value="1"/>
-      </Unit102>
-      <Unit103>
-        <Filename Value="tree\ssa\ssastage2.pas"/>
-        <UnitName Value="SSAStage2"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="78"/>
-        <CursorPos X="48" Y="96"/>
-        <UsageCount Value="1"/>
-      </Unit103>
-      <Unit104>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\inc\varianth.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="104"/>
-        <CursorPos X="34" Y="113"/>
-        <UsageCount Value="2"/>
-      </Unit104>
-      <Unit105>
+        <TopLine Value="179"/>
+        <CursorPos X="134" Y="195"/>
+        <UsageCount Value="27"/>
+      </Unit36>
+      <Unit37>
         <Filename Value="expression\expressionparser.pas"/>
         <UnitName Value="ExpressionParser"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
-        <UsageCount Value="9"/>
-      </Unit105>
-      <Unit106>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\inc\variants.pp"/>
-        <UnitName Value="variants"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="641"/>
-        <CursorPos X="92" Y="667"/>
-        <UsageCount Value="8"/>
-      </Unit106>
-      <Unit107>
+        <UsageCount Value="51"/>
+      </Unit37>
+      <Unit38>
         <Filename Value="optimization\bytecode\peepholeoptimizer.pas"/>
         <UnitName Value="PeepholeOptimizer"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="44"/>
-        <CursorPos X="102" Y="59"/>
-        <UsageCount Value="3"/>
-      </Unit107>
-      <Unit108>
-        <Filename Value="symbol\variableallocator.pas"/>
-        <UnitName Value="VariableAllocator"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="17" Y="8"/>
-        <UsageCount Value="2"/>
-      </Unit108>
-      <Unit109>
-        <Filename Value="symbol\old_alloc.pas"/>
-        <UnitName Value="old_alloc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="42" Y="1"/>
-        <UsageCount Value="2"/>
-      </Unit109>
-      <Unit110>
-        <Filename Value="symbol\registerallocator.pas"/>
-        <UnitName Value="RegisterAllocator"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="33"/>
-        <CursorPos X="36" Y="52"/>
-        <UsageCount Value="2"/>
-      </Unit110>
-      <Unit111>
-        <Filename Value="symbol\stackallocator.pas"/>
-        <UnitName Value="StackAllocator"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="2"/>
-        <CursorPos X="51" Y="35"/>
-        <UsageCount Value="2"/>
-      </Unit111>
-      <Unit112>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\inc\rtti.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="163"/>
-        <CursorPos X="1" Y="191"/>
-        <UsageCount Value="2"/>
-      </Unit112>
-      <Unit113>
+        <TopLine Value="105"/>
+        <CursorPos X="69" Y="113"/>
+        <UsageCount Value="10"/>
+      </Unit38>
+      <Unit39>
         <Filename Value="commandline.pas"/>
         <UnitName Value="CommandLine"/>
         <WindowIndex Value="0"/>
         <TopLine Value="145"/>
         <CursorPos X="42" Y="85"/>
-        <UsageCount Value="4"/>
-      </Unit113>
-      <Unit114>
-        <Filename Value="log.pas"/>
-        <UnitName Value="Log"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="5"/>
-        <CursorPos X="34" Y="28"/>
-        <UsageCount Value="2"/>
-      </Unit114>
-      <Unit115>
-        <Filename Value="logging.pas"/>
-        <UnitName Value="Logging"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="10"/>
-        <CursorPos X="50" Y="36"/>
-        <UsageCount Value="8"/>
-      </Unit115>
-      <Unit116>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\packages\sdl\src\logger.pas"/>
-        <UnitName Value="logger"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="104"/>
-        <CursorPos X="3" Y="107"/>
-        <UsageCount Value="2"/>
-      </Unit116>
-      <Unit117>
-        <Filename Value="C:\lazarus\fpc\2.6.2\source\rtl\objpas\sysutils\finah.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="12"/>
-        <CursorPos X="10" Y="27"/>
-        <UsageCount Value="2"/>
-      </Unit117>
-      <Unit118>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\objpas\sysutils\sysutils.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="159"/>
-        <CursorPos X="1" Y="178"/>
-        <UsageCount Value="2"/>
-      </Unit118>
-      <Unit119>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\i386\i386.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1486"/>
-        <CursorPos X="1" Y="1504"/>
-        <UsageCount Value="2"/>
-      </Unit119>
-      <Unit120>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\inc\objpas.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="34"/>
-        <CursorPos X="19" Y="42"/>
         <UsageCount Value="1"/>
-      </Unit120>
-      <Unit121>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\inc\except.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="225"/>
-        <CursorPos X="1" Y="255"/>
-        <UsageCount Value="1"/>
-      </Unit121>
-      <Unit122>
+      </Unit39>
+      <Unit40>
         <Filename Value="list.pas"/>
         <UnitName Value="List"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="70"/>
-        <CursorPos X="41" Y="90"/>
-        <UsageCount Value="10"/>
-      </Unit122>
-      <Unit123>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\classes\classesh.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="956"/>
-        <CursorPos X="3" Y="958"/>
-        <UsageCount Value="2"/>
-      </Unit123>
-      <Unit124>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\systemh.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1349"/>
-        <CursorPos X="11" Y="1349"/>
-        <UsageCount Value="8"/>
-      </Unit124>
-      <Unit125>
-        <Filename Value="libinfo.pas"/>
-        <UnitName Value="LibInfo"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="25"/>
-        <CursorPos X="25" Y="27"/>
-        <UsageCount Value="8"/>
-      </Unit125>
-      <Unit126>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\objpash.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="325"/>
-        <CursorPos X="41" Y="333"/>
-        <UsageCount Value="2"/>
-      </Unit126>
-      <Unit127>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\win32\sysinitpas.pp"/>
-        <UnitName Value="sysinitpas"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="2"/>
-        <CursorPos X="25" Y="10"/>
-        <UsageCount Value="2"/>
-      </Unit127>
-      <Unit128>
+        <TopLine Value="49"/>
+        <CursorPos X="18" Y="59"/>
+        <UsageCount Value="9"/>
+      </Unit40>
+      <Unit41>
         <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\variants.pp"/>
         <UnitName Value="variants"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="59"/>
-        <CursorPos X="25" Y="85"/>
-        <UsageCount Value="8"/>
-      </Unit128>
-      <Unit129>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\win32\system.pp"/>
-        <UnitName Value="System"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="49"/>
-        <CursorPos X="32" Y="60"/>
-        <UsageCount Value="1"/>
-      </Unit129>
-      <Unit130>
+        <TopLine Value="99"/>
+        <CursorPos X="48" Y="110"/>
+        <UsageCount Value="2"/>
+      </Unit41>
+      <Unit42>
         <Filename Value="bytecode\bcdebug.pas"/>
         <UnitName Value="BCDebug"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="84" Y="25"/>
-        <UsageCount Value="30"/>
-      </Unit130>
-      <Unit131>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\packages\paszlib\src\zipper.pp"/>
-        <UnitName Value="zipper"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="126"/>
-        <CursorPos X="5" Y="52"/>
-        <UsageCount Value="2"/>
-      </Unit131>
-      <Unit132>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\sysutils\sysstrh.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="118"/>
-        <CursorPos X="10" Y="118"/>
-        <UsageCount Value="8"/>
-      </Unit132>
-      <Unit133>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\inc\variant.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="362"/>
-        <CursorPos X="1" Y="380"/>
-        <UsageCount Value="8"/>
-      </Unit133>
-      <Unit134>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\objpas\cvarutil.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1407"/>
-        <CursorPos X="1" Y="1424"/>
-        <UsageCount Value="8"/>
-      </Unit134>
-      <Unit135>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\inc\astrings.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="535"/>
-        <CursorPos X="48" Y="542"/>
-        <UsageCount Value="8"/>
-      </Unit135>
-      <Unit136>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\sysutils\sysstr.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="829"/>
-        <CursorPos X="3" Y="832"/>
-        <UsageCount Value="8"/>
-      </Unit136>
-      <Unit137>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\objpas\sysutils\sysstr.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="823"/>
-        <CursorPos X="43" Y="834"/>
-        <UsageCount Value="8"/>
-      </Unit137>
-      <Unit138>
-        <Filename Value="C:\freepascal\fpc\2.7.0\rtl\inc\sstrings.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1227"/>
-        <CursorPos X="10" Y="1230"/>
-        <UsageCount Value="8"/>
-      </Unit138>
-      <Unit139>
-        <Filename Value="expression\gen\typecast.pas"/>
-        <UnitName Value="typecast"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="12"/>
-        <UsageCount Value="2"/>
-      </Unit139>
-      <Unit140>
-        <Filename Value="..\SScript-VM\ssvm\bytecode\interpreter\interpreter.pas"/>
-        <UnitName Value="Interpreter"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="1"/>
-      </Unit140>
-      <Unit141>
-        <Filename Value="..\..\..\AppData\Local\Temp\Rar$DIa0.439\GDIPOBJ.pas"/>
-        <UnitName Value="GDIPOBJ"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="5508"/>
-        <CursorPos X="33" Y="32"/>
-        <UsageCount Value="1"/>
-      </Unit141>
-      <Unit142>
+        <TopLine Value="440"/>
+        <CursorPos X="135" Y="458"/>
+        <UsageCount Value="20"/>
+      </Unit42>
+      <Unit43>
         <Filename Value="hlcompiler.pas"/>
         <UnitName Value="HLCompiler"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1671"/>
-        <CursorPos X="2" Y="1675"/>
-        <UsageCount Value="12"/>
-      </Unit142>
-      <Unit143>
+        <TopLine Value="1"/>
+        <CursorPos X="1" Y="1"/>
+        <UsageCount Value="46"/>
+      </Unit43>
+      <Unit44>
         <Filename Value="bytecode\llcompiler.pas"/>
         <UnitName Value="LLCompiler"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="414"/>
-        <CursorPos X="30" Y="419"/>
-        <UsageCount Value="49"/>
-      </Unit143>
-      <Unit144>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\generic.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1857"/>
-        <CursorPos X="78" Y="1884"/>
-        <UsageCount Value="2"/>
-      </Unit144>
-      <Unit145>
-        <Filename Value="..\SScript-VM\ssvm\bytecode\dbgparser.pas"/>
-        <UnitName Value="DbgParser"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="110"/>
+        <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
-        <UsageCount Value="2"/>
-      </Unit145>
-      <Unit146>
-        <Filename Value="..\SScript-VM\ssvm\vmbytecode.pas"/>
-        <UnitName Value="VMBytecode"/>
+        <UsageCount Value="52"/>
+      </Unit44>
+      <Unit45>
+        <Filename Value="..\SScript-Editor\uMainForm.pas"/>
+        <ComponentName Value="MainForm"/>
+        <HasResources Value="True"/>
+        <ResourceBaseClass Value="Form"/>
+        <UnitName Value="uMainForm"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="56" Y="10"/>
+        <UsageCount Value="7"/>
+      </Unit45>
+      <Unit46>
+        <Filename Value="C:\freepascal\fpc\2.7.1\rtl\inc\rtti.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="164"/>
+        <CursorPos X="1" Y="191"/>
+        <UsageCount Value="7"/>
+      </Unit46>
+      <Unit47>
+        <Filename Value="optimization\cfg\cfgoptimizer.pas"/>
+        <UnitName Value="CFGOptimizer"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="19" Y="21"/>
+        <UsageCount Value="7"/>
+      </Unit47>
+      <Unit48>
+        <Filename Value="optimization\cfg\cfgbranchsimplification.pas"/>
+        <UnitName Value="CFGBranchSimplification"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="186"/>
+        <CursorPos X="7" Y="221"/>
+        <UsageCount Value="1"/>
+      </Unit48>
+      <Unit49>
+        <Filename Value="C:\freepascal\fpc\2.7.1\rtl\objpas\fgl.pp"/>
+        <UnitName Value="fgl"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="460"/>
+        <CursorPos X="34" Y="465"/>
+        <UsageCount Value="1"/>
+      </Unit49>
+      <Unit50>
+        <Filename Value="expression\gen\internal_functions\array_length.pas"/>
+        <UnitName Value="array_length"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="2" Y="3"/>
+        <UsageCount Value="1"/>
+      </Unit50>
+      <Unit51>
+        <Filename Value="expression\gen\internal_functions\array_resize.pas"/>
+        <UnitName Value="array_resize"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="82" Y="26"/>
+        <UsageCount Value="1"/>
+      </Unit51>
+      <Unit52>
+        <Filename Value="expression\expressionnodes.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="34" Y="5"/>
+        <UsageCount Value="1"/>
+      </Unit52>
+      <Unit53>
+        <Filename Value="expression\expressionunary.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="23" Y="6"/>
+        <UsageCount Value="1"/>
+      </Unit53>
+      <Unit54>
+        <Filename Value="expression\expressionbinary.inc"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
+        <UsageCount Value="1"/>
+      </Unit54>
+      <Unit55>
+        <Filename Value="expression\unary_nodes.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="50"/>
+        <CursorPos X="23" Y="79"/>
+        <UsageCount Value="33"/>
+      </Unit55>
+      <Unit56>
+        <Filename Value="expression\binary_nodes.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="101"/>
+        <CursorPos X="129" Y="124"/>
+        <UsageCount Value="33"/>
+      </Unit56>
+      <Unit57>
+        <Filename Value="expression\nodes\math.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="71"/>
+        <CursorPos X="53" Y="90"/>
+        <UsageCount Value="19"/>
+      </Unit57>
+      <Unit58>
+        <Filename Value="expression\nodes\call.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="16"/>
+        <CursorPos X="63" Y="87"/>
+        <UsageCount Value="29"/>
+      </Unit58>
+      <Unit59>
+        <Filename Value="syntax\parse_throw.pas"/>
+        <UnitName Value="Parse_THROW"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="93" Y="20"/>
+        <UsageCount Value="9"/>
+      </Unit59>
+      <Unit60>
+        <Filename Value="syntax\parse_type.pas"/>
+        <UnitName Value="Parse_TYPE"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="85"/>
+        <CursorPos X="31" Y="106"/>
+        <UsageCount Value="13"/>
+      </Unit60>
+      <Unit61>
+        <Filename Value="syntax\parse_if.pas"/>
+        <UnitName Value="Parse_IF"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="5"/>
+        <CursorPos X="87" Y="22"/>
+        <UsageCount Value="9"/>
+      </Unit61>
+      <Unit62>
+        <Filename Value="syntax\parse_for.pas"/>
+        <UnitName Value="Parse_FOR"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="38"/>
+        <CursorPos X="85" Y="54"/>
+        <UsageCount Value="9"/>
+      </Unit62>
+      <Unit63>
+        <Filename Value="syntax\parse_return.pas"/>
+        <UnitName Value="Parse_RETURN"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="84" Y="24"/>
+        <UsageCount Value="9"/>
+      </Unit63>
+      <Unit64>
+        <Filename Value="syntax\parse_const.pas"/>
+        <UnitName Value="Parse_CONST"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="26"/>
+        <CursorPos X="77" Y="51"/>
+        <UsageCount Value="9"/>
+      </Unit64>
+      <Unit65>
+        <Filename Value="tree\ssa\ssastage1.pas"/>
+        <UnitName Value="SSAStage1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="138"/>
+        <CursorPos X="5" Y="151"/>
+        <UsageCount Value="1"/>
+      </Unit65>
+      <Unit66>
+        <Filename Value="tree\ssa\ssastage2.pas"/>
+        <UnitName Value="SSAStage2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="305"/>
+        <CursorPos X="7" Y="303"/>
+        <UsageCount Value="1"/>
+      </Unit66>
+      <Unit67>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\objpas.pp"/>
+        <UnitName Value="objpas"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="29"/>
+        <CursorPos X="8" Y="38"/>
+        <UsageCount Value="1"/>
+      </Unit67>
+      <Unit68>
+        <Filename Value="expression\nullary_nodes.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="47"/>
+        <CursorPos X="60" Y="42"/>
+        <UsageCount Value="28"/>
+      </Unit68>
+      <Unit69>
+        <Filename Value="expression\nodes\nullary\identifier.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="59"/>
+        <CursorPos X="77" Y="79"/>
+        <UsageCount Value="37"/>
+      </Unit69>
+      <Unit70>
+        <Filename Value="expression\nodes\nullary\constant.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="32"/>
+        <CursorPos X="108" Y="43"/>
+        <UsageCount Value="35"/>
+      </Unit70>
+      <Unit71>
+        <Filename Value="expression\nodes\helpers.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="12"/>
+        <CursorPos X="7" Y="26"/>
+        <UsageCount Value="42"/>
+      </Unit71>
+      <Unit72>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\fgl.pp"/>
+        <UnitName Value="fgl"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="19"/>
+        <CursorPos X="1" Y="1"/>
         <UsageCount Value="2"/>
-      </Unit146>
-      <Unit147>
+      </Unit72>
+      <Unit73>
+        <Filename Value="expression\nodes\binary\assign.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="90"/>
+        <CursorPos X="51" Y="108"/>
+        <UsageCount Value="36"/>
+      </Unit73>
+      <Unit74>
+        <Filename Value="C:\freepascal\fpc\2.7.1\rtl\i386\i386.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1487"/>
+        <CursorPos X="57" Y="1502"/>
+        <UsageCount Value="5"/>
+      </Unit74>
+      <Unit75>
+        <Filename Value="C:\freepascal\fpc\2.7.1\rtl\win32\sysinitpas.pp"/>
+        <UnitName Value="sysinitpas"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="2"/>
+        <CursorPos X="49" Y="17"/>
+        <UsageCount Value="8"/>
+      </Unit75>
+      <Unit76>
+        <Filename Value="expression\nodes\unary\neg.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="14"/>
+        <CursorPos X="57" Y="25"/>
+        <UsageCount Value="7"/>
+      </Unit76>
+      <Unit77>
+        <Filename Value="expression\nodes\binary\compare.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="104"/>
+        <CursorPos X="136" Y="126"/>
+        <UsageCount Value="14"/>
+      </Unit77>
+      <Unit78>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\objpash.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="91"/>
+        <CursorPos X="8" Y="91"/>
+        <UsageCount Value="6"/>
+      </Unit78>
+      <Unit79>
+        <Filename Value="expression\nodes\unary\postop.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="13"/>
+        <CursorPos X="12" Y="45"/>
+        <UsageCount Value="4"/>
+      </Unit79>
+      <Unit80>
+        <Filename Value="expression\nodes\unary\preop.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="1" Y="3"/>
+        <UsageCount Value="4"/>
+      </Unit80>
+      <Unit81>
+        <Filename Value="expression\nodes\unary\prepostop.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="47"/>
+        <CursorPos X="71" Y="61"/>
+        <UsageCount Value="9"/>
+      </Unit81>
+      <Unit82>
+        <Filename Value="expression\nodes\binary\math.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="9"/>
+        <CursorPos X="93" Y="37"/>
+        <UsageCount Value="31"/>
+      </Unit82>
+      <Unit83>
+        <Filename Value="expression\nodes\binary\bitwisemath.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="42"/>
+        <CursorPos X="146" Y="65"/>
+        <UsageCount Value="14"/>
+      </Unit83>
+      <Unit84>
+        <Filename Value="C:\freepascal\fpc\2.7.1\rtl\inc\dynarr.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="132"/>
+        <CursorPos X="39" Y="137"/>
+        <UsageCount Value="4"/>
+      </Unit84>
+      <Unit85>
+        <Filename Value="expression\nodes\binary\logicalmath.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="38"/>
+        <CursorPos X="1" Y="50"/>
+        <UsageCount Value="12"/>
+      </Unit85>
+      <Unit86>
+        <Filename Value="expression\nodes\unary\not.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="31" Y="11"/>
+        <UsageCount Value="4"/>
+      </Unit86>
+      <Unit87>
+        <Filename Value="expression\nodes\unary\logicalnot.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="55" Y="24"/>
+        <UsageCount Value="8"/>
+      </Unit87>
+      <Unit88>
+        <Filename Value="expression\nodes\unary\bitwisenot.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="86" Y="24"/>
+        <UsageCount Value="7"/>
+      </Unit88>
+      <Unit89>
+        <Filename Value="expression\nodes\unary\arrayelement.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="119"/>
+        <CursorPos X="12" Y="148"/>
+        <UsageCount Value="28"/>
+      </Unit89>
+      <Unit90>
+        <Filename Value="expression\nodes\binary\new.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="69" Y="15"/>
+        <UsageCount Value="6"/>
+      </Unit90>
+      <Unit91>
+        <Filename Value="expression\nodes\unary\new.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="56"/>
+        <CursorPos X="66" Y="74"/>
+        <UsageCount Value="7"/>
+      </Unit91>
+      <Unit92>
+        <Filename Value="expression\nodes\binary_nodes.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="118"/>
+        <CursorPos X="17" Y="118"/>
+        <UsageCount Value="26"/>
+      </Unit92>
+      <Unit93>
+        <Filename Value="expression\nodes\nullary_nodes.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="6"/>
+        <CursorPos X="61" Y="22"/>
+        <UsageCount Value="13"/>
+      </Unit93>
+      <Unit94>
+        <Filename Value="expression\nodes\unary_nodes.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="77"/>
+        <CursorPos X="32" Y="89"/>
+        <UsageCount Value="20"/>
+      </Unit94>
+      <Unit95>
+        <Filename Value="expression\nodes\unary\call.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="284"/>
+        <CursorPos X="37" Y="314"/>
+        <UsageCount Value="31"/>
+      </Unit95>
+      <Unit96>
+        <Filename Value="C:\freepascal\fpc\2.7.1\rtl\inc\objpas.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="502"/>
+        <CursorPos X="82" Y="511"/>
+        <UsageCount Value="5"/>
+      </Unit96>
+      <Unit97>
+        <Filename Value="expression\nodes\unary\cast.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="10"/>
+        <CursorPos X="50" Y="17"/>
+        <UsageCount Value="7"/>
+      </Unit97>
+      <Unit98>
         <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\objpas.inc"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="914"/>
-        <CursorPos X="34" Y="922"/>
-        <UsageCount Value="2"/>
-      </Unit147>
-      <Unit148>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\sysutils\sysutilh.inc"/>
+        <TopLine Value="540"/>
+        <CursorPos X="47" Y="558"/>
+        <UsageCount Value="6"/>
+      </Unit98>
+      <Unit99>
+        <Filename Value="mixedvalue.pas"/>
+        <UnitName Value="MixedValue"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="219"/>
-        <CursorPos X="13" Y="222"/>
+        <TopLine Value="403"/>
+        <CursorPos X="34" Y="434"/>
+        <UsageCount Value="11"/>
+      </Unit99>
+      <Unit100>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\varianth.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="12"/>
+        <CursorPos X="4" Y="57"/>
+        <UsageCount Value="7"/>
+      </Unit100>
+      <Unit101>
+        <Filename Value="optimization\expression\expressionoptimizer.pas"/>
+        <UnitName Value="ExpressionOptimizer"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="22"/>
+        <CursorPos X="37" Y="24"/>
+        <UsageCount Value="7"/>
+      </Unit101>
+      <Unit102>
+        <Filename Value="optimization\expression\expressionconstantfolding.pas"/>
+        <UnitName Value="ExpressionConstantFolding"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="26"/>
+        <CursorPos X="96" Y="31"/>
+        <UsageCount Value="7"/>
+      </Unit102>
+      <Unit103>
+        <Filename Value="expression\nodes\unary\fieldfetch.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1"/>
+        <CursorPos X="10" Y="28"/>
+        <UsageCount Value="9"/>
+      </Unit103>
+      <Unit104>
+        <Filename Value="symbol\registerallocator.pas"/>
+        <UnitName Value="RegisterAllocator"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="88"/>
+        <CursorPos X="112" Y="111"/>
+        <UsageCount Value="7"/>
+      </Unit104>
+      <Unit105>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\systemh.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="736"/>
+        <CursorPos X="11" Y="736"/>
+        <UsageCount Value="10"/>
+      </Unit105>
+      <Unit106>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\generic.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="2104"/>
+        <CursorPos X="5" Y="2106"/>
+        <UsageCount Value="7"/>
+      </Unit106>
+      <Unit107>
+        <Filename Value="..\SScript-VM\ssvm\bytecode\bcloader.pas"/>
+        <UnitName Value="BCLoader"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="69"/>
+        <CursorPos X="69" Y="90"/>
+        <UsageCount Value="7"/>
+      </Unit107>
+      <Unit108>
+        <Filename Value="optimization\expression\expressiontreesimplification.pas"/>
+        <UnitName Value="ExpressionTreeSimplification"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="464"/>
+        <CursorPos X="51" Y="381"/>
+        <UsageCount Value="13"/>
+      </Unit108>
+      <Unit109>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\sysutils\sysstrh.inc"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="225"/>
+        <CursorPos X="34" Y="225"/>
+        <UsageCount Value="7"/>
+      </Unit109>
+      <Unit110>
+        <Filename Value="syntax\parse_namespace.pas"/>
+        <UnitName Value="Parse_NAMESPACE"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="46"/>
+        <CursorPos X="112" Y="77"/>
         <UsageCount Value="8"/>
-      </Unit148>
-      <Unit149>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\objpas\sysutils\sysutils.inc"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="519"/>
-        <CursorPos X="3" Y="522"/>
-        <UsageCount Value="2"/>
-      </Unit149>
-      <Unit150>
-        <Filename Value="expression\gen\compare.pas"/>
-        <UnitName Value="compare"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="18"/>
-        <UsageCount Value="2"/>
-      </Unit150>
-      <Unit151>
-        <Filename Value="expression\gen\bitwise_or.pas"/>
-        <UnitName Value="bitwise_or"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="8" Y="7"/>
-        <UsageCount Value="2"/>
-      </Unit151>
-      <Unit152>
-        <Filename Value="expression\gen\bitwise_and.pas"/>
-        <UnitName Value="bitwise_and"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="55" Y="15"/>
-        <UsageCount Value="2"/>
-      </Unit152>
-      <Unit153>
-        <Filename Value="expression\gen\bitwise_not.pas"/>
-        <UnitName Value="bitwise_not"/>
+      </Unit110>
+      <Unit111>
+        <Filename Value="syntax\parse_use.pas"/>
+        <UnitName Value="parse_use"/>
         <WindowIndex Value="0"/>
         <TopLine Value="1"/>
         <CursorPos X="1" Y="1"/>
-        <UsageCount Value="2"/>
-      </Unit153>
-      <Unit154>
-        <Filename Value="expression\gen\logical_not.pas"/>
-        <UnitName Value="logical_not"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="2"/>
-      </Unit154>
-      <Unit155>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\lineinfo.pp"/>
-        <UnitName Value="lineinfo"/>
-        <WindowIndex Value="0"/>
-        <TopLine Value="191"/>
-        <CursorPos X="89" Y="219"/>
         <UsageCount Value="8"/>
-      </Unit155>
-      <Unit156>
-        <Filename Value="bytecode.ssb"/>
+      </Unit111>
+      <Unit112>
+        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\i386\i386.inc"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1"/>
-        <CursorPos X="1" Y="1"/>
-        <UsageCount Value="8"/>
-        <DefaultSyntaxHighlighter Value="None"/>
-      </Unit156>
-      <Unit157>
-        <Filename Value="C:\lazarus\fpc\2.7.1\source\rtl\inc\system.inc"/>
+        <TopLine Value="1597"/>
+        <CursorPos X="11" Y="1573"/>
+        <UsageCount Value="9"/>
+      </Unit112>
+      <Unit113>
+        <Filename Value="C:\freepascal\fpc\2.7.1\rtl\inc\variant.inc"/>
         <WindowIndex Value="0"/>
-        <TopLine Value="1127"/>
-        <CursorPos X="1" Y="1145"/>
-        <UsageCount Value="8"/>
-      </Unit157>
+        <TopLine Value="7"/>
+        <CursorPos X="56" Y="19"/>
+        <UsageCount Value="9"/>
+      </Unit113>
     </Units>
     <General>
       <ActiveWindowIndexAtStart Value="0"/>
     </General>
-    <JumpHistory Count="29" HistoryIndex="28">
+    <JumpHistory Count="1" HistoryIndex="0">
       <Position1>
-        <Filename Value="symbol\symdef.pas"/>
-        <Caret Line="587" Column="60" TopLine="555"/>
+        <Filename Value="compiler.lpr"/>
+        <Caret Line="22" Column="9" TopLine="13"/>
       </Position1>
-      <Position2>
-        <Filename Value="syntax\parse_function.pas"/>
-        <Caret Line="359" Column="31" TopLine="351"/>
-      </Position2>
-      <Position3>
-        <Filename Value="syntax\parse_function.pas"/>
-        <Caret Line="450" Column="52" TopLine="432"/>
-      </Position3>
-      <Position4>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="456" Column="33" TopLine="443"/>
-      </Position4>
-      <Position5>
-        <Filename Value="syntax\parse_function.pas"/>
-        <Caret Line="450" Column="52" TopLine="432"/>
-      </Position5>
-      <Position6>
-        <Filename Value="syntax\parse_function.pas"/>
-        <Caret Line="448" Column="1" TopLine="432"/>
-      </Position6>
-      <Position7>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="444" Column="1" TopLine="438"/>
-      </Position7>
-      <Position8>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="445" Column="1" TopLine="438"/>
-      </Position8>
-      <Position9>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="447" Column="1" TopLine="438"/>
-      </Position9>
-      <Position10>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="448" Column="1" TopLine="438"/>
-      </Position10>
-      <Position11>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="449" Column="1" TopLine="438"/>
-      </Position11>
-      <Position12>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="451" Column="1" TopLine="438"/>
-      </Position12>
-      <Position13>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="452" Column="1" TopLine="438"/>
-      </Position13>
-      <Position14>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="453" Column="1" TopLine="438"/>
-      </Position14>
-      <Position15>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="455" Column="1" TopLine="438"/>
-      </Position15>
-      <Position16>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="458" Column="1" TopLine="438"/>
-      </Position16>
-      <Position17>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="461" Column="1" TopLine="450"/>
-      </Position17>
-      <Position18>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="479" Column="1" TopLine="451"/>
-      </Position18>
-      <Position19>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="481" Column="1" TopLine="468"/>
-      </Position19>
-      <Position20>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="498" Column="1" TopLine="485"/>
-      </Position20>
-      <Position21>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="594" Column="1" TopLine="577"/>
-      </Position21>
-      <Position22>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="600" Column="1" TopLine="592"/>
-      </Position22>
-      <Position23>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="602" Column="1" TopLine="592"/>
-      </Position23>
-      <Position24>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="604" Column="1" TopLine="592"/>
-      </Position24>
-      <Position25>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="607" Column="1" TopLine="592"/>
-      </Position25>
-      <Position26>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="614" Column="1" TopLine="592"/>
-      </Position26>
-      <Position27>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="615" Column="1" TopLine="592"/>
-      </Position27>
-      <Position28>
-        <Filename Value="parser\scanner.pas"/>
-        <Caret Line="617" Column="30" TopLine="592"/>
-      </Position28>
-      <Position29>
-        <Filename Value="symbol\symdef.pas"/>
-        <Caret Line="1066" Column="56" TopLine="1048"/>
-      </Position29>
     </JumpHistory>
   </ProjectSession>
   <EditorMacros Count="0"/>

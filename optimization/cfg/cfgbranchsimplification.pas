@@ -17,6 +17,7 @@
   >  b(); else
   >  a();
 *)
+{$WARNING unimplemented: TCFGBranchSimplification}
 Unit CFGBranchSimplification;
 
  Interface
@@ -92,7 +93,7 @@ Var AnythingOptimized: Boolean = False;
 
   { Visit }
   Procedure Visit(const Parent, Node: TCFGNode; const EdgeID: int32);
-  Var I        : int8;
+  {Var I        : int8;
       Value    : Boolean;
       NewParent: TCFGNode;
   Begin
@@ -103,11 +104,11 @@ Var AnythingOptimized: Boolean = False;
 
    if (Node.Typ = cetCondition) and (not Node.isVolatile) Then // if condition...
    Begin
-    if (Node.Value^.isConstant) and (Node.Value^.Typ in [mtBool, mtInt]) Then // if can be optimized...
+    if (Node.Value.isConstant) and (Node.Value.Typ in [mtBool, mtInt]) Then // if can be optimized...
     Begin
-     Value := Node.Value^.Value;
+     Value := Node.Value.Value;
 
-     DevLog(dvInfo, 'Branch at line %d has been removed (it always evaluates to %s).', [Node.Value^.Token.Line, BoolToStr(Value, 'true', 'false')]);
+     DevLog(dvInfo, 'Branch at line %d has been removed (it always evaluates to %s).', [Node.Value.Token.Line, BoolToStr(Value, 'true', 'false')]);
 
      NewParent := Node.Edges[ord(not Value)]; // taken (true) = left edge, not taken (false) = right edge
      RemovedNodes.Add(Node.Edges[ord(Value)]);
@@ -148,6 +149,8 @@ Var AnythingOptimized: Boolean = False;
 
    For I := 0 To Node.Edges.Count-1 Do
     Visit(Node, Node.Edges[I], I);
+  End;}
+  Begin
   End;
 
 Var OptBranches: uint32 = 0;
@@ -186,7 +189,7 @@ Var VisitedNodes: TCFGNodeList;
 
   { Visit }
   Procedure Visit(const Node: TCFGNode);
-  Var Edge, Tmp: TCFGNode;
+  {Var Edge, Tmp: TCFGNode;
   Begin
    if (Node = nil) or (VisitedNodes.IndexOf(Node) > -1) Then
     Exit;
@@ -195,14 +198,14 @@ Var VisitedNodes: TCFGNodeList;
 
    if (Node.getType = cetCondition) and (not Node.isVolatile) Then // if condition
    Begin
-    if (Node.Value^.getType = mtBool) Then // if bool-based condition
+    if (Node.Value.getType = mtBool) Then // if bool-based condition
     Begin
-     if (Node.Value^.Typ = mtLogicalNOT) Then
+     if (Node.Value.Typ = mtLogicalNOT) Then
       Inc(OptBranches);
 
-     While (Node.Value^.Typ = mtLogicalNOT) Do
+     While (Node.Value.Typ = mtLogicalNOT) Do
      Begin
-      Node.Value := Node.Value^.Left; // remove unary '!'
+      Node.Value := Node.Value.Left; // remove unary '!'
 
       Tmp           := Node.Edges[0]; // switch edges
       Node.Edges[0] := Node.Edges[1];
@@ -213,6 +216,8 @@ Var VisitedNodes: TCFGNodeList;
 
    For Edge in Node.Edges Do
     Visit(Edge);
+  End;}
+  Begin
   End;
 
 Begin

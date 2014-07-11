@@ -113,7 +113,7 @@ Begin
       Thus:
       "a2" would be directly but into 'ei3'
       "b1" would be put into 'ei3', as it liveness doesn't overwrite "a2"
-      "a1" would also be put into 'ei3', because the compiler visites the list from the beginning. And here we have the 'ooops': "a1" and "b1" share the same register!
+      "a1" would also be put into 'ei3', because the compiler visits the list from the beginning. And here we have the ooops: "a1" and "b1" share the same register!
      *)
      Can := True;
 
@@ -188,7 +188,7 @@ Var Symbol: TSymbol;
 Begin
  { prepare variables }
  For I := Low(FreeRegs) To High(FreeRegs) Do
-  FreeRegs[I] := [3, 4]; // variables can be allocated only in `e_3` and `e_4` registers (and of course on the stack)
+  FreeRegs[I] := [3, 4, 5]; // variables can be allocated only in `e_3`, `e_4` and `e_5` registers (and of course on the stack)
 
  { register and stack allocation }
  VarList  := TVarList.Create;

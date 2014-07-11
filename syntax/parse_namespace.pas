@@ -52,8 +52,8 @@ Begin
     CompileError(eExpected, ['{', next.Value]);
   End Else
 
-  (* if second pass *)
-  if (CompilePass = _cp2) Then
+  (* if second or third pass *)
+  if (CompilePass in [_cp2, _cp3]) Then
   Begin
    CurrentNamespace := findNamespace(read_ident);
 

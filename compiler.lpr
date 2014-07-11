@@ -19,23 +19,19 @@
 *)
 
 {$IFNDEF FPC}
- {$FATAL The compiler has been written in Free Pascal Compiler; compiling it in any other compiler will gracefully fail.}
-{$ENDIF}
-
-{$IFDEF CPU64}
- {$FATAL 64-bit CPUs are not supported (yet)!} // (because of floating point type which is a bit different on x86-64)
+ {$ERROR The compiler has been written in Free Pascal Compiler; compiling it in any other compiler will most likely gracefully fail.}
 {$ENDIF}
 
 Program compilerprog;
-Uses SysUtils, TypInfo, Logging, CommandLine, HLCompiler, ExpressionParser, LibInfo, symdef;
+Uses SysUtils, TypInfo, Logging, CommandLine, HLCompiler, LibInfo, symdef;
 Var InputFile, OutputFile: String;
 
     LibInfoMode: (limDisabled, limEnabled);
 
     Compiler: TCompiler;
 
-    Frame : Integer;
     Frames: PPointer;
+    Frame : Integer;
 
 (* RunCompiler *)
 Procedure RunCompiler;
@@ -153,7 +149,6 @@ Begin
            Writeln('Current node: ', getName);
            Writeln('Line        : ', getToken^.Line);
            Writeln('Typ         : ', Typ);
-           Writeln('Value       : ', ExpressionToString(Value));
           End;
          End;
         End;

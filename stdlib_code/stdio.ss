@@ -83,7 +83,7 @@ namespace std
   :CODE
   {
    icall("input.read")
-   pop(es1)
+   pop(es0)
   }
  }
 

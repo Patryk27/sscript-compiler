@@ -21,291 +21,14 @@ Unit ExpressionParser;
        Private
         Compiler: TCompiler;
 
-        Function CreateNode(const Left, Right: PExpressionNode; const Typ: TExpressionNodeType; const Value: Variant; const Token: TToken_P): PExpressionNode;
-
        Public
         Constructor Create(const fCompiler: TCompiler);
 
-        Function Parse(const EndTokens: TTokenSet): PExpressionNode;
+        Function Parse(const EndTokens: TTokenSet): TExpressionNode;
        End;
-
- Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpressionNode;
- Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpressionNode;
- Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
- Function MakeFloatExpression(const Value: Extended; const Token: PToken_P=nil): PExpressionNode;
- Function MakeStringExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
- Function MakeNullExpression: PExpressionNode;
-
- Function getValueFromExpression(const Expr: PExpressionNode; const Beautify: Boolean=False): String;
- Function getTypeFromExpression(const Expr: PExpressionNode): TType;
- Function getExpressionTypeName(const Expr: PExpressionNode): String;
- Function ExpressionToString(const Expr: PExpressionNode): String;
 
  Implementation
 Uses Messages;
-
-(* MakeBoolExpression *)
-Function MakeBoolExpression(const Value: Boolean; const Token: PToken_P=nil): PExpressionNode;
-Begin
- Result := TExpressionNode.Create(mtBool, Value, Token);
-End;
-
-(* MakeIntExpression *)
-Function MakeIntExpression(const Value: Int64; const Token: PToken_P=nil): PExpressionNode;
-Begin
- Result := TExpressionNode.Create(mtInt, Value, Token);
-End;
-
-(* MakeIntExpression *)
-Function MakeIntExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
-Begin
- Result := TExpressionNode.Create(mtInt, Value, Token);
-End;
-
-(* MakeFloatExpression *)
-Function MakeFloatExpression(const Value: Extended; const Token: PToken_P=nil): PExpressionNode;
-Begin
- Result := TExpressionNode.Create(mtFloat, Value, Token);
-End;
-
-(* MakeStringExpression *)
-Function MakeStringExpression(const Value: String; const Token: PToken_P=nil): PExpressionNode;
-Begin
- Result := TExpressionNode.Create(mtString, Value, Token);
-End;
-
-(* MakeNullExpression *)
-Function MakeNullExpression: PExpressionNode;
-Begin
- Result         := MakeIntExpression(0);
- Result^.isNull := True;
-End;
-
-(* getValueFromExpression *)
-Function getValueFromExpression(const Expr: PExpressionNode; const Beautify: Boolean=False): String;
-Var Value: String;
-Begin
- Value := VarToStr(Expr^.Value);
-
- // chars
- if (Expr^.Typ = mtChar) Then
- Begin
-  if (Length(Value) = 0) Then
-   raise EExpressionParserException.Create('Unexpected: Length(Value) = 0');
-
-  if (Beautify) Then
-   Exit('''\0x'+IntToHex(ord(Value[1]), 2)+'''') Else
-   Exit('#'+IntToStr(ord(Value[1])));
- End;
-
- // other types
- Case Expr^.Typ of
-  mtString:
-  Begin
-   Exit('"'+Value+'"');
-  End;
-
-  mtBool:
-  Begin
-   if (Expr^.Value) Then
-    Exit('true') Else
-    Exit('false');
-  End;
-
-  else
-   Exit(Value);
- End;
-End;
-
-(* getTypeFromExpression *)
-Function getTypeFromExpression(const Expr: PExpressionNode): TType;
-Begin
- Case Expr^.Typ of
-  mtBool  : Result := TYPE_BOOL;
-  mtChar  : Result := TYPE_CHAR;
-  mtInt   : Result := TYPE_INT;
-  mtFloat : Result := TYPE_FLOAT;
-  mtString: Result := TYPE_STRING;
-
-  else
-   Result := TYPE_ANY;
- End;
-End;
-
-(* getExpressionTypeName *)
-Function getExpressionTypeName(const Expr: PExpressionNode): String;
-Begin
- Case Expr^.Typ of
-  mtBool  : Result := 'bool';
-  mtChar  : Result := 'char';
-  mtInt   : Result := 'int';
-  mtFloat : Result := 'float';
-  mtString: Result := 'string';
-
-  else
-   Result := 'erroneous type';
- End;
-End;
-
-(* ExpressionToString *)
-Function ExpressionToString(const Expr: PExpressionNode): String;
-Var I   : int32;
-    L, R: String;
-Begin
- if (Expr = nil) Then
-  Exit('');
-
- if (Expr^.Typ = mtIdentifier) Then
- Begin
-  Result := Expr^.IdentName;
-
-  if (Length(Expr^.PostSSA.Values) > 0) Then
-  Begin
-   Result += '.(';
-
-   For I := 0 To High(Expr^.PostSSA.Values) Do
-    Result += IntToStr(Expr^.PostSSA.Values[I])+', ';
-
-   Delete(Result, Length(Result)-1, 2);
-   Result += ')';
-  End;
-
-  Result += '$';
-  if (Length(Expr^.SSA.Values) = 0) Then
-  Begin
-   Result += 'unknown';
-  End Else
-  Begin
-   Result += '(';
-   For I := 0 To High(Expr^.SSA.Values) Do
-    Result += IntToStr(Expr^.SSA.Values[I])+', ';
-
-   Delete(Result, Length(Result)-1, 2);
-   Result += ')';
-  End;
-
-  Exit;
- End;
-
- if (Expr^.Typ in [mtBool, mtChar, mtInt, mtFloat]) Then
-  Exit(Expr^.Value);
-
- if (Expr^.Typ = mtString) Then
-  Exit('"'+Expr^.Value+'"');
-
- { function call }
- if (Expr^.Typ = mtFunctionCall) Then
- Begin
-  Result := Expr^.Left^.IdentName+'(';
-
-  For I := Low(Expr^.ParamList) To High(Expr^.ParamList) Do
-  Begin
-   Result += ExpressionToString(Expr^.ParamList[I]);
-
-   if (I <> High(Expr^.ParamList)) Then
-    Result += ', ';
-  End;
-
-  Result += ')';
-  Exit;
- End;
-
- { method call }
- // @TODO
-
- { array element }
- if (Expr^.Typ = mtArrayElement) Then
- Begin
-  Result := ExpressionToString(Expr^.Left)+'['+ExpressionToString(Expr^.Right)+']';
-  Exit;
- End;
-
- { type casting }
- if (Expr^.Typ = mtTypeCast) Then
- Begin
-  Result := 'cast<'+TType(LongWord(Expr^.Value)).asString+'>('+ExpressionToString(Expr^.Left)+')';
-  Exit;
- End;
-
- { unary minus }
- if (Expr^.Typ = mtNeg) Then
- Begin
-  Result := '-'+ExpressionToString(Expr^.Left);
-  Exit;
- End;
-
- L := ExpressionToString(Expr^.Left);
- R := ExpressionToString(Expr^.Right);
-
- if (Expr^.Typ in [mtMul, mtDiv, mtMod]) Then
- Begin
-  L := '('+L+')';
-  R := '('+R+')';
- End;
-
- Result := L+ExpressionNodeString[Expr^.Typ]+R;
-End;
-
-// -------------------------------------------------------------------------- //
-{ DisplayTree }
-Procedure DisplayTree(const Tree: PExpressionNode; const Deep: uint8=0);
-
-  // Fill
-  Procedure Fill;
-  Var I: int8;
-  Begin
-   For I := 0 To int8(Deep)-1 Do
-    Write(' ');
-//   Write('> ');
-  End;
-
-Var I: Integer;
-Begin
- Fill;
-
- if (Tree = nil) Then
- Begin
-  Writeln('nil');
-  Exit;
- End;
-
- Write('Type = ', ExpressionNodeString[Tree^.Typ], ' | ');
-
- if (Tree^.Typ = mtIdentifier) Then
-  Writeln('Identifier: '+Tree^.IdentName) Else
-
- if (Tree^.Value = null) Then
-  Writeln('Value = [null]') Else
-  Writeln('Value = '+VarToStr(Tree^.Value));
-
- Fill;
- Writeln('^L:');
- DisplayTree(Tree^.Left, Deep+5);
-
- Fill;
- Writeln('^R:');
- DisplayTree(Tree^.Right, Deep+5);
-
- Fill;
- Writeln('^P:');
- For I := Low(Tree^.ParamList) To High(Tree^.ParamList) Do
- Begin
-  Fill;
-  Writeln('arg ['+IntToStr(I)+']:');
-  DisplayTree(Tree^.ParamList[I], Deep+5);
-  Writeln;
- End;
-End;
-
-// -------------------------------------------------------------------------- //
-(* TExpressionParser.CreateNode *)
-Function TExpressionParser.CreateNode(const Left, Right: PExpressionNode; const Typ: TExpressionNodeType; const Value: Variant; const Token: TToken_P): PExpressionNode;
-Begin
- Result := TExpressionNode.Create(Typ, Value, @Token);
-
- Result^.Left  := Left;
- Result^.Right := Right;
-End;
 
 (* TExpressionParser.Create *)
 Constructor TExpressionParser.Create(const fCompiler: TCompiler);
@@ -314,7 +37,7 @@ Begin
 End;
 
 (* TExpressionParser.Parse *)
-Function TExpressionParser.Parse(const EndTokens: TTokenSet): PExpressionNode;
+Function TExpressionParser.Parse(const EndTokens: TTokenSet): TExpressionNode;
 Const Order1: TTokenSet = [_EQUAL, _PLUS_EQUAL, _MINUS_EQUAL, _SLASH_EQUAL, _STAR_EQUAL, _PERCENT_EQUAL, _DBL_LOWER_EQUAL, _DBL_GREATER_EQUAL, _PIPE_EQUAL, _AMPERSAND_EQUAL, _CARON_EQUAL];
       Order2: TTokenSet = [_DOUBLE_PIPE, _DOUBLE_AMPERSAND];
       Order3: TTokenSet = [_LOWER, _LOWER_EQUAL, _EQUAL_EQUAL, _GREATER, _GREATER_EQUAL, _DIFFERENT];
@@ -367,7 +90,7 @@ Var Scanner  : TScanner;
   End;
 
   { ParseOrder9 }
-  Function ParseOrder9: PExpressionNode; //  const-expr   group-expr   array-expr   function-call   cast-expr
+  Function ParseOrder9: TExpressionNode; //  const-expr   group-expr   array-expr   function-call   cast-expr
   Var Token, First                 : TToken_P;
       Symbol                       : TSymbol;
       NamespaceName, IdentifierName: String;
@@ -384,25 +107,25 @@ Var Scanner  : TScanner;
     { a char constant }
     _CHAR:
     Begin
-     Result := CreateNode(nil, nil, mtChar, Token.Value, Token);
+     Result := TCharExpressionNode.Create(Compiler.getExpressionCompiler, Token, Token.Value);
     End;
 
     { an integer constant }
     _INT:
     Begin
-     Result := CreateNode(nil, nil, mtInt, Token.Value, Token);
+     Result := TIntegerExpressionNode.Create(Compiler.getExpressionCompiler, Token, Token.Value);
     End;
 
     { a float constant }
     _FLOAT:
     Begin
-     Result := CreateNode(nil, nil, mtFloat, Token.Value, Token);
+     Result := TFloatExpressionNode.Create(Compiler.getExpressionCompiler, Token, Token.Value);
     End;
 
     { a string constant }
     _STRING:
     Begin
-     Result := CreateNode(nil, nil, mtString, Token.Value, Token);
+     Result := TStringExpressionNode.Create(Compiler.getExpressionCompiler, Token, Token.Value);
     End;
 
     { a variable or a function/method call }
@@ -410,15 +133,17 @@ Var Scanner  : TScanner;
     Begin
      if (Scanner.next_t <> _DOUBLE_COLON) Then
      Begin
-      if (Token.Value = 'true') Then // "true" built-in constant
-       Exit(CreateNode(nil, nil, mtBool, True, Token));
-
-      if (Token.Value = 'false') Then // "false" built-in constant
-       Exit(CreateNode(nil, nil, mtBool, False, Token));
+      // built-in constants
+      Case VarToStr(Token.Value) of
+       'true' : Exit(TBooleanExpressionNode.Create(Compiler.getExpressionCompiler, Token, True));
+       'false': Exit(TBooleanExpressionNode.Create(Compiler.getExpressionCompiler, Token, False));
+      End;
      End;
 
+     // read symbol
      Symbol := ReadSymbol(NamespaceName, IdentifierName, mNamespace);
 
+     // check if it's valid
      if (Symbol = nil) Then
      Begin
       Compiler.CompileError(Token, eUnknownIdentifier, [IdentifierName]);
@@ -428,10 +153,8 @@ Var Scanner  : TScanner;
        Compiler.CompileError(Token, eExpectedValue, [Symbol.Name]);
      End;
 
-     // fetch symbol
-     Result            := CreateNode(nil, nil, mtIdentifier, null, First);
-     Result^.IdentName := IdentifierName;
-     Result^.Symbol    := Symbol;
+     // create appropriate node
+     Result := TIdentifierExpressionNode.Create(Compiler.getExpressionCompiler, Token, IdentifierName, Symbol);
     End;
 
     { cast }
@@ -442,7 +165,7 @@ Var Scanner  : TScanner;
      Scanner.eat(_GREATER);
 
      Scanner.eat(_BRACKET1_OP);
-     Result := CreateNode(Parse([_BRACKET1_CL]), nil, mtTypeCast, uint32(mType), Token);
+     Result := TCastExpressionNode.Create(Compiler.getExpressionCompiler, Token, Parse([_BRACKET1_CL]), mType);
     End;
 
     { opening parenthesis }
@@ -459,45 +182,28 @@ Var Scanner  : TScanner;
    // parse optional 'modifiers'
    ParseModifiers:
 
-   // function/cast call
+   // function call
    if (Scanner.next_t = _BRACKET1_OP) Then
    Begin
     Scanner.read;
 
-    if (First.Token = _IDENTIFIER) Then // function call -> foo()
-    Begin
-     Result         := CreateNode(Result, nil, mtFunctionCall, IdentifierName, First);
-     Result^.Symbol := Result^.Left^.Symbol;
+    Result := TCallExpressionNode.Create(Compiler.getExpressionCompiler, Scanner.next(-2), Result);
 
-     Symbol := (Result^.Symbol as TSymbol);
-
-     if (Symbol <> nil) and (not (Symbol.Typ in [stFunction, stVariable])) Then
-      Compiler.CompileError(Result^.Token, eCannotBeCalled, [Result^.Left^.IdentName]);
-    End Else
-
-    if (First.Token = _BRACKET2_CL) Then // array element call -> array[10]()
-    Begin
-     Result := CreateNode(Result, nil, mtFunctionCall, 'array-call', First);
-    End Else
-
-    Begin // cast-call -> cast<function>(expression)();
-     Result := CreateNode(Result, nil, mtFunctionCall, 'cast-call', First);
-    End;
-
+    // empty parameter list
     if (Scanner.next_t = _BRACKET1_CL) Then
     Begin
      Scanner.read;
     End Else
+
+    // read parameter list
     Begin
      While (Scanner.next_t <> _BRACKET1_CL) Do
      Begin
-      {$DEFINE PList := Result^.ParamList}
-      SetLength(PList, Length(PList)+1);
-      PList[High(PList)] := Parse([_COMMA, _BRACKET1_CL]);
-      {$UNDEF PList}
-
+      // add argument
+      TCallExpressionNode(Result).AddArgument(Parse([_COMMA, _BRACKET1_CL]));
       Dec(Scanner.TokenPos);
 
+      // check
       if (Scanner.next_t = _BRACKET1_CL) Then
       Begin
        Scanner.eat(_BRACKET1_CL); // `)` ends function call
@@ -510,46 +216,51 @@ Var Scanner  : TScanner;
     End;
    End;
 
-   // (linked with) method call? | @TODO (in future): method field fetch (xyz.foo)
+   // field fetch
    While (Scanner.next_t = _POINT) Do
    Begin
-    Token := Scanner.read; // `.`
+    // eat '.'
+    Token := Scanner.read;
 
+    // field name
     IdentifierName := Scanner.read_ident;
-    Result         := CreateNode
-                      (
-                       Result,
-                       CreateNode(nil, nil, mtIdentifier, IdentifierName, Token),
-                       mtMethodCall,
-                       null,
-                       Token
-                      );
 
-    Result^.Right^.IdentName := IdentifierName;
+    // do a field fetch
+    Result := TFieldFetchExpressionNode.Create(Compiler.getExpressionCompiler, Token, Result, IdentifierName);
+   End;
 
+   // method call
+   While (Scanner.next_t = _BRACKET1_OP) Do
+   Begin
+    // do call
+    Result := TCallExpressionNode.Create(Compiler.getExpressionCompiler, Token, Result);
+
+    // eat '('
     Scanner.eat(_BRACKET1_OP);
 
-    While (Scanner.next_t <> _BRACKET1_CL) Do
+    // empty argument list
+    if (Scanner.next_t = _BRACKET1_CL) Then
     Begin
-     {$DEFINE PList := Result^.ParamList}
-     SetLength(PList, Length(PList)+1);
-     PList[High(PList)] := Parse([_COMMA, _BRACKET1_CL]);
-     {$UNDEF PList}
+     Scanner.eat(_BRACKET1_CL);
+    End Else
 
-     Dec(Scanner.TokenPos);
-     if (Scanner.next_t = _BRACKET1_CL) Then
-      Break Else
-      Scanner.eat(_COMMA);
+    // parse argument list
+    Begin
+     While (true) Do
+     Begin
+      TCallExpressionNode(Result).AddArgument(Parse([_COMMA, _BRACKET1_CL]));
+
+      if (Scanner.next_t(-1) = _BRACKET1_CL) Then
+       Break;
+     End;
     End;
-
-    Scanner.eat(_BRACKET1_CL);
    End;
 
    // array element fetch
    While (Scanner.next_t = _BRACKET2_OP) Do
    Begin
     Scanner.read; // `[`
-    Result := CreateNode(Result, Parse([_BRACKET2_CL]), mtArrayElement, null, Token);
+    Result := TArrayElementExpressionNode.Create(Compiler.getExpressionCompiler, Scanner.next(-1), Result, Parse([_BRACKET2_CL]));
    End;
 
    if (Scanner.next_t in [_BRACKET1_OP, _POINT, _BRACKET2_OP]) Then
@@ -561,67 +272,81 @@ Var Scanner  : TScanner;
    End;
   End;
 
+  {$DEFINE PARAMETER_LIST1 := Compiler.getExpressionCompiler, LoopToken}
+  {$DEFINE PARAMETER_LIST2 := Compiler.getExpressionCompiler, LoopToken, Result}
+
   { ParseOrder8 }
-  Function ParseOrder8: PExpressionNode; //  unary '-'   |   ^   &   !   new
-  Var Op   : TExpressionNodeType;
-      mType: TType;
+  Function ParseOrder8: TExpressionNode; //  unary '-'   |   ^   &   !   new
+  Var Token: TToken_P;
       next : TToken;
-      Token: TToken_P;
-      Tmp  : PExpressionNode;
+
+      Op: TBitwiseMathExpressionNodeKind;
 
       UnspecifiedDimensions: uint8 = 0;
+      mType                : TType;
+      NewNode              : TNewExpressionNode;
+      TmpNode, PrevNode    : TBinaryExpressionNode;
   Begin
    next := Scanner.next_t;
+
+   TmpNode  := nil;
+   PrevNode := nil;
 
    // "new" operator
    if (next = _NEW) Then
    Begin
-    Token := Scanner.read; // `new`
-    mType := Scanner.read_type(False); // read type
+    LoopToken := Scanner.read; // `new`
+    mType     := Scanner.read_type(False); // read type
 
     // create node
-    Result := CreateNode
-              (
-               CreateNode(nil, nil, mtInt, uint32(mType), Token),
-               nil,
-               mtNew,
-               null,
-               Token
-              );
-
-    Tmp := Result;
+    NewNode := TNewExpressionNode.Create(PARAMETER_LIST1, nil, mType);
+    Result  := NewNode;
 
     // read dimension sizes
     While (true) Do
     Begin
+     // eat '['
      Token := Scanner.eat(_BRACKET2_OP);
 
+     // there can exist no more than one unspecified dimension
      if (UnspecifiedDimensions > 0) Then
       Compiler.CompileError(Token, eUnexpected, [Token.Value]);
 
-     // "new type[size][]"
+     // "[]"
      if (Scanner.next_t = _BRACKET2_CL) Then
      Begin
-      if (Result^.Right = nil) Then // "new type[]" is wrong
-       Compiler.CompileError(Scanner.next_pnt, eExpectedValue, [']']);
+      LoopToken := Scanner.read;
 
-      if (UnspecifiedDimensions > 0) Then // and so is "new type[10][][]"
-       Compiler.CompileError(Scanner.next_pnt, eExpectedValue, [']']);
+      // "new type[]" is wrong, and so is "new type[10][][]" (doubly unspecified)
+      if (NewNode.getChild = nil) or
+         (UnspecifiedDimensions > 0) Then
+      Begin
+       Compiler.CompileError(LoopToken, eExpectedValue, [']']);
+      End;
 
-      Scanner.eat(_BRACKET2_CL);
+      // create node
+      PrevNode := TmpNode;
+      TmpNode  := TArrayElementExpressionNode.Create(PARAMETER_LIST1, nil, nil);
 
-      Tmp^.Right := CreateNode(nil, nil, mtArrayElement, null, Token);
-      Tmp        := Tmp^.Right;
+      if (NewNode.getChild = nil) Then
+       NewNode.setChild(TmpNode) Else
+       PrevNode.setLeft(TmpNode);
 
+      // increase counter
       Inc(UnspecifiedDimensions);
      End Else
 
-     // "new type[size]"
+     // "[size]"
      Begin
-      Tmp^.Right := CreateNode(Parse([_BRACKET2_CL]), nil, mtArrayElement, null, Token);
-      Tmp        := Tmp^.Right;
+      PrevNode := TmpNode;
+      TmpNode  := TArrayElementExpressionNode.Create(PARAMETER_LIST1, nil, Parse([_BRACKET2_CL]));
+
+      if (NewNode.getChild = nil) Then
+       NewNode.setChild(TmpNode) Else
+       PrevNode.setLeft(TmpNode);
      End;
 
+     // move further
      if (Scanner.next_t = _BRACKET2_OP) Then
       Continue Else
       Break;
@@ -633,230 +358,206 @@ Var Scanner  : TScanner;
    // unary '-'
    if (next = _MINUS) Then
    Begin
-    Token := Scanner.read;
-    Exit(CreateNode(ParseOrder8(), nil, mtNeg, null, Token));
+    Token  := Scanner.read;
+    Result := TNegExpressionNode.Create(Compiler.getExpressionCompiler, Token, ParseOrder8());
+    Exit;
    End;
 
    // unary '!'
    if (next = _EXCLM_MARK) Then
    Begin
-    Token := Scanner.read;
-    Exit(CreateNode(ParseOrder8(), nil, mtLogicalNOT, null, Token));
+    Token  := Scanner.read;
+    Result := TLogicalNotExpressionNode.Create(Compiler.getExpressionCompiler, Token, ParseOrder8());
+    Exit;
    End;
 
    // unary '~'
    if (next = _TILDE) Then
    Begin
-    Token := Scanner.read;
-    Exit(CreateNode(ParseOrder8(), nil, mtBitwiseNOT, null, Token));
+    Token  := Scanner.read;
+    Result := TBitwiseNotExpressionNode.Create(Compiler.getExpressionCompiler, Token, ParseOrder8());
+    Exit;
    End;
 
    // other operators
-   Result := ParseOrder9();
+   Result := ParseOrder9;
 
    While (WhileCondition(Order8)) Do
    Begin
     Case LoopToken.Token of
-     _PIPE     : Op := mtBitwiseOR;
-     _CARON    : Op := mtXOR;
-     _AMPERSAND: Op := mtBitwiseAND;
-
-     else
-      raise EExpressionParserException.Create('ParseOrder8() -> unexpected token');
+     _PIPE     : Op := beOr;
+     _CARON    : Op := beXor;
+     _AMPERSAND: Op := beAnd;
     End;
 
-    Result := CreateNode(Result, ParseOrder9(), Op, null, LoopToken);
+    Result := TBitwiseMathExpressionNode.Create(PARAMETER_LIST2, ParseOrder9, Op);
    End;
   End;
 
   { ParseOrder7 }
-  Function ParseOrder7: PExpressionNode; //  ++   --
-  Var Op   : TExpressionNodeType;
-      Token: TToken_P;
+  Function ParseOrder7: TExpressionNode; //  ++   --
+  Var Op: TPrePostOpExpressionNodeKind;
   Begin
-   if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then // pre
+   // pre operator (++x)
+   if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then
    Begin
+    // read token
     LoopToken := Scanner.read;
 
+    // fetch operator
     Case LoopToken.Token of
-     _DOUBLE_PLUS : Op := mtPreInc;
-     _DOUBLE_MINUS: Op := mtPreDec;
+     _DOUBLE_PLUS : Op := pePreInc;
+     _DOUBLE_MINUS: Op := pePreDec;
     End;
 
-    Result := ParseOrder9(); // parse expr
+    // create node
+    Result := TPrePostOpExpressionNode.Create(PARAMETER_LIST1, ParseOrder9, Op);
+    Exit;
+   End;
 
-    if (Result = nil) or (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
-    Begin
-     if (Result = nil) Then
-      Token := Scanner.next(-1) Else
-      Token := Result^.Token;
+   // either some other expression or a post operator, we'll find out
+   Result := ParseOrder8();
 
-     Compiler.CompileError(Token, eLValueExpected, []);
-     Exit;
-    End;
-
-    Result := CreateNode(Result, nil, Op, null, LoopToken);
-   End Else
+   // a post operator
+   if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then
    Begin
-    Result := ParseOrder8();
+    // read token
+    LoopToken := Scanner.read;
 
-    if (Scanner.next_t in [_DOUBLE_PLUS, _DOUBLE_MINUS]) Then // post
-    Begin
-     LoopToken := Scanner.read;
-
-     if (Result = nil) or (not (Result^.Typ in [mtIdentifier, mtArrayElement])) Then // error: not an l-value!
-     Begin
-      if (Result = nil) Then
-       Token := Scanner.next(-1) Else
-       Token := Result^.Token;
-
-      Compiler.CompileError(Token, eLValueExpected, []);
-      Exit;
-     End;
-
-     Case LoopToken.Token of
-      _DOUBLE_PLUS : Op := mtPostInc;
-      _DOUBLE_MINUS: Op := mtPostDec;
-     End;
-
-     Result := CreateNode(Result, nil, Op, null, LoopToken);
+    // fetch operator
+    Case LoopToken.Token of
+     _DOUBLE_PLUS : Op := pePostInc;
+     _DOUBLE_MINUS: Op := pePostDec;
     End;
+
+    // create node
+    Result := TPrePostOpExpressionNode.Create(PARAMETER_LIST1, Result, Op);
    End;
   End;
 
   { ParseOrder6 }
-  Function ParseOrder6: PExpressionNode; //  *   /   %
-  Var Op: TExpressionNodeType;
+  Function ParseOrder6: TExpressionNode; //  *   /   %
+  Var Op: TMathExpressionNodeKind;
   Begin
-   Result := ParseOrder7();
+   Result := ParseOrder7;
 
    While (WhileCondition(Order6)) Do
    Begin
     Case LoopToken.Token of
-     _STAR   : Op := mtMul;
-     _SLASH  : Op := mtDiv;
-     _PERCENT: Op := mtMod;
-
-     else
-      raise EExpressionParserException.Create('ParseOrder6() -> unexpected token');
+     _STAR   : Op := meMul;
+     _SLASH  : Op := meDiv;
+     _PERCENT: Op := meMod;
     End;
 
-    Result := CreateNode(Result, ParseOrder7(), Op, null, LoopToken);
+    Result := TMathExpressionNode.Create(PARAMETER_LIST2, ParseOrder7, Op);
    End;
   End;
 
   { ParseOrder5 }
-  Function ParseOrder5: PExpressionNode; //  +   -
-  Var Op: TExpressionNodeType;
+  Function ParseOrder5: TExpressionNode; //  +   -
+  Var Op: TMathExpressionNodeKind;
   Begin
-   Result := ParseOrder6();
+   Result := ParseOrder6;
 
    While (WhileCondition(Order5)) Do
    Begin
     Case LoopToken.Token of
-     _PLUS : Op := mtAdd;
-     _MINUS: Op := mtSub;
-
-     else
-      raise EExpressionParserException.Create('ParseOrder5() -> unexpected token');
+     _PLUS : Op := meAdd;
+     _MINUS: Op := meSub;
     End;
 
-    Result := CreateNode(Result, ParseOrder6(), Op, null, LoopToken);
+    Result := TMathExpressionNode.Create(PARAMETER_LIST2, ParseOrder6, Op);
    End;
   End;
 
   { ParseOrder4 }
-  Function ParseOrder4: PExpressionNode; // <<   >>
-  Var Op: TExpressionNodeType;
+  Function ParseOrder4: TExpressionNode; // <<   >>
+  Var Op: TBitwiseMathExpressionNodeKind;
   Begin
    Result := ParseOrder5();
 
    While (WhileCondition(Order4)) Do
    Begin
     Case LoopToken.Token of
-     _DOUBLE_LOWER  : Op := mtSHL;
-     _DOUBLE_GREATER: Op := mtSHR;
-
-     else
-      raise EExpressionParserException.Create('ParseOrder4() -> unexpected token');
+     _DOUBLE_LOWER  : Op := beShl;
+     _DOUBLE_GREATER: Op := beShr;
     End;
 
-    Result := CreateNode(Result, ParseOrder5(), Op, null, LoopToken);
+    Result := TBitwiseMathExpressionNode.Create(PARAMETER_LIST2, ParseOrder5, Op);
    End;
   End;
 
   { ParseOrder3 }
-  Function ParseOrder3: PExpressionNode; //  <   <=   ==   >=   >   !=
-  Var Op: TExpressionNodeType;
+  Function ParseOrder3: TExpressionNode; //  <   <=   ==   >=   >   !=
+  Var Op: TComprasionExpressionNodeKind;
   Begin
    Result := ParseOrder4();
 
    While (WhileCondition(Order3)) Do
    Begin
     Case LoopToken.Token of
-     _LOWER        : Op := mtLower;
-     _LOWER_EQUAL  : Op := mtLowerEqual;
-     _EQUAL_EQUAL  : Op := mtEqual;
-     _GREATER_EQUAL: Op := mtGreaterEqual;
-     _GREATER      : Op := mtGreater;
-     _DIFFERENT    : Op := mtDifferent;
-
-     else
-      raise EExpressionParserException.Create('ParseOrder3() -> unexpected token');
+     _LOWER        : Op := ceLower;
+     _LOWER_EQUAL  : Op := ceLowerEqual;
+     _EQUAL_EQUAL  : Op := ceEqual;
+     _GREATER_EQUAL: Op := ceGreaterEqual;
+     _GREATER      : Op := ceGreater;
+     _DIFFERENT    : Op := ceDifferent;
     End;
 
-    Result := CreateNode(Result, ParseOrder4(), Op, null, LoopToken);
+    Result := TComprasionExpressionNode.Create(PARAMETER_LIST2, ParseOrder4, Op);
    End;
   End;
 
   { ParseOrder2 }
-  Function ParseOrder2: PExpressionNode; //  ||   &&
-  Var Op: TExpressionNodeType;
+  Function ParseOrder2: TExpressionNode; //  ||   &&
+  Var Op: TLogicalMathExpressionNodeKind;
   Begin
    Result := ParseOrder3();
 
    While (WhileCondition(Order2)) Do
    Begin
     Case LoopToken.Token of
-     _DOUBLE_PIPE     : Op := mtLogicalOR;
-     _DOUBLE_AMPERSAND: Op := mtLogicalAND;
-
-     else
-      raise EExpressionParserException.Create('ParseOrder2() -> unexpected token');
+     _DOUBLE_PIPE     : Op := leOr;
+     _DOUBLE_AMPERSAND: Op := leAnd;
     End;
 
-    Result := CreateNode(Result, ParseOrder3(), Op, null, LoopToken);
+    Result := TLogicalMathExpressionNode.Create(PARAMETER_LIST2, ParseOrder3, Op);
    End;
   End;
 
   { ParseOrder1 }
-  Function ParseOrder1: PExpressionNode; //  =   +=   -=   /=   *=   %=   <<=   >>=   |=   &=   ^=
-  Var Op: TExpressionNodeType;
+  Function ParseOrder1: TExpressionNode; //  =   +=   -=   /=   *=   %=   <<=   >>=   |=   &=   ^=
+  Var Node: TExpressionNode;
+      Op  : TAssignExpressionNodeKind;
   Begin
    Result := ParseOrder2();
 
    While (WhileCondition(Order1)) Do
    Begin
     Case LoopToken.Token of
-     _EQUAL            : Op := mtAssign;
-     _PLUS_EQUAL       : Op := mtAddEq;
-     _MINUS_EQUAL      : Op := mtSubEq;
-     _SLASH_EQUAL      : Op := mtDivEq;
-     _STAR_EQUAL       : Op := mtMulEq;
-     _PERCENT_EQUAL    : Op := mtModEq;
-     _DBL_LOWER_EQUAL  : Op := mtSHLEq;
-     _DBL_GREATER_EQUAL: Op := mtSHREq;
-     _PIPE_EQUAL       : Op := mtOREq;
-     _AMPERSAND_EQUAL  : Op := mtANDEq;
-     _CARON_EQUAL      : Op := mtXOREq;
-
-     else
-      raise EExpressionParserException.Create('ParseOrder1() -> unexpected token');
+     _EQUAL            : Op := aeAssign;
+     _PLUS_EQUAL       : Op := aeAddAssign;
+     _MINUS_EQUAL      : Op := aeSubAssign;
+     _SLASH_EQUAL      : Op := aeDivAssign;
+     _STAR_EQUAL       : Op := aeMulAssign;
+     _PERCENT_EQUAL    : Op := aeModAssign;
+     _DBL_LOWER_EQUAL  : Op := aeShlAssign;
+     _DBL_GREATER_EQUAL: Op := aeShrAssign;
+     _PIPE_EQUAL       : Op := aeOrAssign;
+     _AMPERSAND_EQUAL  : Op := aeAndAssign;
+     _CARON_EQUAL      : Op := aeXorAssign;
     End;
 
-    Result := CreateNode(Result, ParseOrder2(), Op, null, LoopToken);
+    if (Op = aeAssign) Then // we're doing this so that "x = y = z;" gets parsed as "x = (y = z);", not "(x = y) = z";
+     Node := ParseOrder1() Else
+     Node := ParseOrder2();
+
+    Result := TAssignExpressionNode.Create(PARAMETER_LIST2, Node, Op);
    End;
   End;
+
+ {$UNDEF PARAMETER_LIST1}
+ {$UNDEF PARAMETER_LIST2}
 
 Begin
  Scanner := Compiler.getScanner;
