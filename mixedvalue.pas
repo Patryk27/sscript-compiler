@@ -319,6 +319,12 @@ End;
 Operator mod (const A, B: TMixedValue): TMixedValue;
 Begin
  Result.Kind := mvUnknown;
+
+ // int % int
+ if (A.Kind = mvInt) and (B.Kind = mvInt) Then
+ Begin
+  Result := A.Value.vInt mod B.Value.vInt;
+ End;
 End;
 
 (* TMixedValue or TMixedValue *)
