@@ -129,7 +129,6 @@ Function TCallExpressionNode.__compile(const CanBeImmediate: Boolean): TExpressi
 
       Ident: TIdentifierExpressionNode;
       Func : TFunction;
-      Arg  : TExpressionCompileResult;
   Begin
    // get identifier expression node
    Ident := TIdentifierExpressionNode(Child);
