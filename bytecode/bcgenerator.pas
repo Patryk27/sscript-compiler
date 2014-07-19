@@ -50,7 +50,7 @@ Begin
   fCurrentNode := CurrentFunc.FlowGraph.Root;
 
   { function info }
-  {PutComment('--------------------------------- //');
+  PutComment('--------------------------------- //');
   PutComment('Function name   : '+CurrentFunc.RefSymbol.Name);
   PutComment('Declared in file: '+CurrentFunc.RefSymbol.DeclToken^.FileName);
   PutComment('Declared at line: '+IntToStr(CurrentFunc.RefSymbol.DeclToken^.Line));
@@ -72,7 +72,7 @@ Begin
     PutComment('`'+Symbol.Name+'` allocated in: '''+Symbol.mVariable.getAllocationPos+''', scope range: '+IntToStr(Symbol.mVariable.RefSymbol.Range.PBegin.Line)+'..'+IntToStr(Symbol.mVariable.RefSymbol.Range.PEnd.Line)+' lines, CFG cost: '+IntToStr(getVariableCFGCost(Symbol, CurrentFunc.FlowGraph.Root, nil)));
   End;
 
-  PutComment('--------------------------------- //');}
+  PutComment('--------------------------------- //');
 
   With CurrentFunc do
   Begin
@@ -94,7 +94,6 @@ End;
 (* TBCGenerator.AddEpilogCode *)
 Procedure TBCGenerator.AddEpilogCode;
 Var StackDec: int32;
-    Symbol  : TSymbol;
     I       : int32;
 
   { ReplaceTemporaryVariableRefs }
@@ -304,11 +303,9 @@ Type TIntegerArray = Array of Integer;
      End;
     End;
 
-  Var RegPrefix: Char;
-      I        : int32;
+  Var I: int32;
   Begin
-   ArrayVar  := TSymbol(Node.ArrayInitializer.VarSymbol).mVariable;
-   RegPrefix := ArrayVar.Typ.ArrayPrimitive.RegPrefix;
+   ArrayVar := TSymbol(Node.ArrayInitializer.VarSymbol).mVariable;
 
    With Compiler do
    Begin
