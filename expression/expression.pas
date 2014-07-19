@@ -527,7 +527,7 @@ Begin
  End;
 
  // skip 'if' register when desired
- if (RegisterChar = 'b') and (RegHi = 6) Then
+ if (SkipIFReg) and (RegisterChar = 'b') and (RegHi = 6) Then
   RegHi := 0;
 
  // prefer to choose e#3,e#4,e#5 register when available over e#1,e#2
@@ -906,6 +906,8 @@ End;
 }
 Function TExpressionNode.Clone: TExpressionNode;
 Begin
+ Result := nil;
+
  raise EExpressionNodeException.Create('Abstract TExpressionNode.Clone() called!');
 End;
 

@@ -1,0 +1,10 @@
+{
+(function$self.a$_$self.void$0$()): .public
+(function$self.a$_$self.void$0$())_body:
+(function$self.a$_$self.void$0$())_end:
+ret()
+(function$self.b$_$self.void$0$()): .public
+(function$self.b$_$self.void$0$())_body:
+(function$self.b$_$self.void$0$())_end:
+ret()
+}
